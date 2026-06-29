@@ -1,5 +1,3 @@
-import "./styles.css";
-
 const app = document.getElementById("app");
 
 const shell = document.createElement("main");
