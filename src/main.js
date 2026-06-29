@@ -1,23 +1,19 @@
-const app = document.getElementById("app");
+(() => {
+  const toast = document.getElementById("toast");
+  const show = (text) => {
+    if (!toast) return;
+    toast.textContent = `${text} coming online`;
+    toast.classList.add("show");
+    clearTimeout(window.__rbToastTimer);
+    window.__rbToastTimer = setTimeout(() => toast.classList.remove("show"), 1400);
+  };
 
-const shell = document.createElement("main");
-shell.className = "rb-shell";
-
-const hero = document.createElement("section");
-hero.className = "rb-hero";
-
-const kicker = document.createElement("p");
-kicker.className = "rb-kicker";
-kicker.textContent = "One connected universe";
-
-const title = document.createElement("h1");
-title.className = "rb-title";
-title.textContent = "Rich Bizness Universe";
-
-const copy = document.createElement("p");
-copy.className = "rb-copy";
-copy.textContent = "Clean app shell is live. GitHub and Vercel are connected. Supabase wiring is next.";
-
-hero.append(kicker, title, copy);
-shell.append(hero);
-app.append(shell);
+  document.querySelectorAll("[data-route]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const route = button.dataset.route || "home";
+      document.querySelectorAll(".dock button").forEach((item) => item.classList.remove("active"));
+      if (button.closest(".dock")) button.classList.add("active");
+      show(route.toUpperCase());
+    });
+  });
+})();
