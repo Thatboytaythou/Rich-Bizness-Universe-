@@ -10,6 +10,7 @@
   addCss('/src/mobile-lock.css?v=mobile-lock-1');
   addCss('/src/cinema-base.css?v=cinema-1');
   addCss('/src/cinema-motion.css?v=cinema-1');
+  addCss('/src/height-fix.css?v=height-fix-1');
 
   const script = document.createElement('script');
   script.src = '/src/cinematic.js?v=cinema-1';
