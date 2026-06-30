@@ -7,10 +7,10 @@
   };
   addCss('/src/portrait.css?v=portrait-fix-3');
   addCss('/src/avatar-body.css?v=avatar-body-1');
-  addCss('/src/mobile-lock.css?v=mobile-lock-1');
   addCss('/src/cinema-base.css?v=cinema-1');
   addCss('/src/cinema-motion.css?v=cinema-1');
   addCss('/src/height-fix.css?v=height-fix-1');
+  addCss('/src/scroll-safe.css?v=scroll-safe-1');
 
   const script = document.createElement('script');
   script.src = '/src/cinematic.js?v=cinema-1';
