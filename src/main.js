@@ -13,8 +13,10 @@
   addCss('/src/height-fix.css?v=height-fix-1');
   addCss('/src/scroll-safe.css?v=scroll-safe-1');
 
-  window.import('/src/cinematic.js?v=cinema-1').catch(() => {});
-  window.import('/src/realtime-data.js?v=realtime-1').catch(() => {});
+  const script = document.createElement('script');
+  script.src = '/src/cinematic.js?v=cinema-1';
+  script.defer = true;
+  document.head.appendChild(script);
 
   const toast = document.getElementById('toast');
   const show = (text) => {
