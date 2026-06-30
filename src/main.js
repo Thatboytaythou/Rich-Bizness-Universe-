@@ -5,7 +5,9 @@
     link.href = href;
     document.head.appendChild(link);
   };
-  addCss('/src/portrait.css?v=portrait-fix-2');
+  addCss('/src/portrait.css?v=portrait-fix-3');
+  addCss('/src/avatar-body.css?v=avatar-body-1');
+  addCss('/src/mobile-lock.css?v=mobile-lock-1');
   addCss('/src/cinema-base.css?v=cinema-1');
   addCss('/src/cinema-motion.css?v=cinema-1');
 
