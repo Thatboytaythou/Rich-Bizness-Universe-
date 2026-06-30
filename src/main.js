@@ -18,6 +18,11 @@
   script.defer = true;
   document.head.appendChild(script);
 
+  const live = document.createElement('script');
+  live.type = 'module';
+  live.src = '/src/realtime-data.js?v=realtime-1';
+  document.head.appendChild(live);
+
   const toast = document.getElementById('toast');
   const show = (text) => {
     if (!toast) return;
