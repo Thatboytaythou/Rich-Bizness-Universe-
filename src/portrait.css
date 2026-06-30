@@ -1,6 +1,21 @@
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background-image: url('/src/towers.svg?v=towers-1');
+  background-repeat: no-repeat;
+  background-position: center 120px;
+  background-size: auto 82vh;
+  opacity: .92;
+  z-index: 0;
+}
+
+#app { position: relative; z-index: 1; }
+
 @media (max-width: 900px) and (orientation: portrait) {
   html, body, #app { width: 100%; min-height: 100%; overflow-x: hidden; }
-  .rb-universe { min-height: 100dvh; padding: calc(10px + env(safe-area-inset-top)) 12px calc(18px + env(safe-area-inset-bottom)); overflow-x: hidden; overflow-y: auto; }
+  .rb-universe { min-height: 100dvh; padding: calc(10px + env(safe-area-inset-top)) 12px calc(18px + env(safe-area-inset-bottom)); overflow-x: hidden; overflow-y: auto; background: transparent; }
   .topbar { display: flex; flex-direction: column; align-items: stretch; gap: 10px; margin: 0; }
   .brand { min-height: 44px; justify-content: flex-start; gap: 10px; }
   .crest { width: 42px; height: 42px; border-radius: 13px; font-size: 1rem; }
