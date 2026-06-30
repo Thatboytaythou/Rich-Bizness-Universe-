@@ -1,23 +1,33 @@
 (() => {
-  const portrait = document.createElement("link");
-  portrait.rel = "stylesheet";
-  portrait.href = "/src/portrait.css?v=portrait-fix-1";
-  document.head.appendChild(portrait);
+  const addCss = (href) => {
+    const link = document.createElement('link');
+    link.rel = 'stylesheet';
+    link.href = href;
+    document.head.appendChild(link);
+  };
+  addCss('/src/portrait.css?v=portrait-fix-2');
+  addCss('/src/cinema-base.css?v=cinema-1');
+  addCss('/src/cinema-motion.css?v=cinema-1');
 
-  const toast = document.getElementById("toast");
+  const script = document.createElement('script');
+  script.src = '/src/cinematic.js?v=cinema-1';
+  script.defer = true;
+  document.head.appendChild(script);
+
+  const toast = document.getElementById('toast');
   const show = (text) => {
     if (!toast) return;
-    toast.textContent = `${text} coming online`;
-    toast.classList.add("show");
+    toast.textContent = text + ' coming online';
+    toast.classList.add('show');
     clearTimeout(window.__rbToastTimer);
-    window.__rbToastTimer = setTimeout(() => toast.classList.remove("show"), 1400);
+    window.__rbToastTimer = setTimeout(() => toast.classList.remove('show'), 1400);
   };
 
-  document.querySelectorAll("[data-route]").forEach((button) => {
-    button.addEventListener("click", () => {
-      const route = button.dataset.route || "home";
-      document.querySelectorAll(".dock button").forEach((item) => item.classList.remove("active"));
-      if (button.closest(".dock")) button.classList.add("active");
+  document.querySelectorAll('[data-route]').forEach((button) => {
+    button.addEventListener('click', () => {
+      const route = button.dataset.route || 'home';
+      document.querySelectorAll('.dock button').forEach((item) => item.classList.remove('active'));
+      if (button.closest('.dock')) button.classList.add('active');
       show(route.toUpperCase());
     });
   });
