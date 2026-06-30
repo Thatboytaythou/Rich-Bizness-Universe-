@@ -5,6 +5,7 @@
     link.href = href;
     document.head.appendChild(link);
   };
+
   addCss('/src/portrait.css?v=portrait-fix-3');
   addCss('/src/avatar-body.css?v=avatar-body-1');
   addCss('/src/cinema-base.css?v=cinema-1');
@@ -12,10 +13,8 @@
   addCss('/src/height-fix.css?v=height-fix-1');
   addCss('/src/scroll-safe.css?v=scroll-safe-1');
 
-  const script = document.createElement('script');
-  script.src = '/src/cinematic.js?v=cinema-1';
-  script.defer = true;
-  document.head.appendChild(script);
+  window.import('/src/cinematic.js?v=cinema-1').catch(() => {});
+  window.import('/src/realtime-data.js?v=realtime-1').catch(() => {});
 
   const toast = document.getElementById('toast');
   const show = (text) => {
