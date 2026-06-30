@@ -1,4 +1,9 @@
 (() => {
+  const portrait = document.createElement("link");
+  portrait.rel = "stylesheet";
+  portrait.href = "/src/portrait.css?v=portrait-fix-1";
+  document.head.appendChild(portrait);
+
   const toast = document.getElementById("toast");
   const show = (text) => {
     if (!toast) return;
