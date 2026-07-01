@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="theme-color" content="#020402" />
+    <title>Tap In • Rich Bizness Universe</title>
+    <link rel="stylesheet" href="/src/auth.css?v=auth-1" />
+  </head>
+  <body>
+    <main class="auth-screen">
+      <section class="auth-card">
+        <div class="brand"><span>RB</span><p>RICH BIZNESS<br><small>UNIVERSE ACCESS</small></p></div>
+        <h1>TAP IN</h1>
+        <p class="sub">Sign in or create your universe identity. Avatar setup comes next.</p>
+        <form id="authForm">
+          <label>Email<input id="email" type="email" autocomplete="email" required placeholder="you@email.com" /></label>
+          <label>Password<input id="password" type="password" autocomplete="current-password" required minlength="6" placeholder="••••••••" /></label>
+          <label>Display name<input id="displayName" type="text" autocomplete="name" placeholder="ThatboyTayThou" /></label>
+          <div class="actions"><button type="submit" data-mode="signin">TAP IN</button><button type="button" id="createBtn">CREATE ID</button></div>
+        </form>
+        <button id="outBtn" class="ghost">I'M OUT</button>
+        <p id="status" class="status">Secure portal ready.</p>
+      </section>
+    </main>
+    <script type="module" src="/src/auth.js?v=auth-1"></script>
+  </body>
+</html>
