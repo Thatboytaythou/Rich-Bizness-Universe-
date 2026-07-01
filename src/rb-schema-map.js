@@ -13,7 +13,7 @@ export const RB_SECTIONS = Object.freeze([
     title: 'Gaming Zone',
     subtitle: 'Play. compete. win.',
     route: '/gaming.html',
-    tables: ['games', 'gamer_profiles', 'game_clips', 'game_scores', 'game_tournaments', 'game_rooms'],
+    tables: ['games', 'gamer_profiles', 'game_clips', 'game_scores', 'game_tournaments'],
     buckets: ['game-assets', 'game-clips', 'game-covers'],
     accent: 'green',
   },
@@ -67,7 +67,7 @@ export const RB_SECTIONS = Object.freeze([
     title: 'Upload Zone',
     subtitle: 'Share your content',
     route: '/upload.html',
-    tables: ['uploads', 'upload_processing_queue', 'storage_bucket_routes'],
+    tables: ['uploads'],
     buckets: ['general-uploads'],
     accent: 'cyan',
   },
@@ -85,19 +85,45 @@ export const RB_SECTIONS = Object.freeze([
     title: 'Profile',
     subtitle: 'Identity. XP. rank.',
     route: '/profile.html',
-    tables: ['profiles', 'followers', 'user_levels', 'user_xp_ledger', 'badges', 'user_badges'],
+    tables: ['profiles', 'followers'],
     buckets: ['avatars', 'profile-banners'],
     accent: 'green',
   },
 ]);
 
 export const RB_SYSTEMS = Object.freeze({
-  auth: ['profiles', 'user_sessions', 'user_settings', 'profile_theme_settings'],
+  auth: ['profiles', 'user_settings', 'profile_theme_settings'],
   social: ['followers', 'feed_posts', 'feed_comments', 'feed_post_likes', 'feed_post_views'],
   messaging: ['dm_threads', 'dm_thread_members', 'dm_messages', 'dm_message_attachments', 'dm_message_reactions', 'dm_typing_status', 'dm_call_sessions'],
   alerts: ['rich_notifications', 'notification_groups', 'notification_reads', 'push_devices'],
   admin: ['admin_roles', 'admin_audit_logs', 'moderation_reports', 'content_review_queue', 'feature_flags'],
-  xp: ['xp_events', 'user_xp_ledger', 'user_levels', 'rank_rules', 'badges', 'user_badges'],
+  xp: ['profiles', 'meta_avatars', 'gamer_profiles', 'sports_profiles', 'xp_events'],
 });
 
-export const routeFor = (key) => RB_SECTIONS.find((section) => section.key === key)?.route || '/';
+export const RB_ROUTE_ALIASES = Object.freeze({
+  home: '/',
+  index: '/',
+  auth: '/auth.html',
+  avatar: '/avatar.html',
+  profile: '/profile.html',
+  edit: '/edit.html',
+  settings: '/settings.html',
+  notifications: '/notifications.html',
+  search: '/search.html',
+  messages: '/messages.html',
+  feed: '/feed.html',
+  upload: '/upload.html',
+  live: '/live.html',
+  watch: '/watch.html',
+  sports: '/sports.html',
+  gaming: '/gaming.html',
+  music: '/music.html',
+  radio: '/radio.html',
+  podcast: '/podcast.html',
+  store: '/store.html',
+  meta: '/meta.html',
+  admin: '/admin.html',
+  creator: '/creator.html',
+});
+
+export const routeFor = (key) => RB_ROUTE_ALIASES[key] || RB_SECTIONS.find((section) => section.key === key)?.route || '/';
