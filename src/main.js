@@ -1,27 +1,36 @@
 (() => {
-  const addCss = (href) => {
+  if (window.__rbIndexBooted) return;
+  window.__rbIndexBooted = true;
+
+  const addCss = (href, id) => {
+    if (id && document.getElementById(id)) return;
     const link = document.createElement('link');
     link.rel = 'stylesheet';
+    if (id) link.id = id;
     link.href = href;
     document.head.appendChild(link);
   };
 
-  addCss('/src/portrait.css?v=portrait-lock-1');
-  addCss('/src/cinema-base.css?v=cinema-lock-1');
-  addCss('/src/cinema-motion.css?v=cinema-lock-1');
-  addCss('/src/height-fix.css?v=height-lock-1');
-  addCss('/src/scroll-safe.css?v=mobile-lock-1');
-  addCss('/src/xp-gauge.css?v=xp-lock-1');
+  addCss('/src/cinema-base.css?v=index-lock-3', 'rbCinemaBase');
+  addCss('/src/cinema-motion.css?v=index-lock-3', 'rbCinemaMotion');
+  addCss('/src/scroll-safe.css?v=index-lock-3', 'rbMobilePortrait');
+  addCss('/src/xp-gauge.css?v=index-lock-3', 'rbXpGauge');
 
-  const script = document.createElement('script');
-  script.src = '/src/cinematic.js?v=cinema-lock-1';
-  script.defer = true;
-  document.head.appendChild(script);
+  if (!document.querySelector('script[data-rb-cinema]')) {
+    const script = document.createElement('script');
+    script.src = '/src/cinematic.js?v=index-lock-3';
+    script.defer = true;
+    script.dataset.rbCinema = 'true';
+    document.head.appendChild(script);
+  }
 
-  const live = document.createElement('script');
-  live.type = 'module';
-  live.src = '/src/realtime-data.js?v=realtime-lock-1';
-  document.head.appendChild(live);
+  if (!document.querySelector('script[data-rb-realtime]')) {
+    const live = document.createElement('script');
+    live.type = 'module';
+    live.src = '/src/realtime-data.js?v=index-lock-3';
+    live.dataset.rbRealtime = 'true';
+    document.head.appendChild(live);
+  }
 
   const toast = document.getElementById('toast');
   const show = (text) => {
@@ -33,6 +42,8 @@
   };
 
   document.querySelectorAll('[data-route]').forEach((button) => {
+    if (button.dataset.bound === 'true') return;
+    button.dataset.bound = 'true';
     button.addEventListener('click', () => {
       const route = button.dataset.route || 'home';
       document.querySelectorAll('.dock button').forEach((item) => item.classList.remove('active'));
