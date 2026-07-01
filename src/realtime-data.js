@@ -1,4 +1,5 @@
 import { supabase } from './supabase-client.js';
+import './xp-gauge.js';
 
 const $$ = (selector) => [...document.querySelectorAll(selector)];
 const fmt = (n) => Number(n || 0).toLocaleString();
