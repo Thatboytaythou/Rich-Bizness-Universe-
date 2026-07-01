@@ -4,14 +4,6 @@ import './xp-gauge.js';
 const $$ = (selector) => [...document.querySelectorAll(selector)];
 const fmt = (n) => Number(n || 0).toLocaleString();
 
-function installShellStabilizer() {
-  if (document.getElementById('rbShellStabilizer')) return;
-  const style = document.createElement('style');
-  style.id = 'rbShellStabilizer';
-  style.textContent = `@media(max-width:500px){.dock{position:absolute!important;left:14px!important;right:14px!important;top:990px!important;bottom:auto!important;z-index:20!important;display:grid!important;grid-template-columns:repeat(7,1fr)!important;overflow:hidden!important}.dock button:nth-child(n+8){display:none!important}.stage{min-height:1130px!important;padding-bottom:360px!important}.profile{cursor:pointer}.profile .xp-gauge{pointer-events:none}}`;
-  document.head.appendChild(style);
-}
-
 function statusCells() {
   const cells = $$('.status span');
   return { live: cells[0]?.querySelector('b'), online: cells[1]?.querySelector('b') };
@@ -139,7 +131,6 @@ function subscribeRealtime() {
   channel.subscribe((status) => console.info('[RB realtime]', status));
 }
 
-installShellStabilizer();
 clearShellPlaceholders();
 refreshUniverse();
 subscribeRealtime();
