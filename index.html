@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="theme-color" content="#020402" />
     <title>Rich Bizness Universe</title>
-    <link rel="stylesheet" href="/src/styles.css?v=universe-portrait-lock-1" />
+    <link rel="stylesheet" href="/src/styles.css?v=universe-mobile-polish-2" />
   </head>
   <body>
     <div id="app">
@@ -70,7 +70,11 @@
             <span>UNIVERSE ACCESS</span>
             <b>TAP IN</b>
             <small>CREATE OR SIGN IN</small>
-            <div class="xp-line" aria-hidden="true"></div>
+            <div class="xp-gauge" aria-label="Rich XP gauge">
+              <div class="xp-gauge-top"><span>RICH XP</span><strong data-xp-level>LEVEL 1</strong></div>
+              <div class="xp-track"><em data-xp-fill></em></div>
+              <div class="xp-gauge-bottom"><span data-xp-current>0 XP</span><span data-xp-next>1,000 XP NEXT</span></div>
+            </div>
           </aside>
         </section>
 
@@ -93,6 +97,6 @@
       </main>
     </div>
 
-    <script type="module" src="/src/main.js?v=universe-portrait-lock-1"></script>
+    <script type="module" src="/src/main.js?v=universe-mobile-polish-2"></script>
   </body>
 </html>
