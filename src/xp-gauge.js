@@ -1,10 +1,5 @@
 import { supabase } from './supabase-client.js';
 
-const css = document.createElement('link');
-css.rel = 'stylesheet';
-css.href = '/src/xp-gauge.css?v=xp-gauge-1';
-document.head.appendChild(css);
-
 const fmt = (n) => Number(n || 0).toLocaleString();
 
 function ensureGauge() {
