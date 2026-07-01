@@ -17,6 +17,14 @@ const state = { gender: 'boy', skin: 'brown', hair: 'shortFade', hairColor: 'bla
 
 const say = (text) => { status.textContent = text; };
 
+function installPreviewCleanup() {
+  if (document.getElementById('avatarLayerCleanup')) return;
+  const style = document.createElement('style');
+  style.id = 'avatarLayerCleanup';
+  style.textContent = `.avatar-body{background:transparent!important;background-color:transparent!important;box-shadow:none!important;border-radius:0!important;overflow:visible!important;filter:drop-shadow(0 0 32px rgba(99,255,93,.55))!important}.avatar-body:before,.avatar-body:after{display:none!important;content:none!important}@media(max-width:760px){.avatar-body{width:255px!important;height:320px!important}}`;
+  document.head.appendChild(style);
+}
+
 function addCreatorControls() {
   if (document.getElementById('avatarExtras')) return;
   const wrap = document.createElement('div');
@@ -79,7 +87,7 @@ function avatarSvg(name, cfg) {
   const chain = cfg.chain === 'None' ? '' : `<path d="M215 269c21 18 61 18 82 0" fill="none" stroke="${colors[1]}" stroke-width="8" stroke-linecap="round"/><circle cx="256" cy="293" r="19" fill="#020402" stroke="${colors[1]}" stroke-width="5"/><text x="256" y="301" text-anchor="middle" fill="${colors[1]}" font-family="Arial Black" font-size="15">RB</text>`;
   const smoke = cfg.smoke === 'none' ? '' : `<path d="M96 112c53 26 81-22 135 0 58 24 91-25 185 11" fill="none" stroke="${colors[0]}" stroke-width="6" opacity=".2"/><path d="M103 493c55-41 99 23 151-12s86 19 155-21" fill="none" stroke="${colors[0]}" stroke-width="7" opacity=".22"/>`;
   const shoeColor = cfg.shoes.includes('Gold') ? colors[1] : cfg.shoes.includes('Smoke') ? '#9aa0a6' : colors[0];
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 640"><defs><radialGradient id="a" cx="50%" cy="42%" r="66%"><stop offset="0" stop-color="${colors[0]}" stop-opacity=".48"/><stop offset="1" stop-color="#020402"/></radialGradient><filter id="g"><feGaussianBlur stdDeviation="6" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs><rect width="512" height="640" rx="72" fill="#020402"/><rect x="28" y="28" width="456" height="584" rx="58" fill="url(#a)" opacity=".95"/>${smoke}<ellipse cx="256" cy="548" rx="132" ry="26" fill="${colors[0]}" opacity=".16"/>${hairPath}<ellipse cx="256" cy="177" rx="57" ry="64" fill="${skin}" stroke="${colors[1]}" stroke-width="7"/>${glasses}<path d="M111 309c-30 20-38 94-17 130 11 19 45 17 54-6 7-20-10-80 24-105zM401 309c30 20 38 94 17 130-11 19-45 17-54-6-7-20 10-80-24-105z" fill="#031109" stroke="${colors[0]}" stroke-width="7"/> <path d="${torso}" fill="#031109" stroke="${colors[0]}" stroke-width="7"/>${chain}<path d="M191 438h46v108h-46zM275 438h46v108h-46z" fill="#031109" stroke="${colors[0]}" stroke-width="6"/><path d="M165 552h86M261 552h86" stroke="${shoeColor}" stroke-width="16" stroke-linecap="round"/><text x="256" y="373" text-anchor="middle" fill="${colors[1]}" font-family="Impact,Arial Black,sans-serif" font-size="58" filter="url(#g)">${label}</text><text x="256" y="88" text-anchor="middle" fill="${colors[1]}" font-family="Arial Black,sans-serif" font-size="31">♛</text></svg>`;
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 640"><defs><radialGradient id="a" cx="50%" cy="42%" r="66%"><stop offset="0" stop-color="${colors[0]}" stop-opacity=".42"/><stop offset="1" stop-color="#020402" stop-opacity="0"/></radialGradient><filter id="g"><feGaussianBlur stdDeviation="6" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs><circle cx="256" cy="318" r="230" fill="url(#a)" opacity=".72"/>${smoke}<ellipse cx="256" cy="548" rx="132" ry="26" fill="${colors[0]}" opacity=".16"/>${hairPath}<ellipse cx="256" cy="177" rx="57" ry="64" fill="${skin}" stroke="${colors[1]}" stroke-width="7"/>${glasses}<path d="M111 309c-30 20-38 94-17 130 11 19 45 17 54-6 7-20-10-80 24-105zM401 309c30 20 38 94 17 130-11 19-45 17-54-6-7-20 10-80-24-105z" fill="#031109" stroke="${colors[0]}" stroke-width="7"/> <path d="${torso}" fill="#031109" stroke="${colors[0]}" stroke-width="7"/>${chain}<path d="M191 438h46v108h-46zM275 438h46v108h-46z" fill="#031109" stroke="${colors[0]}" stroke-width="6"/><path d="M165 552h86M261 552h86" stroke="${shoeColor}" stroke-width="16" stroke-linecap="round"/><text x="256" y="373" text-anchor="middle" fill="${colors[1]}" font-family="Impact,Arial Black,sans-serif" font-size="58" filter="url(#g)">${label}</text><text x="256" y="88" text-anchor="middle" fill="${colors[1]}" font-family="Arial Black,sans-serif" font-size="31">♛</text></svg>`;
   return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
 }
 
@@ -93,11 +101,16 @@ function paint() {
   body.style.backgroundSize = 'contain';
   body.style.backgroundRepeat = 'no-repeat';
   body.style.backgroundPosition = 'center';
+  body.style.backgroundColor = 'transparent';
+  body.style.boxShadow = 'none';
+  body.style.borderRadius = '0';
+  body.style.overflow = 'visible';
   body.textContent = '';
   document.documentElement.dataset.aura = cfg.aura.toLowerCase().replace(/\s+/g, '-');
 }
 
 async function boot() {
+  installPreviewCleanup();
   addCreatorControls();
   user = await getSessionUser();
   if (!user) { location.href = '/auth.html'; return; }
