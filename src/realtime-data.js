@@ -24,15 +24,27 @@ function profileCard() {
   };
 }
 
+function lockIndexAvatarChips() {
+  const topChip = document.querySelector('.status i');
+  if (topChip) {
+    topChip.textContent = 'RB';
+    topChip.style.backgroundImage = '';
+    topChip.style.backgroundSize = '';
+    topChip.style.backgroundPosition = '';
+  }
+  const profile = profileCard();
+  if (profile.badge) {
+    profile.badge.textContent = 'RB';
+    profile.badge.style.backgroundImage = '';
+  }
+}
+
 function setSignedOutShell() {
   const profile = profileCard();
   if (profile.label) profile.label.textContent = 'UNIVERSE ACCESS';
   if (profile.title) profile.title.textContent = 'TAP IN';
   if (profile.small) profile.small.textContent = 'CREATE OR SIGN IN';
-  if (profile.badge) {
-    profile.badge.textContent = 'RB';
-    profile.badge.style.backgroundImage = '';
-  }
+  lockIndexAvatarChips();
   if (profile.card) {
     profile.card.style.cursor = 'pointer';
     profile.card.onclick = () => { location.href = '/auth.html'; };
@@ -86,7 +98,7 @@ async function loadSessionProfile() {
 
     const { data, error } = await supabase
       .from('profiles')
-      .select('display_name,username,rich_level,rank_title,rich_points,balance_cents,avatar_url')
+      .select('display_name,username,rich_level,rank_title,rich_points,balance_cents')
       .eq('id', user.id)
       .maybeSingle();
 
@@ -101,14 +113,7 @@ async function loadSessionProfile() {
     if (profile.title) profile.title.textContent = name.toUpperCase();
     if (profile.small) profile.small.textContent = `LEVEL ${data.rich_level || 1}`;
     if (profile.card) profile.card.onclick = null;
-
-    const badge = document.querySelector('.status i');
-    if (badge && data.avatar_url) {
-      badge.textContent = '';
-      badge.style.backgroundImage = `url(${data.avatar_url})`;
-      badge.style.backgroundSize = 'cover';
-      badge.style.backgroundPosition = 'center';
-    }
+    lockIndexAvatarChips();
   } catch (error) {
     console.warn('[RB realtime] profile failed:', error);
     setSignedOutShell();
