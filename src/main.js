@@ -4,6 +4,8 @@ import { routeFor } from './rb-schema-map.js';
   if (window.__rbIndexBooted) return;
   window.__rbIndexBooted = true;
 
+  const VERSION = 'index-mobile-polish-2';
+
   const addCss = (href, id) => {
     if (id && document.getElementById(id)) return;
     const link = document.createElement('link');
@@ -13,14 +15,14 @@ import { routeFor } from './rb-schema-map.js';
     document.head.appendChild(link);
   };
 
-  addCss('/src/cinema-base.css?v=index-lock-4', 'rbCinemaBase');
-  addCss('/src/cinema-motion.css?v=index-lock-4', 'rbCinemaMotion');
-  addCss('/src/scroll-safe.css?v=index-lock-4', 'rbMobilePortrait');
-  addCss('/src/xp-gauge.css?v=index-lock-4', 'rbXpGauge');
+  addCss(`/src/cinema-base.css?v=${VERSION}`, 'rbCinemaBase');
+  addCss(`/src/cinema-motion.css?v=${VERSION}`, 'rbCinemaMotion');
+  addCss(`/src/scroll-safe.css?v=${VERSION}`, 'rbMobilePortrait');
+  addCss(`/src/xp-gauge.css?v=${VERSION}`, 'rbXpGauge');
 
   if (!document.querySelector('script[data-rb-cinema]')) {
     const script = document.createElement('script');
-    script.src = '/src/cinematic.js?v=index-lock-4';
+    script.src = `/src/cinematic.js?v=${VERSION}`;
     script.defer = true;
     script.dataset.rbCinema = 'true';
     document.head.appendChild(script);
@@ -29,7 +31,7 @@ import { routeFor } from './rb-schema-map.js';
   if (!document.querySelector('script[data-rb-realtime]')) {
     const live = document.createElement('script');
     live.type = 'module';
-    live.src = '/src/realtime-data.js?v=index-lock-4';
+    live.src = `/src/realtime-data.js?v=${VERSION}`;
     live.dataset.rbRealtime = 'true';
     document.head.appendChild(live);
   }
@@ -59,7 +61,7 @@ import { routeFor } from './rb-schema-map.js';
 
       const route = routeFor(key);
       show(`${key.toUpperCase()} PORTAL OPENING`);
-      window.setTimeout(() => { window.location.href = route; }, 220);
+      window.setTimeout(() => { window.location.href = route; }, 180);
     });
   });
 })();
