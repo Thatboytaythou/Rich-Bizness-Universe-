@@ -65,20 +65,32 @@ export async function ensureProfile(user) {
 
 export async function ensureMetaAvatar(user, profile, config = {}) {
   if (!user) return null;
+  const level = Number(profile?.rich_level || config.level || 1);
+  const xp = Number(profile?.rich_points || config.xp || 0);
   const avatar = {
     user_id: user.id,
     display_name: profile?.display_name || DEFAULT_PROFILE.display_name,
     avatar_url: profile?.avatar_url || '',
-    presence_state: 'online',
+    model_url: config.model_url || '',
     aura: config.aura || 'Emerald Gold',
-    level: Number(profile?.rich_level || 1),
-    avatar_config: {
+    rank: profile?.rank_title || config.rank || 'Rookie Builder',
+    level,
+    xp,
+    position: config.position || { world: 'creator', x: 0, y: 0, z: 0 },
+    is_active: true,
+    metadata: {
+      gender: config.gender || 'boy',
+      skin: config.skin || 'brown',
+      hair: config.hair || 'shortFade',
+      hairColor: config.hairColor || 'black',
       outfit: config.outfit || 'Rich Default',
+      shoes: config.shoes || 'Glow Sneakers',
       motion: config.motion || 'Boss Idle',
-      creatorMode: true,
       smoke: config.smoke || 'cinematic',
       chain: config.chain || 'RB Crown Chain',
-      stance: config.stance || 'portal-ready',
+      glasses: config.glasses || 'None',
+      aura: config.aura || 'Emerald Gold',
+      creatorMode: true,
       updatedAt: new Date().toISOString(),
     },
   };
