@@ -6,21 +6,21 @@
     document.head.appendChild(link);
   };
 
-  addCss('/src/portrait.css?v=portrait-fix-3');
-  addCss('/src/avatar-body.css?v=avatar-body-1');
-  addCss('/src/cinema-base.css?v=cinema-1');
-  addCss('/src/cinema-motion.css?v=cinema-1');
-  addCss('/src/height-fix.css?v=height-fix-1');
-  addCss('/src/scroll-safe.css?v=scroll-safe-1');
+  addCss('/src/portrait.css?v=portrait-fix-5');
+  addCss('/src/cinema-base.css?v=cinema-2');
+  addCss('/src/cinema-motion.css?v=cinema-2');
+  addCss('/src/height-fix.css?v=height-fix-2');
+  addCss('/src/scroll-safe.css?v=scroll-safe-3');
+  addCss('/src/xp-gauge.css?v=xp-gauge-2');
 
   const script = document.createElement('script');
-  script.src = '/src/cinematic.js?v=cinema-1';
+  script.src = '/src/cinematic.js?v=cinema-2';
   script.defer = true;
   document.head.appendChild(script);
 
   const live = document.createElement('script');
   live.type = 'module';
-  live.src = '/src/realtime-data.js?v=realtime-1';
+  live.src = '/src/realtime-data.js?v=realtime-2';
   document.head.appendChild(live);
 
   const toast = document.getElementById('toast');
@@ -29,7 +29,7 @@
     toast.textContent = text + ' coming online';
     toast.classList.add('show');
     clearTimeout(window.__rbToastTimer);
-    window.__rbToastTimer = setTimeout(() => toast.classList.remove('show'), 1400);
+    window.__rbToastTimer = setTimeout(() => toast.classList.remove('show'), 1200);
   };
 
   document.querySelectorAll('[data-route]').forEach((button) => {
