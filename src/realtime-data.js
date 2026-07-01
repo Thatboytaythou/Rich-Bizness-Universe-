@@ -14,13 +14,38 @@ function activityRows() {
   return { live: rows[0], online: rows[1] };
 }
 
+function profileCard() {
+  return {
+    card: document.querySelector('.profile'),
+    title: document.querySelector('.profile b'),
+    small: document.querySelector('.profile small'),
+    label: document.querySelector('.profile span'),
+    badge: document.querySelector('.profile i'),
+  };
+}
+
+function setSignedOutShell() {
+  const profile = profileCard();
+  if (profile.label) profile.label.textContent = 'UNIVERSE ACCESS';
+  if (profile.title) profile.title.textContent = 'TAP IN';
+  if (profile.small) profile.small.textContent = 'CREATE OR SIGN IN';
+  if (profile.badge) {
+    profile.badge.textContent = 'RB';
+    profile.badge.style.backgroundImage = '';
+  }
+  if (profile.card) {
+    profile.card.style.cursor = 'pointer';
+    profile.card.onclick = () => { location.href = '/auth.html'; };
+  }
+}
+
 function clearShellPlaceholders() {
   const status = statusCells();
   const rows = activityRows();
   [status.live, status.online, rows.live, rows.online].forEach((el) => {
     if (el) el.textContent = 'SYNC';
   });
-  $$('.profile small').forEach((el) => { el.textContent = 'LEVEL 1'; });
+  setSignedOutShell();
 }
 
 function setLiveCount(value) {
@@ -54,7 +79,10 @@ async function loadSessionProfile() {
   try {
     const { data: auth } = await supabase.auth.getUser();
     const user = auth?.user;
-    if (!user) return;
+    if (!user) {
+      setSignedOutShell();
+      return;
+    }
 
     const { data, error } = await supabase
       .from('profiles')
@@ -62,10 +90,17 @@ async function loadSessionProfile() {
       .eq('id', user.id)
       .maybeSingle();
 
-    if (error || !data) return;
+    if (error || !data) {
+      setSignedOutShell();
+      return;
+    }
+
+    const profile = profileCard();
     const name = data.display_name || data.username || 'Rich Bizness Elite';
-    $$('.profile b').forEach((el) => { el.textContent = name.toUpperCase(); });
-    $$('.profile small').forEach((el) => { el.textContent = `LEVEL ${data.rich_level || 1}`; });
+    if (profile.label) profile.label.textContent = 'WELCOME BACK';
+    if (profile.title) profile.title.textContent = name.toUpperCase();
+    if (profile.small) profile.small.textContent = `LEVEL ${data.rich_level || 1}`;
+    if (profile.card) profile.onclick = null;
 
     const badge = document.querySelector('.status i');
     if (badge && data.avatar_url) {
@@ -76,6 +111,7 @@ async function loadSessionProfile() {
     }
   } catch (error) {
     console.warn('[RB realtime] profile failed:', error);
+    setSignedOutShell();
   }
 }
 
