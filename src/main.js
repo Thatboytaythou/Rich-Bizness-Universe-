@@ -6,21 +6,21 @@
     document.head.appendChild(link);
   };
 
-  addCss('/src/portrait.css?v=portrait-fix-5');
-  addCss('/src/cinema-base.css?v=cinema-2');
-  addCss('/src/cinema-motion.css?v=cinema-2');
-  addCss('/src/height-fix.css?v=height-fix-2');
-  addCss('/src/scroll-safe.css?v=scroll-safe-3');
-  addCss('/src/xp-gauge.css?v=xp-gauge-2');
+  addCss('/src/portrait.css?v=portrait-lock-1');
+  addCss('/src/cinema-base.css?v=cinema-lock-1');
+  addCss('/src/cinema-motion.css?v=cinema-lock-1');
+  addCss('/src/height-fix.css?v=height-lock-1');
+  addCss('/src/scroll-safe.css?v=mobile-lock-1');
+  addCss('/src/xp-gauge.css?v=xp-lock-1');
 
   const script = document.createElement('script');
-  script.src = '/src/cinematic.js?v=cinema-2';
+  script.src = '/src/cinematic.js?v=cinema-lock-1';
   script.defer = true;
   document.head.appendChild(script);
 
   const live = document.createElement('script');
   live.type = 'module';
-  live.src = '/src/realtime-data.js?v=realtime-2';
+  live.src = '/src/realtime-data.js?v=realtime-lock-1';
   document.head.appendChild(live);
 
   const toast = document.getElementById('toast');
