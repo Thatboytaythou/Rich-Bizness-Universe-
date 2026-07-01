@@ -16,8 +16,13 @@ const editAvatar = document.getElementById('editAvatar');
 const fmt = (n) => Number(n || 0).toLocaleString();
 const money = (cents) => '$' + (Number(cents || 0) / 100).toFixed(2);
 
-function render(profile) {
-  const lvl = Number(profile.rich_level || 1);
+async function getMeta(userId) {
+  const { data } = await supabase.from('meta_avatars').select('aura,level,avatar_config').eq('user_id', userId).maybeSingle();
+  return data || null;
+}
+
+function render(profile, meta) {
+  const lvl = Number(profile.rich_level || meta?.level || 1);
   const points = Number(profile.rich_points || 0);
   displayName.textContent = (profile.display_name || 'Rich Bizness Elite').toUpperCase();
   username.textContent = '@' + (profile.username || 'rich_user');
@@ -27,10 +32,23 @@ function render(profile) {
   xp.textContent = fmt(points);
   cash.textContent = money(profile.balance_cents);
   xpFill.style.width = Math.max(0, Math.min(100, ((points - ((lvl - 1) * 1000)) / 1000) * 100)) + '%';
+  avatarFace.classList.add('live-avatar');
+  avatarFace.dataset.aura = meta?.aura || 'Emerald Gold';
+  avatarFace.dataset.motion = meta?.avatar_config?.motion || 'Boss Idle';
+  avatarFace.title = `${meta?.aura || 'Emerald Gold'} • ${meta?.avatar_config?.outfit || 'Rich Default'} • ${meta?.avatar_config?.motion || 'Boss Idle'}`;
   if (profile.avatar_url) {
     avatarFace.textContent = '';
     avatarFace.style.backgroundImage = 'url(' + profile.avatar_url + ')';
+  } else {
+    avatarFace.textContent = 'RB';
+    avatarFace.style.backgroundImage = '';
   }
+}
+
+async function paint(user) {
+  const profile = await ensureProfile(user);
+  const meta = await getMeta(user.id);
+  render(profile, meta);
 }
 
 async function boot() {
@@ -39,13 +57,10 @@ async function boot() {
     location.href = '/auth.html';
     return;
   }
-  const profile = await ensureProfile(user);
-  render(profile);
+  await paint(user);
   supabase.channel('profile-identity-' + user.id)
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles', filter: 'id=eq.' + user.id }, async () => {
-      const fresh = await ensureProfile(user);
-      render(fresh);
-    })
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles', filter: 'id=eq.' + user.id }, () => paint(user))
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'meta_avatars', filter: 'user_id=eq.' + user.id }, () => paint(user))
     .subscribe();
 }
 
