@@ -14,6 +14,15 @@ function activityRows() {
   return { live: rows[0], online: rows[1] };
 }
 
+function clearShellPlaceholders() {
+  const status = statusCells();
+  const rows = activityRows();
+  [status.live, status.online, rows.live, rows.online].forEach((el) => {
+    if (el) el.textContent = 'SYNC';
+  });
+  $$('.profile small').forEach((el) => { el.textContent = 'LEVEL 1'; });
+}
+
 function setLiveCount(value) {
   const text = fmt(value);
   const status = statusCells();
@@ -86,5 +95,6 @@ function subscribeRealtime() {
   channel.subscribe((status) => console.info('[RB realtime]', status));
 }
 
+clearShellPlaceholders();
 refreshUniverse();
 subscribeRealtime();
