@@ -17,13 +17,14 @@ const fmt = (n) => Number(n || 0).toLocaleString();
 const money = (cents) => '$' + (Number(cents || 0) / 100).toFixed(2);
 
 async function getMeta(userId) {
-  const { data } = await supabase.from('meta_avatars').select('aura,level,avatar_config').eq('user_id', userId).maybeSingle();
+  const { data } = await supabase.from('meta_avatars').select('aura,level,xp,metadata').eq('user_id', userId).maybeSingle();
   return data || null;
 }
 
 function render(profile, meta) {
+  const cfg = meta?.metadata || {};
   const lvl = Number(profile.rich_level || meta?.level || 1);
-  const points = Number(profile.rich_points || 0);
+  const points = Number(profile.rich_points || meta?.xp || 0);
   displayName.textContent = (profile.display_name || 'Rich Bizness Elite').toUpperCase();
   username.textContent = '@' + (profile.username || 'rich_user');
   bio.textContent = profile.bio || 'Building in the Rich Bizness Universe.';
@@ -33,9 +34,9 @@ function render(profile, meta) {
   cash.textContent = money(profile.balance_cents);
   xpFill.style.width = Math.max(0, Math.min(100, ((points - ((lvl - 1) * 1000)) / 1000) * 100)) + '%';
   avatarFace.classList.add('live-avatar');
-  avatarFace.dataset.aura = meta?.aura || 'Emerald Gold';
-  avatarFace.dataset.motion = meta?.avatar_config?.motion || 'Boss Idle';
-  avatarFace.title = `${meta?.aura || 'Emerald Gold'} • ${meta?.avatar_config?.outfit || 'Rich Default'} • ${meta?.avatar_config?.motion || 'Boss Idle'}`;
+  avatarFace.dataset.aura = meta?.aura || cfg.aura || 'Emerald Gold';
+  avatarFace.dataset.motion = cfg.motion || 'Boss Idle';
+  avatarFace.title = `${meta?.aura || cfg.aura || 'Emerald Gold'} • ${cfg.gender || 'boy'} • ${cfg.outfit || 'Rich Default'} • ${cfg.motion || 'Boss Idle'}`;
   if (profile.avatar_url) {
     avatarFace.textContent = '';
     avatarFace.style.backgroundImage = 'url(' + profile.avatar_url + ')';
