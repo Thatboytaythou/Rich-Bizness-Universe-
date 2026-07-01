@@ -8,30 +8,63 @@ const status = document.getElementById('status');
 const email = document.getElementById('email');
 const password = document.getElementById('password');
 const displayName = document.getElementById('displayName');
-const say = (text) => { status.textContent = text; };
+const say = (text) => { if (status) status.textContent = text; };
 
 async function next(user) {
+  if (!user) return;
   const profile = await ensureProfile(user);
-  location.href = profile?.avatar_url ? '/profile.html' : '/avatar.html';
+  location.replace(profile?.avatar_url ? '/profile.html' : '/avatar.html');
 }
 
-form.addEventListener('submit', async (event) => {
+async function completeAuthReturn() {
+  const url = new URL(location.href);
+  const hasAuthReturn = url.hash.includes('access_token') || url.searchParams.has('code') || url.searchParams.get('type') === 'signup';
+  if (!hasAuthReturn) return false;
+  say('Confirming portal...');
+  const { data } = await supabase.auth.getSession();
+  if (data?.session?.user) {
+    await next(data.session.user);
+    return true;
+  }
+  const userRes = await supabase.auth.getUser();
+  if (userRes.data?.user) {
+    await next(userRes.data.user);
+    return true;
+  }
+  say('Confirmed. Tap In to finish.');
+  return true;
+}
+
+form?.addEventListener('submit', async (event) => {
   event.preventDefault();
   say('Opening portal...');
   const { data, error } = await supabase.auth.signInWithPassword({ email: email.value.trim(), password: password.value });
   if (error) return say(error.message);
-  next(data.user);
+  await next(data.user);
 });
 
-createBtn.addEventListener('click', async () => {
+createBtn?.addEventListener('click', async () => {
   say('Creating identity...');
   const name = displayName.value.trim() || email.value.split('@')[0] || 'Rich Bizness Elite';
-  const { data, error } = await supabase.auth.signUp({ email: email.value.trim(), password: password.value, options: { data: { display_name: name, username: slugName(name) } } });
+  const redirectTo = `${location.origin}/auth.html`;
+  const { data, error } = await supabase.auth.signUp({
+    email: email.value.trim(),
+    password: password.value,
+    options: { emailRedirectTo: redirectTo, data: { display_name: name, username: slugName(name) } },
+  });
   if (error) return say(error.message);
-  if (!data.user) return say('Check email, then Tap In.');
+  if (!data.user || !data.session) return say('Check email, then confirm to enter Avatar.');
   await ensureProfile(data.user);
-  location.href = '/avatar.html';
+  location.replace('/avatar.html');
 });
 
-outBtn.addEventListener('click', signOutAndGoHome);
-supabase.auth.getUser().then(({ data }) => { if (data?.user) next(data.user); });
+outBtn?.addEventListener('click', signOutAndGoHome);
+
+(async () => {
+  document.body.classList.add('auth-checking');
+  const handled = await completeAuthReturn();
+  if (handled) return;
+  const { data } = await supabase.auth.getUser();
+  if (data?.user) return next(data.user);
+  document.body.classList.remove('auth-checking');
+})();
