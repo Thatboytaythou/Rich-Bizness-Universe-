@@ -4,7 +4,15 @@ import { routeFor } from './rb-schema-map.js';
   if (window.__rbIndexBooted) return;
   window.__rbIndexBooted = true;
 
-  const VERSION = 'index-mobile-polish-2';
+  const CANONICAL_HOST = 'rich-bizness.com';
+  const LEGACY_HOSTS = ['rich-bizness-mobile-app.vercel.app', 'rich-bizness-mobile.vercel.app'];
+  const host = window.location.hostname;
+  if (LEGACY_HOSTS.includes(host)) {
+    window.location.replace(`https://${CANONICAL_HOST}${window.location.pathname}${window.location.search}${window.location.hash}`);
+    return;
+  }
+
+  const VERSION = 'index-mobile-polish-3';
 
   const addCss = (href, id) => {
     if (id && document.getElementById(id)) return;
