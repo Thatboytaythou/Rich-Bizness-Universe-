@@ -1,7 +1,4 @@
 import { routeFor } from './rb-schema-map.js';
-import './rb-xp-boot.js';
-import './rb-personality.js';
-import './rb-personal-build.js';
 
 (() => {
   if (window.__rbIndexBooted) return;
@@ -15,7 +12,7 @@ import './rb-personal-build.js';
     return;
   }
 
-  const VERSION = 'clean-index-3';
+  const VERSION = 'index-isolated-1';
   const addCss = (href, id) => {
     if (id && document.getElementById(id)) return;
     const link = document.createElement('link');
@@ -25,9 +22,7 @@ import './rb-personal-build.js';
     document.head.appendChild(link);
   };
 
-  if (document.body?.dataset?.section === 'index' || document.querySelector('.rb-universe')) {
-    addCss(`/src/index-clean.css?v=${VERSION}`, 'rbIndexClean');
-  }
+  addCss(`/src/index-clean.css?v=${VERSION}`, 'rbIndexClean');
 
   if (!document.querySelector('script[data-rb-realtime]')) {
     const live = document.createElement('script');
