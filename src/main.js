@@ -10,14 +10,16 @@ import { routeFor } from './rb-schema-map.js';
     window.location.replace(`https://${CANONICAL_HOST}${window.location.pathname}${window.location.search}${window.location.hash}`);
     return;
   }
-  const VERSION = 'layout-recovery-1';
+  const VERSION = 'hero-reset-2';
   const addCss = (href, id) => {
-    if (id && document.getElementById(id)) return;
-    const link = document.createElement('link');
-    link.rel = 'stylesheet';
-    if (id) link.id = id;
+    let link = id ? document.getElementById(id) : null;
+    if (!link) {
+      link = document.createElement('link');
+      link.rel = 'stylesheet';
+      if (id) link.id = id;
+      document.head.appendChild(link);
+    }
     link.href = href;
-    document.head.appendChild(link);
   };
   const addModule = (src, key) => {
     if (document.querySelector(`script[data-rb-${key}]`)) return;
@@ -36,7 +38,7 @@ import { routeFor } from './rb-schema-map.js';
     const grid = document.querySelector('.district-grid');
     const dock = document.querySelector('.dock');
     if (body) { body.style.overflowY = 'auto'; body.style.background = '#020402'; }
-    if (universe) { universe.style.height = 'auto'; universe.style.minHeight = '100svh'; universe.style.overflow = 'visible'; universe.style.paddingBottom = '120px'; }
+    if (universe) { universe.style.height = 'auto'; universe.style.minHeight = '100svh'; universe.style.overflow = 'visible'; universe.style.paddingBottom = '120px'; universe.style.backgroundImage = "url('/images/19FB5229-30DD-40B0-9404-5136C27FEF6A.png')"; universe.style.backgroundSize = 'cover'; universe.style.backgroundPosition = 'center'; }
     if (stage) { stage.style.height = 'auto'; stage.style.minHeight = '0'; stage.style.overflow = 'visible'; stage.style.display = 'grid'; stage.style.gap = '14px'; }
     if (portalZone) { portalZone.style.position = 'relative'; portalZone.style.inset = 'auto'; portalZone.style.minHeight = '280px'; portalZone.style.display = 'grid'; portalZone.style.placeItems = 'center'; }
     if (portal) { portal.style.position = 'relative'; portal.style.left = 'auto'; portal.style.top = 'auto'; portal.style.transform = 'none'; portal.style.width = 'min(72vw, 320px)'; }
@@ -44,14 +46,17 @@ import { routeFor } from './rb-schema-map.js';
     document.querySelectorAll('.district').forEach((el) => { el.style.position = 'relative'; el.style.left = 'auto'; el.style.right = 'auto'; el.style.top = 'auto'; el.style.bottom = 'auto'; el.style.transform = 'none'; el.style.width = 'auto'; el.style.maxWidth = 'none'; });
     const meta = document.querySelector('.district.meta');
     if (meta) meta.style.gridColumn = '1 / -1';
+    document.querySelectorAll('.ring b').forEach((el) => { el.style.display = 'none'; });
+    document.querySelectorAll('.ring').forEach((el) => { if (!el.querySelector('.hero-art')) { const art = document.createElement('span'); art.className = 'hero-art'; art.style.cssText = "position:absolute;inset:-18%;background:url('/images/hero-banner.png') center/contain no-repeat;filter:drop-shadow(0 0 34px rgba(99,255,93,.7));"; el.appendChild(art); } });
     if (dock) { dock.style.position = 'fixed'; dock.style.zIndex = '90'; dock.style.left = '14px'; dock.style.right = '14px'; dock.style.bottom = '14px'; }
     document.querySelectorAll('.live b').forEach((el) => { el.textContent = 'WE LIT🔥'; });
   };
-  addCss(`/src/index-clean.css?v=${VERSION}`, 'rbIndexClean');
+  addCss(`/src/index-hard-reset.css?v=${VERSION}`, 'rbHardReset');
   addCss(`/src/index-portal.css?v=${VERSION}`, 'rbPortalPhoneCss');
   addModule(`/src/realtime-data.js?v=${VERSION}`, 'realtime');
   requestAnimationFrame(forceLayout);
   setTimeout(forceLayout, 250);
+  setTimeout(forceLayout, 900);
   const toast = document.getElementById('toast');
   const show = (text) => {
     if (!toast) return;
