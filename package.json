@@ -9,9 +9,6 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@livekit/components-js": "latest",
-    "@livekit/rtc-node": "latest",
-    "@livekit/protocol": "latest",
     "livekit-client": "latest",
     "@supabase/supabase-js": "latest",
     "vite": "latest"
