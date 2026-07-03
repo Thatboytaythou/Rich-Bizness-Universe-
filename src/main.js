@@ -1,4 +1,5 @@
 import { routeFor } from './rb-schema-map.js';
+import './rb-xp-boot.js';
 
 (() => {
   if (window.__rbIndexBooted) return;
