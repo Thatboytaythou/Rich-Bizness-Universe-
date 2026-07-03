@@ -5,66 +5,26 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="theme-color" content="#020402" />
     <title>Rich Bizness Universe</title>
-    <link rel="stylesheet" href="/src/styles.css?v=clean-index-1" />
+    <link rel="stylesheet" href="/src/index-clean.css?v=portal-phone-1" />
   </head>
   <body data-section="index">
     <div id="app">
       <main class="rb-universe rb-index-clean" data-page="index">
         <header class="topbar" aria-label="Rich Bizness Universe header">
-          <a class="brand" href="/" aria-label="Rich Bizness Universe home">
-            <span class="crest">RB</span>
-            <span><b>RICH BIZNESS</b><small>UNIVERSE</small></span>
-          </a>
-          <div class="headline">
-            <h1>RICH BIZNESS UNIVERSE</h1>
-            <p>Your world. Your rules. Your empire.</p>
-          </div>
-          <div class="status" aria-label="Universe realtime status">
-            <span>LIVE<br><b data-live-count>0</b></span>
-            <span>ONLINE<br><b data-online-count>0</b></span>
-            <button type="button" data-route="search" aria-label="Search">⌕</button>
-            <button type="button" data-route="notifications" aria-label="Notifications">🔔</button>
-            <button type="button" data-route="profile" aria-label="Profile">RB</button>
-          </div>
+          <a class="brand" href="/" aria-label="Rich Bizness Universe home"><span class="crest">RB</span><span><b>RICH BIZNESS</b><small>UNIVERSE</small></span></a>
+          <div class="headline"><h1>RICH BIZNESS UNIVERSE</h1><p>Your world. Your rules. Your empire.</p></div>
+          <div class="status" aria-label="Universe realtime status"><span>LIVE<br><b data-live-count>0</b></span><span>ONLINE<br><b data-online-count>0</b></span><button type="button" data-route="search" aria-label="Search">⌕</button><button type="button" data-route="notifications" aria-label="Notifications">🔔</button><button type="button" data-route="profile" aria-label="Profile">RB</button></div>
         </header>
-
         <section class="stage" aria-label="Rich Bizness portal navigation">
-          <section class="portal-zone" aria-label="Portal hub">
-            <div class="portal" aria-hidden="true">
-              <div class="ring"><span>♛</span><b>RB</b><small>PORTAL<br />HUB</small></div>
-            </div>
-          </section>
-
-          <section class="district-grid" aria-label="Universe routes">
-            <button class="district meta" data-route="meta"><b>META WORLD</b><small>ENTER THE METAVERSE</small></button>
-            <button class="district gallery" data-route="gallery"><b>GALLERY DISTRICT</b><small>VISUAL DROPS</small></button>
-            <button class="district gaming" data-route="gaming"><b>GAMES</b><small>ROOMS + MOVES</small></button>
-            <button class="district podcast" data-route="podcast"><b>PODCAST ARENA</b><small>REAL CONVERSATIONS</small></button>
-            <button class="district sports" data-route="sports"><b>SPORTS ARENA</b><small>LIVE THE GAME</small></button>
-            <button class="district live" data-route="live"><b>WE FIRE TV</b><small>LIVE STUDIO</small></button>
-            <button class="district store" data-route="store"><b>STORE MARKET</b><small>BUY. SELL. SUPPORT</small></button>
-            <button class="district music" data-route="music"><b>MUSIC DISTRICT</b><small>PLAY. STREAM.</small></button>
-            <button class="district upload" data-route="upload"><b>UPLOAD ZONE</b><small>SHARE CONTENT</small></button>
-          </section>
+          <section class="portal-zone" aria-label="Portal hub"><div class="portal" aria-hidden="true"><div class="ring"><span>♛</span><b>RB</b><small>PORTAL<br />HUB</small></div></div></section>
+          <section class="rb-phone-hub" id="phoneHub" aria-label="Controllable Rich phone"><div class="phone-shell"><div class="phone-top"><b>RB PHONE</b><small id="phoneStatus">READY</small></div><div class="phone-screen" id="phoneScreen"><div class="phone-avatar" id="phoneAvatar"><i></i><b>RB</b></div><strong id="phoneTitle">PORTAL HUB</strong><span id="phoneHint">Tap a tower or use the controls.</span></div><div class="phone-controls"><button type="button" data-phone="left">←</button><button type="button" data-phone="enter">ENTER</button><button type="button" data-phone="right">→</button></div></div></section>
+          <section class="district-grid" aria-label="Universe routes"><button class="district meta" data-route="meta"><b>META WORLD</b><small>ENTER THE METAVERSE</small></button><button class="district gallery" data-route="gallery"><b>GALLERY DISTRICT</b><small>VISUAL DROPS</small></button><button class="district gaming" data-route="gaming"><b>GAMES</b><small>ROOMS + MOVES</small></button><button class="district podcast" data-route="podcast"><b>PODCAST ARENA</b><small>REAL CONVERSATIONS</small></button><button class="district sports" data-route="sports"><b>SPORTS ARENA</b><small>LIVE THE GAME</small></button><button class="district live" data-route="live"><b>WE FIRE TV</b><small>LIVE STUDIO</small></button><button class="district store" data-route="store"><b>STORE MARKET</b><small>BUY. SELL. SUPPORT</small></button><button class="district music" data-route="music"><b>MUSIC DISTRICT</b><small>PLAY. STREAM.</small></button><button class="district upload" data-route="upload"><b>UPLOAD ZONE</b><small>SHARE CONTENT</small></button></section>
         </section>
-
-        <nav class="dock" aria-label="Main navigation">
-          <button type="button" data-route="home" class="active">⌂<span>HOME</span></button>
-          <button type="button" data-route="feed">▤<span>FEED</span></button>
-          <button type="button" data-route="live">◉<span>LIVE</span></button>
-          <button type="button" data-route="music">♪<span>MUSIC</span></button>
-          <button type="button" data-route="podcast">🎙<span>PODCAST</span></button>
-          <button type="button" data-route="radio">◌<span>RADIO</span></button>
-          <button type="button" data-route="gaming">🎮<span>GAMING</span></button>
-          <button type="button" data-route="sports">◎<span>SPORTS</span></button>
-          <button type="button" data-route="store">🛒<span>STORE</span></button>
-          <button type="button" data-route="meta">◇<span>META</span></button>
-          <button type="button" data-route="profile">♙<span>PROFILE</span></button>
-        </nav>
-        <p class="tagline">ONE UNIVERSE. REAL ROUTES. REAL DATA.</p>
-        <div class="toast" id="toast">Universe online</div>
+        <nav class="dock" aria-label="Main navigation"><button type="button" data-route="home" class="active">⌂<span>HOME</span></button><button type="button" data-route="feed">▤<span>FEED</span></button><button type="button" data-route="live">◉<span>LIVE</span></button><button type="button" data-route="music">♪<span>MUSIC</span></button><button type="button" data-route="podcast">🎙<span>PODCAST</span></button><button type="button" data-route="radio">◌<span>RADIO</span></button><button type="button" data-route="gaming">🎮<span>GAMING</span></button><button type="button" data-route="sports">◎<span>SPORTS</span></button><button type="button" data-route="store">🛒<span>STORE</span></button><button type="button" data-route="meta">◇<span>META</span></button><button type="button" data-route="profile">♙<span>PROFILE</span></button></nav>
+        <p class="tagline">ONE UNIVERSE. REAL ROUTES. REAL DATA.</p><div class="toast" id="toast">Universe online</div>
       </main>
     </div>
-    <script type="module" src="/src/main.js?v=clean-index-1"></script>
+    <script type="module" src="/src/main.js?v=portal-phone-1"></script>
+    <script type="module" src="/src/portal-phone.js?v=portal-phone-1"></script>
   </body>
 </html>
