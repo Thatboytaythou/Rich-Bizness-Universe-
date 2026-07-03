@@ -1,4 +1,5 @@
 export const RB_ASSETS = {
+  indexBackground: '/images/19FB5229-30DD-40B0-9404-5136C27FEF6A.png',
   logo3d: '/images/3D-logo.png.jpeg',
   avatarHero: '/images/Avatar-hero-Banner.png.jpeg',
   gtaStudio: '/images/GTA-STUDIO.png.jpeg',
