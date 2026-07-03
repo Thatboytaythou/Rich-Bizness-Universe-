@@ -13,7 +13,7 @@ import './rb-xp-boot.js';
     return;
   }
 
-  const VERSION = 'index-mobile-polish-3';
+  const VERSION = 'index-mobile-polish-4';
 
   const addCss = (href, id) => {
     if (id && document.getElementById(id)) return;
@@ -28,6 +28,7 @@ import './rb-xp-boot.js';
   addCss(`/src/cinema-motion.css?v=${VERSION}`, 'rbCinemaMotion');
   addCss(`/src/scroll-safe.css?v=${VERSION}`, 'rbMobilePortrait');
   addCss(`/src/xp-gauge.css?v=${VERSION}`, 'rbXpGauge');
+  addCss(`/src/index-iphone-fix.css?v=${VERSION}`, 'rbIndexIphoneFix');
 
   if (!document.querySelector('script[data-rb-cinema]')) {
     const script = document.createElement('script');
