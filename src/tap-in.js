@@ -16,7 +16,8 @@ function nextRoute(profile) {
   const state = profile?.onboarding_state || (profile?.has_avatar || profile?.avatar_url ? 'complete' : 'needs_avatar');
   if (state === 'needs_avatar' || state === 'new') return '/avatar.html';
   if (state === 'needs_profile') return '/profile.html';
-  return profile?.last_route && profile.last_route !== '/auth.html' ? profile.last_route : '/';
+  const last = profile?.last_route;
+  return last && last !== '/auth.html' && last !== '/profile.html' ? last : '/';
 }
 
 async function next(user) {
@@ -25,7 +26,7 @@ async function next(user) {
   const profile = await ensureProfile(user);
   try { await loadCurrentXp(); } catch (_) {}
   const route = nextRoute(profile);
-  await supabase.from('profiles').update({ last_route: route }).eq('id', user.id).catch?.(() => {});
+  try { await supabase.from('profiles').update({ last_route: route }).eq('id', user.id); } catch (_) {}
   location.replace(route);
 }
 
