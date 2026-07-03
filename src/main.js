@@ -8,14 +8,19 @@ import './rb-personal-build.js';
   window.__rbIndexBooted = true;
 
   const CANONICAL_HOST = 'rich-bizness.com';
-  const LEGACY_HOSTS = ['rich-bizness-mobile-app.vercel.app', 'rich-bizness-mobile.vercel.app'];
+  const LEGACY_HOSTS = [
+    'rich-bizness-mobile-app.vercel.app',
+    'rich-bizness-mobile.vercel.app',
+    'rich-bizness-llc-rich-bizness-llc.vercel.app',
+    'rich-bizness-llc-git-main-rich-bizness-llc.vercel.app'
+  ];
   const host = window.location.hostname;
   if (LEGACY_HOSTS.includes(host)) {
     window.location.replace(`https://${CANONICAL_HOST}${window.location.pathname}${window.location.search}${window.location.hash}`);
     return;
   }
 
-  const VERSION = 'index-stack-fix-1';
+  const VERSION = 'legacy-domain-fix-1';
 
   const addCss = (href, id) => {
     if (id && document.getElementById(id)) return;
