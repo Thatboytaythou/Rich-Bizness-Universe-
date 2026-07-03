@@ -18,5 +18,14 @@
       "destination": "https://rich-bizness.com/$1",
       "permanent": true
     }
+  ],
+  "headers": [
+    {
+      "source": "/(.*)",
+      "headers": [
+        { "key": "X-Rich-Bizness-Domains", "value": "rich-bizness.com,www.rich-bizness.com,rich-bizness-mobile-app.vercel.app" },
+        { "key": "X-Rich-Bizness-Canonical", "value": "https://rich-bizness.com" }
+      ]
+    }
   ]
 }
