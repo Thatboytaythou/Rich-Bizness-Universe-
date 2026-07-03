@@ -1,5 +1,6 @@
 import { routeFor } from './rb-schema-map.js';
 import './rb-xp-boot.js';
+import './rb-personality.js';
 
 (() => {
   if (window.__rbIndexBooted) return;
@@ -13,7 +14,7 @@ import './rb-xp-boot.js';
     return;
   }
 
-  const VERSION = 'index-mobile-polish-4';
+  const VERSION = 'rich-personality-1';
 
   const addCss = (href, id) => {
     if (id && document.getElementById(id)) return;
@@ -29,6 +30,7 @@ import './rb-xp-boot.js';
   addCss(`/src/scroll-safe.css?v=${VERSION}`, 'rbMobilePortrait');
   addCss(`/src/xp-gauge.css?v=${VERSION}`, 'rbXpGauge');
   addCss(`/src/index-iphone-fix.css?v=${VERSION}`, 'rbIndexIphoneFix');
+  addCss(`/src/index-real.css?v=${VERSION}`, 'rbIndexReal');
 
   if (!document.querySelector('script[data-rb-cinema]')) {
     const script = document.createElement('script');
@@ -62,15 +64,13 @@ import './rb-xp-boot.js';
       const key = button.dataset.route || 'home';
       document.querySelectorAll('.dock button').forEach((item) => item.classList.remove('active'));
       if (button.closest('.dock')) button.classList.add('active');
-
       if (key === 'home') {
         show('HOME ONLINE');
         window.scrollTo({ top: 0, behavior: 'smooth' });
         return;
       }
-
       const route = routeFor(key);
-      show(`${key.toUpperCase()} PORTAL OPENING`);
+      show(`${key.toUpperCase()} OPENING`);
       window.setTimeout(() => { window.location.href = route; }, 180);
     });
   });
