@@ -12,7 +12,7 @@ import { routeFor } from './rb-schema-map.js';
     return;
   }
 
-  const VERSION = 'index-isolated-1';
+  const VERSION = 'portal-phone-1';
   const addCss = (href, id) => {
     if (id && document.getElementById(id)) return;
     const link = document.createElement('link');
@@ -23,6 +23,7 @@ import { routeFor } from './rb-schema-map.js';
   };
 
   addCss(`/src/index-clean.css?v=${VERSION}`, 'rbIndexClean');
+  addCss(`/src/portal-phone.css?v=${VERSION}`, 'rbPortalPhoneCss');
 
   if (!document.querySelector('script[data-rb-realtime]')) {
     const live = document.createElement('script');
