@@ -1,5 +1,6 @@
 import { supabase } from './supabase-client.js';
 import { ensureProfile, signOutAndGoHome, slugName } from './rb-identity.js';
+import { bootXp, awardXp } from './rb-xp.js';
 
 const form = document.getElementById('authForm');
 const createBtn = document.getElementById('createBtn');
@@ -13,6 +14,7 @@ const say = (text) => { if (status) status.textContent = text; };
 async function next(user) {
   if (!user) return;
   const profile = await ensureProfile(user);
+  await awardXp('daily_tap_in', { section: 'auth' });
   location.replace(profile?.avatar_url ? '/profile.html' : '/avatar.html');
 }
 
@@ -55,10 +57,12 @@ createBtn?.addEventListener('click', async () => {
   if (error) return say(error.message);
   if (!data.user || !data.session) return say('Check email, then confirm to enter Avatar.');
   await ensureProfile(data.user);
+  await awardXp('daily_tap_in', { section: 'auth' });
   location.replace('/avatar.html');
 });
 
 outBtn?.addEventListener('click', signOutAndGoHome);
+bootXp();
 
 (async () => {
   document.body.classList.add('auth-checking');
