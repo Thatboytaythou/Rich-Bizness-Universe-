@@ -8,7 +8,7 @@ export const DEFAULT_PROFILE = Object.freeze({
   rank_title: 'BIZ LEGEND',
   balance_cents: 0,
   avatar_url: '',
-  banner_url: '/images/brand/Avatar-hero-Banner.png.jpeg',
+  banner_url: '/images/hero-banner.png',
   bio: 'Building my Rich Bizness lane across live, music, gaming, sports, gallery, store, meta, and money.',
 });
 
@@ -32,7 +32,7 @@ export async function getProfile(userId) {
     .select('id,username,display_name,avatar_url,banner_url,bio,rich_level,rich_points,rank_title,balance_cents,online_status')
     .eq('id', userId)
     .maybeSingle();
-  if (error) return null;
+  if (error) throw error;
   return data || null;
 }
 
@@ -59,7 +59,7 @@ export async function ensureProfile(user) {
   };
 
   const { data, error } = await supabase.from('profiles').upsert(row, { onConflict: 'id' }).select().maybeSingle();
-  if (error) return { ...DEFAULT_PROFILE, ...row };
+  if (error) throw error;
   return { ...DEFAULT_PROFILE, ...(data || row) };
 }
 
@@ -100,7 +100,8 @@ export async function ensureMetaAvatar(user, profile, config = {}) {
     },
   };
   const { data, error } = await supabase.from('meta_avatars').upsert(avatar, { onConflict: 'user_id' }).select().maybeSingle();
-  return error ? avatar : data;
+  if (error) throw error;
+  return data;
 }
 
 export async function signOutAndGoHome() {
