@@ -2,7 +2,6 @@ import { supabase } from './supabase-client.js';
 import { sectionFor } from './rb-schema-map.js';
 import './rb-xp-boot.js';
 import './rb-personality.js';
-import './rb-personal-build.js';
 
 const $ = (s) => document.querySelector(s);
 const $$ = (s) => [...document.querySelectorAll(s)];
@@ -38,7 +37,14 @@ const copy = {
 const dedicated = new Set(['gaming','meta','live','watch','avatar','profile','auth','edit','settings']);
 function setText(sel, value) { $$(sel).forEach((el) => { el.textContent = value; }); }
 function getCopy() { return copy[key] || [title, 'This section is connected to real Rich Bizness data.', mapped?.route || '/', 'OPEN']; }
+function cleanBlockers() {
+  document.querySelectorAll('#globalXpBadge,.rb-personal-strip,#miniProfile,#composerPanel,.hero-art,.rb-phone,.rb-pad-index,#rbRunner').forEach((el) => el.remove());
+  document.querySelectorAll('[style*="display: none"],[style*="visibility: hidden"],[style*="opacity: 0"]').forEach((el) => { if (!el.matches('script,style,template')) el.removeAttribute('style'); });
+  document.body.style.overflowY = 'auto';
+  document.body.style.overflowX = 'hidden';
+}
 function ensure() {
+  cleanBlockers();
   const main = $('main') || document.body;
   if (!$('.hero')) main.insertAdjacentHTML('afterbegin', `<section class="hero"><div class="kicker">${key.toUpperCase()}</div><h1>${title}</h1><p>${getCopy()[1]}</p><div class="hero-grid"><div class="metric"><b id="recordCount">0</b><small>LIVE RECORDS</small></div><div class="metric"><b id="primaryTable">${title}</b><small>SECTION</small></div><div class="metric"><b id="tableCount">READY</b><small>STATUS</small></div></div></section>`);
   if (!$('#sectionCards') && !dedicated.has(key)) ($('.hero') || main).insertAdjacentHTML('afterend', `<section class="layout"><section class="panel"><h2>${getCopy()[0]}</h2><div id="sectionCards" class="cards"><div class="empty">Checking live records...</div></div></section><aside class="panel" id="schemaPanel"><h2>Next Action</h2><div class="card"><b>${getCopy()[3]}</b><p>${getCopy()[1]}</p><a class="pill" href="${getCopy()[2]}">${getCopy()[3]}</a></div></aside></section>`);
@@ -59,8 +65,9 @@ async function refresh() {
   }
   const panel = $('#schemaPanel');
   if (panel) panel.innerHTML = actionPanel(total);
+  cleanBlockers();
   document.body.classList.add('rb-real-section');
   document.body.classList.remove('rb-section-powered');
 }
 refresh();
-window.RB_SECTION_RUNTIME = { refresh, key, primary, tables };
+window.RB_SECTION_RUNTIME = { refresh, key, primary, tables, cleanBlockers };
