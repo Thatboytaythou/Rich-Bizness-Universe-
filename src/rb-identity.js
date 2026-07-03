@@ -10,6 +10,10 @@ export const DEFAULT_PROFILE = Object.freeze({
   avatar_url: '',
   banner_url: '/images/hero-banner.png',
   bio: 'Building my Rich Bizness lane across live, music, gaming, sports, gallery, store, meta, and money.',
+  onboarding_state: 'needs_avatar',
+  has_avatar: false,
+  has_profile_identity: true,
+  last_route: '/',
 });
 
 export function slugName(value) {
@@ -29,7 +33,7 @@ export async function getProfile(userId) {
   if (!userId) return null;
   const { data, error } = await supabase
     .from('profiles')
-    .select('id,username,display_name,avatar_url,banner_url,bio,rich_level,rich_points,rank_title,balance_cents,online_status')
+    .select('id,username,display_name,avatar_url,banner_url,bio,rich_level,rich_points,rank_title,balance_cents,online_status,onboarding_state,has_avatar,has_profile_identity,last_route')
     .eq('id', userId)
     .maybeSingle();
   if (error) throw error;
@@ -44,6 +48,7 @@ export async function ensureProfile(user) {
   const meta = user.user_metadata || {};
   const display = meta.display_name || meta.name || 'ThatboyTayThou';
   const username = slugName(meta.username || display || 'thatboytaythou');
+  const hasAvatar = Boolean(meta.avatar_url);
   const row = {
     id: user.id,
     username,
@@ -56,6 +61,10 @@ export async function ensureProfile(user) {
     rank_title: 'BIZ LEGEND',
     balance_cents: 0,
     online_status: 'online',
+    onboarding_state: hasAvatar ? 'complete' : 'needs_avatar',
+    has_avatar: hasAvatar,
+    has_profile_identity: true,
+    last_route: hasAvatar ? '/' : '/avatar.html',
   };
 
   const { data, error } = await supabase.from('profiles').upsert(row, { onConflict: 'id' }).select().maybeSingle();
