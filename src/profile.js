@@ -1,5 +1,6 @@
 import { supabase } from './supabase-client.js';
 import { ensureProfile, getSessionUser, signOutAndGoHome } from './rb-identity.js';
+import { bootXp, loadXp, awardXp } from './rb-xp.js';
 
 const displayName = document.getElementById('displayName');
 const username = document.getElementById('username');
@@ -50,6 +51,7 @@ async function paint(user) {
   const profile = await ensureProfile(user);
   const meta = await getMeta(user.id);
   render(profile, meta);
+  await loadXp(user.id);
 }
 
 async function boot() {
@@ -58,10 +60,13 @@ async function boot() {
     location.href = '/auth.html';
     return;
   }
+  await bootXp();
+  await awardXp('profile_view', { section: 'profile' });
   await paint(user);
   supabase.channel('profile-identity-' + user.id)
     .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles', filter: 'id=eq.' + user.id }, () => paint(user))
     .on('postgres_changes', { event: '*', schema: 'public', table: 'meta_avatars', filter: 'user_id=eq.' + user.id }, () => paint(user))
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'user_levels', filter: 'user_id=eq.' + user.id }, () => paint(user))
     .subscribe();
 }
 
