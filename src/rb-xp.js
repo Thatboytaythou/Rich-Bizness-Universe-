@@ -1,0 +1,106 @@
+import { supabase } from './supabase-client.js';
+
+const fmt = (n) => Number(n || 0).toLocaleString();
+const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
+
+export function xpMath(profile = {}, levelRow = {}, avatar = {}) {
+  const total = Number(levelRow.xp_total ?? profile.rich_points ?? avatar.xp ?? 0);
+  const level = Number(levelRow.level ?? profile.rich_level ?? avatar.level ?? Math.floor(total / 1000) + 1) || 1;
+  const current = Number(levelRow.xp_current ?? (total % 1000));
+  const next = Number(levelRow.xp_next ?? level * 1000) || 1000;
+  const progress = clamp(current / 1000, 0, 1) * 100;
+  return {
+    total,
+    level,
+    current,
+    next,
+    progress,
+    rank: levelRow.rank_title || profile.rank_title || avatar.rank || 'Rookie Builder',
+    points: Number(levelRow.rich_points ?? profile.rich_points ?? total),
+    coins: Number(levelRow.coins ?? 0),
+  };
+}
+
+export function renderXp(xp = {}) {
+  const data = xpMath(xp.profile, xp.levelRow, xp.avatar);
+  document.querySelectorAll('[data-xp-level]').forEach((el) => { el.textContent = `LEVEL ${data.level}`; });
+  document.querySelectorAll('[data-xp-rank]').forEach((el) => { el.textContent = data.rank; });
+  document.querySelectorAll('[data-xp-total]').forEach((el) => { el.textContent = `${fmt(data.total)} XP`; });
+  document.querySelectorAll('[data-xp-current]').forEach((el) => { el.textContent = `${fmt(data.current)} / 1,000`; });
+  document.querySelectorAll('[data-rich-points]').forEach((el) => { el.textContent = fmt(data.points); });
+  document.querySelectorAll('[data-rich-coins]').forEach((el) => { el.textContent = fmt(data.coins); });
+  document.querySelectorAll('[data-xp-fill], .xp-track em, .xp i, #xpFill').forEach((el) => { el.style.width = `${data.progress}%`; });
+  document.body.dataset.richLevel = String(data.level);
+  document.body.dataset.richRank = data.rank;
+  return data;
+}
+
+export async function loadXp(userId) {
+  if (!userId) return renderXp({});
+  const [{ data: profile }, { data: levelRow }, { data: avatar }] = await Promise.all([
+    supabase.from('profiles').select('rich_points,rich_level,rank_title,balance_cents').eq('id', userId).maybeSingle(),
+    supabase.from('user_levels').select('level,xp_total,xp_current,xp_next,rank_title,rich_points,coins,trust_score').eq('user_id', userId).maybeSingle(),
+    supabase.from('meta_avatars').select('level,xp,rank').eq('user_id', userId).maybeSingle(),
+  ]);
+  return renderXp({ profile: profile || {}, levelRow: levelRow || {}, avatar: avatar || {} });
+}
+
+export async function loadCurrentXp() {
+  const { data } = await supabase.auth.getUser();
+  return loadXp(data?.user?.id);
+}
+
+export async function awardXp(eventKey = 'section_visit', opts = {}) {
+  const { data } = await supabase.auth.getUser();
+  if (!data?.user) return { ok: false, reason: 'not_signed_in' };
+  const { data: award, error } = await supabase.rpc('rb_award_xp', {
+    p_event_key: eventKey,
+    p_section: opts.section || document.body?.dataset?.section || 'global',
+    p_source_table: opts.sourceTable || null,
+    p_source_id: opts.sourceId || null,
+    p_amount: opts.amount || null,
+  });
+  if (error) {
+    console.warn('[RB XP] award failed', error.message);
+    return { ok: false, reason: error.message };
+  }
+  await loadXp(data.user.id);
+  if (award?.ok) showXpToast(award);
+  return award;
+}
+
+export function showXpToast(award) {
+  let toast = document.getElementById('xpToast');
+  if (!toast) {
+    toast = document.createElement('div');
+    toast.id = 'xpToast';
+    toast.style.cssText = 'position:fixed;left:50%;bottom:96px;transform:translateX(-50%) translateY(18px);z-index:9999;padding:12px 16px;border:1px solid rgba(99,255,93,.45);border-radius:999px;background:rgba(0,0,0,.82);color:white;font:900 12px system-ui;letter-spacing:.12em;box-shadow:0 0 26px rgba(99,255,93,.22);opacity:0;transition:.25s ease;pointer-events:none';
+    document.body.appendChild(toast);
+  }
+  toast.textContent = `+${fmt(award.xp || 0)} XP • LEVEL ${award.level || 1}`;
+  requestAnimationFrame(() => { toast.style.opacity = '1'; toast.style.transform = 'translateX(-50%) translateY(0)'; });
+  clearTimeout(window.__rbXpToastTimer);
+  window.__rbXpToastTimer = setTimeout(() => { toast.style.opacity = '0'; toast.style.transform = 'translateX(-50%) translateY(18px)'; }, 1400);
+}
+
+export function installXpBadge(root = document) {
+  if (document.getElementById('globalXpBadge')) return;
+  const badge = document.createElement('aside');
+  badge.id = 'globalXpBadge';
+  badge.innerHTML = '<b data-xp-level>LEVEL 1</b><span data-xp-rank>Rookie Builder</span><div class="xp-track"><em data-xp-fill></em></div><small><i data-xp-total>0 XP</i> • <i data-rich-points>0</i> RP</small>';
+  badge.style.cssText = 'position:fixed;right:12px;top:calc(12px + env(safe-area-inset-top));z-index:60;width:154px;padding:10px;border:1px solid rgba(247,201,72,.32);border-radius:18px;background:rgba(0,0,0,.62);backdrop-filter:blur(14px);box-shadow:0 0 28px rgba(99,255,93,.16);font-family:system-ui;color:#fff';
+  badge.querySelector('b').style.cssText = 'display:block;color:#63ff5d;font-size:12px;letter-spacing:.12em';
+  badge.querySelector('span').style.cssText = 'display:block;font-size:10px;font-weight:900;opacity:.8;margin-top:2px';
+  badge.querySelector('small').style.cssText = 'display:block;font-size:9px;opacity:.78;margin-top:5px';
+  const track = badge.querySelector('.xp-track');
+  track.style.cssText = 'height:6px;border-radius:999px;background:rgba(255,255,255,.12);overflow:hidden;margin-top:7px';
+  track.querySelector('em').style.cssText = 'display:block;height:100%;width:0;background:linear-gradient(90deg,#63ff5d,#f7c948);border-radius:999px;transition:width .3s ease';
+  root.body.appendChild(badge);
+}
+
+export async function bootXp(eventKey) {
+  installXpBadge();
+  await loadCurrentXp();
+  if (eventKey) awardXp(eventKey).catch(() => {});
+  supabase.auth.onAuthStateChange(() => loadCurrentXp());
+}
