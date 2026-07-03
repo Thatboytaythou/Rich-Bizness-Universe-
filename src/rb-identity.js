@@ -1,23 +1,23 @@
 import { supabase } from './supabase-client.js';
 
 export const DEFAULT_PROFILE = Object.freeze({
-  display_name: 'Rich Bizness Elite',
-  username: 'rich_user',
+  display_name: 'ThatboyTayThou',
+  username: 'thatboytaythou',
   rich_level: 1,
   rich_points: 0,
-  rank_title: 'Rookie Builder',
+  rank_title: 'BIZ LEGEND',
   balance_cents: 0,
   avatar_url: '',
-  banner_url: '',
-  bio: 'Building in the Rich Bizness Universe.',
+  banner_url: '/images/brand/Avatar-hero-Banner.png.jpeg',
+  bio: 'Building my Rich Bizness lane across live, music, gaming, sports, gallery, store, meta, and money.',
 });
 
 export function slugName(value) {
-  return String(value || 'rich_user')
+  return String(value || 'thatboytaythou')
     .toLowerCase()
     .replace(/[^a-z0-9_]+/g, '_')
     .replace(/^_+|_+$/g, '')
-    .slice(0, 28) || 'rich_user';
+    .slice(0, 28) || 'thatboytaythou';
 }
 
 export async function getSessionUser() {
@@ -39,21 +39,21 @@ export async function getProfile(userId) {
 export async function ensureProfile(user) {
   if (!user) return null;
   const existing = await getProfile(user.id);
-  if (existing) return { ...DEFAULT_PROFILE, ...existing };
+  if (existing) return { ...DEFAULT_PROFILE, ...existing, rank_title: existing.rank_title || DEFAULT_PROFILE.rank_title };
 
   const meta = user.user_metadata || {};
-  const display = meta.display_name || meta.name || user.email?.split('@')[0] || 'Rich Bizness Elite';
-  const username = slugName(meta.username || display);
+  const display = meta.display_name || meta.name || 'ThatboyTayThou';
+  const username = slugName(meta.username || display || 'thatboytaythou');
   const row = {
     id: user.id,
     username,
     display_name: display,
     avatar_url: meta.avatar_url || '',
-    banner_url: '',
+    banner_url: DEFAULT_PROFILE.banner_url,
     bio: DEFAULT_PROFILE.bio,
     rich_level: 1,
     rich_points: 0,
-    rank_title: 'Rookie Builder',
+    rank_title: 'BIZ LEGEND',
     balance_cents: 0,
     online_status: 'online',
   };
@@ -73,24 +73,29 @@ export async function ensureMetaAvatar(user, profile, config = {}) {
     avatar_url: profile?.avatar_url || '',
     model_url: config.model_url || '',
     aura: config.aura || 'Emerald Gold',
-    rank: profile?.rank_title || config.rank || 'Rookie Builder',
+    rank: profile?.rank_title || config.rank || 'BIZ LEGEND',
     level,
     xp,
-    position: config.position || { world: 'creator', x: 0, y: 0, z: 0 },
+    position: config.position || { world: 'portal-hub', x: 0, y: 0, z: 0 },
     is_active: true,
     metadata: {
       gender: config.gender || 'boy',
       skin: config.skin || 'brown',
       hair: config.hair || 'shortFade',
       hairColor: config.hairColor || 'black',
-      outfit: config.outfit || 'Rich Default',
-      shoes: config.shoes || 'Glow Sneakers',
+      outfit: config.outfit || 'Black Gold Boss',
+      shoes: config.shoes || 'Gold Runners',
       motion: config.motion || 'Boss Idle',
       smoke: config.smoke || 'cinematic',
       chain: config.chain || 'RB Crown Chain',
-      glasses: config.glasses || 'None',
+      glasses: config.glasses || 'Black Shades',
+      accessory: config.accessory || 'Teddy Bear',
+      hoodieLogo: config.hoodieLogo || 'RICH BIZNESS LLC',
       aura: config.aura || 'Emerald Gold',
       creatorMode: true,
+      theme: 'smoke-cloud',
+      visualQuality: '4k-hd',
+      personality: 'ThatboyTayThou Rich Bizness green-gold smoke-cloud hero',
       updatedAt: new Date().toISOString(),
     },
   };
