@@ -1,10 +1,9 @@
 import { supabase } from './supabase-client.js';
-import { ensureProfile, signOutAndGoHome, slugName } from './rb-identity.js';
+import { ensureProfile, slugName } from './rb-identity.js';
 import { loadCurrentXp, awardXp } from './rb-xp.js';
 
 const form = document.getElementById('authForm');
 const createBtn = document.getElementById('createBtn');
-const outBtn = document.getElementById('outBtn');
 const status = document.getElementById('status');
 const email = document.getElementById('email');
 const password = document.getElementById('password');
@@ -13,12 +12,21 @@ const say = (text) => { if (status) status.textContent = text; };
 const lock = (yes) => { document.body.classList.toggle('auth-working', !!yes); form?.querySelectorAll('button,input').forEach((el) => { el.disabled = !!yes; }); if (createBtn) createBtn.disabled = !!yes; };
 const fail = (error, fallback = 'Auth blocked. Check profile policies.') => { console.warn(error); lock(false); say(error?.message || fallback); document.body.classList.remove('auth-checking'); };
 
+function nextRoute(profile) {
+  const state = profile?.onboarding_state || (profile?.has_avatar || profile?.avatar_url ? 'complete' : 'needs_avatar');
+  if (state === 'needs_avatar' || state === 'new') return '/avatar.html';
+  if (state === 'needs_profile') return '/profile.html';
+  return profile?.last_route && profile.last_route !== '/auth.html' ? profile.last_route : '/';
+}
+
 async function next(user) {
   if (!user) return;
   say('Syncing profile...');
   const profile = await ensureProfile(user);
   try { await loadCurrentXp(); } catch (_) {}
-  location.replace(profile?.avatar_url ? '/profile.html' : '/avatar.html');
+  const route = nextRoute(profile);
+  await supabase.from('profiles').update({ last_route: route }).eq('id', user.id).catch?.(() => {});
+  location.replace(route);
 }
 
 async function completeAuthReturn() {
@@ -60,13 +68,13 @@ createBtn?.addEventListener('click', async () => {
     const { data, error } = await supabase.auth.signUp({ email: mail, password: pass, options: { emailRedirectTo: redirectTo, data: { display_name: name, username: slugName(name) } } });
     if (error) throw error;
     if (!data.user || !data.session) { lock(false); return say('Check email, then confirm to enter Avatar.'); }
-    await ensureProfile(data.user);
+    const profile = await ensureProfile(data.user);
+    await supabase.from('profiles').update({ onboarding_state: 'needs_avatar', has_profile_identity: true, last_route: '/avatar.html' }).eq('id', data.user.id);
     try { await awardXp('daily_tap_in', { section: 'auth' }); } catch (_) {}
-    location.replace('/avatar.html');
+    location.replace(nextRoute({ ...profile, onboarding_state: 'needs_avatar', last_route: '/avatar.html' }));
   } catch (error) { fail(error); }
 });
 
-outBtn?.addEventListener('click', signOutAndGoHome);
 loadCurrentXp().catch(() => {});
 
 (async () => {
