@@ -15,7 +15,7 @@ import './rb-personal-build.js';
     return;
   }
 
-  const VERSION = 'personal-build-1';
+  const VERSION = 'index-stack-fix-1';
 
   const addCss = (href, id) => {
     if (id && document.getElementById(id)) return;
@@ -32,6 +32,7 @@ import './rb-personal-build.js';
   addCss(`/src/xp-gauge.css?v=${VERSION}`, 'rbXpGauge');
   addCss(`/src/index-iphone-fix.css?v=${VERSION}`, 'rbIndexIphoneFix');
   addCss(`/src/index-real.css?v=${VERSION}`, 'rbIndexReal');
+  addCss(`/src/index-stack-fix.css?v=${VERSION}`, 'rbIndexStackFix');
 
   if (!document.querySelector('script[data-rb-cinema]')) {
     const script = document.createElement('script');
