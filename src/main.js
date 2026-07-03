@@ -12,7 +12,7 @@ import { routeFor } from './rb-schema-map.js';
     return;
   }
 
-  const VERSION = 'portal-phone-1';
+  const VERSION = 'portal-phone-2';
   const addCss = (href, id) => {
     if (id && document.getElementById(id)) return;
     const link = document.createElement('link');
@@ -21,17 +21,19 @@ import { routeFor } from './rb-schema-map.js';
     link.href = href;
     document.head.appendChild(link);
   };
+  const addModule = (src, key) => {
+    if (document.querySelector(`script[data-rb-${key}]`)) return;
+    const s = document.createElement('script');
+    s.type = 'module';
+    s.src = src;
+    s.dataset[`rb${key[0].toUpperCase()}${key.slice(1)}`] = 'true';
+    document.head.appendChild(s);
+  };
 
   addCss(`/src/index-clean.css?v=${VERSION}`, 'rbIndexClean');
-  addCss(`/src/portal-phone.css?v=${VERSION}`, 'rbPortalPhoneCss');
-
-  if (!document.querySelector('script[data-rb-realtime]')) {
-    const live = document.createElement('script');
-    live.type = 'module';
-    live.src = `/src/realtime-data.js?v=${VERSION}`;
-    live.dataset.rbRealtime = 'true';
-    document.head.appendChild(live);
-  }
+  addCss(`/src/index-portal.css?v=${VERSION}`, 'rbPortalPhoneCss');
+  addModule(`/src/realtime-data.js?v=${VERSION}`, 'realtime');
+  addModule(`/src/index-portal.js?v=${VERSION}`, 'portal');
 
   const toast = document.getElementById('toast');
   const show = (text) => {
