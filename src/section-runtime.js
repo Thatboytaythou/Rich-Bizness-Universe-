@@ -2,6 +2,7 @@ import { supabase } from './supabase-client.js';
 import { sectionFor } from './rb-schema-map.js';
 import './rb-xp-boot.js';
 import './rb-personality.js';
+import './rb-personal-build.js';
 
 const $ = (s) => document.querySelector(s);
 const $$ = (s) => [...document.querySelectorAll(s)];
