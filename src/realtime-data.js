@@ -6,51 +6,16 @@ const $$ = (selector) => [...document.querySelectorAll(selector)];
 const fmt = (n) => Number(n || 0).toLocaleString();
 const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
 
-const state = {
-  user: null,
-  profile: null,
-  avatar: null,
-  counts: {},
-  refreshing: false,
-  refreshQueued: false,
-};
+const state = { user: null, profile: null, avatar: null, counts: {}, refreshing: false, refreshQueued: false };
 
 function statusCells() {
   const cells = $$('.status span');
   return { live: cells[0]?.querySelector('b'), online: cells[1]?.querySelector('b') };
 }
-
-function activityRows() {
-  const rows = $$('.activity p strong');
-  return { live: rows[0], online: rows[1] };
-}
-
-function profileCard() {
-  return {
-    card: document.querySelector('.profile'),
-    title: document.querySelector('.profile b'),
-    small: document.querySelector('.profile small'),
-    label: document.querySelector('.profile span'),
-    badge: document.querySelector('.profile i'),
-  };
-}
-
-function setText(selector, value) {
-  $$(selector).forEach((el) => { el.textContent = value; });
-}
-
-function initials(name = 'RB') {
-  return String(name)
-    .split(/\s+/)
-    .map((part) => part[0])
-    .filter(Boolean)
-    .slice(0, 2)
-    .join('')
-    .toUpperCase() || 'RB';
-}
-
+function setText(selector, value) { $$(selector).forEach((el) => { el.textContent = value; }); }
+function initials(name = 'RB') { return String(name).split(/\s+/).map((part) => part[0]).filter(Boolean).slice(0, 2).join('').toUpperCase() || 'RB'; }
 function setAvatarChip(url, label) {
-  const chips = [document.querySelector('.status i'), profileCard().badge].filter(Boolean);
+  const chips = [document.querySelector('.status i'), document.querySelector('[data-route="profile"]')].filter(Boolean);
   chips.forEach((chip) => {
     chip.textContent = url ? '' : initials(label);
     chip.style.backgroundImage = url ? `url("${url}")` : '';
@@ -58,47 +23,26 @@ function setAvatarChip(url, label) {
     chip.style.backgroundPosition = 'center';
   });
 }
-
-function setSignedOutShell() {
-  const profile = profileCard();
-  if (profile.label) profile.label.textContent = 'UNIVERSE ACCESS';
-  if (profile.title) profile.title.textContent = 'TAP IN';
-  if (profile.small) profile.small.textContent = 'CREATE OR SIGN IN';
-  setAvatarChip('', 'RB');
-  updateXpGauge({ rich_points: 0, rich_level: 1 });
-  if (profile.card) {
-    profile.card.style.cursor = 'pointer';
-    profile.card.onclick = () => { location.href = '/auth.html'; };
-  }
-}
-
 function clearShellPlaceholders() {
   const status = statusCells();
-  const rows = activityRows();
-  [status.live, status.online, rows.live, rows.online].forEach((el) => {
-    if (el) el.textContent = 'SYNC';
-  });
-  setSignedOutShell();
+  [status.live, status.online].forEach((el) => { if (el) el.textContent = '0'; });
+  setText('[data-live-count]', '0');
+  setText('[data-online-count]', '0');
+  updateXpGauge({ rich_points: 0, rich_level: 1, rank_title: 'BIZ LEGEND' });
+  setAvatarChip('', 'RB');
 }
-
 function setLiveCount(value) {
   const text = fmt(value);
   const status = statusCells();
-  const rows = activityRows();
   if (status.live) status.live.textContent = text;
-  if (rows.live) rows.live.textContent = text;
   setText('[data-live-count]', text);
 }
-
 function setOnlineCount(value) {
   const text = fmt(value);
   const status = statusCells();
-  const rows = activityRows();
   if (status.online) status.online.textContent = text;
-  if (rows.online) rows.online.textContent = text;
   setText('[data-online-count]', text);
 }
-
 function updateXpGauge(profile = {}) {
   const points = Number(profile.rich_points ?? profile.xp ?? state.avatar?.xp ?? 0);
   const level = Number(profile.rich_level ?? state.avatar?.level ?? 1) || 1;
@@ -107,85 +51,47 @@ function updateXpGauge(profile = {}) {
   setText('[data-xp-level]', `LEVEL ${level}`);
   setText('[data-xp-current]', `${fmt(points)} XP`);
   setText('[data-xp-next]', `${fmt(next)} XP NEXT`);
+  setText('[data-xp-rank]', profile.rank_title || profile.rank || 'BIZ LEGEND');
   $$('[data-xp-fill], .xp-track em').forEach((el) => { el.style.width = `${percent}%`; });
 }
-
 async function countTable(table) {
   try {
     const { count, error } = await supabase.from(table).select('*', { count: 'exact', head: true });
-    if (!error && typeof count === 'number') {
-      state.counts[table] = count;
-      return count;
-    }
-  } catch (error) {
-    console.warn('[RB realtime] count failed:', table, error);
-  }
+    if (!error && typeof count === 'number') { state.counts[table] = count; return count; }
+  } catch (error) { console.warn('[RB realtime] count failed:', table, error); }
   return state.counts[table] || 0;
 }
-
 async function loadSectionCounts() {
   await Promise.all(RB_SECTIONS.map(async (section) => {
     const count = await countTable(section.primaryTable || section.tables[0]);
     const text = fmt(count);
     $$(`[data-route="${section.key}"], [data-section="${section.key}"]`).forEach((card) => {
-      card.dataset.syncCount = text;
-      card.dataset.syncLabel = section.stat || section.title;
-      card.classList.add('is-synced');
+      card.dataset.recordCount = text;
+      card.dataset.recordLabel = section.stat || section.title;
+      card.classList.add('is-live-data');
+      card.classList.remove('is-synced');
     });
   }));
 }
-
 async function loadSessionProfile() {
   try {
     const { data: auth } = await supabase.auth.getUser();
     const user = auth?.user;
     state.user = user || null;
-
-    if (!user) {
-      state.profile = null;
-      state.avatar = null;
-      setSignedOutShell();
-      return;
-    }
-
+    if (!user) { state.profile = null; state.avatar = null; updateXpGauge({ rich_points: 0, rich_level: 1, rank_title: 'BIZ LEGEND' }); setAvatarChip('', 'RB'); return; }
     const [{ data: profileData }, { data: avatarData }] = await Promise.all([
-      supabase
-        .from('profiles')
-        .select('display_name,username,avatar_url,rich_level,rank_title,rich_points,balance_cents,online_status')
-        .eq('id', user.id)
-        .maybeSingle(),
-      supabase
-        .from('meta_avatars')
-        .select('display_name,avatar_url,aura,rank,level,xp,metadata')
-        .eq('user_id', user.id)
-        .maybeSingle(),
+      supabase.from('profiles').select('display_name,username,avatar_url,rich_level,rank_title,rich_points,balance_cents,online_status').eq('id', user.id).maybeSingle(),
+      supabase.from('meta_avatars').select('display_name,avatar_url,aura,rank,level,xp,metadata').eq('user_id', user.id).maybeSingle(),
     ]);
-
     state.profile = profileData || null;
     state.avatar = avatarData || null;
-
-    const profile = profileCard();
-    const name = profileData?.display_name || avatarData?.display_name || profileData?.username || user.email?.split('@')[0] || 'Rich Bizness Elite';
-    if (profile.label) profile.label.textContent = 'WELCOME BACK';
-    if (profile.title) profile.title.textContent = name.toUpperCase();
-    if (profile.small) profile.small.textContent = `LEVEL ${profileData?.rich_level || avatarData?.level || 1}`;
-    if (profile.card) {
-      profile.card.style.cursor = 'pointer';
-      profile.card.onclick = () => { location.href = '/profile.html'; };
-    }
+    const name = profileData?.display_name || avatarData?.display_name || profileData?.username || user.email?.split('@')[0] || 'Rich Bizness';
     setAvatarChip(profileData?.avatar_url || avatarData?.avatar_url, name);
     updateXpGauge(profileData || avatarData || {});
-  } catch (error) {
-    console.warn('[RB realtime] profile failed:', error);
-    setSignedOutShell();
-  }
+  } catch (error) { console.warn('[RB realtime] profile failed:', error); updateXpGauge({ rich_points: 0, rich_level: 1, rank_title: 'BIZ LEGEND' }); }
 }
-
 async function refreshUniverse() {
-  if (state.refreshing) {
-    state.refreshQueued = true;
-    return;
-  }
+  if (state.refreshing) { state.refreshQueued = true; return; }
   state.refreshing = true;
   try {
     await Promise.all([
@@ -196,21 +102,14 @@ async function refreshUniverse() {
     ]);
   } finally {
     state.refreshing = false;
-    if (state.refreshQueued) {
-      state.refreshQueued = false;
-      window.setTimeout(refreshUniverse, 180);
-    }
+    if (state.refreshQueued) { state.refreshQueued = false; window.setTimeout(refreshUniverse, 180); }
   }
 }
-
 function subscribeRealtime() {
   const channel = supabase.channel('rich-bizness-universe-all-sections');
-  RB_ALL_TABLES.forEach((table) => {
-    channel.on('postgres_changes', { event: '*', schema: 'public', table }, refreshUniverse);
-  });
+  RB_ALL_TABLES.forEach((table) => { channel.on('postgres_changes', { event: '*', schema: 'public', table }, refreshUniverse); });
   channel.subscribe((status) => console.info('[RB realtime]', status));
 }
-
 supabase.auth.onAuthStateChange(() => refreshUniverse());
 clearShellPlaceholders();
 refreshUniverse();
