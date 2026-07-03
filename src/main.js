@@ -3,7 +3,6 @@ import { routeFor } from './rb-schema-map.js';
 (() => {
   if (window.__rbIndexBooted) return;
   window.__rbIndexBooted = true;
-
   const CANONICAL_HOST = 'rich-bizness.com';
   const APPROVED_HOSTS = ['rich-bizness.com', 'www.rich-bizness.com', 'rich-bizness-mobile-app.vercel.app'];
   const host = window.location.hostname;
@@ -11,8 +10,7 @@ import { routeFor } from './rb-schema-map.js';
     window.location.replace(`https://${CANONICAL_HOST}${window.location.pathname}${window.location.search}${window.location.hash}`);
     return;
   }
-
-  const VERSION = 'portal-phone-2';
+  const VERSION = 'portal-flat-2';
   const addCss = (href, id) => {
     if (id && document.getElementById(id)) return;
     const link = document.createElement('link');
@@ -29,12 +27,9 @@ import { routeFor } from './rb-schema-map.js';
     s.dataset[`rb${key[0].toUpperCase()}${key.slice(1)}`] = 'true';
     document.head.appendChild(s);
   };
-
   addCss(`/src/index-clean.css?v=${VERSION}`, 'rbIndexClean');
   addCss(`/src/index-portal.css?v=${VERSION}`, 'rbPortalPhoneCss');
   addModule(`/src/realtime-data.js?v=${VERSION}`, 'realtime');
-  addModule(`/src/index-portal.js?v=${VERSION}`, 'portal');
-
   const toast = document.getElementById('toast');
   const show = (text) => {
     if (!toast) return;
@@ -43,7 +38,6 @@ import { routeFor } from './rb-schema-map.js';
     clearTimeout(window.__rbToastTimer);
     window.__rbToastTimer = setTimeout(() => toast.classList.remove('show'), 900);
   };
-
   document.querySelectorAll('[data-route]').forEach((button) => {
     if (button.dataset.bound === 'true') return;
     button.dataset.bound = 'true';
