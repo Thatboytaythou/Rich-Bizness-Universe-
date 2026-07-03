@@ -1,0 +1,26 @@
+{
+  "redirects": [
+    {
+      "source": "/(.*)",
+      "has": [
+        {
+          "type": "host",
+          "value": "rich-bizness-mobile-app.vercel.app"
+        }
+      ],
+      "destination": "https://rich-bizness.com/$1",
+      "permanent": true
+    },
+    {
+      "source": "/(.*)",
+      "has": [
+        {
+          "type": "host",
+          "value": "rich-bizness-mobile.vercel.app"
+        }
+      ],
+      "destination": "https://rich-bizness.com/$1",
+      "permanent": true
+    }
+  ]
+}
