@@ -1,7 +1,9 @@
 import { supabase } from './supabase-client.js';
 
 const fmt = (n) => Number(n || 0).toLocaleString();
+const money = (cents = 0) => `$${(Number(cents || 0) / 100).toFixed(2)}`;
 const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
+const XP_TO_CENTS = 1;
 
 export function xpMath(profile = {}, levelRow = {}, avatar = {}) {
   const total = Number(levelRow.xp_total ?? profile.rich_points ?? avatar.xp ?? 0);
@@ -9,16 +11,9 @@ export function xpMath(profile = {}, levelRow = {}, avatar = {}) {
   const current = Number(levelRow.xp_current ?? (total % 1000));
   const next = Number(levelRow.xp_next ?? level * 1000) || 1000;
   const progress = clamp(current / 1000, 0, 1) * 100;
-  return {
-    total,
-    level,
-    current,
-    next,
-    progress,
-    rank: levelRow.rank_title || profile.rank_title || avatar.rank || 'Rookie Builder',
-    points: Number(levelRow.rich_points ?? profile.rich_points ?? total),
-    coins: Number(levelRow.coins ?? 0),
-  };
+  const richPoints = Number(levelRow.rich_points ?? profile.rich_points ?? total);
+  const balanceCents = Number(profile.balance_cents ?? levelRow.balance_cents ?? Math.floor(richPoints * XP_TO_CENTS));
+  return { total, level, current, next, progress, rank: levelRow.rank_title || profile.rank_title || avatar.rank || 'BIZ LEGEND', points: richPoints, coins: Number(levelRow.coins ?? 0), balanceCents, money: money(balanceCents), xpToCents: XP_TO_CENTS };
 }
 
 export function renderXp(xp = {}) {
@@ -29,9 +24,11 @@ export function renderXp(xp = {}) {
   document.querySelectorAll('[data-xp-current]').forEach((el) => { el.textContent = `${fmt(data.current)} / 1,000`; });
   document.querySelectorAll('[data-rich-points]').forEach((el) => { el.textContent = fmt(data.points); });
   document.querySelectorAll('[data-rich-coins]').forEach((el) => { el.textContent = fmt(data.coins); });
+  document.querySelectorAll('[data-rich-money],[data-balance-cents],[data-wallet-money]').forEach((el) => { el.textContent = data.money; });
   document.querySelectorAll('[data-xp-fill], .xp-track em, .xp i, #xpFill').forEach((el) => { el.style.width = `${data.progress}%`; });
   document.body.dataset.richLevel = String(data.level);
   document.body.dataset.richRank = data.rank;
+  document.body.dataset.richMoney = data.money;
   return data;
 }
 
@@ -53,17 +50,8 @@ export async function loadCurrentXp() {
 export async function awardXp(eventKey = 'section_visit', opts = {}) {
   const { data } = await supabase.auth.getUser();
   if (!data?.user) return { ok: false, reason: 'not_signed_in' };
-  const { data: award, error } = await supabase.rpc('rb_award_xp', {
-    p_event_key: eventKey,
-    p_section: opts.section || document.body?.dataset?.section || 'global',
-    p_source_table: opts.sourceTable || null,
-    p_source_id: opts.sourceId || null,
-    p_amount: opts.amount || null,
-  });
-  if (error) {
-    console.warn('[RB XP] award failed', error.message);
-    return { ok: false, reason: error.message };
-  }
+  const { data: award, error } = await supabase.rpc('rb_award_xp', { p_event_key: eventKey, p_section: opts.section || document.body?.dataset?.section || 'global', p_source_table: opts.sourceTable || null, p_source_id: opts.sourceId || null, p_amount: opts.amount || null });
+  if (error) { console.warn('[RB XP] award failed', error.message); return { ok: false, reason: error.message }; }
   await loadXp(data.user.id);
   if (award?.ok) showXpToast(award);
   return award;
@@ -71,13 +59,9 @@ export async function awardXp(eventKey = 'section_visit', opts = {}) {
 
 export function showXpToast(award) {
   let toast = document.getElementById('xpToast');
-  if (!toast) {
-    toast = document.createElement('div');
-    toast.id = 'xpToast';
-    toast.style.cssText = 'position:fixed;left:50%;bottom:96px;transform:translateX(-50%) translateY(18px);z-index:9999;padding:12px 16px;border:1px solid rgba(99,255,93,.45);border-radius:999px;background:rgba(0,0,0,.82);color:white;font:900 12px system-ui;letter-spacing:.12em;box-shadow:0 0 26px rgba(99,255,93,.22);opacity:0;transition:.25s ease;pointer-events:none';
-    document.body.appendChild(toast);
-  }
-  toast.textContent = `+${fmt(award.xp || 0)} XP • LEVEL ${award.level || 1}`;
+  if (!toast) { toast = document.createElement('div'); toast.id = 'xpToast'; toast.style.cssText = 'position:fixed;left:50%;bottom:96px;transform:translateX(-50%) translateY(18px);z-index:9999;padding:12px 16px;border:1px solid rgba(99,255,93,.45);border-radius:999px;background:rgba(0,0,0,.82);color:white;font:900 12px system-ui;letter-spacing:.12em;box-shadow:0 0 26px rgba(99,255,93,.22);opacity:0;transition:.25s ease;pointer-events:none'; document.body.appendChild(toast); }
+  const gained = Number(award.xp || 0);
+  toast.textContent = `+${fmt(gained)} XP • +${money(gained * XP_TO_CENTS)} • LEVEL ${award.level || 1}`;
   requestAnimationFrame(() => { toast.style.opacity = '1'; toast.style.transform = 'translateX(-50%) translateY(0)'; });
   clearTimeout(window.__rbXpToastTimer);
   window.__rbXpToastTimer = setTimeout(() => { toast.style.opacity = '0'; toast.style.transform = 'translateX(-50%) translateY(18px)'; }, 1400);
@@ -87,7 +71,7 @@ export function installXpBadge(root = document) {
   if (document.getElementById('globalXpBadge')) return;
   const badge = document.createElement('aside');
   badge.id = 'globalXpBadge';
-  badge.innerHTML = '<b data-xp-level>LEVEL 1</b><span data-xp-rank>Rookie Builder</span><div class="xp-track"><em data-xp-fill></em></div><small><i data-xp-total>0 XP</i> • <i data-rich-points>0</i> RP</small>';
+  badge.innerHTML = '<b data-xp-level>LEVEL 1</b><span data-xp-rank>BIZ LEGEND</span><div class="xp-track"><em data-xp-fill></em></div><small><i data-xp-total>0 XP</i> • <i data-rich-money>$0.00</i></small>';
   badge.style.cssText = 'position:fixed;right:12px;top:calc(12px + env(safe-area-inset-top));z-index:60;width:154px;padding:10px;border:1px solid rgba(247,201,72,.32);border-radius:18px;background:rgba(0,0,0,.62);backdrop-filter:blur(14px);box-shadow:0 0 28px rgba(99,255,93,.16);font-family:system-ui;color:#fff';
   badge.querySelector('b').style.cssText = 'display:block;color:#63ff5d;font-size:12px;letter-spacing:.12em';
   badge.querySelector('span').style.cssText = 'display:block;font-size:10px;font-weight:900;opacity:.8;margin-top:2px';
