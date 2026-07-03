@@ -1,6 +1,7 @@
 import { routeFor } from './rb-schema-map.js';
 import './rb-xp-boot.js';
 import './rb-personality.js';
+import './rb-personal-build.js';
 
 (() => {
   if (window.__rbIndexBooted) return;
@@ -14,7 +15,7 @@ import './rb-personality.js';
     return;
   }
 
-  const VERSION = 'rich-personality-1';
+  const VERSION = 'personal-build-1';
 
   const addCss = (href, id) => {
     if (id && document.getElementById(id)) return;
