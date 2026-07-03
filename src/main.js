@@ -8,19 +8,14 @@ import './rb-personal-build.js';
   window.__rbIndexBooted = true;
 
   const CANONICAL_HOST = 'rich-bizness.com';
-  const APPROVED_HOSTS = [
-    'rich-bizness.com',
-    'www.rich-bizness.com',
-    'rich-bizness-mobile-app.vercel.app'
-  ];
+  const APPROVED_HOSTS = ['rich-bizness.com', 'www.rich-bizness.com', 'rich-bizness-mobile-app.vercel.app'];
   const host = window.location.hostname;
   if (host.endsWith('.vercel.app') && !APPROVED_HOSTS.includes(host)) {
     window.location.replace(`https://${CANONICAL_HOST}${window.location.pathname}${window.location.search}${window.location.hash}`);
     return;
   }
 
-  const VERSION = 'approved-domain-set-1';
-
+  const VERSION = 'clean-index-3';
   const addCss = (href, id) => {
     if (id && document.getElementById(id)) return;
     const link = document.createElement('link');
@@ -30,20 +25,8 @@ import './rb-personal-build.js';
     document.head.appendChild(link);
   };
 
-  addCss(`/src/cinema-base.css?v=${VERSION}`, 'rbCinemaBase');
-  addCss(`/src/cinema-motion.css?v=${VERSION}`, 'rbCinemaMotion');
-  addCss(`/src/scroll-safe.css?v=${VERSION}`, 'rbMobilePortrait');
-  addCss(`/src/xp-gauge.css?v=${VERSION}`, 'rbXpGauge');
-  addCss(`/src/index-iphone-fix.css?v=${VERSION}`, 'rbIndexIphoneFix');
-  addCss(`/src/index-real.css?v=${VERSION}`, 'rbIndexReal');
-  addCss(`/src/index-stack-fix.css?v=${VERSION}`, 'rbIndexStackFix');
-
-  if (!document.querySelector('script[data-rb-cinema]')) {
-    const script = document.createElement('script');
-    script.src = `/src/cinematic.js?v=${VERSION}`;
-    script.defer = true;
-    script.dataset.rbCinema = 'true';
-    document.head.appendChild(script);
+  if (document.body?.dataset?.section === 'index' || document.querySelector('.rb-universe')) {
+    addCss(`/src/index-clean.css?v=${VERSION}`, 'rbIndexClean');
   }
 
   if (!document.querySelector('script[data-rb-realtime]')) {
