@@ -1,5 +1,5 @@
 import { supabase } from './supabase-client.js';
-import { ensureProfile, getSessionUser, signOutAndGoHome } from './rb-identity.js';
+import { ensureProfile, getSessionUser } from './rb-identity.js';
 import { bootXp, loadXp } from './rb-xp.js';
 
 const displayName = document.getElementById('displayName');
@@ -11,29 +11,34 @@ const level = document.getElementById('level');
 const xp = document.getElementById('xp');
 const cash = document.getElementById('cash');
 const xpFill = document.getElementById('xpFill');
-const outBtn = document.getElementById('outBtn');
 const editAvatar = document.getElementById('editAvatar');
+const profileStatus = document.getElementById('profileStatus');
 
 const fmt = (n) => Number(n || 0).toLocaleString();
 const money = (cents) => '$' + (Number(cents || 0) / 100).toFixed(2);
+const say = (text) => { if (profileStatus) profileStatus.textContent = text; };
 
 async function getMeta(userId) {
-  const { data } = await supabase.from('meta_avatars').select('aura,level,xp,metadata').eq('user_id', userId).maybeSingle();
+  const { data, error } = await supabase.from('meta_avatars').select('aura,level,xp,metadata').eq('user_id', userId).maybeSingle();
+  if (error) throw error;
   return data || null;
 }
+
+function safeSet(el, text) { if (el) el.textContent = text; }
 
 function render(profile, meta) {
   const cfg = meta?.metadata || {};
   const lvl = Number(profile.rich_level || meta?.level || 1);
   const points = Number(profile.rich_points || meta?.xp || 0);
-  displayName.textContent = (profile.display_name || 'Rich Bizness Elite').toUpperCase();
-  username.textContent = '@' + (profile.username || 'rich_user');
-  bio.textContent = profile.bio || 'Building in the Rich Bizness Universe.';
-  rank.textContent = profile.rank_title || 'Rookie Builder';
-  level.textContent = lvl;
-  xp.textContent = fmt(points);
-  cash.textContent = money(profile.balance_cents);
-  xpFill.style.width = Math.max(0, Math.min(100, ((points - ((lvl - 1) * 1000)) / 1000) * 100)) + '%';
+  safeSet(displayName, (profile.display_name || 'Rich Bizness Elite').toUpperCase());
+  safeSet(username, '@' + (profile.username || 'rich_user'));
+  safeSet(bio, profile.bio || 'Building in the Rich Bizness Universe.');
+  safeSet(rank, profile.rank_title || 'BIZ LEGEND');
+  safeSet(level, lvl);
+  safeSet(xp, fmt(points));
+  safeSet(cash, money(profile.balance_cents));
+  if (xpFill) xpFill.style.width = Math.max(0, Math.min(100, ((points - ((lvl - 1) * 1000)) / 1000) * 100)) + '%';
+  if (!avatarFace) return;
   avatarFace.classList.add('live-avatar');
   avatarFace.dataset.aura = meta?.aura || cfg.aura || 'Emerald Gold';
   avatarFace.dataset.motion = cfg.motion || 'Boss Idle';
@@ -51,24 +56,26 @@ async function paint(user) {
   const profile = await ensureProfile(user);
   const meta = await getMeta(user.id);
   render(profile, meta);
-  await loadXp(user.id);
+  try { await loadXp(user.id); } catch (_) {}
+  say('Profile connected.');
 }
 
 async function boot() {
-  const user = await getSessionUser();
-  if (!user) {
-    location.href = '/auth.html';
-    return;
+  try {
+    const user = await getSessionUser();
+    if (!user) { location.href = '/auth.html'; return; }
+    try { await bootXp(); } catch (_) {}
+    await paint(user);
+    supabase.channel('profile-identity-' + user.id)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles', filter: 'id=eq.' + user.id }, () => paint(user))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'meta_avatars', filter: 'user_id=eq.' + user.id }, () => paint(user))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'user_levels', filter: 'user_id=eq.' + user.id }, () => paint(user))
+      .subscribe();
+  } catch (error) {
+    console.warn(error);
+    say(error.message || String(error));
   }
-  await bootXp();
-  await paint(user);
-  supabase.channel('profile-identity-' + user.id)
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles', filter: 'id=eq.' + user.id }, () => paint(user))
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'meta_avatars', filter: 'user_id=eq.' + user.id }, () => paint(user))
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'user_levels', filter: 'user_id=eq.' + user.id }, () => paint(user))
-    .subscribe();
 }
 
-outBtn.addEventListener('click', signOutAndGoHome);
-editAvatar.addEventListener('click', () => { location.href = '/avatar.html'; });
+editAvatar?.addEventListener('click', () => { location.href = '/avatar.html'; });
 boot();
