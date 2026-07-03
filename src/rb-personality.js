@@ -73,19 +73,19 @@ function ensureMotionLayer() {
   const layer = document.createElement('div');
   layer.id = 'rbMotionLayer';
   layer.setAttribute('aria-hidden', 'true');
-  layer.innerHTML = '<i></i><i></i><i></i><b>RB</b>';
+  layer.innerHTML = '<i></i><i></i><i></i>';
   document.body.appendChild(layer);
 }
 
 function ensureAvatarPresence() {
   const key = pageKey();
-  if (!['index', 'auth', 'profile', 'avatar', 'edit', 'settings'].includes(key)) return;
+  if (!['auth', 'profile', 'avatar', 'edit', 'settings'].includes(key)) return;
   if (document.getElementById('rbCharacter')) return;
   const char = document.createElement('section');
   char.id = 'rbCharacter';
   char.innerHTML = '<div class="rb-char-aura"></div><div class="rb-char-head"><span>RB</span></div><div class="rb-char-body"><b></b></div><div class="rb-char-shadow"></div><small>ThatboyTayThou • Boss Walk</small>';
   const target = document.querySelector('.hero') || document.querySelector('main') || document.body;
-  target.insertAdjacentElement(key === 'index' ? 'afterend' : 'beforeend', char);
+  target.insertAdjacentElement('beforeend', char);
 }
 
 export function applyPersonality(p = cache) {
