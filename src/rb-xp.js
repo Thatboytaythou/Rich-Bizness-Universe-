@@ -59,7 +59,12 @@ export async function awardXp(eventKey = 'section_visit', opts = {}) {
 
 export function showXpToast(award) {
   let toast = document.getElementById('xpToast');
-  if (!toast) { toast = document.createElement('div'); toast.id = 'xpToast'; toast.style.cssText = 'position:fixed;left:50%;bottom:96px;transform:translateX(-50%) translateY(18px);z-index:9999;padding:12px 16px;border:1px solid rgba(99,255,93,.45);border-radius:999px;background:rgba(0,0,0,.82);color:white;font:900 12px system-ui;letter-spacing:.12em;box-shadow:0 0 26px rgba(99,255,93,.22);opacity:0;transition:.25s ease;pointer-events:none'; document.body.appendChild(toast); }
+  if (!toast) {
+    toast = document.createElement('div');
+    toast.id = 'xpToast';
+    toast.style.cssText = 'position:fixed;left:50%;bottom:96px;transform:translateX(-50%) translateY(18px);z-index:9999;padding:12px 16px;border:1px solid rgba(99,255,93,.45);border-radius:999px;background:rgba(0,0,0,.82);color:white;font:900 12px system-ui;letter-spacing:.12em;box-shadow:0 0 26px rgba(99,255,93,.22);opacity:0;transition:.25s ease;pointer-events:none';
+    document.body.appendChild(toast);
+  }
   const gained = Number(award.xp || 0);
   toast.textContent = `+${fmt(gained)} XP • +${money(gained * XP_TO_CENTS)} • LEVEL ${award.level || 1}`;
   requestAnimationFrame(() => { toast.style.opacity = '1'; toast.style.transform = 'translateX(-50%) translateY(0)'; });
@@ -67,19 +72,8 @@ export function showXpToast(award) {
   window.__rbXpToastTimer = setTimeout(() => { toast.style.opacity = '0'; toast.style.transform = 'translateX(-50%) translateY(18px)'; }, 1400);
 }
 
-export function installXpBadge(root = document) {
-  if (document.getElementById('globalXpBadge')) return;
-  const badge = document.createElement('aside');
-  badge.id = 'globalXpBadge';
-  badge.innerHTML = '<b data-xp-level>LEVEL 1</b><span data-xp-rank>BIZ LEGEND</span><div class="xp-track"><em data-xp-fill></em></div><small><i data-xp-total>0 XP</i> • <i data-rich-money>$0.00</i></small>';
-  badge.style.cssText = 'position:fixed;right:12px;top:calc(12px + env(safe-area-inset-top));z-index:60;width:154px;padding:10px;border:1px solid rgba(247,201,72,.32);border-radius:18px;background:rgba(0,0,0,.62);backdrop-filter:blur(14px);box-shadow:0 0 28px rgba(99,255,93,.16);font-family:system-ui;color:#fff';
-  badge.querySelector('b').style.cssText = 'display:block;color:#63ff5d;font-size:12px;letter-spacing:.12em';
-  badge.querySelector('span').style.cssText = 'display:block;font-size:10px;font-weight:900;opacity:.8;margin-top:2px';
-  badge.querySelector('small').style.cssText = 'display:block;font-size:9px;opacity:.78;margin-top:5px';
-  const track = badge.querySelector('.xp-track');
-  track.style.cssText = 'height:6px;border-radius:999px;background:rgba(255,255,255,.12);overflow:hidden;margin-top:7px';
-  track.querySelector('em').style.cssText = 'display:block;height:100%;width:0;background:linear-gradient(90deg,#63ff5d,#f7c948);border-radius:999px;transition:width .3s ease';
-  root.body.appendChild(badge);
+export function installXpBadge() {
+  document.getElementById('globalXpBadge')?.remove();
 }
 
 export async function bootXp(eventKey) {
