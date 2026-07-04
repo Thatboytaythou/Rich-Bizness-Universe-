@@ -1,5 +1,5 @@
 import { supabase } from './supabase-client.js';
-import { ensureMetaAvatar, ensureProfile, getSessionUser } from './rb-identity.js';
+import { ensureMetaAvatar, ensureProfile, getSessionUser } from './rb-identity.js?v=connected-identity-1';
 
 const form = document.getElementById('avatarForm');
 const status = document.getElementById('status');
