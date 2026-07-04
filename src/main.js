@@ -10,7 +10,7 @@ import { routeFor } from './rb-schema-map.js';
     window.location.replace(`https://${CANONICAL_HOST}${window.location.pathname}${window.location.search}${window.location.hash}`);
     return;
   }
-  const VERSION = 'hero-reset-2';
+  const VERSION = 'universe-core-3';
   const addCss = (href, id) => {
     let link = id ? document.getElementById(id) : null;
     if (!link) {
@@ -29,7 +29,11 @@ import { routeFor } from './rb-schema-map.js';
     s.dataset[`rb${key[0].toUpperCase()}${key.slice(1)}`] = 'true';
     document.head.appendChild(s);
   };
+  const removeBlockers = () => {
+    document.querySelectorAll('#globalXpBadge,.hero-art,.rb-overlay,.rb-blocker,.rb-personal-strip,.miniProfile,.composerPanel').forEach((el) => el.remove());
+  };
   const forceLayout = () => {
+    removeBlockers();
     const body = document.body;
     const universe = document.querySelector('.rb-universe');
     const stage = document.querySelector('.stage');
@@ -47,13 +51,12 @@ import { routeFor } from './rb-schema-map.js';
     const meta = document.querySelector('.district.meta');
     if (meta) meta.style.gridColumn = '1 / -1';
     document.querySelectorAll('.ring b').forEach((el) => { el.style.display = 'none'; });
-    document.querySelectorAll('.ring').forEach((el) => { if (!el.querySelector('.hero-art')) { const art = document.createElement('span'); art.className = 'hero-art'; art.style.cssText = "position:absolute;inset:-18%;background:url('/images/hero-banner.png') center/contain no-repeat;filter:drop-shadow(0 0 34px rgba(99,255,93,.7));"; el.appendChild(art); } });
     if (dock) { dock.style.position = 'fixed'; dock.style.zIndex = '90'; dock.style.left = '14px'; dock.style.right = '14px'; dock.style.bottom = '14px'; }
     document.querySelectorAll('.live b').forEach((el) => { el.textContent = 'WE LIT🔥'; });
   };
   addCss(`/src/index-hard-reset.css?v=${VERSION}`, 'rbHardReset');
-  addCss(`/src/index-portal.css?v=${VERSION}`, 'rbPortalPhoneCss');
   addModule(`/src/realtime-data.js?v=${VERSION}`, 'realtime');
+  addModule(`/src/section-runtime.js?v=${VERSION}`, 'sectionRuntime');
   requestAnimationFrame(forceLayout);
   setTimeout(forceLayout, 250);
   setTimeout(forceLayout, 900);
