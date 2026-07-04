@@ -17,15 +17,14 @@ export const DEFAULT_PROFILE = Object.freeze({
 });
 
 export function slugName(value) {
-  return String(value || 'thatboytaythou')
-    .toLowerCase()
-    .replace(/[^a-z0-9_]+/g, '_')
-    .replace(/^_+|_+$/g, '')
-    .slice(0, 28) || 'thatboytaythou';
+  return String(value || 'thatboytaythou').toLowerCase().replace(/[^a-z0-9_]+/g, '_').replace(/^_+|_+$/g, '').slice(0, 28) || 'thatboytaythou';
 }
 
 export async function getSessionUser() {
-  const { data } = await supabase.auth.getUser();
+  const { data: sessionData } = await supabase.auth.getSession();
+  if (!sessionData?.session) return null;
+  const { data, error } = await supabase.auth.getUser();
+  if (error) return null;
   return data?.user || null;
 }
 
@@ -40,10 +39,22 @@ export async function getProfile(userId) {
   return data || null;
 }
 
+export function profileRoute(profile) {
+  const state = profile?.onboarding_state || (profile?.has_avatar || profile?.avatar_url ? 'complete' : 'needs_avatar');
+  if (state === 'new' || state === 'needs_avatar') return '/avatar.html';
+  if (state === 'needs_profile') return '/edit.html';
+  const last = profile?.last_route;
+  if (last && !['/auth.html', '/profile.html', '/avatar.html'].includes(last)) return last;
+  return '/';
+}
+
 export async function ensureProfile(user) {
   if (!user) return null;
   const existing = await getProfile(user.id);
-  if (existing) return { ...DEFAULT_PROFILE, ...existing, rank_title: existing.rank_title || DEFAULT_PROFILE.rank_title };
+  if (existing) {
+    const complete = Boolean(existing.has_avatar || existing.avatar_url || existing.onboarding_state === 'complete');
+    return { ...DEFAULT_PROFILE, ...existing, has_avatar: complete, onboarding_state: complete ? 'complete' : (existing.onboarding_state || 'needs_avatar'), rank_title: existing.rank_title || DEFAULT_PROFILE.rank_title };
+  }
 
   const meta = user.user_metadata || {};
   const display = meta.display_name || meta.name || 'ThatboyTayThou';
@@ -114,6 +125,6 @@ export async function ensureMetaAvatar(user, profile, config = {}) {
 }
 
 export async function signOutAndGoHome() {
-  await supabase.auth.signOut();
-  location.href = '/';
+  await supabase.auth.signOut({ scope: 'local' });
+  location.href = '/auth.html';
 }
