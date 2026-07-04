@@ -8,7 +8,11 @@ const $ = (s) => document.querySelector(s);
 const $$ = (s) => [...document.querySelectorAll(s)];
 const fmt = (n) => Number(n || 0).toLocaleString();
 const key = document.body?.dataset?.section || document.documentElement?.dataset?.section || location.pathname.split('/').pop().replace('.html', '') || 'home';
-const publicRoutes = new Set(['auth', 'index', 'home']);
+if (key === 'index' || key === 'home') {
+  document.querySelectorAll('#globalXpBadge,.hero-art,.rb-overlay,.rb-blocker,.rb-personal-strip,.miniProfile,.composerPanel,.top:not(.topbar),.layout,#schemaPanel,#sectionCards').forEach((el) => el.remove());
+  window.RB_SECTION_RUNTIME = { disabledOnIndex: true };
+} else {
+const publicRoutes = new Set(['auth']);
 const onboardingRoutes = new Set(['avatar', 'edit']);
 const fallback = { auth: ['Rich Access', 'profiles'], avatar: ['Rich Avatar', 'meta_avatars'], edit: ['Edit Profile', 'profiles'], settings: ['Settings', 'user_settings'], search: ['Search', 'profiles'], watch: ['Watch', 'live_streams'], secret: ['Secret Door', 'profiles'] };
 const mapped = sectionFor(key);
@@ -31,3 +35,4 @@ async function refresh() { const state = await guard(); if (!state && !publicRou
 refresh();
 supabase.auth.onAuthStateChange(() => refresh());
 window.RB_SECTION_RUNTIME = { refresh, key, primary, tables, cleanBlockers, guard };
+}
