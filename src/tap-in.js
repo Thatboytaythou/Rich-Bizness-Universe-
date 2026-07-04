@@ -1,6 +1,6 @@
 import { supabase } from './supabase-client.js';
-import { ensureProfile, slugName } from './rb-identity.js';
-import { loadCurrentXp, awardXp } from './rb-xp.js';
+import { ensureProfile, slugName } from './rb-identity.js?v=connected-identity-1';
+import { loadCurrentXp, awardXp } from './rb-xp.js?v=no-floating-badge-1';
 
 const form = document.getElementById('authForm');
 const createBtn = document.getElementById('createBtn');
