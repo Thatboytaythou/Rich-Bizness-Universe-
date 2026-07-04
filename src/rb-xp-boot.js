@@ -1,4 +1,4 @@
-import { bootXp, awardXp } from './rb-xp.js';
+import { bootXp, awardXp } from './rb-xp.js?v=no-floating-badge-1';
 
 const key = document.body?.dataset?.section || document.body?.dataset?.rbPage || 'global';
 
