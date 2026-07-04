@@ -1,6 +1,6 @@
 import { supabase } from './supabase-client.js';
-import { ensureProfile, getSessionUser } from './rb-identity.js';
-import { bootXp, loadXp } from './rb-xp.js';
+import { ensureProfile, getSessionUser } from './rb-identity.js?v=connected-identity-1';
+import { bootXp, loadXp } from './rb-xp.js?v=no-floating-badge-1';
 
 const displayName = document.getElementById('displayName');
 const username = document.getElementById('username');
