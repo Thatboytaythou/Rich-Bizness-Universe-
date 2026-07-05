@@ -40,7 +40,7 @@ import { RB_SECTIONS, routeFor } from './rb-schema-map.js';
     document.querySelectorAll('.district').forEach((el) => { el.style.position = 'relative'; el.style.left = 'auto'; el.style.right = 'auto'; el.style.top = 'auto'; el.style.bottom = 'auto'; el.style.transform = 'none'; el.style.width = 'auto'; el.style.maxWidth = 'none'; });
     if (dock) { dock.style.position = 'fixed'; dock.style.zIndex = '90'; dock.style.left = '14px'; dock.style.right = '14px'; dock.style.bottom = '14px'; }
   };
-  addCss(`/src/index-hard-reset.css?v=${VERSION}`, 'rbHardReset'); addModule(`/src/realtime-data.js?v=${VERSION}`, 'realtime');
+  addCss(`/src/index-hard-reset.css?v=${VERSION}`, 'rbHardReset'); addCss('/src/index-cinematic-plus.css?v=cinema-plus-1', 'rbIndexCinematicPlus'); addModule(`/src/realtime-data.js?v=${VERSION}`, 'realtime');
   requestAnimationFrame(forceLayout); setTimeout(forceLayout, 250); setTimeout(forceLayout, 900);
   const toast = document.getElementById('toast');
   const show = (text) => { if (!toast) return; toast.textContent = text; toast.classList.add('show'); clearTimeout(window.__rbToastTimer); window.__rbToastTimer = setTimeout(() => toast.classList.remove('show'), 900); };
