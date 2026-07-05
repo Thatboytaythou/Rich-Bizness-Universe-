@@ -1,0 +1,28 @@
+import { supabase } from './supabase-client.js';
+
+const $ = (s) => document.querySelector(s);
+const esc = (v = '') => String(v ?? '').replace(/[&<>"]/g, (m) => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;' }[m]));
+const cleanTerm = (v) => String(v || '').trim().replace(/[,%]/g, ' ').replace(/\s+/g, ' ').slice(0, 80);
+const initials = (v = 'RB') => String(v || 'RB').split(/\s+/).map(x=>x[0]).filter(Boolean).slice(0,2).join('').toUpperCase() || 'RB';
+
+const lanes = [
+  ['profiles','PEOPLE','/profile.html?id=','id,username,display_name,avatar_url,bio,rank_title',(r)=>r.display_name||r.username||'Rich Bizness User',(r)=>`@${r.username||'rich_user'} • ${r.rank_title||'Member'}`,'username,display_name,bio'],
+  ['feed_posts','POST','/feed.html?id=','id,title,body,username,display_name,media_url,thumbnail_url,cover_url,section',(r)=>r.title||r.body||'Feed Post',(r)=>`${r.section||'feed'} • @${r.username||'rich_user'}`,'title,body,username,display_name,section'],
+  ['products','STORE','/store.html?id=','id,title,description,category,product_type,image_url,cover_url,media_url,location_label,city,state',(r)=>r.title||'Store Product',(r)=>`${r.category||r.product_type||'product'} • ${r.location_label||r.city||'Rich Market'}`,'title,description,category,product_type,location_label,city,state'],
+  ['music_tracks','MUSIC','/music.html?id=','id,title,description,username,display_name,genre,cover_url',(r)=>r.title||'Music Track',(r)=>`${r.genre||'track'} • @${r.username||r.display_name||'artist'}`,'title,description,username,display_name,genre'],
+  ['podcast_episodes','PODCAST','/podcast.html?id=','id,title,description,username,display_name,cover_url,episode_number',(r)=>r.title||'Podcast Episode',(r)=>`episode ${r.episode_number||'new'} • @${r.username||r.display_name||'creator'}`,'title,description,username,display_name'],
+  ['games','GAMES','/games/?game=','id,slug,title,description,game_type,cover_url,thumbnail_url,logo_url,developer_name',(r)=>r.title||'Rich Game',(r)=>`${r.game_type||'game'} • ${r.developer_name||'Rich Bizness'}`,'title,description,game_type,developer_name,slug'],
+  ['sports_posts','SPORTS','/sports.html?id=','id,title,body,sport,league,team_name,username,display_name,media_url,cover_url,thumbnail_url',(r)=>r.title||r.team_name||'Sports Post',(r)=>`${r.sport||'sports'} • ${r.league||'arena'}`,'title,body,sport,league,team_name,username,display_name'],
+  ['meta_worlds','META','/meta.html?world=','id,slug,title,description,world_type,theme,cover_url,background_url,entry_route',(r)=>r.title||'Meta World',(r)=>`${r.world_type||'world'} • ${r.theme||'smoke-cloud'}`,'title,description,world_type,theme,slug'],
+  ['live_streams','LIVE','/watch.html?room=','id,slug,title,description,category,status,status_label,display_room_name,livekit_room_name,thumbnail_url,cover_url',(r)=>r.title||r.display_room_name||'WE LIT🔥',(r)=>`${r.status||'live'} • ${r.category||'Bizness Party'}`,'title,description,category,status_label,display_room_name,slug']
+];
+
+function image(row) { return row.avatar_url || row.thumbnail_url || row.cover_url || row.image_url || row.media_url || row.background_url || row.logo_url || ''; }
+function urlFor(prefix, row) { if (row.entry_route) return row.entry_route; if (row.play_url) return row.play_url; return prefix + encodeURIComponent(row.slug || row.livekit_room_name || row.id); }
+function card(item) { const img = item.image ? `<img src="${esc(item.image)}" alt="">` : `<span class="rb-result-avatar">${esc(initials(item.title))}</span>`; return `<a class="rb-result-card" href="${esc(item.url)}">${img}<span><b>${esc(item.title)}</b><small>${esc(item.sub)}</small></span><em>${esc(item.label)}</em></a>`; }
+function web(q) { const raw = q || $('#rbSearchInput')?.value || 'Rich Bizness'; const e = encodeURIComponent(raw); const box = $('#rbWebLinks'); if (box) box.innerHTML = `<a target="_blank" rel="noopener" href="https://www.google.com/search?q=${e}">Google</a><a target="_blank" rel="noopener" href="https://www.youtube.com/results?search_query=${e}">YouTube</a><a target="_blank" rel="noopener" href="https://www.bing.com/search?q=${e}">Bing</a><a target="_blank" rel="noopener" href="https://duckduckgo.com/?q=${e}">DuckDuckGo</a>`; }
+async function laneSearch([table,label,prefix,select,title,sub,cols], term) { try { const or = cols.split(',').map(c=>`${c}.ilike.${term}`).join(','); const { data, error } = await supabase.from(table).select(select).or(or).limit(label==='PEOPLE'?30:10); if (error) return []; return (data||[]).map(r=>({label,title:title(r),sub:sub(r),image:image(r),url:urlFor(prefix,r)})); } catch { return []; } }
+async function runPlus() { const q = cleanTerm($('#rbSearchInput')?.value); web(q); const out = $('#rbResults'); if (!out || !q) return; out.innerHTML = '<div class="rb-search-empty">Searching every Rich Bizness lane...</div>'; const rows = (await Promise.all(lanes.map(l=>laneSearch(l, `%${q}%`)))).flat(); out.innerHTML = rows.length ? rows.map(card).join('') : '<div class="rb-search-empty">No app results yet. Use Google, YouTube, Bing, or DuckDuckGo above.</div>'; const count = $('#recordCount'); if (count) count.textContent = String(rows.length); const status = $('#tableCount'); if (status) status.textContent = 'LIVE'; const primary = $('#primaryTable'); if (primary) primary.textContent = 'Universe Search'; }
+function boot() { web('Rich Bizness'); $('#rbSearchButton')?.addEventListener('click', runPlus, true); $('#rbSearchInput')?.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); runPlus(); } }, true); $('#rbSearchInput')?.addEventListener('input', () => web(), true); }
+setTimeout(boot, 80);
+setTimeout(boot, 500);
