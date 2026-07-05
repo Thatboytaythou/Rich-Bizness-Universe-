@@ -1,6 +1,6 @@
 import { supabase } from './supabase-client.js';
 import { ensureProfile, slugName, profileRoute } from './rb-identity.js?v=connected-identity-2';
-import { loadCurrentXp, awardXp } from './rb-xp.js?v=no-floating-badge-1';
+import { loadCurrentXp, awardXp } from './rb-xp.js?v=realtime-1';
 
 const form = document.getElementById('authForm');
 const createBtn = document.getElementById('createBtn');
@@ -11,8 +11,10 @@ const displayName = document.getElementById('displayName');
 const say = (text) => { if (status) status.textContent = text; };
 const lock = (yes) => { document.body.classList.toggle('auth-working', !!yes); form?.querySelectorAll('button,input').forEach((el) => { el.disabled = !!yes; }); if (createBtn) createBtn.disabled = !!yes; };
 const fail = (error) => { console.warn(error); lock(false); say(error?.message || 'Auth blocked. Check profile policies.'); document.body.classList.remove('auth-checking'); };
+function cleanAuthArtifacts() { document.querySelectorAll('#globalXpBadge,#xpToast,.xp-gauge,[data-rich-money],[data-balance-cents],[data-wallet-money],.rb-overlay,.rb-blocker,.miniProfile,.composerPanel,.hero-art').forEach((el) => el.remove()); document.body?.removeAttribute('data-rich-money'); }
 
 async function enter(user) {
+  cleanAuthArtifacts();
   say('Syncing profile...');
   const profile = await ensureProfile(user);
   try { await loadCurrentXp(); } catch (_) {}
@@ -31,7 +33,7 @@ async function returned() {
 }
 
 form?.addEventListener('submit', async (event) => {
-  event.preventDefault(); lock(true); say('Opening portal...');
+  event.preventDefault(); lock(true); cleanAuthArtifacts(); say('Opening portal...');
   try {
     const { data, error } = await supabase.auth.signInWithPassword({ email: email.value.trim(), password: password.value });
     if (error) throw error;
@@ -41,7 +43,7 @@ form?.addEventListener('submit', async (event) => {
 });
 
 createBtn?.addEventListener('click', async () => {
-  lock(true); say('Creating Rich identity...');
+  lock(true); cleanAuthArtifacts(); say('Creating Rich identity...');
   try {
     const mail = email.value.trim();
     const pass = password.value;
@@ -58,6 +60,7 @@ createBtn?.addEventListener('click', async () => {
 });
 
 loadCurrentXp().catch(() => {});
+cleanAuthArtifacts();
 
 (async () => {
   document.body.classList.add('auth-checking');
