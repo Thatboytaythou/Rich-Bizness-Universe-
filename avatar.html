@@ -5,27 +5,28 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <meta name="theme-color" content="#020402" />
   <title>Rich Avatar - Rich Bizness Universe</title>
-  <link rel="stylesheet" href="/src/avatar.css?v=connected-shell-1" />
-  <link rel="stylesheet" href="/src/avatar-connected.css?v=connected-shell-1" />
+  <link rel="stylesheet" href="/src/avatar.css?v=avatar-advanced-1" />
+  <link rel="stylesheet" href="/src/avatar-connected.css?v=avatar-advanced-1" />
 </head>
 <body data-rb-page="avatar" data-section="avatar">
   <main class="avatar-screen">
     <header class="avatar-top"><a href="/">RB</a><span>CHARACTER MODE</span><button id="outBtn" type="button">ACCOUNT</button></header>
     <section class="avatar-grid">
-      <div class="avatar-preview"><div class="portal-ring"></div><div id="avatarBody" class="avatar-body"></div></div>
+      <div class="avatar-preview"><div class="portal-ring"></div><div class="motion-rings"><i></i><i></i><i></i></div><div id="avatarBody" class="avatar-body"></div><div class="avatar-stage-label" id="stageLabel">BOSS IDLE</div></div>
       <form id="avatarForm" class="avatar-panel">
         <p>FULL BODY RICH BIZNESS CHARACTER</p><h1>BUILD YOUR RICH AVATAR</h1>
         <label>Display Name<input id="displayName" /></label>
-        <label>Aura<select id="aura"><option>Emerald Gold</option><option>Galaxy Smoke</option><option>Royal Flame</option></select></label>
-        <label>Outfit<select id="outfit"><option>Rich Default</option><option>Black Gold Boss</option><option>Creator Hoodie</option></select></label>
-        <label>Motion<select id="motion"><option>Boss Walk</option><option>Portal Walk</option><option>Smoke Burst</option></select></label>
+        <label>Aura<select id="aura"><option>Emerald Gold</option><option>Galaxy Smoke</option><option>Royal Flame</option><option>Diamond Mist</option><option>Neon Phantom</option></select></label>
+        <label>Outfit<select id="outfit"><option>Rich Default</option><option>Black Gold Boss</option><option>Creator Hoodie</option><option>Meta Armor</option><option>Street Legend</option><option>Executive Suit</option></select></label>
+        <label>Motion<select id="motion"><option>Boss Idle</option><option>Boss Walk</option><option>Portal Walk</option><option>Smoke Burst</option><option>Power Up</option><option>Dance Flex</option><option>Combat Ready</option></select></label>
+        <div class="avatar-quick"><button type="button" data-preset="boss">BOSS</button><button type="button" data-preset="creator">CREATOR</button><button type="button" data-preset="meta">META</button><button type="button" data-randomize>RANDOM</button></div>
         <div class="stats"><span><b data-xp-level>LEVEL 1</b><small>LEVEL</small></span><span><b data-xp-rank>BIZ LEGEND</b><small>RANK</small></span><span><b data-xp-total>0 XP</b><small>XP</small></span></div>
         <button>SAVE AVATAR</button><small id="status">Rich avatar engine ready.</small>
       </form>
     </section>
-    <nav class="avatar-dock"><a href="/">HOME</a><a href="/profile.html">PROFILE</a><a href="/live.html">WE LIT🔥</a><a href="/gaming.html">GAMES</a><a href="/meta.html">META</a></nav>
+    <nav class="avatar-dock"><a href="/">HOME</a><a href="/profile.html">PROFILE</a><a href="/avatar-characters/">CHARACTERS</a><a href="/live.html">WE LIT🔥</a><a href="/gaming.html">GAMING</a><a href="/games/">GAMES</a><a href="/meta.html">META</a><a href="/settings.html">SETTINGS</a></nav>
   </main>
-  <script type="module" src="/src/avatar.js?v=connected-shell-1"></script>
+  <script type="module" src="/src/avatar.js?v=avatar-advanced-1"></script>
   <script type="module" src="/src/avatar-xp.js?v=xp-1"></script>
 </body>
 </html>
