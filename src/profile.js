@@ -1,5 +1,5 @@
 import { supabase } from './supabase-client.js';
-import { ensureProfile, getSessionUser } from './rb-identity.js?v=connected-identity-1';
+import { ensureProfile, getSessionUser } from './rb-identity.js?v=connected-identity-3';
 import { bootXp, loadXp } from './rb-xp.js?v=no-floating-badge-1';
 
 const displayName = document.getElementById('displayName');
@@ -17,6 +17,25 @@ const profileStatus = document.getElementById('profileStatus');
 const fmt = (n) => Number(n || 0).toLocaleString();
 const money = (cents) => '$' + (Number(cents || 0) / 100).toFixed(2);
 const say = (text) => { if (profileStatus) profileStatus.textContent = text; };
+const routes = [['/','HOME'],['/feed.html','FEED'],['/live.html','LIVE'],['/watch.html','WATCH'],['/music.html','MUSIC'],['/podcast.html','PODCAST'],['/radio.html','RADIO'],['/gaming.html','GAMING'],['/games/','GAMES'],['/sports.html','SPORTS'],['/store.html','STORE'],['/meta.html','META'],['/messages.html','MESSAGES'],['/notifications.html','ALERTS'],['/search.html','SEARCH'],['/upload.html','UPLOAD'],['/edit.html','EDIT'],['/settings.html','SETTINGS'],['/creator.html','CREATOR'],['/admin.html','ADMIN'],['/rb-secret-door.html','VAULT']];
+
+function wireRoutes() {
+  const main = document.querySelector('.profile-screen') || document.body;
+  let dock = document.querySelector('.profile-dock');
+  if (!dock) {
+    dock = document.createElement('nav');
+    dock.className = 'profile-dock';
+    dock.setAttribute('aria-label', 'Rich Bizness route dock');
+    main.appendChild(dock);
+  }
+  dock.innerHTML = routes.map(([href, label]) => `<a href="${href}">${label}</a>`).join('');
+  const actions = document.querySelector('.actions');
+  if (actions) {
+    [['/creator.html','CREATOR'],['/admin.html','ADMIN'],['/rb-secret-door.html','VAULT']].forEach(([href,label]) => {
+      if (!actions.querySelector(`[href="${href}"]`)) actions.insertAdjacentHTML('beforeend', `<a href="${href}">${label}</a>`);
+    });
+  }
+}
 
 async function getMeta(userId) {
   const { data, error } = await supabase.from('meta_avatars').select('aura,level,xp,metadata').eq('user_id', userId).maybeSingle();
@@ -53,6 +72,7 @@ function render(profile, meta) {
 }
 
 async function paint(user) {
+  wireRoutes();
   const profile = await ensureProfile(user);
   const meta = await getMeta(user.id);
   render(profile, meta);
@@ -62,6 +82,7 @@ async function paint(user) {
 
 async function boot() {
   try {
+    wireRoutes();
     const user = await getSessionUser();
     if (!user) { location.href = '/auth.html'; return; }
     try { await bootXp(); } catch (_) {}
