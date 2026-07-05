@@ -7,7 +7,7 @@ import { RB_SECTIONS, routeFor } from './rb-schema-map.js';
   const APPROVED_HOSTS = ['rich-bizness.com', 'www.rich-bizness.com', 'rich-bizness-mobile-app.vercel.app'];
   const host = window.location.hostname;
   if (host.endsWith('.vercel.app') && !APPROVED_HOSTS.includes(host)) { window.location.replace(`https://${CANONICAL_HOST}${window.location.pathname}${window.location.search}${window.location.hash}`); return; }
-  const VERSION = 'universe-map-1';
+  const VERSION = 'cinema-shell-1';
   const HOME_LANES = ['meta','feed','live','watch','music','podcast','radio','gaming','games','sports','store','upload','search','messages','notifications','avatar-characters','creator','admin','rb-secret','profile'];
   const DISTRICT_LANES = ['meta','feed','live','watch','music','podcast','radio','gaming','games','sports','store','upload','avatar-characters','creator','admin','rb-secret'];
   const icon = { home:'⌂', feed:'▤', live:'◉', watch:'▶', music:'♪', podcast:'🎙', radio:'◌', gaming:'🎮', games:'♟', sports:'◎', store:'🛒', meta:'◇', upload:'⬆', search:'⌕', messages:'✉', notifications:'🔔', creator:'♕', admin:'⚙', 'rb-secret':'◆', profile:'♙', 'avatar-characters':'☻' };
