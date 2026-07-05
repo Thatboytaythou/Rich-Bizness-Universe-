@@ -7,7 +7,7 @@ import { RB_SECTIONS, routeFor } from './rb-schema-map.js';
   const APPROVED_HOSTS = ['rich-bizness.com', 'www.rich-bizness.com', 'rich-bizness-mobile-app.vercel.app'];
   const host = window.location.hostname;
   if (host.endsWith('.vercel.app') && !APPROVED_HOSTS.includes(host)) { window.location.replace(`https://${CANONICAL_HOST}${window.location.pathname}${window.location.search}${window.location.hash}`); return; }
-  const VERSION = 'cinema-shell-1';
+  const VERSION = 'cinema-shell-2';
   const HOME_LANES = ['meta','feed','live','watch','music','podcast','radio','gaming','games','sports','store','upload','search','messages','notifications','avatar-characters','creator','admin','rb-secret','profile'];
   const DISTRICT_LANES = ['meta','feed','live','watch','music','podcast','radio','gaming','games','sports','store','upload','avatar-characters','creator','admin','rb-secret'];
   const icon = { home:'⌂', feed:'▤', live:'◉', watch:'▶', music:'♪', podcast:'🎙', radio:'◌', gaming:'🎮', games:'♟', sports:'◎', store:'🛒', meta:'◇', upload:'⬆', search:'⌕', messages:'✉', notifications:'🔔', creator:'♕', admin:'⚙', 'rb-secret':'◆', profile:'♙', 'avatar-characters':'☻' };
@@ -15,7 +15,7 @@ import { RB_SECTIONS, routeFor } from './rb-schema-map.js';
   const addModule = (src, key) => { if (document.querySelector(`script[data-rb-${key}]`)) return; const s = document.createElement('script'); s.type = 'module'; s.src = src; s.dataset[`rb${key[0].toUpperCase()}${key.slice(1)}`] = 'true'; document.head.appendChild(s); };
   const section = (key) => RB_SECTIONS.find((item) => item.key === key) || { key, title: key.toUpperCase(), subtitle: 'Rich Bizness route', route: routeFor(key) };
   const label = (s) => s.key === 'rb-secret' ? 'RB VAULT' : s.key === 'live' ? 'WE LIT🔥' : s.title;
-  const removeBlockers = () => { document.querySelectorAll('#globalXpBadge,.hero-art,.rb-overlay,.rb-blocker,.rb-personal-strip,.miniProfile,.composerPanel,.top:not(.topbar),.layout,#schemaPanel,#sectionCards').forEach((el) => el.remove()); };
+  const removeBlockers = () => { document.querySelectorAll('#globalXpBadge,#xpToast,.xp-gauge,[data-rich-money],[data-balance-cents],[data-wallet-money],.hero-art,.rb-overlay,.rb-blocker,.rb-personal-strip,.miniProfile,.composerPanel,.top:not(.topbar),.layout,#schemaPanel,#sectionCards').forEach((el) => el.remove()); document.body?.removeAttribute('data-rich-money'); };
   const wireIndexRoutes = () => {
     const grid = document.querySelector('.district-grid');
     if (grid && grid.dataset.mapped !== 'true') {
