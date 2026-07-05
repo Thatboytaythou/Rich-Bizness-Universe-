@@ -1,5 +1,5 @@
 import { supabase } from './supabase-client.js';
-import { ensureProfile, getSessionUser } from './rb-identity.js?v=connected-identity-3';
+import { ensureProfile, getSessionUser } from './rb-identity.js?v=identity-public-1';
 import { bootXp, loadXp } from './rb-xp.js?v=no-floating-badge-1';
 
 const displayName = document.getElementById('displayName');
@@ -22,19 +22,10 @@ const routes = [['/','HOME'],['/feed.html','FEED'],['/live.html','LIVE'],['/watc
 function wireRoutes() {
   const main = document.querySelector('.profile-screen') || document.body;
   let dock = document.querySelector('.profile-dock');
-  if (!dock) {
-    dock = document.createElement('nav');
-    dock.className = 'profile-dock';
-    dock.setAttribute('aria-label', 'Rich Bizness route dock');
-    main.appendChild(dock);
-  }
+  if (!dock) { dock = document.createElement('nav'); dock.className = 'profile-dock'; dock.setAttribute('aria-label', 'Rich Bizness route dock'); main.appendChild(dock); }
   dock.innerHTML = routes.map(([href, label]) => `<a href="${href}">${label}</a>`).join('');
   const actions = document.querySelector('.actions');
-  if (actions) {
-    [['/creator.html','CREATOR'],['/admin.html','ADMIN'],['/rb-secret-door.html','VAULT']].forEach(([href,label]) => {
-      if (!actions.querySelector(`[href="${href}"]`)) actions.insertAdjacentHTML('beforeend', `<a href="${href}">${label}</a>`);
-    });
-  }
+  if (actions) [['/creator.html','CREATOR'],['/admin.html','ADMIN'],['/rb-secret-door.html','VAULT']].forEach(([href,label]) => { if (!actions.querySelector(`[href="${href}"]`)) actions.insertAdjacentHTML('beforeend', `<a href="${href}">${label}</a>`); });
 }
 
 async function getMeta(userId) {
@@ -42,16 +33,14 @@ async function getMeta(userId) {
   if (error) throw error;
   return data || null;
 }
-
 function safeSet(el, text) { if (el) el.textContent = text; }
-
 function render(profile, meta) {
   const cfg = meta?.metadata || {};
   const lvl = Number(profile.rich_level || meta?.level || 1);
   const points = Number(profile.rich_points || meta?.xp || 0);
-  safeSet(displayName, (profile.display_name || 'Rich Bizness Elite').toUpperCase());
+  safeSet(displayName, (profile.display_name || 'Rich Bizness User').toUpperCase());
   safeSet(username, '@' + (profile.username || 'rich_user'));
-  safeSet(bio, profile.bio || 'Building in the Rich Bizness Universe.');
+  safeSet(bio, profile.bio || 'Building a Rich Bizness lane across the universe.');
   safeSet(rank, profile.rank_title || 'BIZ LEGEND');
   safeSet(level, lvl);
   safeSet(xp, fmt(points));
@@ -61,25 +50,11 @@ function render(profile, meta) {
   avatarFace.classList.add('live-avatar');
   avatarFace.dataset.aura = meta?.aura || cfg.aura || 'Emerald Gold';
   avatarFace.dataset.motion = cfg.motion || 'Boss Idle';
-  avatarFace.title = `${meta?.aura || cfg.aura || 'Emerald Gold'} • ${cfg.gender || 'boy'} • ${cfg.outfit || 'Rich Default'} • ${cfg.motion || 'Boss Idle'}`;
-  if (profile.avatar_url) {
-    avatarFace.textContent = '';
-    avatarFace.style.backgroundImage = 'url(' + profile.avatar_url + ')';
-  } else {
-    avatarFace.textContent = 'RB';
-    avatarFace.style.backgroundImage = '';
-  }
+  avatarFace.title = `${meta?.aura || cfg.aura || 'Emerald Gold'} • ${cfg.gender || 'avatar'} • ${cfg.outfit || 'Rich Default'} • ${cfg.motion || 'Boss Idle'}`;
+  if (profile.avatar_url) { avatarFace.textContent = ''; avatarFace.style.backgroundImage = 'url(' + profile.avatar_url + ')'; }
+  else { avatarFace.textContent = 'RB'; avatarFace.style.backgroundImage = ''; }
 }
-
-async function paint(user) {
-  wireRoutes();
-  const profile = await ensureProfile(user);
-  const meta = await getMeta(user.id);
-  render(profile, meta);
-  try { await loadXp(user.id); } catch (_) {}
-  say('Profile connected.');
-}
-
+async function paint(user) { wireRoutes(); const profile = await ensureProfile(user); const meta = await getMeta(user.id); render(profile, meta); try { await loadXp(user.id); } catch (_) {} say('Profile connected.'); }
 async function boot() {
   try {
     wireRoutes();
@@ -87,16 +62,8 @@ async function boot() {
     if (!user) { location.href = '/auth.html'; return; }
     try { await bootXp(); } catch (_) {}
     await paint(user);
-    supabase.channel('profile-identity-' + user.id)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles', filter: 'id=eq.' + user.id }, () => paint(user))
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'meta_avatars', filter: 'user_id=eq.' + user.id }, () => paint(user))
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'user_levels', filter: 'user_id=eq.' + user.id }, () => paint(user))
-      .subscribe();
-  } catch (error) {
-    console.warn(error);
-    say(error.message || String(error));
-  }
+    supabase.channel('profile-identity-' + user.id).on('postgres_changes', { event: '*', schema: 'public', table: 'profiles', filter: 'id=eq.' + user.id }, () => paint(user)).on('postgres_changes', { event: '*', schema: 'public', table: 'meta_avatars', filter: 'user_id=eq.' + user.id }, () => paint(user)).on('postgres_changes', { event: '*', schema: 'public', table: 'user_levels', filter: 'user_id=eq.' + user.id }, () => paint(user)).subscribe();
+  } catch (error) { console.warn(error); say(error.message || String(error)); }
 }
-
 editAvatar?.addEventListener('click', () => { location.href = '/avatar.html'; });
 boot();
