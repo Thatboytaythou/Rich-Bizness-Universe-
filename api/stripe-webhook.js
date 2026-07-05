@@ -61,7 +61,7 @@ async function checkoutCompleted(session) {
     await supa('live_stream_members', 'POST', { stream_id: m.stream_id || m.live_stream_id, user_id: m.user_id || null, role: 'viewer', status: 'paid', metadata: { stripe_session_id: session.id, mode, gross_cents: gross } });
   }
   if (m.product_id || m.store_product_id) {
-    await supa('orders', 'POST', { buyer_user_id: m.user_id || null, product_id: m.product_id || m.store_product_id, status: 'paid', total_cents: gross, stripe_session_id: session.id, metadata: { mode, rb_language: 'They’re here Rich' } });
+    await supa('store_orders', 'POST', { buyer_user_id: m.user_id || null, product_id: m.product_id || m.store_product_id, status: 'paid', total_cents: gross, stripe_session_id: session.id, metadata: { mode, rb_language: 'They’re here Rich' } });
   }
   if (m.artist_user_id || m.creator_user_id) {
     await supa('creator_available_balances', 'POST', { artist_user_id: m.artist_user_id || m.creator_user_id, earned_cents: gross, pending_cents: gross, available_cents: 0, currency: session.currency || 'usd', metadata: { source: mode, stripe_session_id: session.id } });
