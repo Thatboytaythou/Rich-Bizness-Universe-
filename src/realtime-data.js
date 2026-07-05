@@ -80,7 +80,7 @@ async function loadSessionProfile() {
     state.user = user || null;
     if (!user) { state.profile = null; state.avatar = null; updateXpGauge({ rich_points: 0, rich_level: 1, rank_title: 'BIZ LEGEND' }); setAvatarChip('', 'RB'); return; }
     const [{ data: profileData }, { data: avatarData }] = await Promise.all([
-      supabase.from('profiles').select('display_name,username,avatar_url,rich_level,rank_title,rich_points,balance_cents,online_status').eq('id', user.id).maybeSingle(),
+      supabase.from('profiles').select('display_name,username,avatar_url,rich_level,rank_title,rich_points,online_status').eq('id', user.id).maybeSingle(),
       supabase.from('meta_avatars').select('display_name,avatar_url,aura,rank,level,xp,metadata').eq('user_id', user.id).maybeSingle(),
     ]);
     state.profile = profileData || null;
