@@ -1,0 +1,117 @@
+body[data-section="index"] .rb-universe {
+  isolation: isolate;
+}
+body[data-section="index"] .rb-universe::before,
+body[data-section="index"] .rb-universe::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+}
+body[data-section="index"] .rb-universe::before {
+  background:
+    radial-gradient(circle at 50% 18%, rgba(157,255,99,.18), transparent 25%),
+    radial-gradient(circle at 15% 12%, rgba(250,204,21,.16), transparent 28%),
+    radial-gradient(circle at 84% 18%, rgba(34,197,94,.14), transparent 30%),
+    linear-gradient(180deg, rgba(0,0,0,.1), rgba(0,0,0,.78));
+  mix-blend-mode: screen;
+}
+body[data-section="index"] .rb-universe::after {
+  background:
+    linear-gradient(90deg, rgba(157,255,99,.04) 1px, transparent 1px),
+    linear-gradient(180deg, rgba(250,204,21,.035) 1px, transparent 1px);
+  background-size: 42px 42px;
+  mask-image: linear-gradient(to bottom, rgba(0,0,0,.85), transparent 74%);
+}
+body[data-section="index"] .topbar,
+body[data-section="index"] .stage,
+body[data-section="index"] .dock,
+body[data-section="index"] .tagline,
+body[data-section="index"] .toast { position: relative; z-index: 2; }
+body[data-section="index"] .topbar {
+  border: 1px solid rgba(157,255,99,.22);
+  border-radius: 28px;
+  margin: 12px;
+  padding: 12px;
+  background: linear-gradient(135deg, rgba(0,0,0,.58), rgba(9,35,13,.38));
+  box-shadow: 0 18px 70px rgba(0,0,0,.45), inset 0 0 30px rgba(157,255,99,.08);
+  backdrop-filter: blur(18px);
+}
+body[data-section="index"] .headline h1 {
+  letter-spacing: -.06em;
+  text-shadow: 0 0 30px rgba(157,255,99,.35), 0 0 70px rgba(250,204,21,.16);
+}
+body[data-section="index"] .portal-zone {
+  border: 1px solid rgba(157,255,99,.18);
+  border-radius: 34px;
+  background: radial-gradient(circle at 50% 50%, rgba(157,255,99,.13), rgba(0,0,0,.48) 52%, rgba(0,0,0,.72));
+  box-shadow: inset 0 0 80px rgba(157,255,99,.08), 0 24px 80px rgba(0,0,0,.44);
+  overflow: hidden;
+}
+body[data-section="index"] .portal-zone::before {
+  content: "THEY'RE HERE RICH";
+  position: absolute;
+  top: 16px;
+  left: 16px;
+  right: 16px;
+  text-align: center;
+  font-size: 11px;
+  font-weight: 1000;
+  letter-spacing: .3em;
+  color: rgba(234,255,215,.62);
+}
+body[data-section="index"] .portal .ring {
+  box-shadow:
+    0 0 28px rgba(157,255,99,.5),
+    0 0 90px rgba(157,255,99,.28),
+    inset 0 0 34px rgba(250,204,21,.22);
+  animation: rbPulsePortal 4s ease-in-out infinite;
+}
+body[data-section="index"] .rb-phone-hub .phone-shell {
+  border-color: rgba(250,204,21,.35);
+  box-shadow: 0 18px 60px rgba(0,0,0,.55), 0 0 44px rgba(250,204,21,.12);
+}
+body[data-section="index"] .district-grid {
+  perspective: 900px;
+}
+body[data-section="index"] .district {
+  min-height: 96px;
+  border: 1px solid rgba(157,255,99,.22);
+  background:
+    linear-gradient(135deg, rgba(5,20,6,.82), rgba(0,0,0,.58)),
+    radial-gradient(circle at 18% 18%, rgba(157,255,99,.2), transparent 40%);
+  box-shadow: 0 14px 46px rgba(0,0,0,.38), inset 0 0 24px rgba(255,255,255,.04);
+  transform-style: preserve-3d;
+  transition: transform .18s ease, border-color .18s ease, box-shadow .18s ease;
+}
+body[data-section="index"] .district:hover,
+body[data-section="index"] .district.active {
+  transform: translateY(-4px) scale(1.015);
+  border-color: rgba(250,204,21,.62);
+  box-shadow: 0 18px 60px rgba(0,0,0,.5), 0 0 35px rgba(157,255,99,.18), inset 0 0 28px rgba(250,204,21,.08);
+}
+body[data-section="index"] .district::after {
+  content: attr(data-record-count) " " attr(data-record-label);
+  display: block;
+  margin-top: 9px;
+  color: rgba(250,204,21,.85);
+  font-size: 10px;
+  font-weight: 1000;
+  letter-spacing: .12em;
+}
+body[data-section="index"] .dock {
+  border: 1px solid rgba(157,255,99,.24);
+  border-radius: 28px;
+  background: rgba(0,0,0,.66);
+  box-shadow: 0 0 44px rgba(0,0,0,.7), inset 0 0 20px rgba(157,255,99,.06);
+  backdrop-filter: blur(20px);
+}
+@keyframes rbPulsePortal {
+  0%,100% { transform: scale(1); filter: saturate(1); }
+  50% { transform: scale(1.035); filter: saturate(1.25); }
+}
+@media (max-width: 560px) {
+  body[data-section="index"] .topbar { margin: 8px; border-radius: 22px; }
+  body[data-section="index"] .district { min-height: 88px; }
+}
