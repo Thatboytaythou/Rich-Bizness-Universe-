@@ -2,6 +2,8 @@ import { supabase } from './supabase-client.js';
 
 const fmt = (n) => Number(n || 0).toLocaleString();
 const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
+let xpChannel = null;
+let xpUserId = null;
 
 export function xpMath(profile = {}, levelRow = {}, avatar = {}) {
   const total = Number(levelRow.xp_total ?? profile.rich_points ?? avatar.xp ?? 0);
@@ -32,6 +34,7 @@ export function renderXp(xp = {}) {
   document.querySelectorAll('[data-xp-fill], .xp-track em, .xp i, #xpFill').forEach((el) => { el.style.width = `${data.progress}%`; });
   document.body.dataset.richLevel = String(data.level);
   document.body.dataset.richRank = data.rank;
+  window.dispatchEvent(new CustomEvent('rb-xp-rendered', { detail: data }));
   return data;
 }
 
@@ -50,26 +53,35 @@ export async function loadCurrentXp() {
   return loadXp(data?.user?.id);
 }
 
+export function installRealtimeXp(userId) {
+  if (!userId || xpUserId === userId) return;
+  if (xpChannel) supabase.removeChannel(xpChannel);
+  xpUserId = userId;
+  xpChannel = supabase.channel('rb-xp-realtime-' + userId)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles', filter: 'id=eq.' + userId }, () => loadXp(userId))
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'user_levels', filter: 'user_id=eq.' + userId }, () => loadXp(userId))
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'meta_avatars', filter: 'user_id=eq.' + userId }, () => loadXp(userId))
+    .subscribe();
+}
+
 export async function awardXp(eventKey = 'section_visit', opts = {}) {
   const { data } = await supabase.auth.getUser();
   if (!data?.user) return { ok: false, reason: 'not_signed_in' };
+  installRealtimeXp(data.user.id);
   const { data: award, error } = await supabase.rpc('rb_award_xp', { p_event_key: eventKey, p_section: opts.section || document.body?.dataset?.section || 'global', p_source_table: opts.sourceTable || null, p_source_id: opts.sourceId || null, p_amount: opts.amount || null });
   if (error) { console.warn('[RB XP] award failed', error.message); return { ok: false, reason: error.message }; }
   await loadXp(data.user.id);
   return award;
 }
 
-export function showXpToast() {
-  cleanXpMoneyArtifacts();
-}
-
-export function installXpBadge() {
-  cleanXpMoneyArtifacts();
-}
+export function showXpToast() { cleanXpMoneyArtifacts(); }
+export function installXpBadge() { cleanXpMoneyArtifacts(); }
 
 export async function bootXp(eventKey) {
   installXpBadge();
+  const { data } = await supabase.auth.getUser();
+  if (data?.user?.id) installRealtimeXp(data.user.id);
   await loadCurrentXp();
   if (eventKey) awardXp(eventKey).catch(() => {});
-  supabase.auth.onAuthStateChange(() => loadCurrentXp());
+  supabase.auth.onAuthStateChange((_event, session) => { if (session?.user?.id) installRealtimeXp(session.user.id); loadCurrentXp(); });
 }
