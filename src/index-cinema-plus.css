@@ -1,52 +1,44 @@
-body[data-section="index"] .topbar,
-body[data-section="index"] .dock,
 body[data-section="index"] .phone-shell,
-body[data-section="index"] .district {
-  border-color: rgba(157,255,99,.34) !important;
-  background: linear-gradient(145deg, rgba(3,10,3,.82), rgba(0,0,0,.48)) !important;
-  box-shadow: 0 18px 60px rgba(0,0,0,.44), inset 0 0 30px rgba(157,255,99,.05);
-  backdrop-filter: blur(18px);
-}
-body[data-section="index"] .headline h1 {
-  letter-spacing: -.08em;
-  text-shadow: 0 0 22px rgba(157,255,99,.28), 0 0 42px rgba(250,204,21,.14);
+body[data-section="index"] .rb-phone-hub,
+body[data-section="index"] #phoneHub,
+body[data-section="index"] .phone-screen,
+body[data-section="index"] #phoneScreen,
+body[data-section="index"] .phone-avatar,
+body[data-section="index"] #phoneAvatar,
+body[data-section="index"] [data-phone] {
+  display: none !important;
+  visibility: hidden !important;
+  height: 0 !important;
+  min-height: 0 !important;
+  max-height: 0 !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  border: 0 !important;
+  overflow: hidden !important;
+  pointer-events: none !important;
 }
 body[data-section="index"] .portal .ring {
-  animation: rbPortalPulse 5s ease-in-out infinite;
-  box-shadow: 0 0 38px rgba(157,255,99,.38), 0 0 100px rgba(250,204,21,.14), inset 0 0 50px rgba(157,255,99,.2);
+  animation: none !important;
+  transform: none !important;
+  filter: none !important;
+  box-shadow: 0 0 24px rgba(157,255,99,.22) !important;
 }
-body[data-section="index"] .district {
-  min-height: 104px;
-}
-body[data-section="index"] .district::after {
-  content: attr(data-record-count) " " attr(data-record-label);
-  display: block;
-  margin-top: 8px;
-  color: rgba(250,204,21,.9);
-  font-size: 10px;
-  font-weight: 900;
-  letter-spacing: .08em;
-}
-body[data-section="index"] .district.active,
-body[data-section="index"] .district:hover {
-  transform: translateY(-2px) scale(1.015) !important;
-  border-color: rgba(250,204,21,.55) !important;
-  box-shadow: 0 22px 70px rgba(157,255,99,.16), inset 0 0 34px rgba(250,204,21,.08);
+body[data-section="index"] .portal .ring::before,
+body[data-section="index"] .portal .ring::after,
+body[data-section="index"] .portal-zone::before,
+body[data-section="index"] .portal-zone::after {
+  display: none !important;
+  content: none !important;
 }
 body[data-section="index"] .tagline {
-  color: rgba(236,255,216,.82);
-  text-shadow: 0 0 18px rgba(157,255,99,.28);
-}
-@keyframes rbPortalPulse {
-  0%,100% { transform: scale(1); filter: saturate(1); }
-  50% { transform: scale(1.045); filter: saturate(1.4); }
+  display: none !important;
 }
 @media (min-width: 780px) {
   body[data-section="index"] .stage {
-    grid-template-columns: minmax(260px,.8fr) minmax(280px,.85fr) minmax(420px,1.35fr) !important;
-    align-items: center;
+    grid-template-columns: 1fr !important;
+    align-items: stretch !important;
   }
   body[data-section="index"] .district-grid {
-    grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
   }
 }
