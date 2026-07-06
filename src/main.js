@@ -1,5 +1,5 @@
-import './core/features/navigation.js?v=universal-nav-2';
-import './core/features/app-safe.css?v=universal-safe-2';
+import './core/features/navigation.js?v=universal-nav-3';
+import './core/features/app-safe.css?v=universal-safe-3';
 import { RB_SECTIONS, routeFor } from './rb-schema-map.js';
 
 (() => {
@@ -9,7 +9,7 @@ import { RB_SECTIONS, routeFor } from './rb-schema-map.js';
   const APPROVED_HOSTS = ['rich-bizness.com', 'www.rich-bizness.com', 'rich-bizness-mobile-app.vercel.app'];
   const host = window.location.hostname;
   if (host.endsWith('.vercel.app') && !APPROVED_HOSTS.includes(host)) { window.location.replace(`https://${CANONICAL_HOST}${window.location.pathname}${window.location.search}${window.location.hash}`); return; }
-  const VERSION = 'cinema-shell-3';
+  const VERSION = 'click-safe-1';
   const HOME_LANES = ['auth','profile','avatar','avatar-characters','feed','live','watch','music','podcast','radio','gaming','games','gallery','sports','store','meta','upload','search','messages','notifications','edit','settings','creator','admin','rb-secret'];
   const DISTRICT_LANES = ['profile','avatar','avatar-characters','feed','live','watch','music','podcast','radio','gaming','games','gallery','sports','store','meta','upload','search','messages','notifications','edit','settings','creator','admin','rb-secret'];
   const icon = { home:'⌂', auth:'🔐', feed:'▤', live:'◉', watch:'▶', music:'♪', podcast:'🎙', radio:'◌', gaming:'🎮', games:'♟', gallery:'▣', sports:'◎', store:'🛒', meta:'◇', upload:'⬆', search:'⌕', messages:'✉', notifications:'🔔', edit:'✎', settings:'⚙', creator:'♕', admin:'⚙', 'rb-secret':'◆', profile:'♙', avatar:'☻', 'avatar-characters':'☻' };
@@ -23,12 +23,12 @@ import { RB_SECTIONS, routeFor } from './rb-schema-map.js';
     const grid = document.querySelector('.district-grid');
     if (grid && grid.dataset.mapped !== 'true') {
       grid.dataset.mapped = 'true';
-      grid.innerHTML = DISTRICT_LANES.map((key) => { const s = section(key); return `<button class="district ${key}" data-route="${key}" type="button"><b>${label(s)}</b><small>${s.subtitle || 'OPEN'}</small></button>`; }).join('');
+      grid.innerHTML = DISTRICT_LANES.map((key) => { const s = section(key); const href = routeFor(key); return `<a class="district ${key}" data-route="${key}" href="${href}"><b>${label(s)}</b><small>${s.subtitle || 'OPEN'}</small></a>`; }).join('');
     }
     const dock = document.querySelector('.dock');
     if (dock && dock.dataset.mapped !== 'true') {
       dock.dataset.mapped = 'true';
-      dock.innerHTML = `<button type="button" data-route="home" class="active">${icon.home}<span>HOME</span></button>` + HOME_LANES.map((key) => { const s = section(key); return `<button type="button" data-route="${key}">${icon[key] || '•'}<span>${shortLabel(s)}</span></button>`; }).join('');
+      dock.innerHTML = `<a href="/" data-route="home" class="active">${icon.home}<span>HOME</span></a>` + HOME_LANES.map((key) => { const s = section(key); const href = routeFor(key); return `<a href="${href}" data-route="${key}">${icon[key] || '•'}<span>${shortLabel(s)}</span></a>`; }).join('');
     }
   };
   const forceLayout = () => {
@@ -38,15 +38,15 @@ import { RB_SECTIONS, routeFor } from './rb-schema-map.js';
     document.documentElement.dataset.rbUniversalApp = 'ready';
     if (universe) { universe.style.height = 'auto'; universe.style.minHeight = '100svh'; universe.style.overflow = 'visible'; universe.style.paddingBottom = '124px'; universe.style.backgroundImage = "linear-gradient(rgba(0,0,0,.12),rgba(0,0,0,.68)),url('/images/19FB5229-30DD-40B0-9404-5136C27FEF6A.png')"; universe.style.backgroundSize = 'cover'; universe.style.backgroundPosition = 'center'; }
     if (stage) { stage.style.height = 'auto'; stage.style.minHeight = '0'; stage.style.overflow = 'visible'; stage.style.display = 'grid'; stage.style.gap = '14px'; }
-    if (portalZone) { portalZone.style.position = 'relative'; portalZone.style.inset = 'auto'; portalZone.style.minHeight = '260px'; portalZone.style.display = 'grid'; portalZone.style.placeItems = 'center'; }
-    if (portal) { portal.style.position = 'relative'; portal.style.left = 'auto'; portal.style.top = 'auto'; portal.style.transform = 'none'; portal.style.width = 'min(70vw, 310px)'; }
-    if (grid) { grid.style.position = 'relative'; grid.style.inset = 'auto'; grid.style.display = 'grid'; grid.style.gridTemplateColumns = '1fr 1fr'; grid.style.gap = '10px'; grid.style.zIndex = '20'; }
+    if (portalZone) { portalZone.style.position = 'relative'; portalZone.style.inset = 'auto'; portalZone.style.minHeight = '260px'; portalZone.style.display = 'grid'; portalZone.style.placeItems = 'center'; portalZone.style.pointerEvents = 'none'; }
+    if (portal) { portal.style.position = 'relative'; portal.style.left = 'auto'; portal.style.top = 'auto'; portal.style.transform = 'none'; portal.style.width = 'min(70vw, 310px)'; portal.style.pointerEvents = 'none'; }
+    if (grid) { grid.style.position = 'relative'; grid.style.inset = 'auto'; grid.style.display = 'grid'; grid.style.gridTemplateColumns = '1fr 1fr'; grid.style.gap = '10px'; grid.style.zIndex = '50'; grid.style.pointerEvents = 'auto'; }
     document.querySelectorAll('.district').forEach((el) => { el.style.position = 'relative'; el.style.left = 'auto'; el.style.right = 'auto'; el.style.top = 'auto'; el.style.bottom = 'auto'; el.style.transform = 'none'; el.style.width = 'auto'; el.style.maxWidth = 'none'; el.style.pointerEvents = 'auto'; });
-    if (dock) { dock.style.position = 'fixed'; dock.style.zIndex = '90'; dock.style.left = '14px'; dock.style.right = '14px'; dock.style.bottom = '14px'; dock.style.pointerEvents = 'auto'; }
+    if (dock) { dock.style.position = 'fixed'; dock.style.zIndex = '140'; dock.style.left = '14px'; dock.style.right = '14px'; dock.style.bottom = '14px'; dock.style.pointerEvents = 'auto'; }
   };
-  addCss(`/src/index-hard-reset.css?v=${VERSION}`, 'rbHardReset'); addCss('/src/index-cinematic-plus.css?v=cinema-plus-1', 'rbIndexCinematicPlus'); addCss('/src/index-mobile-clean.css?v=mobile-clean-1', 'rbIndexMobileClean'); addCss('/src/core/features/app-safe.css?v=universal-safe-2', 'rbUniversalSafe'); addModule(`/src/realtime-data.js?v=${VERSION}`, 'realtime');
+  addCss(`/src/index-hard-reset.css?v=${VERSION}`, 'rbHardReset'); addCss('/src/index-cinematic-plus.css?v=cinema-plus-1', 'rbIndexCinematicPlus'); addCss('/src/index-mobile-clean.css?v=mobile-clean-1', 'rbIndexMobileClean'); addCss('/src/core/features/app-safe.css?v=universal-safe-3', 'rbUniversalSafe'); addModule(`/src/realtime-data.js?v=${VERSION}`, 'realtime');
   requestAnimationFrame(forceLayout); setTimeout(forceLayout, 250); setTimeout(forceLayout, 900);
   const toast = document.getElementById('toast');
-  const show = (text) => { if (!toast) return; toast.textContent = text; toast.classList.add('show'); clearTimeout(window.__rbToastTimer); window.__rbToastTimer = setTimeout(() => toast.classList.remove('show'), 900); };
-  document.addEventListener('click', (event) => { const button = event.target.closest('[data-route]'); if (!button || button.dataset.rbNative === 'true') return; const key = button.dataset.route || 'home'; document.querySelectorAll('.dock button').forEach((item) => item.classList.remove('active')); if (button.closest('.dock')) button.classList.add('active'); if (key === 'home') { event.preventDefault(); show('HOME ONLINE'); window.scrollTo({ top: 0, behavior: 'smooth' }); return; } event.preventDefault(); show(`${key.toUpperCase()} OPENING`); window.setTimeout(() => { window.location.href = routeFor(key); }, 120); });
+  const show = (text) => { if (!toast) return; toast.textContent = text; toast.classList.add('show'); clearTimeout(window.__rbToastTimer); window.__rbToastTimer = setTimeout(() => toast.classList.remove('show'), 700); };
+  document.addEventListener('click', (event) => { const link = event.target.closest('[data-route]'); if (!link || link.dataset.rbNative === 'true') return; const key = link.dataset.route || 'home'; document.querySelectorAll('.dock a,.dock button').forEach((item) => item.classList.remove('active')); if (link.closest('.dock')) link.classList.add('active'); if (key === 'home') { event.preventDefault(); show('HOME ONLINE'); window.scrollTo({ top: 0, behavior: 'smooth' }); return; } show(`${key.toUpperCase()} OPENING`); });
 })();
