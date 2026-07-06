@@ -47,7 +47,7 @@ createBtn?.addEventListener('click', async () => {
   try {
     const mail = email.value.trim();
     const pass = password.value;
-    const name = displayName.value.trim() || mail.split('@')[0] || 'Rich Bizness Elite';
+    const name = displayName.value.trim() || mail.split('@')[0] || 'Rich Bizness User';
     if (!mail || !pass) throw new Error('Email and password required.');
     const { data, error } = await supabase.auth.signUp({ email: mail, password: pass, options: { emailRedirectTo: `${location.origin}/auth.html`, data: { display_name: name, username: slugName(name) } } });
     if (error) throw error;
