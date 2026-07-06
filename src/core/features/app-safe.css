@@ -1,47 +1,10 @@
-html[data-rb-universal-app="ready"],
-body[data-rb-universal-app="ready"]{
-  min-height:100%;
-}
-
-body[data-rb-universal-app="ready"]{
-  touch-action:manipulation;
-  -webkit-tap-highlight-color:transparent;
-}
-
-body[data-rb-universal-app="ready"] a,
-body[data-rb-universal-app="ready"] button,
-body[data-rb-universal-app="ready"] [role="button"],
-body[data-rb-universal-app="ready"] [data-route],
-body[data-rb-universal-app="ready"] [data-rb-route]{
-  pointer-events:auto;
-  cursor:pointer;
-}
-
-body[data-rb-universal-app="ready"] .dock,
-body[data-rb-universal-app="ready"] .profile-dock,
-body[data-rb-universal-app="ready"] .top,
-body[data-rb-universal-app="ready"] .topbar,
-body[data-rb-universal-app="ready"] .top-actions,
-body[data-rb-universal-app="ready"] .actions,
-body[data-rb-universal-app="ready"] .district-grid,
-body[data-rb-universal-app="ready"] .district,
-body[data-rb-universal-app="ready"] .tv-buttons,
-body[data-rb-universal-app="ready"] .status{
-  pointer-events:auto;
-}
-
-body[data-rb-universal-app="ready"] .rb-overlay:not([data-rb-keep]),
-body[data-rb-universal-app="ready"] .rb-personal-strip:not([data-rb-keep]),
-body[data-rb-universal-app="ready"] .hero-art:not([data-rb-keep]),
-body[data-rb-universal-app="ready"] .activity:not([data-rb-keep]),
-body[data-rb-universal-app="ready"] .legacy-avatar-panel:not([data-rb-keep]),
-body[data-rb-universal-app="ready"] .duplicate-avatar-panel:not([data-rb-keep]){
-  pointer-events:none!important;
-}
-
-.section-screen::before,
-.section-screen::after,
-.rb-universe::before,
-.rb-universe::after{
-  pointer-events:none!important;
-}
+html[data-rb-universal-app="ready"],body[data-rb-universal-app="ready"]{min-height:100%}
+body[data-rb-universal-app="ready"]{touch-action:manipulation;-webkit-tap-highlight-color:transparent;overflow-x:hidden}
+body[data-rb-universal-app="ready"] a,body[data-rb-universal-app="ready"] button,body[data-rb-universal-app="ready"] input,body[data-rb-universal-app="ready"] select,body[data-rb-universal-app="ready"] textarea,body[data-rb-universal-app="ready"] [role="button"],body[data-rb-universal-app="ready"] [data-route],body[data-rb-universal-app="ready"] [data-rb-route],body[data-rb-universal-app="ready"] [data-bg]{pointer-events:auto!important;cursor:pointer}
+body[data-rb-universal-app="ready"] .dock,body[data-rb-universal-app="ready"] .profile-dock,body[data-rb-universal-app="ready"] .top,body[data-rb-universal-app="ready"] .topbar,body[data-rb-universal-app="ready"] .top-actions,body[data-rb-universal-app="ready"] .actions,body[data-rb-universal-app="ready"] .district-grid,body[data-rb-universal-app="ready"] .district,body[data-rb-universal-app="ready"] .tv-controls,body[data-rb-universal-app="ready"] .tv-buttons,body[data-rb-universal-app="ready"] .status,body[data-rb-universal-app="ready"] .auth-card,body[data-rb-universal-app="ready"] .panel,body[data-rb-universal-app="ready"] .card{pointer-events:auto!important}
+body[data-rb-universal-app="ready"] .dock,body[data-rb-universal-app="ready"] .profile-dock{z-index:120!important}
+body[data-rb-universal-app="ready"] .top,body[data-rb-universal-app="ready"] .topbar{z-index:110!important}
+body[data-rb-universal-app="ready"] .district-grid{z-index:30!important}
+body[data-rb-universal-app="ready"] .portal-zone,body[data-rb-universal-app="ready"] .watch-holo,body[data-rb-universal-app="ready"] .hero,body[data-rb-universal-app="ready"] .layout{position:relative;z-index:10}
+body[data-rb-universal-app="ready"] .rb-overlay:not([data-rb-keep]),body[data-rb-universal-app="ready"] .rb-blocker:not([data-rb-keep]),body[data-rb-universal-app="ready"] .rb-personal-strip:not([data-rb-keep]),body[data-rb-universal-app="ready"] .hero-art:not([data-rb-keep]),body[data-rb-universal-app="ready"] .activity:not([data-rb-keep]),body[data-rb-universal-app="ready"] .legacy-avatar-panel:not([data-rb-keep]),body[data-rb-universal-app="ready"] .duplicate-avatar-panel:not([data-rb-keep]),body[data-rb-universal-app="ready"] .motion-rings:not([data-rb-keep]){pointer-events:none!important}
+.section-screen::before,.section-screen::after,.auth-screen::before,.auth-screen::after,.rb-universe::before,.rb-universe::after,.watch-holo::before,.watch-holo::after,.holo-tv::before,.holo-tv::after{pointer-events:none!important}
