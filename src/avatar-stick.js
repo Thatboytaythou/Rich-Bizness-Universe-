@@ -1,3 +1,4 @@
+import './identity-runtime-clean.js?v=identity-clean-1';
 const body = document.getElementById('avatarBody');
 const nameInput = document.getElementById('displayName');
 const auraInput = document.getElementById('aura');
