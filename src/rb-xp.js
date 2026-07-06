@@ -50,9 +50,11 @@ export function xpMath(profile = {}, levelRow = {}, avatar = {}) {
 }
 
 export function cleanXpMoneyArtifacts() {
+  // Do not remove real XP bars/gauges from page designs. Only remove legacy
+  // floating injectors that created duplicate money/XP overlays.
   document.getElementById('globalXpBadge')?.remove();
   document.getElementById('xpToast')?.remove();
-  document.querySelectorAll('[data-rich-money],[data-balance-cents],[data-wallet-money],.xp-gauge,#globalXpBadge,#xpToast,.rb-xp-float,.rb-xp-toast').forEach((el) => el.remove());
+  document.querySelectorAll('.rb-xp-float, .rb-xp-toast, [data-rb-xp-injected="true"]').forEach((el) => el.remove());
   document.body?.removeAttribute('data-rich-money');
 }
 
@@ -63,6 +65,7 @@ export function renderXp(xp = {}) {
   document.querySelectorAll('[data-xp-rank]').forEach((el) => { el.textContent = data.rank; });
   document.querySelectorAll('[data-xp-total]').forEach((el) => { el.textContent = `${fmt(data.total)} XP`; });
   document.querySelectorAll('[data-xp-current]').forEach((el) => { el.textContent = `${fmt(data.current)} / ${fmt(data.next)}`; });
+  document.querySelectorAll('[data-xp-next]').forEach((el) => { el.textContent = `${fmt(data.next)} XP NEXT`; });
   document.querySelectorAll('[data-rich-points]').forEach((el) => { el.textContent = fmt(data.points); });
   document.querySelectorAll('[data-rich-coins]').forEach((el) => { el.textContent = fmt(data.coins); });
   document.querySelectorAll('[data-xp-trust]').forEach((el) => { el.textContent = fmt(data.trust); });
@@ -103,7 +106,13 @@ export async function awardXp(eventKey = 'section_visit', opts = {}) {
   const { data } = await supabase.auth.getUser();
   if (!data?.user) return { ok: false, reason: 'not_signed_in' };
   installRealtimeXp(data.user.id);
-  const payload = { p_event_key: eventKey, p_section: opts.section || document.body?.dataset?.section || 'global', p_source_table: opts.sourceTable || null, p_source_id: opts.sourceId || null, p_amount: opts.amount || null };
+  const payload = {
+    p_event_key: eventKey,
+    p_section: opts.section || document.body?.dataset?.section || 'global',
+    p_source_table: opts.sourceTable || null,
+    p_source_id: opts.sourceId || null,
+    p_amount: opts.amount || null,
+  };
   const { data: award, error } = await supabase.rpc('rb_award_xp', payload);
   if (error) { console.warn('[RB XP] award failed', error.message); return { ok: false, reason: error.message }; }
   await loadXp(data.user.id);
