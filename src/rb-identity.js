@@ -15,6 +15,7 @@ export function safeNextRoute(value, fallback = '/') {
   return raw;
 }
 export function currentRoute() { return `${location.pathname || '/'}${location.search || ''}${location.hash || ''}`; }
+function uniqueUsername(seed, userId) { const base = slugName(seed); const suffix = String(userId || crypto.randomUUID()).replace(/-/g, '').slice(0, 6); return `${base}_${suffix}`.slice(0, 36); }
 
 export async function getAuthoritativeIdentity() {
   const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
@@ -57,12 +58,17 @@ export async function ensureProfile(user) {
   }
   const meta = user.user_metadata || {};
   const display = meta.display_name || meta.name || meta.username || (user.email ? user.email.split('@')[0] : DEFAULT_PROFILE.display_name);
-  const username = slugName(meta.username || display);
   const hasAvatar = Boolean(meta.avatar_url);
-  const row = { id: user.id, username, display_name: display, avatar_url: meta.avatar_url || '', banner_url: DEFAULT_PROFILE.banner_url, bio: DEFAULT_PROFILE.bio, rich_level: 1, rich_points: 0, rank_title: 'BIZ LEGEND', balance_cents: 0, online_status: 'online', onboarding_state: hasAvatar ? 'complete' : 'needs_avatar', has_avatar: hasAvatar, has_profile_identity: true, last_route: hasAvatar ? '/' : '/avatar.html', metadata: { rb_language: 'Tap In', source: 'global_tap_in_foundation' } };
-  const { data, error } = await supabase.from('profiles').upsert(row, { onConflict: 'id' }).select().maybeSingle();
-  if (error) throw error;
-  return { ...DEFAULT_PROFILE, ...(data || row) };
+  const seed = meta.username || display || user.email || 'rich_user';
+  const baseUsername = slugName(seed);
+  const row = { id: user.id, username: baseUsername, display_name: display, avatar_url: meta.avatar_url || '', banner_url: DEFAULT_PROFILE.banner_url, bio: DEFAULT_PROFILE.bio, rich_level: 1, rich_points: 0, rank_title: 'BIZ LEGEND', balance_cents: 0, online_status: 'online', onboarding_state: hasAvatar ? 'complete' : 'needs_avatar', has_avatar: hasAvatar, has_profile_identity: true, last_route: hasAvatar ? '/' : '/avatar.html', metadata: { rb_language: 'Tap In', source: 'global_tap_in_foundation' } };
+  let result = await supabase.from('profiles').upsert(row, { onConflict: 'id' }).select().maybeSingle();
+  if (result.error && String(result.error.message || '').toLowerCase().includes('username')) {
+    const retry = { ...row, username: uniqueUsername(seed, user.id) };
+    result = await supabase.from('profiles').upsert(retry, { onConflict: 'id' }).select().maybeSingle();
+  }
+  if (result.error) throw result.error;
+  return { ...DEFAULT_PROFILE, ...(result.data || row) };
 }
 
 export async function ensureMetaAvatar(user, profile, config = {}) {
