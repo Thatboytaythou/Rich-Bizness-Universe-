@@ -19,7 +19,7 @@ const dedicated = new Set(['gaming','games','avatar-characters','meta','live','w
 let currentProfile = null;
 
 function cleanBlockers() {
-  document.querySelectorAll('#globalXpBadge,#xpToast,.xp-gauge,[data-rich-money],[data-balance-cents],[data-wallet-money],.rb-personal-strip,#miniProfile,#composerPanel,.hero-art,.rb-phone,.rb-pad-index,#rbRunner,.rb-overlay:not([data-rb-keep]),.rb-blocker:not([data-rb-keep]),.miniProfile,.composerPanel,.motion-rings:not([data-rb-keep])').forEach((el) => el.remove());
+  document.querySelectorAll('.rb-overlay:not([data-rb-keep]),.rb-blocker:not([data-rb-keep]),.motion-rings:not([data-rb-keep])').forEach((el) => { el.style.pointerEvents = 'none'; el.setAttribute('aria-hidden', 'true'); });
   document.body.style.overflowY = 'auto';
   document.body.style.overflowX = 'hidden';
   document.documentElement.dataset.rbUniversalApp = 'ready';
