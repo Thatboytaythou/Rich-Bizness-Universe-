@@ -1,5 +1,5 @@
 import { supabase } from './supabase-client.js';
-import { ensureTapInFoundation, slugName, safeNextRoute } from './rb-identity.js?v=tap-in-foundation-2';
+import { ensureTapInFoundation, slugName, safeNextRoute } from './rb-identity.js?v=tap-in-foundation-3';
 import { loadCurrentXp, awardXp } from './rb-xp.js?v=realtime-2';
 
 const form = document.getElementById('authForm');
@@ -30,9 +30,7 @@ const fail = (error) => {
   say(error?.message || 'Tap In blocked. Check Profile Lock.');
 };
 
-function destination(found) {
-  return safeNextRoute(found?.route || next || '/', '/');
-}
+function destination(found) { return safeNextRoute(found?.route || next || '/', '/'); }
 
 async function finish(user) {
   if (!user) throw new Error('Tap In did not return a user.');
@@ -40,9 +38,15 @@ async function finish(user) {
   say('Locking Profile, Avatar, and XP...');
   const found = await ensureTapInFoundation(user, { next });
   try { await loadCurrentXp(); } catch (_) {}
-  const go = destination(found);
   say('Tapped In. Opening Rich Bizness...');
-  location.replace(go);
+  location.replace(destination(found));
+}
+
+async function signInNow(mail, pass) {
+  const result = await supabase.auth.signInWithPassword({ email: mail, password: pass });
+  if (result.error) throw result.error;
+  if (!result.data?.user) throw new Error('Tap In did not return a user.');
+  return result.data.user;
 }
 
 async function checkReturned() {
@@ -65,10 +69,9 @@ form?.addEventListener('submit', async (event) => {
   calm();
   say('Opening portal...');
   try {
-    const result = await supabase.auth.signInWithPassword({ email: email.value.trim(), password: password.value });
-    if (result.error) throw result.error;
+    const user = await signInNow(email.value.trim(), password.value);
     try { await awardXp('daily_tap_in', { section: 'auth' }); } catch (_) {}
-    await finish(result.data.user);
+    await finish(user);
   } catch (error) { fail(error); }
 });
 
@@ -90,13 +93,27 @@ createBtn?.addEventListener('click', async () => {
       },
     });
     if (result.error) throw result.error;
-    if (!result.data.user || !result.data.session) {
-      lock(false);
-      say('Check email, then confirm to Tap In.');
+    const directUser = result.data?.session?.user || result.data?.user;
+    if (result.data?.session?.user) {
+      try { await awardXp('daily_tap_in', { section: 'auth' }); } catch (_) {}
+      await finish(result.data.session.user);
       return;
     }
-    try { await awardXp('daily_tap_in', { section: 'auth' }); } catch (_) {}
-    await finish(result.data.user);
+    if (directUser) {
+      try {
+        say('ID created. Opening portal...');
+        const user = await signInNow(mail, pass);
+        try { await awardXp('daily_tap_in', { section: 'auth' }); } catch (_) {}
+        await finish(user);
+        return;
+      } catch (_) {
+        lock(false);
+        say('ID created. Check email, confirm it, then Tap In.');
+        return;
+      }
+    }
+    lock(false);
+    say('Check email, then confirm to Tap In.');
   } catch (error) { fail(error); }
 });
 
