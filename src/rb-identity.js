@@ -6,11 +6,13 @@ export const DEFAULT_PROFILE = Object.freeze({
 
 export function slugName(value) { return String(value || 'rich_user').toLowerCase().replace(/[^a-z0-9_]+/g, '_').replace(/^_+|_+$/g, '').slice(0, 28) || 'rich_user'; }
 export function safeNextRoute(value, fallback = '/') {
-  const next = String(value || '').trim();
-  if (!next || !next.startsWith('/') || next.startsWith('//')) return fallback;
-  if (next.includes('://')) return fallback;
-  if (next === '/auth.html') return fallback;
-  return next;
+  const raw = String(value || '').trim();
+  if (!raw || !raw.startsWith('/') || raw.startsWith('//') || raw.includes('://')) return fallback;
+  let path = raw;
+  try { path = new URL(raw, location.origin).pathname; } catch (_) { path = raw.split('?')[0].split('#')[0]; }
+  const blocked = new Set(['/auth.html', '/auth', '/tap-in.html', '/login.html', '/signin.html', '/signup.html']);
+  if (blocked.has(path)) return fallback;
+  return raw;
 }
 export function currentRoute() { return `${location.pathname || '/'}${location.search || ''}${location.hash || ''}`; }
 
@@ -36,11 +38,11 @@ export async function getProfile(userId) {
 export function profileRoute(profile, nextRoute = '') {
   const next = safeNextRoute(nextRoute, '');
   const state = profile?.onboarding_state || (profile?.has_avatar || profile?.avatar_url ? 'complete' : 'needs_avatar');
-  if (next && next !== '/auth.html') return next;
+  if (next) return next;
   if (state === 'new' || state === 'needs_avatar') return '/avatar.html';
   if (state === 'needs_profile') return '/edit.html';
   const last = safeNextRoute(profile?.last_route || '', '');
-  if (last && !['/auth.html', '/profile.html', '/avatar.html'].includes(last)) return last;
+  if (last && !['/profile.html', '/avatar.html'].includes(last)) return last;
   return '/';
 }
 
@@ -97,7 +99,7 @@ export async function ensureTapInFoundation(user, options = {}) {
 export async function requireTapIn(options = {}) {
   const { session, user } = await getAuthoritativeIdentity();
   if (!session || !user) {
-    const next = encodeURIComponent(options.next || currentRoute());
+    const next = encodeURIComponent(safeNextRoute(options.next || currentRoute(), '/'));
     location.replace(`/auth.html?next=${next}`);
     return null;
   }
