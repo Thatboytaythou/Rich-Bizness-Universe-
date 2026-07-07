@@ -8,8 +8,8 @@
     <meta http-equiv="Pragma" content="no-cache" />
     <meta http-equiv="Expires" content="0" />
     <title>Rich Bizness Universe</title>
-    <link rel="stylesheet" href="/src/index-hard-reset.css?v=living-home-1" />
-    <link rel="stylesheet" href="/src/index-portal-ultra.css?v=living-home-1" />
+    <link rel="stylesheet" href="/src/index-hard-reset.css?v=living-home-2" />
+    <link rel="stylesheet" href="/src/index-portal-ultra.css?v=living-home-2" />
   </head>
   <body data-section="index">
     <div id="app">
@@ -26,7 +26,7 @@
 
           <div class="headline">
             <h1>RICH BIZNESS UNIVERSE</h1>
-            <p>They’re here Rich — portal hub loaded, all lanes connected.</p>
+            <p>One profile. One avatar. One upload lane. Live, music, store, sports, gaming, gallery, messages, and meta connected.</p>
           </div>
 
           <div class="status">
@@ -37,10 +37,16 @@
           </div>
         </header>
 
+        <section class="auth-action-strip" data-rb-keep="true">
+          <a class="auth-action primary" data-route="auth" href="/auth.html"><small>ACCOUNT</small><b data-auth-label>SIGN IN / JOIN</b></a>
+          <a class="auth-action" data-route="profile" href="/profile.html"><small>MY HUB</small><b>PROFILE</b></a>
+          <a class="auth-action" data-route="settings" href="/settings.html"><small>CONTROL</small><b>SETTINGS / SIGN OUT</b></a>
+        </section>
+
         <section class="identity-strip" data-rb-keep="true">
           <a class="profile-chip" data-route="profile" href="/profile.html">
             <i class="profile-face" data-profile-avatar>RB</i>
-            <span><small>WELCOME BACK</small><b data-profile-name>Rich Bizness</b></span>
+            <span><small data-auth-status>READY FOR SIGN IN</small><b data-profile-name>Rich Bizness</b></span>
           </a>
 
           <div class="xp-strip" data-rb-keep="true">
@@ -52,13 +58,13 @@
 
         <section class="live-activity-strip" data-rb-keep="true">
           <article data-route="live" onclick="location.href='/live.html'">
-            <small>WE LIT🔥</small><b data-live-count>0</b><span>live rooms</span>
+            <small>WE LIT🔥</small><b data-live-count>0</b><span>live rooms ready</span>
           </article>
           <article data-route="feed" onclick="location.href='/feed.html'">
-            <small>RICH FEED</small><b data-section="feed">SYNC</b><span>new drops</span>
+            <small>RICH FEED</small><b>CONNECTED</b><span>posts + gallery drops</span>
           </article>
           <article data-route="upload" onclick="location.href='/upload.html'">
-            <small>DROP ZONE</small><b>READY</b><span>route files</span>
+            <small>DROP ZONE</small><b>ROUTED</b><span>files go to the right table</span>
           </article>
         </section>
 
@@ -71,16 +77,16 @@
 
           <section class="feature-hub" data-rb-keep="true">
             <article class="phone-shell">
-              <div class="phone-top"><b>RB LIVE PREVIEW</b><span>● ONLINE</span></div>
+              <div class="phone-top"><b>RB LIVE PREVIEW</b><span>● ACCOUNT READY</span></div>
               <div class="phone-screen">
                 <div class="screen-orbit"><i>♪</i><i>◉</i><i>🎮</i><i>🛒</i></div>
-                <h2>Universal Social Marketing Platform</h2>
-                <p>Profile, avatar, upload, live, music, store, sports, gaming, and meta stay locked together.</p>
+                <h2>Build, Drop, Sell, Stream, Watch</h2>
+                <p>Sign in once, then your profile, avatar, uploads, XP, messages, and creator tools move through the whole universe.</p>
               </div>
               <div class="phone-controls">
-                <a data-route="watch" href="/watch.html">WATCH</a>
+                <a data-route="auth" href="/auth.html">SIGN IN</a>
                 <a data-route="upload" href="/upload.html">DROP</a>
-                <a data-route="profile" href="/profile.html">LOCK</a>
+                <a data-route="watch" href="/watch.html">WATCH</a>
               </div>
             </article>
           </section>
@@ -107,6 +113,7 @@
 
         <nav class="dock">
           <a href="/" data-route="home" class="active">⌂<span>HOME</span></a>
+          <a href="/auth.html" data-route="auth">🔐<span>SIGN IN</span></a>
           <a href="/feed.html" data-route="feed">▤<span>FEED</span></a>
           <a href="/live.html" data-route="live">◉<span>LIVE</span></a>
           <a href="/music.html" data-route="music">♪<span>MUSIC</span></a>
@@ -122,6 +129,6 @@
         <div class="toast" id="toast">Universe online</div>
       </main>
     </div>
-    <script type="module" src="/src/main.js?v=living-home-1"></script>
+    <script type="module" src="/src/main.js?v=living-home-2"></script>
   </body>
 </html>
