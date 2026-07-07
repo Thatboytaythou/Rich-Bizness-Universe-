@@ -1,5 +1,3 @@
-import './core/features/navigation.js?v=universal-nav-1';
-import './core/features/app-safe.css?v=universal-safe-1';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 const FALLBACK_URL = 'https://xfsrqomsiulswbalgknx.supabase.co';
