@@ -1,8 +1,9 @@
 import { supabase } from './supabase-client.js';
 import { RB_SECTIONS, sectionFor, routeFor } from './rb-schema-map.js';
-import { ensureProfile, getAuthoritativeIdentity, profileRoute, signOutAndGoHome } from './rb-identity.js?v=identity-public-1';
+import { ensureProfile, getAuthoritativeIdentity, profileRoute, signOutAndGoHome, requireTapIn } from './rb-identity.js?v=tap-in-foundation-1';
 import './rb-personality.js?v=brand-wide-1';
 import './identity-runtime-clean.js?v=identity-clean-1';
+import './section-language-foundation.js?v=language-foundation-1';
 
 const $ = (s) => document.querySelector(s);
 const $$ = (s) => [...document.querySelectorAll(s)];
