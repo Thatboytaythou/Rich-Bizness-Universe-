@@ -1,10 +1,36 @@
 {
   "redirects": [
     { "source": "/(.*)", "has": [{ "type": "host", "value": "rich-bizness-mobile.vercel.app" }], "destination": "https://rich-bizness.com/$1", "permanent": true },
+    { "source": "/(.*)", "has": [{ "type": "host", "value": "rich-bizness-mobile-app.vercel.app" }], "destination": "https://rich-bizness.com/$1", "permanent": true },
+    { "source": "/(.*)", "has": [{ "type": "host", "value": "rich-bizness-llc.vercel.app" }], "destination": "https://rich-bizness.com/$1", "permanent": true },
     { "source": "/(.*)", "has": [{ "type": "host", "value": "rich-bizness-llc-rich-bizness-llc.vercel.app" }], "destination": "https://rich-bizness.com/$1", "permanent": true },
     { "source": "/(.*)", "has": [{ "type": "host", "value": "rich-bizness-llc-git-main-rich-bizness-llc.vercel.app" }], "destination": "https://rich-bizness.com/$1", "permanent": true }
   ],
   "headers": [
+    {
+      "source": "/auth.html",
+      "headers": [
+        { "key": "Cache-Control", "value": "no-store, max-age=0, must-revalidate" },
+        { "key": "CDN-Cache-Control", "value": "no-store" },
+        { "key": "Vercel-CDN-Cache-Control", "value": "no-store" }
+      ]
+    },
+    {
+      "source": "/src/auth.js",
+      "headers": [
+        { "key": "Cache-Control", "value": "no-store, max-age=0, must-revalidate" },
+        { "key": "CDN-Cache-Control", "value": "no-store" },
+        { "key": "Vercel-CDN-Cache-Control", "value": "no-store" }
+      ]
+    },
+    {
+      "source": "/src/tap-in-foundation.js",
+      "headers": [
+        { "key": "Cache-Control", "value": "no-store, max-age=0, must-revalidate" },
+        { "key": "CDN-Cache-Control", "value": "no-store" },
+        { "key": "Vercel-CDN-Cache-Control", "value": "no-store" }
+      ]
+    },
     {
       "source": "/api/clear-site-data",
       "headers": [
@@ -23,7 +49,7 @@
     {
       "source": "/(.*)",
       "headers": [
-        { "key": "X-Rich-Bizness-Domains", "value": "rich-bizness.com,www.rich-bizness.com,rich-bizness-mobile-app.vercel.app" },
+        { "key": "X-Rich-Bizness-Domains", "value": "rich-bizness.com,www.rich-bizness.com" },
         { "key": "X-Rich-Bizness-Canonical", "value": "https://rich-bizness.com" },
         { "key": "X-Content-Type-Options", "value": "nosniff" }
       ]
