@@ -14,20 +14,25 @@ function statusCells() {
 }
 function setText(selector, value) { $$(selector).forEach((el) => { el.textContent = value; }); }
 function initials(name = 'RB') { return String(name).split(/\s+/).map((part) => part[0]).filter(Boolean).slice(0, 2).join('').toUpperCase() || 'RB'; }
+function paintAvatarTarget(el, url, label) {
+  if (!el) return;
+  el.textContent = url ? '' : initials(label);
+  el.style.backgroundImage = url ? `url("${url}")` : '';
+  el.style.backgroundSize = 'cover';
+  el.style.backgroundPosition = 'center';
+}
 function setAvatarChip(url, label) {
-  const chips = [document.querySelector('.status i'), document.querySelector('[data-route="profile"]')].filter(Boolean);
-  chips.forEach((chip) => {
-    chip.textContent = url ? '' : initials(label);
-    chip.style.backgroundImage = url ? `url("${url}")` : '';
-    chip.style.backgroundSize = 'cover';
-    chip.style.backgroundPosition = 'center';
-  });
+  const cleanLabel = label || 'Rich Bizness';
+  const chips = [document.querySelector('.status i'), document.querySelector('[data-route="profile"]'), ...$$('[data-profile-avatar]')].filter(Boolean);
+  chips.forEach((chip) => paintAvatarTarget(chip, url, cleanLabel));
+  setText('[data-profile-name]', cleanLabel);
 }
 function clearShellPlaceholders() {
   const status = statusCells();
   [status.live, status.online].forEach((el) => { if (el) el.textContent = '0'; });
   setText('[data-live-count]', '0');
   setText('[data-online-count]', '0');
+  setText('[data-profile-name]', 'Rich Bizness');
   updateXpGauge({ rich_points: 0, rich_level: 1, rank_title: 'BIZ LEGEND' });
   setAvatarChip('', 'RB');
 }
@@ -78,7 +83,7 @@ async function loadSessionProfile() {
     const { data: auth } = await supabase.auth.getUser();
     const user = auth?.user;
     state.user = user || null;
-    if (!user) { state.profile = null; state.avatar = null; updateXpGauge({ rich_points: 0, rich_level: 1, rank_title: 'BIZ LEGEND' }); setAvatarChip('', 'RB'); return; }
+    if (!user) { state.profile = null; state.avatar = null; updateXpGauge({ rich_points: 0, rich_level: 1, rank_title: 'BIZ LEGEND' }); setAvatarChip('', 'Rich Bizness'); return; }
     const [{ data: profileData }, { data: avatarData }] = await Promise.all([
       supabase.from('profiles').select('display_name,username,avatar_url,rich_level,rank_title,rich_points,online_status').eq('id', user.id).maybeSingle(),
       supabase.from('meta_avatars').select('display_name,avatar_url,aura,rank,level,xp,metadata').eq('user_id', user.id).maybeSingle(),
