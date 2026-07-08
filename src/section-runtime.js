@@ -11,7 +11,7 @@ const cleanKey = (v = '') => String(v || '').replace(/^\//, '').replace(/\.html$
 const key = cleanKey(document.body?.dataset?.section || document.documentElement?.dataset?.section || location.pathname.split('/').pop() || 'home');
 const sections = new Map(RB_SECTIONS.map((s) => [s.key, s]));
 const publicRoutes = new Set(['auth']);
-const dedicated = new Set(['gaming','games','avatar-characters','meta','live','watch','avatar','profile','auth','admin','creator','rb-secret','feed','upload']);
+const dedicated = new Set(['gaming','games','avatar-characters','meta','live','watch','avatar','profile','auth','admin','creator','secret','rb-secret','feed','upload']);
 const dockKeys = ['home','feed','upload','live','watch','music','store','profile'];
 const labelMap = { home:'HOME', profile:'PROFILE LOCK', feed:'RICH FEED', upload:'DROP ZONE', live:'WE LIT🔥', watch:'We 🔥📺', music:'MUSIC', store:'STORE' };
 let currentProfile = null;
@@ -89,7 +89,7 @@ function ensureShell(mapped, title) {
   } else {
     $$('.brand small').forEach((el) => { if (!el.dataset.locked) el.textContent = topLabel; });
     const actions = $('.top-actions');
-    if (actions && !$('.profile-chip')) actions.insertAdjacentHTML('afterbegin', profileChip());
+    if (actions && !dedicated.has(key) && !$('.profile-chip')) actions.insertAdjacentHTML('afterbegin', profileChip());
   }
   if (!$('.hero') && !dedicated.has(key)) {
     main.insertAdjacentHTML('beforeend', `<section class="hero"><div class="kicker">${topLabel}</div><h1>${title}</h1><p>${mapped.subtitle || 'Connected Rich Bizness route.'}</p><div class="hero-grid"><div class="metric"><b id="recordCount">0</b><small>LIVE RECORDS</small></div><div class="metric"><b id="primaryTable">${topLabel}</b><small>SECTION</small></div><div class="metric"><b id="tableCount">READY</b><small>STATUS</small></div></div></section>`);
