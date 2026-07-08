@@ -2,8 +2,6 @@ import { supabase } from './supabase-client.js';
 import { awardXp } from './rb-xp.js?v=xp-idempotent-1';
 import { getAuthoritativeIdentity } from './rb-identity.js?v=tap-in-foundation-3';
 import './section-language-foundation.js?v=copy-only-1';
-import './rb-game-play.js';
-import './rb-elite-games.js';
 
 const GAME_TABLES = ['games','gamer_profiles','game_categories','game_sessions','game_scores','game_moves','game_rooms','game_room_members','game_rewards','game_clips','game_comments','game_likes','game_challenges','game_tournaments','game_platform_accounts','game_stream_links','game_alert_subscriptions','gaming_uploads'];
 let games = [], counts = {}, user = null, selected = null, score = 0;
@@ -11,7 +9,7 @@ const fmt = (n) => Number(n || 0).toLocaleString();
 const $ = (s) => document.querySelector(s);
 const next = encodeURIComponent(location.pathname + location.search);
 
-function addCss(){ if(document.getElementById('gameRoomCss')) return; const l=document.createElement('link'); l.id='gameRoomCss'; l.rel='stylesheet'; l.href='/src/game-room.css?v=game-room-5'; document.head.appendChild(l); }
+function addCss(){ if(document.getElementById('gameRoomCss')) return; const l=document.createElement('link'); l.id='gameRoomCss'; l.rel='stylesheet'; l.href='/src/game-room.css?v=game-room-6'; document.head.appendChild(l); }
 function ensureControls(){
   const panel = $('#schemaPanel') || $('#gamingSystems')?.closest('.panel') || document.querySelector('.layout .panel:last-child');
   if (!panel || $('#gameControls')) return;
