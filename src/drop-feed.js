@@ -2,7 +2,7 @@ import { supabase } from './supabase-client.js';
 import { awardXp } from './rb-xp.js?v=realtime-2';
 import { getAuthoritativeIdentity, ensureProfile } from './rb-identity.js?v=tap-in-foundation-3';
 import './rb-personality.js?v=drop-feed-2';
-import './section-language-foundation.js?v=language-foundation-3';
+import './section-language-foundation.js?v=copy-only-1';
 
 const key = document.body?.dataset?.section || 'feed';
 const isUpload = key === 'upload';
@@ -216,44 +216,38 @@ async function submitUpload(e) {
     const caption = $('#dropCaption')?.value?.trim() || 'They are here Rich';
     $('#dropStatus').textContent = 'Routing through table-safe payloads...';
     const created = await routeUpload({ title, caption });
-    const sectionHit = created.find((item) => item.table !== 'uploads' && item.table !== 'feed_posts') || created.find((item) => item.table === 'feed_posts') || created[0];
-    $('#dropStatus').textContent = `Dropped into ${created.map((item) => item.table).join(' + ')}.`;
-    await awardXp('upload_created', { section: selectedRoute, sourceTable: sectionHit?.table || 'uploads', sourceId: sectionHit?.data?.id }).catch(() => {});
+    await awardXp('drop_zone_upload', { section: selectedRoute, sourceTable: created[0]?.table, sourceId: created[0]?.data?.id });
+    $('#dropStatus').textContent = `Dropped into ${created.map(c => c.table).join(', ')}.`;
     $('#dfStatusTop').textContent = 'DROPPED';
-    $('#dropForm')?.reset(); pickedFile = null; previewFile(); loadFeed();
-  } catch (error) { console.warn('[RB upload] blocked', error); $('#dropStatus').textContent = error.message || 'Drop blocked by table policy.'; $('#dfStatusTop').textContent = 'BLOCKED'; }
+    loadFeed();
+  } catch (error) { console.warn(error); $('#dropStatus').textContent = error.message || String(error); }
 }
 async function submitFeed(e) {
   e.preventDefault();
-  await auth();
-  if (!user) { location.href = '/auth.html?next=' + encodeURIComponent('/feed.html'); return; }
-  const title = $('#feedTitle')?.value?.trim() || 'Rich Bizness Drop';
-  const body = $('#feedBody')?.value?.trim() || 'They are here Rich';
-  const media = $('#feedMedia')?.value?.trim() || '';
-  const row = { ...identityFields(), title, body, section: 'feed', post_type: 'feed', media_url: media, media_type: media ? 'link' : 'text', file_url: media, visibility: 'public', metadata: identityMeta({ media_url: media }) };
-  const { data, error } = await supabase.from('feed_posts').insert(row).select('*').maybeSingle();
-  if (error) { $('#dropStatus').textContent = error.message; return; }
-  $('#dropStatus').textContent = 'Dropped into Rich Feed.';
-  await awardXp('post_created', { section: 'feed', sourceTable: 'feed_posts', sourceId: data?.id }).catch(() => {});
-  $('#feedForm').reset(); loadFeed();
-}
-function renderFeed() {
-  const box = $('#dfFeedList');
-  if (!box) return;
-  box.innerHTML = posts.length ? posts.map((p) => {
-    const m = mediaOf(p), face = faceOf(p);
-    const mediaHtml = m ? (String(m).match(/\.(mp4|mov|webm)(\?|$)/i) ? `<video src="${m}" controls playsinline></video>` : String(m).match(/\.(mp3|wav|m4a|ogg)(\?|$)/i) ? `<audio src="${m}" controls></audio>` : `<img src="${m}" alt="">`) : '';
-    return `<article class="df-post"><div class="df-author"><div class="df-face">${face ? `<img src="${face}" alt="">` : 'RB'}</div><div><b>${authorOf(p)}</b><small>${p.section || 'feed'} • ${new Date(p.created_at || Date.now()).toLocaleString()}</small></div></div><h3>${nameOf(p)}</h3><p>${p.body || p.caption || p.description || 'They are here Rich'}</p>${mediaHtml ? `<div class="df-media">${mediaHtml}</div>` : ''}<div class="df-post-actions"><button type="button">Like</button><button type="button">Comment</button><button type="button">Share</button></div></article>`;
-  }).join('') : '<div class="df-status">No drops yet. Drop the first one Rich.</div>';
+  try {
+    await auth();
+    if (!user) { location.href = '/auth.html?next=' + encodeURIComponent('/feed.html'); return; }
+    const title = $('#feedTitle')?.value?.trim() || 'Rich Bizness Post';
+    const body = $('#feedBody')?.value?.trim() || 'They are here Rich';
+    const media = $('#feedMedia')?.value?.trim() || '';
+    const row = { ...identityFields(), title, body, caption: body, media_url: media, visibility: 'public', section: 'feed', post_type: media ? 'media' : 'text', metadata: identityMeta({ source: 'feed-composer' }) };
+    const { data, error } = await supabase.from('feed_posts').insert(row).select('*').maybeSingle();
+    if (error) throw error;
+    await awardXp('feed_post_create', { section: 'feed', sourceTable: 'feed_posts', sourceId: data?.id });
+    $('#dropStatus').textContent = 'Post dropped.';
+    e.target.reset();
+    loadFeed();
+  } catch (error) { console.warn(error); $('#dropStatus').textContent = error.message || String(error); }
 }
 async function loadFeed() {
-  try {
-    const { data, count } = await supabase.from('feed_posts').select('*', { count: 'exact' }).order('created_at', { ascending: false }).limit(20);
-    posts = data || [];
-    if ($('#dfRecordCount')) $('#dfRecordCount').textContent = fmt(count || posts.length);
-    if ($('#dfStatusTop')) $('#dfStatusTop').textContent = 'LIVE';
-    renderFeed();
-  } catch (e) { if ($('#dfStatusTop')) $('#dfStatusTop').textContent = 'READY'; }
+  if (isUpload) return;
+  const { data } = await supabase.from('feed_posts').select('*').order('created_at', { ascending: false }).limit(24);
+  posts = data || [];
+  const list = $('#dfFeedList');
+  const count = $('#dfRecordCount');
+  if (count) count.textContent = fmt(posts.length);
+  if (!list) return;
+  list.innerHTML = posts.length ? posts.map((p) => `<article class="df-post"><div class="df-author">${faceOf(p) ? `<img src="${faceOf(p)}" alt="">` : '<span>RB</span>'}<div><b>${authorOf(p)}</b><small>${p.created_at ? new Date(p.created_at).toLocaleString() : 'now'}</small></div></div><h3>${nameOf(p)}</h3><p>${p.body || p.caption || ''}</p>${mediaOf(p) ? `<a class="df-media" href="${mediaOf(p)}" target="_blank" rel="noreferrer">OPEN MEDIA</a>` : ''}</article>`).join('') : '<div class="df-status">No feed posts yet.</div>';
 }
 
 addCss();
