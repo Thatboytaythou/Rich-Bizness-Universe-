@@ -6,21 +6,19 @@
   <meta name="theme-color" content="#020402" />
   <title>We 🔥📺 - Rich Bizness</title>
   <link rel="stylesheet" href="/src/section-page.css?v=one-app-dock-2" />
-  <link rel="stylesheet" href="/src/watch-hologram.css?v=live-watch-redesign-3" />
+  <link rel="stylesheet" href="/src/watch-hologram.css?v=live-watch-clean-1" />
 </head>
 <body data-section="watch">
   <main class="section-screen live-tv-screen">
-    <header class="top"><a class="brand" href="/"><span class="crest">RB</span><span><b>RICH BIZNESS</b><small>We 🔥📺</small></span></a><nav class="top-actions"><a class="pill" href="/live.html">WE LIT🔥</a><a class="pill" href="/gaming.html">GAMES</a><a class="pill" href="/messages.html">RICH-DM’s</a></nav></header>
-    <section class="watch-holo watch-room-card">
-      <div class="holo-top"><div class="holo-title"><small>VIEWER ROOM</small><b id="watchTitle" data-rb-watch-title>We 🔥📺</b><p>Watch Bizness Party streams. Stream list, viewer XP, LiveKit playback, chat, reactions, and room status stay inside one TV layout.</p></div><div class="livekit-pill" id="tvState">READY</div></div>
-      <section class="holo-tv"><div class="holo-screen" id="holoScreen"><div class="holo-empty"><div class="holo-orb">TV</div><b>We 🔥📺 READY</b><p>Pick a room below, then tap Watching.</p></div></div></section>
-      <section class="tv-controls"><div class="tv-meta"><small id="tvStatus">STANDBY</small><b id="tvTitle">We 🔥📺</b><small id="tvRoom">Bizness Party</small></div><div class="tv-buttons"><button id="refreshTv" type="button">REFRESH ROOMS</button><button id="watchXp" type="button">WATCHING</button><a href="/live.html">WE LIT🔥</a></div></section>
-      <section class="holo-stats"><span><b id="tvViewers">0</b><small>VIEWERS</small></span><span><b id="tvChat">0</b><small>CHAT</small></span><span><b id="tvReactions">0</b><small>REACTIONS</small></span></section>
-      <section class="stream-panel"><div class="stream-panel-head"><b>Bizness Party Rooms</b><small>Realtime live_streams</small></div><div class="stream-grid" id="streamGrid"><div class="stream-card"><b>Loading streams...</b><small>Checking rooms.</small></div></div></section>
-      <section class="live-social-panel"><div class="stream-panel-head"><b>Room Chat + Smoke</b><small>live_chat_messages / live_reactions</small></div><div class="live-chat-list" id="liveChatList"><p>No room messages yet.</p></div><form class="live-chat-form" id="liveChatForm"><input id="liveChatInput" placeholder="Say it in We 🔥📺"><button type="submit">SEND</button><button type="button" id="liveReactBtn">💨</button></form></section>
+    <header class="top"><a class="brand" href="/"><span class="crest">RB</span><span><b>RICH BIZNESS</b><small>We 🔥📺</small></span></a><nav class="top-actions"><a class="pill" href="/live.html">WE LIT🔥</a><a class="pill" href="/podcast.html">PODCAST</a></nav></header>
+    <section class="rb-live-shell watch-room-card">
+      <section class="rb-live-copy"><div class="kicker">WATCH ROOM</div><h1>We 🔥📺</h1><p>Watch Bizness Party rooms from one TV screen. Pick a room, join with LiveKit, earn XP, and leave clean.</p><div class="rb-live-actions"><button id="refreshTv" type="button">REFRESH ROOMS</button><button id="watchXp" type="button">WATCHING</button><a href="/live.html">HOST WE LIT🔥</a></div></section>
+      <section class="rb-tv-frame"><div class="holo-screen" id="holoScreen"><div class="holo-empty"><div class="holo-orb">TV</div><b>ROOM READY</b><p>Pick a room below, then tap Watching.</p></div></div></section>
+      <section class="rb-live-bar"><span><small>STATUS</small><b id="tvStatus">READY</b></span><span><small>ROOM</small><b id="tvRoom">Bizness Party</b></span><span><small>VIEWERS</small><b id="tvViewers">0</b></span><span><small>CHAT</small><b id="tvChat">0</b></span></section>
+      <section class="stream-panel"><div class="stream-panel-head"><b>Rooms</b><small>live_streams</small></div><div class="stream-grid" id="streamGrid"><div class="stream-card"><b>Loading rooms...</b><small>Checking Supabase.</small></div></div></section>
     </section>
   </main>
   <script type="module" src="/src/section-runtime.js?v=one-app-dock-2"></script>
-  <script type="module" src="/src/watch-hologram.js?v=live-ready-3"></script>
+  <script type="module" src="/src/watch-hologram.js?v=live-ready-4"></script>
 </body>
 </html>
