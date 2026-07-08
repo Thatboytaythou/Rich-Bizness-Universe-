@@ -1,7 +1,7 @@
 import { supabase } from './supabase-client.js';
 import { awardXp } from './rb-xp.js?v=realtime-2';
 import { getAuthoritativeIdentity } from './rb-identity.js?v=tap-in-foundation-3';
-import './section-language-foundation.js?v=language-foundation-4';
+import './section-language-foundation.js?v=copy-only-1';
 import './rb-game-play.js';
 import './rb-elite-games.js';
 
