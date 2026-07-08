@@ -4,39 +4,19 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <meta name="theme-color" content="#020402" />
-  <title>Profile - Rich Bizness Universe</title>
+  <title>Profile Lock - Rich Bizness Universe</title>
   <link rel="stylesheet" href="/src/section-page.css?v=one-app-dock-2" />
-  <link rel="stylesheet" href="/src/profile-clean.css?v=profile-clean-2" />
+  <link rel="stylesheet" href="/src/identity-stack.css?v=identity-stack-1" />
+  <link rel="stylesheet" href="/src/profile-clean.css?v=profile-clean-3" />
 </head>
 <body data-rb-page="profile" data-section="profile">
-  <main class="profile-screen section-screen">
-    <header class="top">
-      <a class="brand" href="/"><span class="crest">RB</span><span><b>RICH BIZNESS</b><small>PROFILE LOCK</small></span></a>
-      <nav class="top-actions"><button id="editAvatar" class="pill" type="button">AVATAR</button><a class="pill" href="/settings.html">SETTINGS</a></nav>
-    </header>
-    <section class="hero profile-hero" id="profileHero">
-      <div class="avatar" id="avatarFace">RB</div>
-      <p>PROFILE LOCK</p>
-      <h1 id="displayName">RICH BIZNESS USER</h1>
-      <h2 id="username">@rich_user</h2>
-      <p id="bio">Building a Rich Bizness lane across the universe.</p>
-      <div class="stats"><span><b id="rank">BIZ LEGEND</b><small>RANK</small></span><span><b id="level">1</b><small>LEVEL</small></span><span><b id="xp">0</b><small>XP</small></span><span><b id="xpMode">SYNCED</b><small>XP SYSTEM</small></span></div>
-      <div class="xp"><i id="xpFill"></i></div>
-      <p id="profileStatus" class="profile-status">Profile connected.</p>
-    </section>
-    <section class="actions profile-actions"><a href="/avatar.html">EDIT AVATAR</a><a href="/avatar-characters/">CHARACTERS</a><a href="/settings.html">ACCOUNT</a></section>
-    <section class="profile-hub">
-      <article><b>Creator Hub</b><p>Creator page, alerts, music, live, podcast, store, and meta links.</p><a href="/creator.html">OPEN CREATOR</a></article>
-      <article><b>Store Seller</b><p>Products, seller identity, unlocks, carts, and market tools.</p><a href="/store.html">OPEN STORE</a></article>
-      <article><b>Gaming Profile</b><p>Games, rooms, scores, clips, rewards, and arcade progress.</p><a href="/gaming.html">OPEN GAMING</a></article>
-      <article><b>Sports Profile</b><p>Sports posts, uploads, picks, brackets, and arena alerts.</p><a href="/sports.html">OPEN SPORTS</a></article>
-      <article><b>Meta Avatar</b><p>Worlds, rooms, portals, inventory, and avatar character routes.</p><a href="/meta.html">OPEN META</a></article>
-      <article><b>Rich-DM’s</b><p>Messages, reactions, calls, reads, and smoke-room threads.</p><a href="/messages.html">OPEN DMs</a></article>
-      <article><b>Uploads</b><p>Drop Zone routes your files into every section without breaking identity.</p><a href="/upload.html">OPEN DROP ZONE</a></article>
-      <article><b>Rich Alerts</b><p>Notifications, reads, live alerts, creator alerts, game, store, and sports updates.</p><a href="/notifications.html">OPEN ALERTS</a></article>
-    </section>
+  <div class="identity-bg"></div>
+  <main class="identity-shell profile-screen section-screen">
+    <header class="identity-top"><a class="identity-brand" href="/"><span class="identity-crest">RB</span><span><b>RICH BIZNESS</b><small>PROFILE LOCK</small></span></a><nav class="identity-actions"><a class="identity-pill" href="/avatar.html">AVATAR</a><a class="identity-pill" href="/edit.html">EDIT</a><a class="identity-pill" href="/settings.html">SETTINGS</a></nav></header>
+    <section class="identity-hero profile-hero" id="profileHero"><div class="identity-hero-inner"><div class="identity-copy"><div class="identity-kicker">Identity Command Center</div><h1 id="displayName">RICH BIZNESS USER</h1><p id="bio">Building a Rich Bizness lane across the universe.</p><div class="identity-stats"><span><b id="rank">BIZ LEGEND</b><small>RANK</small></span><span><b id="level">1</b><small>LEVEL</small></span><span><b id="xp">0</b><small>XP</small></span></div><p id="profileStatus" class="profile-status">Profile connected.</p><div class="identity-buttons"><a class="identity-btn primary" href="/avatar.html">Build Avatar</a><a class="identity-btn" href="/avatar-characters/">Characters</a><a class="identity-btn" href="/creator.html">Creator Hub</a></div></div><div class="identity-portal-card"><div class="avatar" id="avatarFace">RB</div><div class="identity-core"><b id="username">@rich_user</b><span>PROFILE LOCK</span></div><div class="xp"><i id="xpFill"></i></div></div></div></section>
+    <section class="identity-grid" aria-label="Profile lanes"><a class="identity-card hot" data-icon="♛" href="/avatar-characters/"><b>Characters</b><small>Open roster</small></a><a class="identity-card hot" data-icon="◎" href="/meta.html"><b>Meta Avatar</b><small>World identity</small></a><a class="identity-card" data-icon="$" href="/store.html"><b>Store Seller</b><small>Products</small></a><a class="identity-card" data-icon="🎮" href="/gaming.html"><b>Gaming</b><small>Scores + clips</small></a><a class="identity-card" data-icon="🏆" href="/sports.html"><b>Sports</b><small>Arena</small></a><a class="identity-card" data-icon="✉" href="/messages.html"><b>Rich-DM’s</b><small>Threads</small></a><a class="identity-card" data-icon="⬆" href="/upload.html"><b>Drop Zone</b><small>Route files</small></a><a class="identity-card" data-icon="⚙" href="/settings.html"><b>Settings</b><small>Control</small></a></section>
   </main>
   <script type="module" src="/src/section-runtime.js?v=one-app-dock-2"></script>
-  <script type="module" src="/src/profile.js?v=unit-profile-2"></script>
+  <script type="module" src="/src/profile.js?v=unit-profile-3"></script>
 </body>
 </html>
