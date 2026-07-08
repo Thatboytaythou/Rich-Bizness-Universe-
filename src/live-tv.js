@@ -1,9 +1,10 @@
 import { Room, RoomEvent, createLocalTracks } from 'livekit-client';
 import { supabase } from './supabase-client.js';
 import { awardXp } from './rb-xp.js?v=realtime-2';
-import { getAuthoritativeIdentity } from './rb-identity.js?v=identity-public-2';
+import { getAuthoritativeIdentity } from './rb-identity.js?v=tap-in-foundation-3';
 import './rb-personality.js?v=rb-live-owner-2';
 import './live-owner.js?v=live-owner-1';
+import './section-language-foundation.js?v=language-foundation-2';
 
 const LIVEKIT_URL = 'wss://rich-bizness-mobile-app-ww6cieid.livekit.cloud';
 const LIVE_TITLE = 'WE LIT🔥';
@@ -38,117 +39,14 @@ function idleScreen() { return `<div class="holo-empty"><b>${LIVE_TITLE}</b><p>$
 function paint() {
   if (!previewing && !live && $('#holoScreen')) $('#holoScreen').innerHTML = idleScreen();
   if ($('#tvTitle')) $('#tvTitle').textContent = stream?.title || LIVE_TITLE;
-  if ($('#tvRoom')) $('#tvRoom').textContent = stream?.display_room_name || stream?.livekit_room_name || LIVE_ROOM;
-  if ($('#tvStatus')) $('#tvStatus').textContent = stream?.status_label || (stream?.status || 'Get Right').toUpperCase();
-  if ($('#tvViewers')) $('#tvViewers').textContent = fmt(stream?.viewer_count || 0);
-  if ($('#tvChat')) $('#tvChat').textContent = fmt(stream?.total_chat_messages || 0);
-  if ($('#tvState')) $('#tvState').textContent = live ? 'LIVE' : 'READY';
+  if ($('#tvRoom')) $('#tvRoom').textContent = stream?.display_room_name || LIVE_ROOM;
 }
-async function load() {
-  const { data, error } = await supabase.from('live_streams').select('id,creator_id,title,status,status_label,display_slug,display_room_name,livekit_room_name,viewer_count,total_chat_messages,total_reactions,metadata,created_at').order('created_at', { ascending: false }).limit(1).maybeSingle();
-  if (error) setStatus(error.message);
-  stream = data || null;
-  paint();
-}
-async function previewCamera() {
-  await auth();
-  if (!user) { location.href = '/auth.html'; return false; }
-  try {
-    setStatus('Opening camera...');
-    localTracks.forEach((t) => t.stop());
-    localTracks = await createLocalTracks({ audio: true, video: true });
-    const video = localTracks.find((t) => t.kind === 'video');
-    previewing = true;
-    attachVideo(video);
-    setStatus('Get Right');
-    return true;
-  } catch (err) {
-    setStatus('Camera or mic needs permission');
-    console.warn(err);
-    return false;
-  }
-}
-async function tokenFor(role, lkRoom) {
-  const { session, user: signed } = await auth();
-  if (!session || !signed) throw new Error('Sign in required');
-  const { data, error } = await supabase.functions.invoke('livekit-token', { body: { room: lkRoom, role, identity: signed.id, name: signed.email || 'Rich Bizness User' } });
-  if (error) throw error;
-  if (!data?.token) throw new Error(data?.error || 'LiveKit token failed');
-  return data;
-}
-async function syncLiveRow(lkRoom) {
-  const row = {
-    creator_id: user.id,
-    slug: lkRoom,
-    title: LIVE_TITLE,
-    display_slug: LIVE_TITLE,
-    display_room_name: LIVE_ROOM,
-    livekit_room_name: lkRoom,
-    status: 'live',
-    status_label: 'Get Right',
-    category: 'we-lit',
-    started_at: new Date().toISOString(),
-    last_activity_at: new Date().toISOString(),
-    is_chat_enabled: true,
-    is_cohost_enabled: true,
-    metadata: { livekit_url: LIVEKIT_URL, studio: 'we_lit', rb_language: 'Bizness Party' }
-  };
-  let found = null;
-  try { found = (await supabase.from('live_streams').select('id').eq('slug', lkRoom).maybeSingle()).data; } catch (_) {}
-  const query = found?.id ? supabase.from('live_streams').update(row).eq('id', found.id).select('*').maybeSingle() : supabase.from('live_streams').insert(row).select('*').maybeSingle();
-  const { data, error } = await query;
-  if (error) { setStatus('LIVE connected, sync needs policy'); console.warn(error); return null; }
-  stream = data;
-  await supabase.from('live_stream_members').insert({ stream_id: data.id, user_id: user.id, role: 'host', status: 'active', metadata: { room: lkRoom, source: 'we_lit' } }).then(() => {}, () => {});
-  return data;
-}
-async function goLive() {
-  try {
-    await auth();
-    if (!user) { location.href = '/auth.html'; return; }
-    if (!localTracks.length) { const ok = await previewCamera(); if (!ok) return; }
-    const lkRoom = roomName();
-    setStatus('Getting live key...');
-    const lk = await tokenFor('host', lkRoom);
-    room = new Room({ adaptiveStream: true, dynacast: true });
-    room.on(RoomEvent.ParticipantConnected, () => load());
-    setStatus('Connecting...');
-    await room.connect(lk.livekitUrl || LIVEKIT_URL, lk.token);
-    for (const track of localTracks) await room.localParticipant.publishTrack(track);
-    live = true;
-    previewing = false;
-    setStatus('WE LIT LIVE 🔴');
-    const row = await syncLiveRow(lkRoom);
-    if (row?.id) awardXp('live_started', { section: 'live', sourceTable: 'live_streams', sourceId: row.id }).catch(() => {});
-    paint();
-  } catch (err) { setStatus(String(err.message || err)); console.warn(err); }
-}
-async function endLive() {
-  try {
-    setStatus('Ending live...');
-    if (room) room.disconnect();
-    localTracks.forEach((t) => t.stop());
-    localTracks = [];
-    live = false;
-    previewing = false;
-    if (stream?.id) await supabase.from('live_streams').update({ status: 'ended', status_label: 'Party closed', ended_at: new Date().toISOString(), last_activity_at: new Date().toISOString() }).eq('id', stream.id);
-    setStatus('Live ended');
-    await load();
-  } catch (err) { setStatus(String(err.message || err)); }
-}
-async function watching() {
-  if (!stream?.id) return;
-  await auth();
-  if (!user) { location.href = '/auth.html'; return; }
-  await supabase.from('live_view_sessions').insert({ stream_id: stream.id, user_id: user.id, metadata: { screen: 'we_lit', livekit_url: LIVEKIT_URL } }).then(() => {}, () => {});
-  await awardXp('watch_joined', { section: 'watch', sourceTable: 'live_streams', sourceId: stream.id });
-}
-
-$('#previewCam')?.addEventListener('click', previewCamera);
+async function preview() { try { await auth(); if (!user) { location.href = '/auth.html?next=' + encodeURIComponent('/live.html'); return; } if (!stream) paint(); if (localTracks.length) return; setStatus('Camera ready'); localTracks = await createLocalTracks({ audio: true, video: true }); previewing = true; attachVideo(localTracks.find((t) => t.kind === 'video')); } catch (err) { setStatus(String(err.message || err)); console.warn(err); } }
+async function goLive() { try { const state = await auth(); if (!state.session || !user) { location.href = '/auth.html?next=' + encodeURIComponent('/live.html'); return; } if (!localTracks.length) await preview(); setStatus('Going LIVE...'); const lkRoom = roomName(); const { data, error } = await supabase.functions.invoke('livekit-token', { body: { room: lkRoom, role: 'host', identity: user.id, name: user.email || 'Rich Bizness Host' } }); if (error) throw error; if (!data?.token) throw new Error(data?.error || 'LiveKit token missing'); room = new Room({ adaptiveStream: true, dynacast: true }); await room.connect(data.livekitUrl || LIVEKIT_URL, data.token); for (const track of localTracks) await room.localParticipant.publishTrack(track); const row = { host_id: user.id, title: LIVE_TITLE, display_room_name: LIVE_ROOM, livekit_room_name: lkRoom, status: 'live', viewer_count: 0, total_chat_messages: 0, metadata: { brand: 'Rich Bizness', screen: 'live' } }; const upsert = await supabase.from('live_streams').upsert(row, { onConflict: 'host_id' }).select().maybeSingle(); if (upsert.error) throw upsert.error; stream = upsert.data; live = true; setStatus('LIVE'); paint(); await awardXp('live_started', { section: 'live', sourceTable: 'live_streams', sourceId: stream?.id }).catch(() => {}); } catch (err) { setStatus(String(err.message || err)); console.warn(err); } }
+async function endLive() { try { live = false; previewing = false; localTracks.forEach((t) => t.stop()); localTracks = []; if (room) room.disconnect(); room = null; if (stream?.id) await supabase.from('live_streams').update({ status: 'ended', ended_at: new Date().toISOString() }).eq('id', stream.id); setStatus('READY'); paint(); } catch (err) { setStatus(String(err.message || err)); } }
+$('#previewCam')?.addEventListener('click', preview);
 $('#goLiveBtn')?.addEventListener('click', goLive);
 $('#endLiveBtn')?.addEventListener('click', endLive);
-$('#watchXp')?.addEventListener('click', watching);
-$('#refreshTv')?.addEventListener('click', load);
+$('#watchXp')?.addEventListener('click', () => { location.href = '/watch.html'; });
 $('#imOut')?.addEventListener('click', () => { location.href = '/'; });
-load();
-supabase.channel('we-lit-live').on('postgres_changes', { event: '*', schema: 'public', table: 'live_streams' }, load).subscribe();
+paint();
