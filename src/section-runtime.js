@@ -2,8 +2,7 @@ import { supabase } from './supabase-client.js';
 import { RB_SECTIONS, sectionFor, routeFor } from './rb-schema-map.js';
 import { requireTapIn, signOutAndGoHome } from './rb-identity.js?v=tap-in-foundation-3';
 import './rb-personality.js?v=brand-wide-1';
-import './identity-runtime-clean.js?v=identity-clean-1';
-import './section-language-foundation.js?v=language-foundation-3';
+import './section-language-foundation.js?v=copy-only-1';
 
 const $ = (s) => document.querySelector(s);
 const $$ = (s) => [...document.querySelectorAll(s)];
@@ -18,7 +17,7 @@ const labelMap = { home:'HOME', profile:'PROFILE LOCK', feed:'RICH FEED', upload
 let currentProfile = null;
 
 function cleanBlockers() {
-  $$('.rb-overlay:not([data-rb-keep]),.rb-blocker:not([data-rb-keep]),.motion-rings:not([data-rb-keep])').forEach((el) => {
+  $$('.rb-overlay:not([data-rb-keep]),.rb-blocker:not([data-rb-keep])').forEach((el) => {
     el.style.pointerEvents = 'none';
     el.setAttribute('aria-hidden', 'true');
   });
