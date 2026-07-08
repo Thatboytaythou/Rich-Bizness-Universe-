@@ -1,6 +1,7 @@
 import './core/features/navigation.js?v=universal-nav-4';
 import './core/features/app-safe.css?v=universal-safe-4';
 import { RB_SECTIONS, routeFor } from './rb-schema-map.js';
+import './section-language-foundation.js?v=language-foundation-4';
 
 (() => {
   if (window.__rbIndexBooted) return;
@@ -14,73 +15,63 @@ import { RB_SECTIONS, routeFor } from './rb-schema-map.js';
     return;
   }
 
-  const VERSION = 'click-safe-2';
-  const HOME_LANES = ['auth','profile','avatar','avatar-characters','feed','live','watch','music','podcast','radio','gaming','games','gallery','sports','store','meta','upload','search','messages','notifications','edit','settings','creator','admin','rb-secret'];
-  const DISTRICT_LANES = ['profile','avatar','avatar-characters','feed','live','watch','music','podcast','radio','gaming','games','gallery','sports','store','meta','upload','search','messages','notifications','edit','settings','creator','admin','rb-secret'];
-  const icon = { home:'⌂', auth:'🔐', feed:'▤', live:'◉', watch:'▶', music:'♪', podcast:'🎙', radio:'◌', gaming:'🎮', games:'♟', gallery:'▣', sports:'◎', store:'🛒', meta:'◇', upload:'⬆', search:'⌕', messages:'✉', notifications:'🔔', edit:'✎', settings:'⚙', creator:'♕', admin:'⚙', 'rb-secret':'◆', profile:'♙', avatar:'☻', 'avatar-characters':'☻' };
+  const APP_DOCK = ['home','feed','upload','live','watch','music','store','profile'];
+  const DISTRICTS = ['meta','gallery','gaming','games','sports','live','watch','music','podcast','radio','store','upload','messages','notifications','search','settings','creator','admin','rb-secret'];
+  const LABELS = { home:'HOME', feed:'RICH FEED', upload:'DROP ZONE', live:'WE LIT🔥', watch:'We 🔥📺', music:'MUSIC', store:'STORE', profile:'PROFILE LOCK', messages:'RICH-DM’s', notifications:'RICH ALERTS', search:'RICH SEARCH', settings:'SETTINGS', creator:'CREATOR', admin:'CONTROL', 'rb-secret':'RB VAULT' };
 
-  const addCss = (href, id) => {
-    let link = id ? document.getElementById(id) : null;
-    if (!link) {
-      link = document.createElement('link');
-      link.rel = 'stylesheet';
-      if (id) link.id = id;
-      document.head.appendChild(link);
-    }
-    link.href = href;
-  };
+  const section = (key) => RB_SECTIONS.find((item) => item.key === key) || { key, title: LABELS[key] || key.toUpperCase(), subtitle: 'OPEN', route: routeFor(key) };
+  const label = (key) => LABELS[key] || section(key).title || key.toUpperCase();
+  const href = (key) => key === 'home' ? '/' : key === 'profile' ? '/profile.html' : routeFor(key) || `/${key}.html`;
 
-  const addModule = (src, key) => {
-    if (document.querySelector(`script[data-rb-${key}]`)) return;
-    const s = document.createElement('script');
-    s.type = 'module';
-    s.src = src;
-    s.dataset[`rb${key[0].toUpperCase()}${key.slice(1)}`] = 'true';
-    document.head.appendChild(s);
-  };
-
-  const section = (key) => RB_SECTIONS.find((item) => item.key === key) || { key, title: key.toUpperCase(), subtitle: 'Rich Bizness route', route: routeFor(key) };
-  const label = (s) => s.key === 'rb-secret' ? 'RB VAULT' : s.key === 'live' ? 'WE LIT🔥' : s.key === 'avatar-characters' ? 'AVATAR CHARACTERS' : s.title;
-  const shortLabel = (s) => s.key === 'rb-secret' ? 'VAULT' : s.key === 'avatar-characters' ? 'AVATARS' : s.key === 'notifications' ? 'ALERTS' : s.key === 'auth' ? 'AUTH' : label(s).split(' ')[0];
-
-  // Never delete real page art, panels, composer blocks, profile strips, or layout.
-  // Earlier cleanup used broad removals and could erase actual visuals. This only
-  // neutralizes known click-blocking overlays while preserving the design tree.
-  const calmBlockers = () => {
+  function calmBlockers() {
     document.querySelectorAll('.rb-overlay:not([data-rb-keep]), .rb-blocker:not([data-rb-keep])').forEach((el) => {
       el.style.pointerEvents = 'none';
       el.setAttribute('aria-hidden', 'true');
       el.dataset.rbCalmed = 'true';
     });
     document.body?.removeAttribute('data-rich-money');
-  };
+    document.body.style.overflowY = 'auto';
+    document.body.style.overflowX = 'hidden';
+    document.documentElement.dataset.rbUniversalApp = 'ready';
+    document.body.dataset.rbUniversalApp = 'ready';
+  }
 
-  const wireIndexRoutes = () => {
+  function killStuckMedia() {
+    try { window.__RB_LIVE_ROOM__?.disconnect?.(); } catch (_) {}
+    window.__RB_LIVE_ROOM__ = null;
+    try { (window.__RB_LIVE_TRACKS__ || []).forEach((t) => { try { t.stop?.(); } catch (_) {} try { t.mediaStreamTrack?.stop?.(); } catch (_) {} try { t.detach?.().forEach((el) => el.remove()); } catch (_) {} }); } catch (_) {}
+    window.__RB_LIVE_TRACKS__ = [];
+    document.querySelectorAll('video,audio').forEach((el) => {
+      try { el.pause(); } catch (_) {}
+      try { el.srcObject?.getTracks?.().forEach((track) => track.stop()); } catch (_) {}
+      try { el.srcObject = null; } catch (_) {}
+      if (!el.closest('#holoScreen')) el.remove();
+    });
+    document.querySelectorAll('.floating-video,.floating-camera,.camera-preview,.video-preview,.local-preview,.pip-preview,[data-floating-video]').forEach((el) => el.remove());
+  }
+
+  function wireIndexRoutes() {
     const grid = document.querySelector('.district-grid');
-    if (grid && grid.dataset.mapped !== 'true') {
-      grid.dataset.mapped = 'true';
-      grid.innerHTML = DISTRICT_LANES.map((key) => {
+    if (grid && grid.dataset.rbIndexMapped !== 'true') {
+      grid.dataset.rbIndexMapped = 'true';
+      grid.innerHTML = DISTRICTS.map((key) => {
         const s = section(key);
-        const href = routeFor(key);
-        return `<a class="district ${key}" data-route="${key}" href="${href}"><b>${label(s)}</b><small>${s.subtitle || 'OPEN'}</small></a>`;
+        return `<a class="district ${key}" data-route="${key}" href="${href(key)}"><b>${label(key)}</b><small>${s.subtitle || 'OPEN'}</small></a>`;
       }).join('');
     }
-    const dock = document.querySelector('.dock');
-    if (dock && dock.dataset.mapped !== 'true') {
-      dock.dataset.mapped = 'true';
-      dock.innerHTML = `<a href="/" data-route="home" class="active">${icon.home}<span>HOME</span></a>` + HOME_LANES.map((key) => {
-        const s = section(key);
-        const href = routeFor(key);
-        return `<a href="${href}" data-route="${key}">${icon[key] || '•'}<span>${shortLabel(s)}</span></a>`;
-      }).join('');
-    }
-  };
 
-  const forceLayout = () => {
+    const dock = document.querySelector('.dock');
+    if (dock) {
+      dock.dataset.rbIndexDock = 'one-app-dock';
+      dock.innerHTML = APP_DOCK.map((key) => `<a href="${href(key)}" data-route="${key}"${key === 'home' ? ' class="active"' : ''}><span>${label(key)}</span></a>`).join('');
+    }
+  }
+
+  function forceLayout() {
     calmBlockers();
+    killStuckMedia();
     wireIndexRoutes();
 
-    const body = document.body;
     const universe = document.querySelector('.rb-universe');
     const stage = document.querySelector('.stage');
     const portalZone = document.querySelector('.portal-zone');
@@ -88,18 +79,11 @@ import { RB_SECTIONS, routeFor } from './rb-schema-map.js';
     const grid = document.querySelector('.district-grid');
     const dock = document.querySelector('.dock');
 
-    if (body) {
-      body.style.overflowY = 'auto';
-      body.style.overflowX = 'hidden';
-      body.style.background = '#020402';
-      body.dataset.rbUniversalApp = 'ready';
-    }
-    document.documentElement.dataset.rbUniversalApp = 'ready';
     if (universe) {
       universe.style.height = 'auto';
       universe.style.minHeight = '100svh';
       universe.style.overflow = 'visible';
-      universe.style.paddingBottom = '124px';
+      universe.style.paddingBottom = 'calc(168px + env(safe-area-inset-bottom))';
       universe.style.backgroundImage = "linear-gradient(rgba(0,0,0,.12),rgba(0,0,0,.68)),url('/images/19FB5229-30DD-40B0-9404-5136C27FEF6A.png')";
       universe.style.backgroundSize = 'cover';
       universe.style.backgroundPosition = 'center';
@@ -150,31 +134,29 @@ import { RB_SECTIONS, routeFor } from './rb-schema-map.js';
     if (dock) {
       dock.style.position = 'fixed';
       dock.style.zIndex = '140';
-      dock.style.left = '14px';
-      dock.style.right = '14px';
-      dock.style.bottom = '14px';
+      dock.style.left = '8px';
+      dock.style.right = '8px';
+      dock.style.bottom = 'calc(78px + env(safe-area-inset-bottom))';
       dock.style.pointerEvents = 'auto';
+      dock.style.display = 'grid';
+      dock.style.gridTemplateColumns = 'repeat(8,minmax(0,1fr))';
+      dock.style.overflow = 'visible';
     }
-  };
-
-  addCss(`/src/index-hard-reset.css?v=${VERSION}`, 'rbHardReset');
-  addCss('/src/index-cinematic-plus.css?v=cinema-plus-2', 'rbIndexCinematicPlus');
-  addCss('/src/index-mobile-clean.css?v=mobile-clean-2', 'rbIndexMobileClean');
-  addCss('/src/core/features/app-safe.css?v=universal-safe-4', 'rbUniversalSafe');
-  addModule(`/src/realtime-data.js?v=${VERSION}`, 'realtime');
-
-  requestAnimationFrame(forceLayout);
-  setTimeout(forceLayout, 250);
-  setTimeout(forceLayout, 900);
+  }
 
   const toast = document.getElementById('toast');
-  const show = (text) => {
+  function show(text) {
     if (!toast) return;
     toast.textContent = text;
     toast.classList.add('show');
     clearTimeout(window.__rbToastTimer);
     window.__rbToastTimer = setTimeout(() => toast.classList.remove('show'), 700);
-  };
+  }
+
+  requestAnimationFrame(forceLayout);
+  setTimeout(forceLayout, 250);
+  setTimeout(forceLayout, 900);
+  setTimeout(forceLayout, 1800);
 
   document.addEventListener('click', (event) => {
     const link = event.target.closest('[data-route]');
@@ -188,6 +170,6 @@ import { RB_SECTIONS, routeFor } from './rb-schema-map.js';
       window.scrollTo({ top: 0, behavior: 'smooth' });
       return;
     }
-    show(`${key.toUpperCase()} OPENING`);
+    show(`${label(key)} OPENING`);
   });
 })();
