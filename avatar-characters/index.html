@@ -6,7 +6,7 @@
   <meta name="theme-color" content="#020402" />
   <title>Avatar Characters - Rich Bizness Universe</title>
   <link rel="stylesheet" href="/src/section-page.css?v=one-app-dock-2" />
-  <link rel="stylesheet" href="/src/avatar-characters-clean.css?v=avatar-characters-clean-3" />
+  <link rel="stylesheet" href="/src/avatar-characters-clean.css?v=avatar-characters-clean-4" />
 </head>
 <body data-section="avatar-characters">
   <main class="section-screen">
@@ -18,24 +18,26 @@
       <div class="kicker">CHARACTER OPTIONS</div>
       <h1>CHOOSE YOUR AVATAR</h1>
       <p>This page is character selection only. Build and edit the avatar on Rich Avatar. Pick a character here to send that preset into the builder. Locked characters unlock from XP, Live, Gaming, Store, Creator, Meta, and RB Vault progress.</p>
-      <div class="hero-grid"><div class="metric"><b>3</b><small>OPEN</small></div><div class="metric"><b>6</b><small>LOCKED</small></div><div class="metric"><b>XP</b><small>UNLOCKS</small></div></div>
+      <div class="hero-grid"><div class="metric"><b>3</b><small>OPEN</small></div><div class="metric"><b>6</b><small>LOCKED</small></div><div class="metric"><b id="characterPreview">♛</b><small>SELECTED</small></div></div>
+      <p id="characterStatus" class="character-status">Boss Walk selected. Tap USE CHARACTER to open Rich Avatar with this preset.</p>
     </section>
     <section class="layout character-layout">
       <section class="panel"><h2>Open Characters</h2><div class="cards character-grid">
-        <article class="card character-card open"><div class="character-face">♛</div><b>Boss Walk</b><p>Street cinematic avatar with smoke aura and RB chain.</p><a class="pill" href="/avatar.html?preset=boss-walk">USE CHARACTER</a></article>
-        <article class="card character-card open"><div class="character-face">🎙️</div><b>Creator Mode</b><p>Studio-ready avatar for live, music, podcast, and creator pages.</p><a class="pill" href="/avatar.html?preset=creator">USE CHARACTER</a></article>
-        <article class="card character-card open"><div class="character-face">◎</div><b>Meta Runner</b><p>Game/world avatar for rooms, moves, and meta portals.</p><a class="pill" href="/avatar.html?preset=meta-runner">USE CHARACTER</a></article>
+        <article class="card character-card open" data-character="Boss Walk"><div class="character-face">♛</div><b>Boss Walk</b><p>Street cinematic avatar with smoke aura and RB chain.</p><a class="pill" href="/avatar.html?preset=boss-walk">USE CHARACTER</a></article>
+        <article class="card character-card open" data-character="Creator Mode"><div class="character-face">🎙️</div><b>Creator Mode</b><p>Studio-ready avatar for live, music, podcast, and creator pages.</p><a class="pill" href="/avatar.html?preset=creator">USE CHARACTER</a></article>
+        <article class="card character-card open" data-character="Meta Runner"><div class="character-face">◎</div><b>Meta Runner</b><p>Game/world avatar for rooms, moves, and meta portals.</p><a class="pill" href="/avatar.html?preset=meta-runner">USE CHARACTER</a></article>
       </div></section>
       <aside class="panel"><h2>Unlockables</h2><div class="cards character-grid locked-grid">
-        <article class="card character-card locked"><div class="character-face">◆</div><b>Vault Phantom</b><p>Unlock through RB Vault access.</p><small>LOCKED</small></article>
-        <article class="card character-card locked"><div class="character-face">◉</div><b>Live Legend</b><p>Unlock by going live and earning live XP.</p><small>LOCKED</small></article>
-        <article class="card character-card locked"><div class="character-face">🎮</div><b>Game Boss</b><p>Unlock through gaming rewards.</p><small>LOCKED</small></article>
-        <article class="card character-card locked"><div class="character-face">$</div><b>Store Mogul</b><p>Unlock through seller progress.</p><small>LOCKED</small></article>
-        <article class="card character-card locked"><div class="character-face">🏆</div><b>Sports Captain</b><p>Unlock through sports arena XP.</p><small>LOCKED</small></article>
-        <article class="card character-card locked"><div class="character-face">♪</div><b>Music Star</b><p>Unlock through music drops.</p><small>LOCKED</small></article>
+        <article class="card character-card locked" data-character="Vault Phantom"><div class="character-face">◆</div><b>Vault Phantom</b><p>Unlock through RB Vault access.</p><small>LOCKED</small></article>
+        <article class="card character-card locked" data-character="Live Legend"><div class="character-face">◉</div><b>Live Legend</b><p>Unlock by going live and earning live XP.</p><small>LOCKED</small></article>
+        <article class="card character-card locked" data-character="Game Boss"><div class="character-face">🎮</div><b>Game Boss</b><p>Unlock through gaming rewards.</p><small>LOCKED</small></article>
+        <article class="card character-card locked" data-character="Store Mogul"><div class="character-face">$</div><b>Store Mogul</b><p>Unlock through seller progress.</p><small>LOCKED</small></article>
+        <article class="card character-card locked" data-character="Sports Captain"><div class="character-face">🏆</div><b>Sports Captain</b><p>Unlock through sports arena XP.</p><small>LOCKED</small></article>
+        <article class="card character-card locked" data-character="Music Star"><div class="character-face">♪</div><b>Music Star</b><p>Unlock through music drops.</p><small>LOCKED</small></article>
       </div></aside>
     </section>
   </main>
   <script type="module" src="/src/section-runtime.js?v=one-app-dock-2"></script>
+  <script type="module" src="/src/avatar-characters.js?v=selector-1"></script>
 </body>
 </html>
