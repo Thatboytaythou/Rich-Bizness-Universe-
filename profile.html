@@ -1,15 +1,16 @@
 <!doctype html>
-<html lang="en" data-rb-page="profile">
+<html lang="en" data-rb-page="profile" data-section="profile">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <meta name="theme-color" content="#020402" />
   <title>Profile - Rich Bizness Universe</title>
+  <link rel="stylesheet" href="/src/section-page.css?v=one-app-dock-1" />
   <link rel="stylesheet" href="/src/profile.css?v=unit-profile-2" />
   <link rel="stylesheet" href="/src/profile-clean.css?v=profile-clean-1" />
 </head>
 <body data-rb-page="profile" data-section="profile">
-  <main class="profile-screen">
+  <main class="profile-screen section-screen">
     <header>
       <a href="/" aria-label="Home">RB</a>
       <button id="editAvatar" type="button">AVATAR</button>
@@ -21,25 +22,13 @@
       <h1 id="displayName">RICH BIZNESS USER</h1>
       <h2 id="username">@rich_user</h2>
       <p id="bio">Building a Rich Bizness lane across the universe.</p>
-      <div class="stats">
-        <span><b id="rank">BIZ LEGEND</b><small>RANK</small></span>
-        <span><b id="level">1</b><small>LEVEL</small></span>
-        <span><b id="xp">0</b><small>XP</small></span>
-        <span><b id="xpMode">SYNCED</b><small>XP SYSTEM</small></span>
-      </div>
+      <div class="stats"><span><b id="rank">BIZ LEGEND</b><small>RANK</small></span><span><b id="level">1</b><small>LEVEL</small></span><span><b id="xp">0</b><small>XP</small></span><span><b id="xpMode">SYNCED</b><small>XP SYSTEM</small></span></div>
       <div class="xp"><i id="xpFill"></i></div>
       <p id="profileStatus" class="profile-status">Profile connected.</p>
     </section>
-    <section class="actions">
-      <a href="/avatar.html">EDIT AVATAR</a>
-      <a href="/">ENTER UNIVERSE</a>
-      <a href="/settings.html">ACCOUNT</a>
-    </section>
-    <nav class="profile-dock" aria-label="Connected universe navigation">
-      <a href="/">HOME</a><a href="/feed.html">FEED</a><a href="/live.html">WE LIT🔥</a><a href="/watch.html">WATCH</a><a href="/music.html">MUSIC</a><a href="/podcast.html">PODCAST</a><a href="/creator.html">CREATOR</a>
-    </nav>
+    <section class="actions"><a href="/avatar.html">EDIT AVATAR</a><a href="/">ENTER UNIVERSE</a><a href="/settings.html">ACCOUNT</a></section>
   </main>
+  <script type="module" src="/src/section-runtime.js?v=one-app-dock-1"></script>
   <script type="module" src="/src/profile.js?v=unit-profile-2"></script>
-  <script type="module" src="/src/identity-runtime-clean.js?v=identity-clean-1"></script>
 </body>
 </html>
