@@ -6,15 +6,13 @@
     <meta name="theme-color" content="#020402" />
     <title>Settings Hub - Rich Bizness</title>
     <link rel="stylesheet" href="/src/section-page.css?v=one-app-dock-2" />
+    <style>.settings-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.setting-card{border:1px solid rgba(157,255,99,.16);border-radius:24px;background:linear-gradient(160deg,rgba(4,18,7,.78),rgba(0,0,0,.66));padding:16px;min-height:150px;display:flex;flex-direction:column;justify-content:space-between}.setting-card b{font-size:1rem;letter-spacing:.08em;text-transform:uppercase}.setting-card p{color:rgba(245,255,240,.76);line-height:1.35}.setting-card a,.setting-card button{width:max-content;max-width:100%;min-height:38px;padding:0 12px;border-radius:999px;background:rgba(157,255,99,.1);border:1px solid rgba(157,255,99,.22);color:#9dff63;text-decoration:none;font-weight:1000;font-size:.72rem;letter-spacing:.08em;display:inline-flex;align-items:center}.setting-card button{cursor:pointer}.setting-row{display:grid;gap:10px}.setting-row select,.setting-row input{width:100%;border:1px solid rgba(157,255,99,.14);border-radius:17px;background:rgba(0,0,0,.52);color:#fff;padding:14px;font:850 1rem system-ui;outline:0}@media(max-width:700px){.settings-grid{grid-template-columns:1fr}}</style>
   </head>
   <body data-section="settings">
     <main class="section-screen">
-      <header class="top">
-        <a class="brand" href="/"><span class="crest">RB</span><span><b>RICH BIZNESS</b><small>SETTINGS HUB</small></span></a>
-        <nav class="top-actions"><a class="pill" href="/profile.html">PROFILE LOCK</a><button class="pill" type="button" data-local-signout>IM OUT ✌🏽</button></nav>
-      </header>
-      <section class="hero"><div class="kicker">ACCOUNT CONTROL</div><h1>SETTINGS HUB</h1><p>Settings is under the same app roof and uses one shared dock/runtime.</p></section>
-      <section class="layout"><section class="panel"><h2>User Settings</h2><div id="sectionCards" class="cards"><div class="empty">Checking real settings...</div></div></section><aside class="panel" id="schemaPanel"><h2>Account</h2></aside></section>
+      <header class="top"><a class="brand" href="/"><span class="crest">RB</span><span><b>RICH BIZNESS</b><small>SETTINGS HUB</small></span></a><nav class="top-actions"><a class="pill" href="/profile.html">PROFILE LOCK</a><button class="pill" type="button" data-local-signout>IM OUT</button></nav></header>
+      <section class="hero"><div class="kicker">ACCOUNT CONTROL</div><h1>SETTINGS HUB</h1><p>Settings now has real controls under one shared roof. No second settings shell, no hidden dock, no empty placeholder panel.</p></section>
+      <section class="layout"><section class="panel"><h2>App Controls</h2><div class="setting-row"><select><option>Smoke Cloud Green Gold</option><option>Portal Dark</option><option>Creator Gold</option><option>Meta Neon</option></select><select><option>Public Profile</option><option>Friends First</option><option>Private Mode</option></select><input placeholder="Default upload route: feed"></div></section><aside class="panel"><h2>Settings Routes</h2><div class="settings-grid"><article class="setting-card"><b>Profile Lock</b><p>Identity, rank, bio, avatar, and creator hub.</p><a href="/profile.html">OPEN</a></article><article class="setting-card"><b>Avatar Options</b><p>Character selection and unlockable avatar lanes.</p><a href="/avatar-characters/">OPEN</a></article><article class="setting-card"><b>Drop Zone</b><p>Upload defaults and routing behavior.</p><a href="/upload.html">OPEN</a></article><article class="setting-card"><b>Rich Alerts</b><p>Notifications, messages, and system activity.</p><a href="/notifications.html">OPEN</a></article></div></aside></section>
     </main>
     <script type="module" src="/src/section-runtime.js?v=one-app-dock-2"></script>
   </body>
