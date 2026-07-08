@@ -3,7 +3,6 @@ import { supabase } from './supabase-client.js';
 import { awardXp } from './rb-xp.js?v=realtime-2';
 import { getAuthoritativeIdentity } from './rb-identity.js?v=tap-in-foundation-3';
 import './rb-personality.js?v=rb-live-owner-2';
-import './live-owner.js?v=live-owner-1';
 import './section-language-foundation.js?v=language-foundation-4';
 
 const LIVEKIT_URL = 'wss://rich-bizness-mobile-app-ww6cieid.livekit.cloud';
