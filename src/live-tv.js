@@ -1,7 +1,7 @@
 import { Room, createLocalTracks } from 'livekit-client';
 import { awardXp } from './rb-xp.js?v=xp-idempotent-1';
 import { getAuthoritativeIdentity } from './rb-identity.js?v=tap-in-foundation-3';
-import './rb-personality.js?v=copy-only-2';
+import './rb-personality.js?v=personality-copy-1';
 import './section-language-foundation.js?v=copy-only-1';
 
 const LIVE_TITLE = 'WE LIT🔥';
