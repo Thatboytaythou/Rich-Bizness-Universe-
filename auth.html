@@ -5,22 +5,32 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="theme-color" content="#020402" />
     <title>Rich Access • Rich Bizness Universe</title>
-    <link rel="stylesheet" href="/src/auth-clean.css?v=auth-clean-2" />
+    <link rel="stylesheet" href="/src/auth-clean.css?v=auth-redesign-1" />
   </head>
   <body data-rb-page="auth" data-section="auth">
     <main class="auth-screen">
-      <section class="auth-card">
-        <div class="brand"><span>RB</span><p>RICH BIZNESS<br><small>UNIVERSE ACCESS</small></p></div>
-        <h1>RICH ACCESS</h1>
-        <p class="sub">Tap in, build your avatar, unlock WE LIT🔥, games, music, store, meta, creator tools, XP, and profile lock.</p>
-        <form id="authForm">
-          <label>Email<input id="email" type="email" autocomplete="email" required placeholder="you@email.com" /></label>
-          <label>Password<input id="password" type="password" autocomplete="current-password" required minlength="6" placeholder="••••••••" /></label>
-          <label>Display name<input id="displayName" type="text" autocomplete="name" placeholder="Rich Bizness User" /></label>
-          <div class="actions"><button type="submit" data-mode="signin">TAP IN</button><button type="button" id="createBtn">CREATE ID</button></div>
-        </form>
-        <a class="ghost" href="/">BACK TO UNIVERSE</a>
-        <p id="status" class="status">Tap In Ready.</p>
+      <section class="auth-shell" aria-label="Rich Bizness Access">
+        <aside class="auth-stage">
+          <a class="auth-home" href="/">RB</a>
+          <div class="auth-orbit"><span>LIVE</span><span>MUSIC</span><span>GAMES</span><span>META</span></div>
+          <div class="auth-core"><b>RB</b><small>ONE ACCESS</small></div>
+          <div class="auth-stats"><span><b>1</b><small>PROFILE LOCK</small></span><span><b>XP</b><small>UNLOCKS</small></span><span><b>ALL</b><small>SECTIONS</small></span></div>
+        </aside>
+
+        <section class="auth-card">
+          <div class="brand"><span>RB</span><p>RICH BIZNESS<br><small>UNIVERSE ACCESS</small></p></div>
+          <div class="auth-kicker">TAP IN REQUIRED</div>
+          <h1>RICH ACCESS</h1>
+          <p class="sub">Sign in once. Your profile, avatar, XP, Live, Watch, Feed, Upload, Music, Store, Gaming, Meta, and Rich-DM’s all stay locked under one identity.</p>
+          <form id="authForm">
+            <label>Email<input id="email" type="email" autocomplete="email" required placeholder="you@email.com" /></label>
+            <label>Password<input id="password" type="password" autocomplete="current-password" required minlength="6" placeholder="••••••••" /></label>
+            <label>Display name<input id="displayName" type="text" autocomplete="name" placeholder="Rich Bizness User" /></label>
+            <div class="actions"><button type="submit" data-mode="signin">TAP IN</button><button type="button" id="createBtn">CREATE ID</button></div>
+          </form>
+          <div class="auth-links"><a class="ghost" href="/">BACK TO UNIVERSE</a><a class="ghost" href="/avatar-characters/">AVATAR OPTIONS</a></div>
+          <p id="status" class="status">Tap In Ready.</p>
+        </section>
       </section>
     </main>
     <script type="module" src="/src/auth.js?v=auth-flow-2"></script>
