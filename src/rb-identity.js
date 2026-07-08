@@ -4,6 +4,10 @@ export const DEFAULT_PROFILE = Object.freeze({
   display_name: 'Rich Bizness User', username: 'rich_user', rich_level: 1, rich_points: 0, rank_title: 'BIZ LEGEND', balance_cents: 0, avatar_url: '', banner_url: '/images/hero-banner.png', bio: 'Building a Rich Bizness lane across the universe.', onboarding_state: 'needs_avatar', has_avatar: false, has_profile_identity: true, last_route: '/',
 });
 
+let identityCache = null;
+let identityCacheAt = 0;
+const IDENTITY_TTL = 3000;
+
 export function slugName(value) { return String(value || 'rich_user').toLowerCase().replace(/[^a-z0-9_]+/g, '_').replace(/^_+|_+$/g, '').slice(0, 28) || 'rich_user'; }
 export function safeNextRoute(value, fallback = '/') {
   const raw = String(value || '').trim();
@@ -17,14 +21,20 @@ export function safeNextRoute(value, fallback = '/') {
 export function currentRoute() { return `${location.pathname || '/'}${location.search || ''}${location.hash || ''}`; }
 function uniqueUsername(seed, userId) { const base = slugName(seed); const suffix = String(userId || crypto.randomUUID()).replace(/-/g, '').slice(0, 6); return `${base}_${suffix}`.slice(0, 36); }
 
-export async function getAuthoritativeIdentity() {
+export async function getAuthoritativeIdentity(options = {}) {
+  const now = Date.now();
+  if (!options.fresh && identityCache && now - identityCacheAt < IDENTITY_TTL) return identityCache;
   const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
   if (sessionError) throw sessionError;
   const session = sessionData?.session || null;
-  if (!session) return { session: null, user: null };
+  if (!session) { identityCache = { session: null, user: null, profile: null }; identityCacheAt = now; return identityCache; }
   const { data, error } = await supabase.auth.getUser();
   if (error) throw error;
-  return { session, user: data?.user || null };
+  const user = data?.user || null;
+  const profile = user ? await getProfile(user.id).catch(() => null) : null;
+  identityCache = { session, user, profile };
+  identityCacheAt = now;
+  return identityCache;
 }
 
 export async function getSessionUser() { try { return (await getAuthoritativeIdentity()).user; } catch (_) { return null; } }
@@ -54,7 +64,9 @@ export async function ensureProfile(user) {
     const complete = Boolean(existing.has_avatar || existing.avatar_url || existing.onboarding_state === 'complete');
     const patch = { online_status: 'online', last_seen_at: new Date().toISOString(), has_profile_identity: true };
     supabase.from('profiles').update(patch).eq('id', user.id).then(() => {}, () => {});
-    return { ...DEFAULT_PROFILE, ...existing, ...patch, has_avatar: complete, onboarding_state: complete ? 'complete' : (existing.onboarding_state || 'needs_avatar'), rank_title: existing.rank_title || DEFAULT_PROFILE.rank_title };
+    const profile = { ...DEFAULT_PROFILE, ...existing, ...patch, has_avatar: complete, onboarding_state: complete ? 'complete' : (existing.onboarding_state || 'needs_avatar'), rank_title: existing.rank_title || DEFAULT_PROFILE.rank_title };
+    identityCache = identityCache?.user?.id === user.id ? { ...identityCache, profile } : identityCache;
+    return profile;
   }
   const meta = user.user_metadata || {};
   const display = meta.display_name || meta.name || meta.username || (user.email ? user.email.split('@')[0] : DEFAULT_PROFILE.display_name);
@@ -68,7 +80,9 @@ export async function ensureProfile(user) {
     result = await supabase.from('profiles').upsert(retry, { onConflict: 'id' }).select().maybeSingle();
   }
   if (result.error) throw result.error;
-  return { ...DEFAULT_PROFILE, ...(result.data || row) };
+  const profile = { ...DEFAULT_PROFILE, ...(result.data || row) };
+  identityCache = identityCache?.user?.id === user.id ? { ...identityCache, profile } : identityCache;
+  return profile;
 }
 
 export async function ensureMetaAvatar(user, profile, config = {}) {
@@ -99,6 +113,8 @@ export async function ensureTapInFoundation(user, options = {}) {
     ensureUserLevel(user, profile).catch((error) => { console.warn('[RB Tap In] level sync blocked', error.message); return null; }),
   ]);
   const next = safeNextRoute(options.next || '', '');
+  identityCache = { session: identityCache?.session || null, user, profile };
+  identityCacheAt = Date.now();
   return { user, profile, avatar, level, route: profileRoute(profile, next) };
 }
 
@@ -113,7 +129,8 @@ export async function requireTapIn(options = {}) {
 }
 
 export async function signOutLocal() {
-  try { const { user } = await getAuthoritativeIdentity(); if (user?.id) await supabase.from('profiles').update({ online_status: 'offline', last_seen_at: new Date().toISOString() }).eq('id', user.id); } catch (_) {}
+  try { const { user } = await getAuthoritativeIdentity({ fresh: true }); if (user?.id) await supabase.from('profiles').update({ online_status: 'offline', last_seen_at: new Date().toISOString() }).eq('id', user.id); } catch (_) {}
+  identityCache = null;
   return supabase.auth.signOut({ scope: 'local' });
 }
 export async function signOutAndGoHome() { await signOutLocal(); location.href = '/auth.html'; }
