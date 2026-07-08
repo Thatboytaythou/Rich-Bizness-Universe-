@@ -1,9 +1,9 @@
 import { supabase } from './supabase-client.js';
 import { RB_SECTIONS, sectionFor, routeFor } from './rb-schema-map.js';
-import { requireTapIn, signOutAndGoHome } from './rb-identity.js?v=tap-in-foundation-2';
+import { requireTapIn, signOutAndGoHome } from './rb-identity.js?v=tap-in-foundation-3';
 import './rb-personality.js?v=brand-wide-1';
 import './identity-runtime-clean.js?v=identity-clean-1';
-import './section-language-foundation.js?v=language-foundation-1';
+import './section-language-foundation.js?v=language-foundation-3';
 
 const $ = (s) => document.querySelector(s);
 const $$ = (s) => [...document.querySelectorAll(s)];
@@ -13,9 +13,8 @@ const key = cleanKey(document.body?.dataset?.section || document.documentElement
 const sections = new Map(RB_SECTIONS.map((s) => [s.key, s]));
 const publicRoutes = new Set(['auth']);
 const dedicated = new Set(['gaming','games','avatar-characters','meta','live','watch','avatar','profile','auth','admin','creator','rb-secret','feed','upload']);
-const dockKeys = ['profile','feed','upload','live','watch','music','podcast','radio','gaming','games','gallery','sports','store','meta','messages','notifications','search','edit','settings','creator','admin','rb-secret'];
-const icons = { profile:'♙', feed:'▤', upload:'⬆', live:'◉', watch:'▶', music:'♪', podcast:'🎙', radio:'◌', gaming:'🎮', games:'♟', gallery:'▣', sports:'◎', store:'🛒', meta:'◇', messages:'✉', notifications:'🔔', search:'⌕', edit:'✎', settings:'⚙', creator:'♕', admin:'◆', 'rb-secret':'▣' };
-const labelMap = { profile:'PROFILE LOCK', feed:'RICH FEED', upload:'DROP ZONE', live:'WE LIT🔥', watch:'We 🔥📺', notifications:'RICH ALERTS', messages:'RICH-DM’s', 'rb-secret':'RB VAULT', 'avatar-characters':'CHARACTERS' };
+const dockKeys = ['home','feed','upload','live','watch','music','store','profile'];
+const labelMap = { home:'HOME', profile:'PROFILE LOCK', feed:'RICH FEED', upload:'DROP ZONE', live:'WE LIT🔥', watch:'We 🔥📺', music:'MUSIC', store:'STORE' };
 let currentProfile = null;
 
 function cleanBlockers() {
@@ -29,43 +28,38 @@ function cleanBlockers() {
   document.body.dataset.rbUniversalApp = 'ready';
 }
 
-function label(id) {
-  const section = sections.get(id);
-  return labelMap[id] || String(section?.title || id || 'OPEN').toUpperCase();
-}
-
-function route(id) {
-  return sections.get(id)?.route || routeFor(id) || '/';
-}
-
+function label(id) { return labelMap[id] || String(sections.get(id)?.title || id || 'OPEN').toUpperCase(); }
+function route(id) { if (id === 'home') return '/'; if (id === 'profile') return '/profile.html'; return sections.get(id)?.route || routeFor(id) || `/${id}.html`; }
 function profileChip() {
   const p = currentProfile || {};
   const name = p.display_name || p.username || 'Profile Lock';
   const face = p.avatar_url ? `<img src="${p.avatar_url}" alt="">` : 'RB';
   return `<a class="profile-chip" href="/profile.html"><span>${face}</span><b>${name}</b><small>${p.rank_title || 'BIZ LEGEND'}</small></a>`;
 }
-
 function dockMarkup() {
-  return `<nav class="dock"><a href="/">⌂<span>HOME</span></a>${dockKeys.map((id) => `<a href="${route(id)}">${icons[id] || '•'}<span>${label(id)}</span></a>`).join('')}</nav>`;
+  return `<nav class="dock" aria-label="Rich Bizness navigation">${dockKeys.map((id) => `<a href="${route(id)}"${id === key || (id === 'home' && (key === 'index' || key === 'home')) ? ' class="active"' : ''}><span>${label(id)}</span></a>`).join('')}</nav>`;
 }
-
 function rebuildDock(main) {
-  const docks = $$('.dock');
+  const docks = $$('.dock,.profile-dock,.avatar-dock');
   if (docks.length > 1) {
     const keep = docks.find((el) => el.querySelector('.active')) || docks[0];
     docks.forEach((el) => { if (el !== keep) el.remove(); });
   }
-  if (!$('.dock')) main.insertAdjacentHTML('beforeend', dockMarkup());
-  $$('.dock a').forEach((a) => a.classList.toggle('active', a.pathname === location.pathname));
+  const dock = $('.dock,.profile-dock,.avatar-dock');
+  if (dock) {
+    dock.classList.add('dock');
+    dock.innerHTML = dockMarkup().replace(/^<nav[^>]*>|<\/nav>$/g, '');
+  } else {
+    main.insertAdjacentHTML('beforeend', dockMarkup());
+  }
+  $$('.dock a').forEach((a) => a.classList.toggle('active', a.pathname === location.pathname || (location.pathname === '/' && a.pathname === '/')));
 }
-
 function wireSignOut() {
   $$('[data-local-signout],[data-rb-signout]').forEach((btn) => {
     btn.textContent = 'IM OUT ✌🏽';
     btn.addEventListener('click', signOutAndGoHome);
   });
 }
-
 async function guard() {
   if (publicRoutes.has(key)) return { profile: null };
   const state = await requireTapIn({ next: `${location.pathname}${location.search}` });
@@ -73,29 +67,20 @@ async function guard() {
   currentProfile = state.profile;
   return state;
 }
-
 async function count(table) {
-  try {
-    const res = await supabase.from(table).select('*', { count: 'exact', head: true });
-    return res.count || 0;
-  } catch (_) { return 0; }
+  try { return (await supabase.from(table).select('*', { count: 'exact', head: true })).count || 0; }
+  catch (_) { return 0; }
 }
-
 async function rows(table) {
-  try {
-    return (await supabase.from(table).select('*').order('created_at', { ascending: false }).limit(12)).data || [];
-  } catch (_) {
-    try { return (await supabase.from(table).select('*').limit(12)).data || []; } catch (_) { return []; }
-  }
+  try { return (await supabase.from(table).select('*').order('created_at', { ascending: false }).limit(12)).data || []; }
+  catch (_) { try { return (await supabase.from(table).select('*').limit(12)).data || []; } catch (_) { return []; } }
 }
-
 function card(row, title) {
   const name = row.title || row.name || row.display_name || row.username || row.station_name || row.seller_name || 'Rich Bizness Record';
   const note = row.description || row.bio || row.caption || row.body || row.status_label || row.created_at || 'Live record';
   const media = row.cover_url || row.thumbnail_url || row.avatar_url || row.image_url || row.media_url || '';
   return `<article class="card real-record">${media ? `<img src="${media}" alt="">` : ''}<b>${name}</b><p>${note}</p><small>${title}</small></article>`;
 }
-
 function ensureShell(mapped, title) {
   cleanBlockers();
   const main = $('main') || document.body;
@@ -116,7 +101,6 @@ function ensureShell(mapped, title) {
   rebuildDock(main);
   wireSignOut();
 }
-
 async function refresh() {
   if (key === 'index' || key === 'home') {
     cleanBlockers();
@@ -140,6 +124,5 @@ async function refresh() {
   document.body.classList.add('rb-real-section');
   window.RB_SECTION_RUNTIME = { refresh, key, primary, tables: mapped.tables || [primary], cleanBlockers, guard };
 }
-
 refresh();
 supabase.auth.onAuthStateChange(() => refresh());
