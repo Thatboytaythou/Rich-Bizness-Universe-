@@ -1,5 +1,21 @@
 <!doctype html>
 <html lang="en" data-section="podcast">
-  <head><meta charset="UTF-8" /><meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" /><meta name="theme-color" content="#020402" /><title>Podcast Arena - Rich Bizness</title><link rel="stylesheet" href="/src/section-page.css?v=one-app-dock-2" /><link rel="stylesheet" href="/src/podcast-clean.css?v=podcast-clean-1" /></head>
-  <body data-section="podcast"><main class="section-screen"><header class="top"><a class="brand" href="/"><span class="crest">RB</span><span><b>RICH BIZNESS</b><small>PODCAST ARENA</small></span></a><nav class="top-actions"><a class="pill" href="/music.html">MUSIC</a><a class="pill" href="/radio.html">RB RADIO</a><a class="pill" href="/upload.html?section=podcast">DROP EPISODE</a></nav></header><section class="hero"><div class="kicker">VOICE</div><h1>PODCAST ARENA</h1><p>Podcast is under the same app roof and keeps episode records as the feature layer only.</p></section><section class="layout"><section class="panel"><h2>Episodes</h2><div id="sectionCards" class="cards"><div class="empty">Checking podcast...</div></div></section><aside class="panel" id="schemaPanel"><h2>Next Action</h2></aside></section></main><script type="module" src="/src/section-runtime.js?v=one-app-dock-2"></script></body>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#020402" />
+  <title>Podcast Arena - Rich Bizness</title>
+  <link rel="stylesheet" href="/src/section-page.css?v=one-app-dock-2" />
+  <link rel="stylesheet" href="/src/podcast-clean.css?v=podcast-redesign-2" />
+</head>
+<body data-section="podcast">
+  <main class="section-screen podcast-screen">
+    <header class="top"><a class="brand" href="/"><span class="crest">RB</span><span><b>RICH BIZNESS</b><small>PODCAST ARENA</small></span></a><nav class="top-actions"><a class="pill" href="/music.html">MUSIC</a><a class="pill" href="/radio.html">RB RADIO</a><a class="pill" href="/upload.html?section=podcast">DROP EPISODE</a></nav></header>
+    <section class="podcast-hero hero"><div class="kicker">VOICE</div><h1>PODCAST ARENA</h1><p>Episodes, covers, audio drops, creator identity, XP, and Rich Bizness voice lanes stay under one shared roof.</p><div class="hero-grid"><div class="metric"><b id="recordCount">0</b><small>EPISODES</small></div><div class="metric"><b>VOICE</b><small>MODE</small></div><div class="metric"><b>XP</b><small>TRACKED</small></div></div></section>
+    <section class="layout podcast-layout"><section class="panel podcast-player"><div class="podcast-cover">RB</div><div><small>NOW READY</small><h2>Rich Bizness Podcast</h2><p>Pick an episode from live records or drop a new one through Upload.</p><audio controls id="podcastAudio"></audio></div></section><aside class="panel"><h2>Podcast Actions</h2><div class="podcast-actions"><a href="/upload.html?section=podcast">DROP EPISODE</a><a href="/music.html">OPEN MUSIC</a><a href="/radio.html">OPEN RADIO</a><a href="/profile.html">PROFILE LOCK</a></div></aside></section>
+    <section class="panel podcast-list-panel"><div class="stream-panel-head"><b>Episodes</b><small>podcast_episodes</small></div><div id="sectionCards" class="cards"><div class="empty">Checking podcast episodes...</div></div></section>
+  </main>
+  <script type="module" src="/src/section-runtime.js?v=one-app-dock-2"></script>
+  <script type="module" src="/src/podcast.js?v=podcast-redesign-1"></script>
+</body>
 </html>
