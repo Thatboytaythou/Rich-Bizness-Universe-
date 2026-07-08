@@ -15,6 +15,8 @@ const dedicated = new Set(['gaming','games','avatar-characters','meta','live','w
 const dockKeys = ['home','feed','upload','live','watch','music','store','profile'];
 const labelMap = { home:'HOME', profile:'PROFILE LOCK', feed:'RICH FEED', upload:'DROP ZONE', live:'WE LIT🔥', watch:'We 🔥📺', music:'MUSIC', store:'STORE' };
 let currentProfile = null;
+let refreshRunning = false;
+let authListenerInstalled = Boolean(window.RB_SECTION_RUNTIME_AUTH_LISTENER);
 
 function cleanBlockers() {
   $$('.rb-overlay:not([data-rb-keep]),.rb-blocker:not([data-rb-keep])').forEach((el) => {
@@ -55,6 +57,8 @@ function rebuildDock(main) {
 }
 function wireSignOut() {
   $$('[data-local-signout],[data-rb-signout]').forEach((btn) => {
+    if (btn.dataset.rbWiredSignout) return;
+    btn.dataset.rbWiredSignout = 'true';
     btn.textContent = 'IM OUT ✌🏽';
     btn.addEventListener('click', signOutAndGoHome);
   });
@@ -101,27 +105,43 @@ function ensureShell(mapped, title) {
   wireSignOut();
 }
 async function refresh() {
-  if (key === 'index' || key === 'home') {
+  if (refreshRunning) return;
+  refreshRunning = true;
+  try {
+    if (key === 'index' || key === 'home') {
+      cleanBlockers();
+      window.RB_SECTION_RUNTIME = { disabledOnIndex: true };
+      return;
+    }
+    const state = await guard();
+    if (!state && !publicRoutes.has(key)) return;
+    const mapped = sectionFor(key) || sections.get(key) || { key, title: key.toUpperCase(), subtitle: 'Connected Rich Bizness route.', route: routeFor(key), primaryTable: 'profiles', tables: ['profiles'] };
+    const title = mapped.title || key.toUpperCase();
+    const primary = mapped.primaryTable || 'profiles';
+    ensureShell(mapped, title);
+    const total = await count(primary);
+    $$('#recordCount').forEach((el) => { el.textContent = fmt(total); });
+    $$('#tableCount').forEach((el) => { el.textContent = total ? 'LIVE' : 'READY'; });
+    if (!dedicated.has(key) && $('#sectionCards')) {
+      const data = await rows(primary);
+      $('#sectionCards').innerHTML = data.length ? data.map((item) => card(item, title)).join('') : `<div class="empty"><b>${title}</b><p>${mapped.subtitle || 'Connected route.'}</p><a class="pill" href="${mapped.route || '/'}">OPEN</a></div>`;
+    }
     cleanBlockers();
-    window.RB_SECTION_RUNTIME = { disabledOnIndex: true };
-    return;
+    document.body.classList.add('rb-real-section');
+    window.RB_SECTION_RUNTIME = { refresh, key, primary, tables: mapped.tables || [primary], cleanBlockers, guard };
+  } finally {
+    refreshRunning = false;
   }
-  const state = await guard();
-  if (!state && !publicRoutes.has(key)) return;
-  const mapped = sectionFor(key) || sections.get(key) || { key, title: key.toUpperCase(), subtitle: 'Connected Rich Bizness route.', route: routeFor(key), primaryTable: 'profiles', tables: ['profiles'] };
-  const title = mapped.title || key.toUpperCase();
-  const primary = mapped.primaryTable || 'profiles';
-  ensureShell(mapped, title);
-  const total = await count(primary);
-  $$('#recordCount').forEach((el) => { el.textContent = fmt(total); });
-  $$('#tableCount').forEach((el) => { el.textContent = total ? 'LIVE' : 'READY'; });
-  if (!dedicated.has(key) && $('#sectionCards')) {
-    const data = await rows(primary);
-    $('#sectionCards').innerHTML = data.length ? data.map((item) => card(item, title)).join('') : `<div class="empty"><b>${title}</b><p>${mapped.subtitle || 'Connected route.'}</p><a class="pill" href="${mapped.route || '/'}">OPEN</a></div>`;
-  }
-  cleanBlockers();
-  document.body.classList.add('rb-real-section');
-  window.RB_SECTION_RUNTIME = { refresh, key, primary, tables: mapped.tables || [primary], cleanBlockers, guard };
 }
-refresh();
-supabase.auth.onAuthStateChange(() => refresh());
+
+if (window.RB_SECTION_RUNTIME_BOOTED) {
+  cleanBlockers();
+} else {
+  window.RB_SECTION_RUNTIME_BOOTED = true;
+  refresh();
+  if (!authListenerInstalled) {
+    authListenerInstalled = true;
+    window.RB_SECTION_RUNTIME_AUTH_LISTENER = true;
+    supabase.auth.onAuthStateChange(() => refresh());
+  }
+}
