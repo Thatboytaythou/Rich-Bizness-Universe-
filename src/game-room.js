@@ -1,5 +1,5 @@
 import { supabase } from './supabase-client.js';
-import { awardXp } from './rb-xp.js?v=realtime-2';
+import { awardXp } from './rb-xp.js?v=xp-idempotent-1';
 import { getAuthoritativeIdentity } from './rb-identity.js?v=tap-in-foundation-3';
 import './section-language-foundation.js?v=copy-only-1';
 import './rb-game-play.js';
@@ -11,7 +11,7 @@ const fmt = (n) => Number(n || 0).toLocaleString();
 const $ = (s) => document.querySelector(s);
 const next = encodeURIComponent(location.pathname + location.search);
 
-function addCss(){ if(document.getElementById('gameRoomCss')) return; const l=document.createElement('link'); l.id='gameRoomCss'; l.rel='stylesheet'; l.href='/src/game-room.css?v=gaming-owner-3'; document.head.appendChild(l); }
+function addCss(){ if(document.getElementById('gameRoomCss')) return; const l=document.createElement('link'); l.id='gameRoomCss'; l.rel='stylesheet'; l.href='/src/game-room.css?v=game-room-4'; document.head.appendChild(l); }
 function ensureControls(){
   const panel = $('#schemaPanel') || $('#gamingSystems')?.closest('.panel') || document.querySelector('.layout .panel:last-child');
   if (!panel || $('#gameControls')) return;
@@ -30,4 +30,4 @@ async function joinRoom(){ if(!await needUser()) return; if(!selected) return; a
 async function playMove(){ if(!await needUser()) return; if(!selected) return; score+=175; if ($('#gameScore')) $('#gameScore').textContent=fmt(score); await supabase.from('game_sessions').insert({game_id:selected.id,game_slug:selected.slug,user_id:user.id,score,result:'move',metadata:{source:'game-room',featured:true}}).then(()=>{},()=>{}); await supabase.from('game_moves').insert({game_id:selected.id,game_slug:selected.slug,user_id:user.id,move_type:'tap',score_delta:175,metadata:{source:'game-room'}}).then(()=>{},()=>{}); await awardXp('game_move',{section:'gaming',sourceTable:'games',sourceId:selected.id}); if ($('#gameStatus')) $('#gameStatus').textContent='MOVE SAVED'; loadCounts(); }
 async function submitScore(){ if(!await needUser()) return; if(!selected) return; await supabase.from('game_scores').insert({game_id:selected.id,game_slug:selected.slug,user_id:user.id,score,mode:selected.game_type||selected.category||'arcade',platform_type:'web',metadata:{source:'game-room',featured:true}}).then(()=>{},()=>{}); await awardXp('game_score_submit',{section:'gaming',sourceTable:'games',sourceId:selected.id}); if ($('#gameStatus')) $('#gameStatus').textContent='SCORE SUBMITTED'; loadCounts(); }
 async function saveClip(){ if(!await needUser()) return; if(!selected) return; await supabase.from('game_clips').insert({game_id:selected.id,game_slug:selected.slug,user_id:user.id,title:selected.title+' Clip',caption:'Rich Bizness arcade clip',metadata:{score,source:'game-room'}}).then(()=>{},()=>{}); if ($('#gameStatus')) $('#gameStatus').textContent='CLIP QUEUED'; loadCounts(); }
-addCss(); ensureControls(); load(); loadCounts(); supabase.channel('gaming-owner-ui').on('postgres_changes',{event:'*',schema:'public',table:'games'},load).on('postgres_changes',{event:'*',schema:'public',table:'game_scores'},loadCounts).on('postgres_changes',{event:'*',schema:'public',table:'game_sessions'},loadCounts).subscribe();
+addCss(); ensureControls(); load(); loadCounts(); supabase.channel('game-room-ui').on('postgres_changes',{event:'*',schema:'public',table:'games'},load).on('postgres_changes',{event:'*',schema:'public',table:'game_scores'},loadCounts).on('postgres_changes',{event:'*',schema:'public',table:'game_sessions'},loadCounts).subscribe();
