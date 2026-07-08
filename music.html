@@ -5,14 +5,14 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <meta name="theme-color" content="#020402" />
   <title>Music District - Rich Bizness</title>
-  <link rel="stylesheet" href="/src/section-page.css?v=one-app-dock-2" />
+  <link rel="stylesheet" href="/src/identity-stack.css?v=identity-stack-2" />
+  <link rel="stylesheet" href="/src/watch-hologram.css?v=stream-ui-1" />
 </head>
 <body data-section="music">
-  <main class="section-screen">
-    <header class="top"><a class="brand" href="/"><span class="crest">RB</span><span><b>RICH BIZNESS</b><small>MUSIC DISTRICT</small></span></a><nav class="top-actions"><a class="pill" href="/radio.html">RB RADIO</a><a class="pill" href="/podcast.html">PODCAST</a><a class="pill" href="/upload.html?section=music">DROP MUSIC</a></nav></header>
-    <section class="hero"><div class="kicker">AUDIO</div><h1>MUSIC DISTRICT</h1><p>Tracks, covers, plays, creator identity, and XP stay under the shared Rich Bizness roof.</p><div class="hero-grid"><div class="metric"><b id="recordCount">0</b><small>TRACKS</small></div><div class="metric"><b>XP</b><small>PLAYS</small></div><div class="metric"><b>RB</b><small>AUDIO</small></div></div></section>
-    <section class="layout"><section class="panel"><h2>Tracks</h2><div id="sectionCards" class="cards"><div class="empty">Checking music...</div></div></section><aside class="panel" id="schemaPanel"><h2>Music Actions</h2><div class="card"><b>Drop Music</b><p>Upload audio and covers into the music lane.</p><a class="pill" href="/upload.html?section=music">DROP MUSIC</a></div><div class="card"><b>Podcast + Radio</b><p>Keep audio lanes connected without duplicate page logic.</p><a class="pill" href="/podcast.html">PODCAST</a></div></aside></section>
+  <div class="identity-bg"></div>
+  <main class="identity-shell podcast-screen stream-studio-screen">
+    <header class="identity-top stream-top"><a class="identity-brand" href="/"><span class="identity-crest">RB</span><span><b>RICH BIZNESS</b><small>MUSIC DISTRICT</small></span></a><nav class="identity-actions"><a class="identity-pill" href="/radio.html">RB RADIO</a><a class="identity-pill" href="/podcast.html">PODCAST</a><a class="identity-pill" href="/upload.html?section=music">DROP MUSIC</a></nav></header>
+    <section class="stream-studio-shell podcast-stream-shell"><section class="stream-stage-card podcast-stage"><div class="stream-stage-head"><span class="stream-live-pill">● AUDIO PLAYER</span><b id="recordCount">0 TRACKS</b></div><div class="podcast-player stream-audio-deck"><div class="podcast-cover">♪</div><div class="podcast-now"><small>NOW READY</small><h2>Music District</h2><p>Tracks, covers, plays, creator identity, and XP stay inside this audio studio lane.</p><audio controls id="musicAudio"></audio></div></div><section class="stream-control-bar"><a class="primary" href="/upload.html?section=music">Drop Music</a><a href="/podcast.html">Podcast</a><a href="/radio.html">RB Radio</a></section></section><aside class="stream-side-card"><div class="identity-kicker">Track Lane</div><h1>MUSIC</h1><p>Music is the track stream lane. Upload owns files, this page owns playback and track discovery.</p><section class="podcast-list-panel compact-room-list"><div class="stream-panel-head"><b>Tracks</b><small>music_tracks</small></div><div id="sectionCards" class="cards"><div class="empty">Checking music tracks...</div></div></section></aside></section>
   </main>
-  <script type="module" src="/src/section-runtime.js?v=one-app-dock-2"></script>
 </body>
 </html>
