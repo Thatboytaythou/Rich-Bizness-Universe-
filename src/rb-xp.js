@@ -4,6 +4,9 @@ const fmt = (n) => Number(n || 0).toLocaleString();
 const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
 let xpChannel = null;
 let xpUserId = null;
+let xpBooted = false;
+let xpAuthListenerInstalled = false;
+let xpLoading = null;
 
 const RANKS = [
   [0, 'ROOKIE RICH'],
@@ -50,8 +53,6 @@ export function xpMath(profile = {}, levelRow = {}, avatar = {}) {
 }
 
 export function cleanXpMoneyArtifacts() {
-  // Do not remove real XP bars/gauges from page designs. Only remove legacy
-  // floating injectors that created duplicate money/XP overlays.
   document.getElementById('globalXpBadge')?.remove();
   document.getElementById('xpToast')?.remove();
   document.querySelectorAll('.rb-xp-float, .rb-xp-toast, [data-rb-xp-injected="true"]').forEach((el) => el.remove());
@@ -78,12 +79,13 @@ export function renderXp(xp = {}) {
 
 export async function loadXp(userId) {
   if (!userId) return renderXp({});
-  const [{ data: profile }, { data: levelRow }, { data: avatar }] = await Promise.all([
+  if (xpLoading) return xpLoading;
+  xpLoading = Promise.all([
     supabase.from('profiles').select('rich_points,rich_level,rank_title,trust_score').eq('id', userId).maybeSingle(),
     supabase.from('user_levels').select('level,xp_total,xp_current,xp_next,rank_title,rich_points,coins,trust_score').eq('user_id', userId).maybeSingle(),
     supabase.from('meta_avatars').select('level,xp,rank').eq('user_id', userId).maybeSingle(),
-  ]);
-  return renderXp({ profile: profile || {}, levelRow: levelRow || {}, avatar: avatar || {} });
+  ]).then(([{ data: profile }, { data: levelRow }, { data: avatar }]) => renderXp({ profile: profile || {}, levelRow: levelRow || {}, avatar: avatar || {} })).finally(() => { xpLoading = null; });
+  return xpLoading;
 }
 
 export async function loadCurrentXp() {
@@ -125,9 +127,14 @@ export function installXpBadge() { cleanXpMoneyArtifacts(); }
 
 export async function bootXp(eventKey) {
   cleanXpMoneyArtifacts();
+  if (xpBooted && !eventKey) return loadCurrentXp();
+  xpBooted = true;
   const { data } = await supabase.auth.getUser();
   if (data?.user?.id) installRealtimeXp(data.user.id);
   await loadCurrentXp();
   if (eventKey) awardXp(eventKey).catch(() => {});
-  supabase.auth.onAuthStateChange((_event, session) => { if (session?.user?.id) installRealtimeXp(session.user.id); loadCurrentXp(); });
+  if (!xpAuthListenerInstalled) {
+    xpAuthListenerInstalled = true;
+    supabase.auth.onAuthStateChange((_event, session) => { if (session?.user?.id) installRealtimeXp(session.user.id); loadCurrentXp(); });
+  }
 }
