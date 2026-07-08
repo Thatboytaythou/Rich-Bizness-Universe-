@@ -1,7 +1,6 @@
 import { supabase } from './supabase-client.js';
 import { ensureProfile, getSessionUser } from './rb-identity.js?v=tap-in-foundation-3';
 import { bootXp, loadXp } from './rb-xp.js?v=realtime-1';
-import './section-language-foundation.js?v=language-foundation-2';
 
 const displayName = document.getElementById('displayName');
 const username = document.getElementById('username');
@@ -17,7 +16,6 @@ const profileStatus = document.getElementById('profileStatus');
 
 const fmt = (n) => Number(n || 0).toLocaleString();
 const say = (text) => { if (profileStatus) profileStatus.textContent = text; };
-const routes = [['/','HOME'],['/feed.html','RICH FEED'],['/upload.html','DROP ZONE'],['/live.html','WE LIT🔥'],['/watch.html','We 🔥📺'],['/music.html','MUSIC'],['/store.html','STORE'],['/profile.html','PROFILE LOCK']];
 
 function calmProfileArtifacts() {
   document.querySelectorAll('.rb-overlay:not([data-rb-keep]),.rb-blocker:not([data-rb-keep])').forEach((el) => {
@@ -25,19 +23,6 @@ function calmProfileArtifacts() {
     el.setAttribute('aria-hidden', 'true');
   });
   document.body?.removeAttribute('data-rich-money');
-}
-function wireRoutes() {
-  calmProfileArtifacts();
-  const main = document.querySelector('.profile-screen') || document.body;
-  let dock = document.querySelector('.profile-dock,.dock');
-  if (!dock) {
-    dock = document.createElement('nav');
-    dock.className = 'profile-dock dock';
-    dock.setAttribute('aria-label', 'Rich Bizness navigation');
-    main.appendChild(dock);
-  }
-  dock.classList.add('dock');
-  dock.innerHTML = routes.map(([href, label]) => `<a href="${href}"${href === '/profile.html' ? ' class="active"' : ''}><span>${label}</span></a>`).join('');
 }
 
 async function getMeta(userId) {
@@ -68,7 +53,7 @@ function render(profile, meta) {
   else { avatarFace.textContent = 'RB'; avatarFace.style.backgroundImage = ''; }
 }
 async function paint(user) {
-  wireRoutes();
+  calmProfileArtifacts();
   const profile = await ensureProfile(user);
   const meta = await getMeta(user.id);
   render(profile, meta);
@@ -77,7 +62,7 @@ async function paint(user) {
 }
 async function boot() {
   try {
-    wireRoutes();
+    calmProfileArtifacts();
     const user = await getSessionUser();
     if (!user) { location.href = '/auth.html?next=' + encodeURIComponent('/profile.html'); return; }
     try { await bootXp(); } catch (_) {}
