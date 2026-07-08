@@ -32,16 +32,15 @@
       ]
     },
     {
-      "source": "/api/clear-site-data",
+      "source": "/api/(.*)",
       "headers": [
-        { "key": "Cache-Control", "value": "no-store, max-age=0" },
+        { "key": "Cache-Control", "value": "no-store, max-age=0, must-revalidate" },
         { "key": "CDN-Cache-Control", "value": "no-store" },
-        { "key": "Vercel-CDN-Cache-Control", "value": "no-store" },
-        { "key": "Clear-Site-Data", "value": "\"cache\", \"storage\"" }
+        { "key": "Vercel-CDN-Cache-Control", "value": "no-store" }
       ]
     },
     {
-      "source": "/(.*)\.(js|css)$",
+      "source": "/(.*)\\.(js|css)$",
       "headers": [
         { "key": "Cache-Control", "value": "public, max-age=0, must-revalidate" }
       ]
