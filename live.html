@@ -1,19 +1,25 @@
 <!doctype html>
 <html lang="en" data-section="live">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <meta name="theme-color" content="#020402" />
-    <title>WE LIT - Rich Bizness Live</title>
-    <link rel="stylesheet" href="/src/section-page.css?v=one-app-dock-2" />
-    <link rel="stylesheet" href="/src/watch-hologram.css?v=live-ready-3" />
-  </head>
-  <body data-section="live">
-    <main class="section-screen">
-      <header class="top"><a class="brand" href="/"><span class="crest">RB</span><span><b>RICH BIZNESS</b><small>WE LIT</small></span></a><nav class="top-actions"><a class="pill" href="/watch.html">WATCH</a><a class="pill" href="/messages.html">RICH-DM’s</a></nav></header>
-      <section class="watch-holo"><div class="holo-top"><div class="holo-title"><small>LIVE UNIVERSE</small><b>WE LIT</b></div><div class="livekit-pill">BIZNESS PARTY</div></div><section class="holo-tv"><div class="holo-screen" id="holoScreen"></div></section><section class="tv-controls"><div class="tv-meta"><small id="tvStatus">STANDBY</small><b id="tvTitle">WE LIT</b><small id="tvRoom">Bizness Party</small></div><div class="tv-buttons"><button id="previewCam" type="button">PREVIEW CAM</button><button id="goLiveBtn" type="button">GO LIVE</button><button id="endLiveBtn" type="button">END LIVE</button><button id="watchXp" type="button">WATCHING</button><button id="imOut" type="button">HOME</button></div></section><section class="holo-stats"><span><b id="tvViewers">0</b><small>VIEWERS</small></span><span><b id="tvChat">0</b><small>CHAT</small></span><span><b id="tvState">READY</b><small>STATE</small></span></section></section>
-    </main>
-    <script type="module" src="/src/section-runtime.js?v=one-app-dock-2"></script>
-    <script type="module" src="/src/live-tv.js?v=live-ready-2"></script>
-  </body>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#020402" />
+  <title>WE LIT Live Studio - Rich Bizness</title>
+  <link rel="stylesheet" href="/src/section-page.css?v=one-app-dock-2" />
+  <link rel="stylesheet" href="/src/watch-hologram.css?v=live-watch-redesign-1" />
+</head>
+<body data-section="live">
+  <main class="section-screen live-tv-screen">
+    <header class="top"><a class="brand" href="/"><span class="crest">RB</span><span><b>RICH BIZNESS</b><small>WE LIT LIVE STUDIO</small></span></a><nav class="top-actions"><a class="pill" href="/watch.html">WATCH ROOM</a><a class="pill" href="/messages.html">RICH-DM’s</a><a class="pill" href="/upload.html?section=live-thumbnail">THUMBNAIL</a></nav></header>
+    <section class="watch-holo live-studio-card">
+      <div class="holo-top"><div class="holo-title"><small>HOST CONTROL</small><b>WE LIT LIVE</b><p>Go live from Bizness Party. Camera, room, XP, chat state, and replay lane stay under one shared app roof.</p></div><div class="livekit-pill" id="tvState">READY</div></div>
+      <section class="holo-tv"><div class="holo-screen" id="holoScreen"><div class="holo-empty"><div class="holo-orb">RB</div><b>CAMERA READY</b><p>Preview your cam, then start the Rich Bizness live room.</p></div></div></section>
+      <section class="tv-controls"><div class="tv-meta"><small id="tvStatus">STANDBY</small><b id="tvTitle">WE LIT LIVE</b><small id="tvRoom">Bizness Party</small></div><div class="tv-buttons"><button id="previewCam" type="button">PREVIEW CAM</button><button id="goLiveBtn" type="button">GO LIVE</button><button id="endLiveBtn" type="button">END LIVE</button><button id="watchXp" type="button">OPEN WATCH</button><button id="imOut" type="button">HOME</button></div></section>
+      <section class="holo-stats"><span><b id="tvViewers">0</b><small>VIEWERS</small></span><span><b id="tvChat">0</b><small>CHAT</small></span><span><b>HOST</b><small>MODE</small></span></section>
+      <section class="live-flow"><article><b>1. Preview</b><p>Camera starts inside the TV frame only.</p></article><article><b>2. Go Live</b><p>LiveKit room writes to live_streams.</p></article><article><b>3. Watch Room</b><p>Viewers join from Watch with one shared stream list.</p></article></section>
+    </section>
+  </main>
+  <script type="module" src="/src/section-runtime.js?v=one-app-dock-2"></script>
+  <script type="module" src="/src/live-tv.js?v=live-ready-2"></script>
+</body>
 </html>
