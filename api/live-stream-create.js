@@ -1,45 +1,61 @@
-const SUPABASE_URL = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://xfsrqomsiulswbalgknx.supabase.co';
-const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+import { createClient } from '@supabase/supabase-js';
 
 function send(res, status, body) { res.status(status).json(body); }
-
-async function post(table, row) {
-  const r = await fetch(`${SUPABASE_URL}/rest/v1/${table}`, {
-    method: 'POST',
-    headers: { apikey: SUPABASE_KEY, authorization: `Bearer ${SUPABASE_KEY}`, 'content-type': 'application/json', prefer: 'return=representation' },
-    body: JSON.stringify(row)
-  });
-  const data = await r.json().catch(() => null);
-  if (!r.ok) throw new Error(data?.message || 'Supabase insert failed');
-  return Array.isArray(data) ? data[0] : data;
+function env(name) { return process.env[name] || ''; }
+function supabaseAdmin() {
+  const url = env('SUPABASE_URL') || env('NEXT_PUBLIC_SUPABASE_URL');
+  const key = env('SUPABASE_SERVICE_ROLE_KEY');
+  if (!url || !key) throw new Error('Supabase service env missing in Vercel');
+  return createClient(url, key, { auth: { persistSession: false } });
 }
+function clean(value, fallback) { return String(value || fallback).replace(/[^a-zA-Z0-9_-]/g, '-').slice(0, 80); }
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') return send(res, 405, { ok: false, error: 'POST required' });
-  if (!SUPABASE_KEY) return send(res, 500, { ok: false, error: 'Supabase env missing' });
   try {
+    const db = supabaseAdmin();
     const b = req.body || {};
-    const room = String(b.livekit_room_name || b.room || `we-lit-${Date.now()}`).replace(/[^a-zA-Z0-9_-]/g, '-').slice(0, 80);
-    const creator_id = b.creator_id || b.user_id;
-    if (!creator_id) return send(res, 400, { ok: false, error: 'creator_id required' });
-    const stream = await post('live_streams', {
-      creator_id,
-      slug: b.slug || room,
+    const creatorId = b.creator_id || b.creatorId || b.user_id || b.userId;
+    if (!creatorId) return send(res, 400, { ok: false, error: 'creator_id required' });
+
+    const room = clean(b.livekit_room_name || b.room, `we-lit-${String(creatorId).slice(0, 8)}`);
+    const now = new Date().toISOString();
+    const row = {
+      creator_id: creatorId,
+      slug: clean(b.slug || room, room),
+      display_slug: clean(b.display_slug || room, room),
       title: b.title || 'WE LIT🔥',
-      display_slug: 'WE LIT🔥',
-      display_room_name: b.display_room_name || 'Bizness Party',
-      livekit_room_name: room,
+      description: b.description || 'Bizness Party live room',
+      category: b.category || 'live',
       status: 'live',
-      status_label: 'Get Right',
-      category: b.category || 'we-lit',
-      started_at: new Date().toISOString(),
-      last_activity_at: new Date().toISOString(),
-      is_chat_enabled: true,
-      is_cohost_enabled: true,
-      metadata: { ...(b.metadata || {}), source: 'api', rb_language: 'They’re here Rich' }
-    });
+      status_label: b.status_label || 'WE LIT🔥',
+      access_type: b.access_type || 'free',
+      price_cents: Number(b.price_cents || 0),
+      currency: b.currency || 'usd',
+      livekit_room_name: room,
+      display_room_name: b.display_room_name || b.displayRoomName || 'Bizness Party',
+      thumbnail_url: b.thumbnail_url || null,
+      cover_url: b.cover_url || null,
+      viewer_count: 0,
+      peak_viewers: 0,
+      total_chat_messages: 0,
+      total_reactions: 0,
+      is_chat_enabled: b.is_chat_enabled ?? true,
+      is_cohost_enabled: b.is_cohost_enabled ?? true,
+      is_featured: b.is_featured ?? true,
+      started_at: now,
+      last_activity_at: now,
+      metadata: { ...(b.metadata || {}), source: 'api/live-stream-create', token_source: 'vercel' }
+    };
+
+    const { data: stream, error } = await db.from('live_streams').upsert(row, { onConflict: 'slug' }).select('*').maybeSingle();
+    if (error) throw error;
+
+    await db.from('live_stream_members').upsert({ stream_id: stream.id, user_id: creatorId, role: 'host', status: 'active', joined_at: now, metadata: { api: 'live-stream-create' } }, { onConflict: 'stream_id,user_id,role' }).then(() => {}, () => {});
+    await db.from('livekit_room_events').insert({ room_name: room, stream_id: stream.id, event_type: 'stream_created', participant_identity: creatorId, user_id: creatorId, payload: { api: 'live-stream-create' } }).then(() => {}, () => {});
+
     return send(res, 200, { ok: true, stream });
   } catch (error) {
-    return send(res, 500, { ok: false, error: error.message });
+    return send(res, 500, { ok: false, error: error.message || String(error) });
   }
 }
