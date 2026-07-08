@@ -9,6 +9,34 @@ function supabaseAdmin() {
   return createClient(url, key, { auth: { persistSession: false } });
 }
 function clean(value, fallback) { return String(value || fallback).replace(/[^a-zA-Z0-9_-]/g, '-').slice(0, 80); }
+function usernameFrom(id) { return `live_${String(id || '').replace(/-/g, '').slice(0, 12) || Date.now()}`; }
+
+async function ensureCreatorProfile(db, creatorId, body = {}) {
+  const { data: existing, error: readError } = await db.from('profiles').select('id').eq('id', creatorId).maybeSingle();
+  if (readError) throw readError;
+  if (existing?.id) return true;
+  const display = String(body.display_name || body.displayName || body.name || 'Rich Bizness Host').slice(0, 80);
+  const row = {
+    id: creatorId,
+    username: usernameFrom(creatorId),
+    display_name: display,
+    avatar_url: body.avatar_url || null,
+    banner_url: body.banner_url || null,
+    bio: 'Live on Rich Bizness.',
+    rich_level: 1,
+    rich_points: 0,
+    rank_title: 'BIZ LEGEND',
+    balance_cents: 0,
+    online_status: 'online',
+    onboarding_state: 'complete',
+    has_profile_identity: true,
+    has_avatar: Boolean(body.avatar_url),
+    last_route: '/live.html'
+  };
+  const { error } = await db.from('profiles').upsert(row, { onConflict: 'id' });
+  if (error) throw error;
+  return true;
+}
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') return send(res, 405, { ok: false, error: 'POST required' });
@@ -17,6 +45,7 @@ export default async function handler(req, res) {
     const b = req.body || {};
     const creatorId = b.creator_id || b.creatorId || b.user_id || b.userId;
     if (!creatorId) return send(res, 400, { ok: false, error: 'creator_id required' });
+    await ensureCreatorProfile(db, creatorId, b);
 
     const room = clean(b.livekit_room_name || b.room, `we-lit-${String(creatorId).slice(0, 8)}`);
     const now = new Date().toISOString();
