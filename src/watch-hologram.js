@@ -2,7 +2,7 @@ import { Room, RoomEvent } from 'livekit-client';
 import { supabase } from './supabase-client.js';
 import { awardXp } from './rb-xp.js?v=no-floating-badge-1';
 import { getAuthoritativeIdentity } from './rb-identity.js?v=tap-in-foundation-3';
-import './section-language-foundation.js?v=language-foundation-2';
+import './section-language-foundation.js?v=copy-only-1';
 
 const LIVEKIT_URL = 'wss://rich-bizness-mobile-app-ww6cieid.livekit.cloud';
 const $ = (s) => document.querySelector(s);
