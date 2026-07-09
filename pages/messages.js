@@ -1,5 +1,6 @@
 import { getAuthoritativeIdentity, ensureProfile } from '../src/rb-identity.js?v=profile-avatar-separate-1';
 import { listThreadIds, listThreads, listMessages, createMessage, markThreadRead, reactToMessage, setTyping, startCall, watchMessages } from '../features/messages/api.js';
+import { addDmAttachment } from '../features/messages/attachments.js';
 import { installMessagesLayout, renderThreads, renderMessages, setDmStatus } from '../features/messages/ui.js';
 
 let user = null;
@@ -34,11 +35,18 @@ async function openThread(threadId) {
 
 async function sendCurrentMessage() {
   const input = $('#dmBody');
+  const attachmentInput = $('#dmAttachment');
   const body = input?.value?.trim();
-  if (!active || !body) return;
+  const attachmentUrl = attachmentInput?.value?.trim();
+  if (!active || (!body && !attachmentUrl)) return;
   input.value = '';
+  if (attachmentInput) attachmentInput.value = '';
   await setTyping({ threadId: active.id, userId: user.id, isTyping: false });
-  const msg = await createMessage({ thread: active, user, profile, body });
+  const msg = await createMessage({ thread: active, user, profile, body: body || 'Attachment' });
+  if (attachmentUrl) {
+    const attachment = await addDmAttachment({ messageId: msg.id, userId: user.id, url: attachmentUrl });
+    msg.attachments = attachment ? [attachment] : [];
+  }
   messages.push(msg);
   renderMessages({ thread: active, messages, userId: user.id });
   await markThreadRead({ threadId: active.id, messageId: msg.id, userId: user.id });
