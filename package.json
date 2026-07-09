@@ -7,7 +7,8 @@
     "dev": "vite",
     "build": "vite build",
     "build:clean": "rm -rf dist && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "audit:rb": "node tools/rb-audit.mjs"
   },
   "dependencies": {
     "livekit-client": "latest",
