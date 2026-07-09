@@ -5,7 +5,22 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <meta name="theme-color" content="#020402" />
   <title>Rich Avatar - Rich Bizness Universe</title>
-  <link rel="stylesheet" href="/src/identity-stack.css?v=identity-stack-2" />
+  <link rel="stylesheet" href="/src/identity-stack.css?v=identity-stack-3" />
+  <style>
+    body[data-section="avatar"] .identity-panel-grid{grid-template-columns:minmax(0,1fr) minmax(320px,.78fr);align-items:start}
+    body[data-section="avatar"] .avatar-preview{position:sticky;top:calc(env(safe-area-inset-top) + 86px);min-height:620px;align-content:center;gap:14px;padding:18px;overflow:hidden}
+    body[data-section="avatar"] #avatarBody.identity-avatar{width:min(390px,78vw)!important;height:min(520px,70svh)!important;aspect-ratio:512/640!important;border-radius:36px!important;background:radial-gradient(circle at 50% 35%,rgba(157,255,99,.18),transparent 55%)!important;background-image:none!important;background-color:transparent!important;box-shadow:none!important;border:0!important;overflow:visible!important;filter:drop-shadow(0 0 34px rgba(99,255,93,.55))!important}
+    body[data-section="avatar"] #avatarBody.identity-avatar:before,body[data-section="avatar"] #avatarBody.identity-avatar:after{display:none!important;content:none!important}
+    body[data-section="avatar"] #avatarBody .avatar-preview-img{display:block!important;width:100%!important;height:100%!important;object-fit:contain!important;object-position:center!important;max-width:100%;max-height:100%}
+    body[data-section="avatar"] .avatar-stage-label{font-size:clamp(18px,4vw,30px);text-align:center}
+    body[data-section="avatar"] .avatar-panel{padding-bottom:calc(env(safe-area-inset-bottom) + 110px)}
+    body[data-section="avatar"] .creator-extra{display:grid;gap:12px;margin-top:12px}
+    body[data-section="avatar"] .gender-pick{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+    body[data-section="avatar"] .gender-pick button{min-height:42px;border-radius:14px;border:1px solid rgba(157,255,99,.18);background:rgba(157,255,99,.08);color:white;font-weight:1000}
+    body[data-section="avatar"] .gender-pick button.active{background:linear-gradient(135deg,var(--rb-green),var(--rb-gold));color:#061006;border:0}
+    @media(max-width:880px){body[data-section="avatar"] .avatar-preview{position:relative;top:auto;min-height:520px}body[data-section="avatar"] .identity-panel-grid{grid-template-columns:1fr}}
+    @media(max-width:560px){body[data-section="avatar"] .avatar-preview{min-height:430px;border-radius:24px}body[data-section="avatar"] #avatarBody.identity-avatar{width:min(330px,82vw)!important;height:360px!important}.identity-actions{width:100%;display:grid;grid-template-columns:1fr 1fr 1fr}.identity-pill{font-size:9px;padding:0 8px}}
+  </style>
 </head>
 <body data-rb-page="avatar" data-section="avatar">
   <div class="identity-bg"></div>
@@ -16,7 +31,7 @@
       <form id="avatarForm" class="identity-panel identity-form avatar-panel"><div class="identity-kicker">Avatar Builder</div><h2>Build Your Rich Avatar</h2><p>One avatar record powers Profile Lock, Characters, Meta, Gaming, Live, Creator, and XP unlocks.</p><label>Display Name<input id="displayName" /></label><label>Aura<select id="aura"><option>Emerald Gold</option><option>Galaxy Smoke</option><option>Royal Flame</option><option>Diamond Mist</option><option>Neon Phantom</option></select></label><label>Outfit<select id="outfit"><option>Rich Default</option><option>Black Gold Boss</option><option>Creator Hoodie</option><option>Meta Armor</option><option>Street Legend</option><option>Executive Suit</option></select></label><label>Motion<select id="motion"><option>Boss Idle</option><option>Boss Walk</option><option>Portal Walk</option><option>Smoke Burst</option><option>Power Up</option><option>Dance Flex</option><option>Combat Ready</option></select></label><div class="avatar-quick"><button type="button" data-preset="boss">BOSS</button><button type="button" data-preset="creator">CREATOR</button><button type="button" data-preset="meta">META</button><button type="button" data-preset="hero">HERO</button><button type="button" data-preset="villain">VILLAIN</button><button type="button" data-preset="ninja">NINJA</button><button type="button" data-preset="movie">MOVIE</button><button type="button" data-preset="dash">DASH</button><button type="button" data-randomize>RANDOM</button></div><div class="identity-stats"><span><b data-xp-level>LEVEL 1</b><small>LEVEL</small></span><span><b data-xp-rank>BIZ LEGEND</b><small>RANK</small></span><span><b data-xp-total>0 XP</b><small>XP</small></span></div><button class="identity-btn primary">SAVE AVATAR</button><small id="status">Rich avatar engine ready.</small></form>
     </section>
   </main>
-  <script type="module" src="/src/avatar.js?v=avatar-core-6"></script>
+  <script type="module" src="/src/avatar.js?v=avatar-core-7"></script>
   <script type="module" src="/src/avatar-xp.js?v=xp-idempotent-1"></script>
 </body>
 </html>
