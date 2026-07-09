@@ -5,6 +5,7 @@ const root = process.cwd();
 const ignore = new Set(['.git','node_modules','dist','.vercel']);
 const ignoreFiles = new Set(['tools/rb-audit.mjs']);
 const allowedExt = new Set(['.html','.js','.mjs','.css','.json','.ts','.tsx','.jsx']);
+const coreRoutes = new Set(['messages.html','meta.html','store.html','notifications.html','sports.html','music.html','radio.html','podcast.html','live.html','watch.html','profile.html','index.html','auth.html','edit.html','settings.html']);
 
 const checks = [
   { name:'old identity stack', pattern:/identity-stack\.css\?v=identity-stack-[12]/g },
@@ -44,6 +45,15 @@ for (const file of files) {
     for (const match of matches) {
       const line = text.slice(0, match.index).split('\n').length;
       hits.push({ file: rel, line, check: check.name, match: match[0].slice(0, 120) });
+    }
+  }
+  if (coreRoutes.has(rel)) {
+    const lineCount = text.split('\n').length;
+    if (lineCount < 8 && text.includes('<script type="module">')) {
+      hits.push({ file: rel, line: 1, check: 'hidden one-line route ownership', match: 'inline module logic compressed into one-line HTML' });
+    }
+    if (text.includes('<script type="module">import') && !text.includes('src="/src/')) {
+      hits.push({ file: rel, line: 1, check: 'inline route owner logic', match: 'move route logic into /src owner file' });
     }
   }
 }
