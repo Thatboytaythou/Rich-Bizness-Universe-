@@ -3,6 +3,7 @@ import path from 'node:path';
 
 const root = process.cwd();
 const ignore = new Set(['.git','node_modules','dist','.vercel']);
+const ignoreFiles = new Set(['tools/rb-audit.mjs']);
 const allowedExt = new Set(['.html','.js','.mjs','.css','.json','.ts','.tsx','.jsx']);
 
 const checks = [
@@ -22,7 +23,10 @@ async function walk(dir, files = []) {
     if (ignore.has(entry.name)) continue;
     const full = path.join(dir, entry.name);
     if (entry.isDirectory()) await walk(full, files);
-    else if (allowedExt.has(path.extname(entry.name))) files.push(full);
+    else if (allowedExt.has(path.extname(entry.name))) {
+      const rel = path.relative(root, full).replaceAll('\\', '/');
+      if (!ignoreFiles.has(rel)) files.push(full);
+    }
   }
   return files;
 }
@@ -30,7 +34,7 @@ async function walk(dir, files = []) {
 const files = await walk(root);
 const hits = [];
 for (const file of files) {
-  const rel = path.relative(root, file);
+  const rel = path.relative(root, file).replaceAll('\\', '/');
   const text = await readFile(file, 'utf8').catch(() => '');
   for (const check of checks) {
     const matches = [...text.matchAll(check.pattern)];
