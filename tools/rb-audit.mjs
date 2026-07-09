@@ -12,9 +12,12 @@ const checks = [
   { name:'old section runtime', pattern:/section-runtime\.js|section-page\.css/g },
   { name:'dead avatar xp boot', pattern:/avatar-xp\.js/g },
   { name:'profile portal-card collision', pattern:/identity-portal-card\s+profile-card-lock/g },
+  { name:'meta portal-card collision', pattern:/identity-portal-card\s+meta-world-stage/g },
   { name:'avatar outer ring collision', pattern:/avatar-glow-ring/g },
   { name:'stale route cache key', pattern:/profile-avatar-separate-2|avatar-extreme-2|selector-extreme-1|tap-in-foundation-[23]|realtime-2|avatar-core-8|drop-feed-4/g },
+  { name:'stale identity import', pattern:/rb-identity\.js\?v=tap-in-foundation-[23]/g },
   { name:'profile photo/avatar class collision', pattern:/class="avatar"\s+id="avatarFace"/g },
+  { name:'homepage hard mobile column', pattern:/rb-home-portal[\s\S]{0,260}minmax\(340px/g },
   { name:'duplicate homepage realtime risk', pattern:/channel\('home-profile-'[\s\S]{0,160}channel\('home-profile-'/g }
 ];
 
