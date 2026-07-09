@@ -5,8 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
-    "build:clean": "rm -rf dist && vite build",
+    "build": "npm run audit:rb && vite build",
+    "build:clean": "rm -rf dist && npm run audit:rb && vite build",
     "preview": "vite preview",
     "audit:rb": "node tools/rb-audit.mjs"
   },
