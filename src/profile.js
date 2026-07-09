@@ -1,74 +1,19 @@
 import { supabase } from './supabase-client.js';
-import { ensureProfile, getSessionUser } from './rb-identity.js?v=tap-in-foundation-3';
+import { ensureProfile, getMetaAvatar, getSessionUser } from './rb-identity.js?v=profile-avatar-separate-1';
 import { bootXp, loadXp } from './rb-xp.js?v=realtime-1';
 
-const displayName = document.getElementById('displayName');
-const username = document.getElementById('username');
-const bio = document.getElementById('bio');
-const avatarFace = document.getElementById('avatarFace');
-const rank = document.getElementById('rank');
-const level = document.getElementById('level');
-const xp = document.getElementById('xp');
-const xpMode = document.getElementById('xpMode');
-const xpFill = document.getElementById('xpFill');
-const editAvatar = document.getElementById('editAvatar');
-const profileStatus = document.getElementById('profileStatus');
-
+const $ = (s) => document.querySelector(s);
 const fmt = (n) => Number(n || 0).toLocaleString();
-const say = (text) => { if (profileStatus) profileStatus.textContent = text; };
-
-function calmProfileArtifacts() {
-  document.querySelectorAll('.rb-overlay:not([data-rb-keep]),.rb-blocker:not([data-rb-keep])').forEach((el) => {
-    el.style.pointerEvents = 'none';
-    el.setAttribute('aria-hidden', 'true');
-  });
-  document.body?.removeAttribute('data-rich-money');
-}
-
-async function getMeta(userId) {
-  const { data, error } = await supabase.from('meta_avatars').select('aura,level,xp,metadata').eq('user_id', userId).maybeSingle();
-  if (error) throw error;
-  return data || null;
-}
-function safeSet(el, text) { if (el) el.textContent = text; }
-function render(profile, meta) {
-  calmProfileArtifacts();
-  const cfg = meta?.metadata || {};
-  const lvl = Number(profile.rich_level || meta?.level || 1);
-  const points = Number(profile.rich_points || meta?.xp || 0);
-  safeSet(displayName, (profile.display_name || 'Rich Bizness User').toUpperCase());
-  safeSet(username, '@' + (profile.username || 'rich_user'));
-  safeSet(bio, profile.bio || 'Building a Rich Bizness lane across the universe.');
-  safeSet(rank, profile.rank_title || 'BIZ LEGEND');
-  safeSet(level, lvl);
-  safeSet(xp, fmt(points));
-  safeSet(xpMode, 'REALTIME');
-  if (xpFill) xpFill.style.width = Math.max(0, Math.min(100, ((points - ((lvl - 1) * 1000)) / 1000) * 100)) + '%';
-  if (!avatarFace) return;
-  avatarFace.classList.add('live-avatar');
-  avatarFace.dataset.aura = meta?.aura || cfg.aura || 'Emerald Gold';
-  avatarFace.dataset.motion = cfg.motion || 'Boss Idle';
-  avatarFace.title = `${meta?.aura || cfg.aura || 'Emerald Gold'} • ${cfg.gender || 'avatar'} • ${cfg.outfit || 'Rich Default'} • ${cfg.motion || 'Boss Idle'}`;
-  if (profile.avatar_url) { avatarFace.textContent = ''; avatarFace.style.backgroundImage = 'url(' + profile.avatar_url + ')'; }
-  else { avatarFace.textContent = 'RB'; avatarFace.style.backgroundImage = ''; }
-}
-async function paint(user) {
-  calmProfileArtifacts();
-  const profile = await ensureProfile(user);
-  const meta = await getMeta(user.id);
-  render(profile, meta);
-  try { await loadXp(user.id); } catch (_) {}
-  say('Profile connected.');
-}
-async function boot() {
-  try {
-    calmProfileArtifacts();
-    const user = await getSessionUser();
-    if (!user) { location.href = '/auth.html?next=' + encodeURIComponent('/profile.html'); return; }
-    try { await bootXp(); } catch (_) {}
-    await paint(user);
-    supabase.channel('profile-identity-' + user.id).on('postgres_changes', { event: '*', schema: 'public', table: 'profiles', filter: 'id=eq.' + user.id }, () => paint(user)).on('postgres_changes', { event: '*', schema: 'public', table: 'meta_avatars', filter: 'user_id=eq.' + user.id }, () => paint(user)).on('postgres_changes', { event: '*', schema: 'public', table: 'user_levels', filter: 'user_id=eq.' + user.id }, () => paint(user)).subscribe();
-  } catch (error) { console.warn(error); say(error.message || String(error)); }
-}
-editAvatar?.addEventListener('click', () => { location.href = '/avatar.html'; });
+const money = (n) => '$' + (Number(n || 0) / 100).toFixed(2);
+const safe = (v, fallback = '') => String(v ?? fallback);
+const set = (s, v) => { const el = $(s); if (el) el.textContent = v; };
+function say(text) { set('#profileStatus', text); }
+function calmProfileArtifacts() { document.querySelectorAll('.rb-overlay:not([data-rb-keep]),.rb-blocker:not([data-rb-keep])').forEach((el) => { el.style.pointerEvents = 'none'; el.setAttribute('aria-hidden', 'true'); }); document.body?.removeAttribute('data-rich-money'); }
+function miniCard(row, type = 'post') { const img = row.media_url || row.public_url || row.thumbnail_url || row.cover_url || row.file_url || ''; return `<article class="card">${img ? `<img src="${img}" alt="">` : ''}<b>${safe(row.title, type === 'post' ? 'Rich Bizness Post' : 'Upload')}</b><p>${safe(row.body || row.description, 'Profile-owned content.')}</p><small>${safe(row.section || row.category || type, type)}</small></article>`; }
+async function counts(userId) { const [posts, uploads, followers, following] = await Promise.all([supabase.from('feed_posts').select('id', { count: 'exact', head: true }).eq('user_id', userId), supabase.from('uploads').select('id', { count: 'exact', head: true }).eq('user_id', userId), supabase.from('followers').select('id', { count: 'exact', head: true }).eq('following_id', userId), supabase.from('followers').select('id', { count: 'exact', head: true }).eq('follower_id', userId)]); set('#postsCount', fmt(posts.count)); set('#uploadsCount', fmt(uploads.count)); set('#followersCount', fmt(followers.count)); return { posts: posts.count || 0, uploads: uploads.count || 0, followers: followers.count || 0, following: following.count || 0 }; }
+async function loadOwnedContent(userId) { const [posts, uploads] = await Promise.all([supabase.from('feed_posts').select('*').eq('user_id', userId).order('created_at', { ascending: false }).limit(8), supabase.from('uploads').select('*').eq('user_id', userId).order('created_at', { ascending: false }).limit(8)]); const postBox = $('#profilePosts'), uploadBox = $('#profileUploads'); if (postBox) postBox.innerHTML = posts.error ? `<div class="empty">${posts.error.message}</div>` : (posts.data || []).length ? posts.data.map((r) => miniCard(r, 'post')).join('') : '<div class="empty">No posts yet.</div>'; if (uploadBox) uploadBox.innerHTML = uploads.error ? `<div class="empty">${uploads.error.message}</div>` : (uploads.data || []).length ? uploads.data.map((r) => miniCard(r, 'upload')).join('') : '<div class="empty">No uploads yet.</div>'; }
+async function access(profile, userId) { const [admin, creator, secret] = await Promise.all([supabase.from('admin_roles').select('role_key,can_manage_money,can_manage_platform').eq('user_id', userId).eq('is_active', true).maybeSingle(), supabase.from('creator_available_balances').select('available_cents,earned_cents,pending_cents').eq('artist_user_id', userId).maybeSingle(), supabase.from('rb_secret_rooms').select('room_key').eq('is_active', true).limit(1)]); const creatorText = profile.is_creator || profile.is_artist || profile.is_seller || creator.data ? money(creator.data?.available_cents || 0) : 'Creator locked'; const adminText = admin.data?.can_manage_money ? 'Money admin' : admin.data?.role_key || 'User'; set('#creatorAccess', creatorText); set('#secretAccess', secret.data?.length ? 'Rooms ready' : 'Locked'); return { admin: admin.data, creator: creator.data, secret: secret.data } }
+function render(profile, meta) { calmProfileArtifacts(); const cfg = meta?.metadata || {}; const lvl = Number(profile.rich_level || meta?.level || 1); const points = Number(profile.rich_points || meta?.xp || 0); set('#displayName', safe(profile.display_name, 'Rich Bizness User').toUpperCase()); set('#username', '@' + safe(profile.username, 'rich_user')); set('#bio', safe(profile.bio, 'Building a Rich Bizness lane across the universe.')); set('#rank', safe(profile.rank_title, 'BIZ LEGEND')); set('#level', lvl); set('#xp', fmt(points)); set('#balance', money(profile.balance_cents)); if ($('#xpFill')) $('#xpFill').style.width = Math.max(0, Math.min(100, (points % 1000) / 10)) + '%'; const card = $('#profileCard'); if (card) card.style.backgroundImage = profile.banner_url ? `url(${profile.banner_url})` : ''; const avatarFace = $('#avatarFace'); if (avatarFace) { avatarFace.classList.add('live-avatar'); avatarFace.dataset.aura = meta?.aura || cfg.aura || 'Emerald Gold'; avatarFace.dataset.motion = cfg.motion || 'Boss Idle'; avatarFace.title = `${meta?.aura || cfg.aura || 'Emerald Gold'} • profile photo separate from avatar character`; if (profile.avatar_url) { avatarFace.textContent = ''; avatarFace.style.backgroundImage = 'url(' + profile.avatar_url + ')'; } else { avatarFace.textContent = 'RB'; avatarFace.style.backgroundImage = ''; } } }
+async function paint(user) { calmProfileArtifacts(); const profile = await ensureProfile(user); const meta = await getMetaAvatar(user.id).catch(() => null); render(profile, meta); await Promise.all([counts(user.id), loadOwnedContent(user.id), access(profile, user.id)]); try { await loadXp(user.id); } catch (_) {} say('Profile empire connected.'); }
+async function boot() { try { calmProfileArtifacts(); const user = await getSessionUser(); if (!user) { location.href = '/auth.html?next=' + encodeURIComponent('/profile.html'); return; } try { await bootXp(); } catch (_) {} await paint(user); supabase.channel('profile-empire-' + user.id).on('postgres_changes', { event: '*', schema: 'public', table: 'profiles', filter: 'id=eq.' + user.id }, () => paint(user)).on('postgres_changes', { event: '*', schema: 'public', table: 'meta_avatars', filter: 'user_id=eq.' + user.id }, () => paint(user)).on('postgres_changes', { event: '*', schema: 'public', table: 'feed_posts', filter: 'user_id=eq.' + user.id }, () => paint(user)).on('postgres_changes', { event: '*', schema: 'public', table: 'uploads', filter: 'user_id=eq.' + user.id }, () => paint(user)).on('postgres_changes', { event: '*', schema: 'public', table: 'user_levels', filter: 'user_id=eq.' + user.id }, () => paint(user)).subscribe(); } catch (error) { console.warn(error); say(error.message || String(error)); } }
 boot();
