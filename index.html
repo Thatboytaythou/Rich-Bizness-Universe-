@@ -11,17 +11,17 @@
   <div class="identity-bg"></div>
   <main class="identity-shell rb-home-shell">
     <header class="identity-top rb-home-top">
-      <a class="identity-brand" href="/" aria-label="Rich Bizness Home"><span class="identity-crest">RB</span><span><b>RICH BIZNESS</b><small>CINEMATIC PORTAL HUB</small></span></a>
-      <nav class="identity-actions" aria-label="Account"><a class="identity-pill" href="/search.html">Search</a><a class="identity-pill" href="/profile.html">Profile Lock</a><a class="identity-pill primary" href="/auth.html">Tap In</a></nav>
+      <a class="identity-brand" href="/" aria-label="Rich Bizness Home"><span class="identity-crest">RB</span><span><b>RICH BIZNESS</b><small id="homeSub">CINEMATIC PORTAL HUB</small></span></a>
+      <nav class="identity-actions" aria-label="Account"><a class="identity-pill" href="/search.html">Search</a><a class="identity-pill" href="/profile.html" id="homeProfileLink">Profile Lock</a><a class="identity-pill primary" href="/auth.html" id="homeAuthLink">Tap In</a></nav>
     </header>
 
     <section class="rb-home-portal" aria-label="Rich Bizness Universe Portal">
       <div class="rb-home-copy">
-        <div class="identity-kicker">Rich Bizness LLC</div>
-        <h1>Build The Whole Universe</h1>
-        <p>One cinematic home base for identity, live rooms, watch rooms, uploads, music, podcast, radio, gaming, sports, gallery, store, meta worlds, messages, creator tools, and admin control.</p>
-        <div class="identity-buttons"><a class="identity-btn primary" href="/auth.html">Tap In</a><a class="identity-btn" href="/live.html">Go Live</a><a class="identity-btn" href="/upload.html">Drop Zone</a><a class="identity-btn" href="/watch.html">Watch Room</a></div>
-        <div class="rb-home-strip"><span><b>PROFILE</b><small>identity roof</small></span><span><b>LIVE</b><small>Bizness Party</small></span><span><b>UPLOAD</b><small>route files</small></span><span><b>META</b><small>world portal</small></span></div>
+        <div class="identity-kicker" id="homeKicker">Rich Bizness LLC</div>
+        <h1 id="homeHeadline">Build The Whole Universe</h1>
+        <p id="homeIntro">One cinematic home base for identity, live rooms, watch rooms, uploads, music, podcast, radio, gaming, sports, gallery, store, meta worlds, messages, creator tools, and admin control.</p>
+        <div class="identity-buttons"><a class="identity-btn primary" href="/auth.html" id="homeMainCta">Tap In</a><a class="identity-btn" href="/live.html">Go Live</a><a class="identity-btn" href="/upload.html">Drop Zone</a><a class="identity-btn" href="/watch.html">Watch Room</a></div>
+        <div class="rb-home-strip"><span><b id="homeLevel">PROFILE</b><small>identity roof</small></span><span><b id="homeRank">LIVE</b><small>Bizness Party</small></span><span><b id="homePoints">UPLOAD</b><small>route files</small></span><span><b id="homeBalance">META</b><small>world portal</small></span></div>
       </div>
       <div class="rb-portal-stage" aria-label="Omni Portal">
         <a class="rb-node n-live" href="/live.html"><b>◉</b><small>LIVE</small></a>
@@ -32,13 +32,13 @@
         <a class="rb-node n-games" href="/gaming.html"><b>🎮</b><small>GAME</small></a>
         <a class="rb-node n-store" href="/store.html"><b>$</b><small>STORE</small></a>
         <a class="rb-node n-meta" href="/meta.html"><b>◎</b><small>META</small></a>
-        <div class="rb-portal-core"><span>RB</span><b>OMNI DIAL</b><small>tap any lane</small></div>
+        <div class="rb-portal-core"><span id="homeCore">RB</span><b>OMNI DIAL</b><small id="homeCoreSmall">tap any lane</small></div>
       </div>
     </section>
 
     <section class="rb-home-lanes" aria-label="Priority lanes">
-      <a class="rb-lane hot" href="/profile.html"><span>☻</span><b>Profile Lock</b><small>XP, avatar, identity, rank, creator progress</small></a>
-      <a class="rb-lane hot" href="/avatar-characters/"><span>♛</span><b>Characters</b><small>Boss Walk, Creator Mode, Meta Runner</small></a>
+      <a class="rb-lane hot" href="/profile.html"><span>☻</span><b>Profile Lock</b><small>XP, profile photo, identity, rank, creator progress</small></a>
+      <a class="rb-lane hot" href="/avatar-characters/"><span>♛</span><b>Characters</b><small>Saved motion avatar roster</small></a>
       <a class="rb-lane hot" href="/feed.html"><span>✦</span><b>Rich Feed</b><small>Posts, drops, reactions, discovery</small></a>
       <a class="rb-lane hot" href="/messages.html"><span>✉</span><b>Rich-DM’s</b><small>threads, calls, reactions, smoke rooms</small></a>
     </section>
@@ -56,7 +56,8 @@
       <a class="identity-card" data-icon="⌕" href="/search.html"><b>Search</b><small>Universe</small></a><a class="identity-card" data-icon="♜" href="/creator.html"><b>Creator</b><small>Hub</small></a><a class="identity-card" data-icon="⚙" href="/settings.html"><b>Settings</b><small>Control</small></a><a class="identity-card" data-icon="◆" href="/rb-secret-door.html"><b>RB Vault</b><small>Special Access</small></a>
     </nav>
 
-    <footer class="identity-footer"><p>Rich Bizness LLC</p><p><span>No homepage runtime</span> • portal visual only • sections own their logic</p></footer>
+    <footer class="identity-footer"><p>Rich Bizness LLC</p><p><span>Homepage state connected</span> • sections own their logic</p></footer>
   </main>
+  <script type="module">import { getAuthoritativeIdentity } from '/src/rb-identity.js?v=profile-avatar-separate-1';import { supabase } from '/src/supabase-client.js';const $=s=>document.querySelector(s);const fmt=n=>Number(n||0).toLocaleString();const money=n=>'$'+(Number(n||0)/100).toFixed(2);function initials(v='RB'){return String(v||'RB').split(/\s+/).map(x=>x[0]).filter(Boolean).slice(0,2).join('').toUpperCase()||'RB'}async function paint(){const state=await getAuthoritativeIdentity({fresh:true}).catch(()=>({}));const p=state.profile;if(!state.user||!p)return;$('#homeAuthLink').textContent='Enter';$('#homeAuthLink').href=p.favorite_section?`/${p.favorite_section}.html`:'/profile.html';$('#homeMainCta').textContent='Open Profile Empire';$('#homeMainCta').href='/profile.html';$('#homeProfileLink').textContent='@'+(p.username||'rich_user');$('#homeSub').textContent='SIGNED IN PORTAL';$('#homeKicker').textContent='Welcome Back';$('#homeHeadline').textContent=(p.display_name||'Rich Bizness').toUpperCase();$('#homeIntro').textContent=p.bio||'Your Rich Bizness empire is live.';$('#homeLevel').textContent='LVL '+(p.rich_level||1);$('#homeRank').textContent=p.rank_title||'BIZ LEGEND';$('#homePoints').textContent=fmt(p.rich_points);$('#homeBalance').textContent=money(p.balance_cents);$('#homeCore').textContent=initials(p.display_name||p.username);$('#homeCoreSmall').textContent=fmt(p.rich_points)+' XP';supabase.channel('home-profile-'+state.user.id).on('postgres_changes',{event:'*',schema:'public',table:'profiles',filter:'id=eq.'+state.user.id},paint).on('postgres_changes',{event:'*',schema:'public',table:'user_levels',filter:'user_id=eq.'+state.user.id},paint).subscribe()}paint();</script>
 </body>
 </html>
