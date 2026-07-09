@@ -1,7 +1,7 @@
 import { Room, RoomEvent } from 'https://esm.sh/livekit-client@2';
 import { supabase } from './supabase-client.js';
 import { awardXp } from './rb-xp.js?v=xp-idempotent-1';
-import { getAuthoritativeIdentity } from './rb-identity.js?v=tap-in-foundation-3';
+import { getAuthoritativeIdentity } from './rb-identity.js?v=profile-avatar-separate-1';
 import './section-language-foundation.js?v=copy-only-1';
 
 const WATCH_TITLE = 'We 🔥📺';
