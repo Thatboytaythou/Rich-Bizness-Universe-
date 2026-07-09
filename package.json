@@ -5,10 +5,11 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "npm run audit:rb && vite build",
-    "build:clean": "rm -rf dist && npm run audit:rb && vite build",
+    "build": "npm run audit:rb && npm run audit:images && vite build",
+    "build:clean": "rm -rf dist && npm run audit:rb && npm run audit:images && vite build",
     "preview": "vite preview",
-    "audit:rb": "node tools/rb-audit.mjs"
+    "audit:rb": "node tools/rb-audit.mjs",
+    "audit:images": "node tools/rb-image-audit.mjs"
   },
   "dependencies": {
     "livekit-client": "latest",
