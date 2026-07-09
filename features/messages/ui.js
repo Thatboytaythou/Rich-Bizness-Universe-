@@ -16,9 +16,16 @@ export function installMessagesLayout(root) {
         <form id="dmForm" class="dm-compose">
           <input id="dmBody" placeholder="Type Rich-DM..." autocomplete="off" />
           <button class="primary" type="submit">SEND</button>
+          <button type="button" id="dmReact">SMOKE</button>
+          <button type="button" id="dmCall">CALL</button>
         </form>
       </section>
     </section>`;
+}
+
+export function setDmStatus(text) {
+  const status = document.querySelector('#roomStatus');
+  if (status) status.textContent = text;
 }
 
 export function renderThreads({ threads, activeId }) {
