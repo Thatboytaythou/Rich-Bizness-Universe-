@@ -1,6 +1,6 @@
 import { supabase } from './supabase-client.js';
-import { ensureTapInFoundation, slugName, safeNextRoute } from './rb-identity.js?v=tap-in-foundation-3';
-import { loadCurrentXp, awardXp } from './rb-xp.js?v=realtime-2';
+import { ensureTapInFoundation, slugName, safeNextRoute } from './rb-identity.js?v=profile-avatar-separate-1';
+import { loadCurrentXp, awardXp } from './rb-xp.js?v=xp-idempotent-1';
 
 const form = document.getElementById('authForm');
 const createBtn = document.getElementById('createBtn');
