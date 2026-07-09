@@ -15,6 +15,7 @@ export function installMessagesLayout(root) {
         <div id="dmMessages" class="dm-messages"><div class="empty">No thread selected.</div></div>
         <form id="dmForm" class="dm-compose">
           <input id="dmBody" placeholder="Type Rich-DM..." autocomplete="off" />
+          <input id="dmAttachment" placeholder="Attachment URL" autocomplete="off" />
           <button class="primary" type="submit">SEND</button>
           <button type="button" id="dmReact">SMOKE</button>
           <button type="button" id="dmCall">CALL</button>
@@ -48,6 +49,9 @@ export function renderMessages({ thread, messages, userId }) {
   if (title) title.textContent = thread?.title || thread?.thread_type || 'Rich-DM Thread';
   if (status) status.textContent = thread ? `${thread.dm_brand || 'Rich-DM'} • ${thread.typing_label || 'rolling smoke...'}` : 'Open a thread.';
   if (!box) return;
-  box.innerHTML = messages.length ? messages.map((msg) => `<article class="dm-msg ${msg.sender_id === userId ? 'mine' : ''}"><b>${esc(msg.display_name || msg.username || 'Rich User')}</b><p>${esc(msg.body || '')}</p><small>${esc(msg.message_type || 'text')} • ${new Date(msg.created_at).toLocaleString()}</small></article>`).join('') : '<div class="empty">No messages in this thread yet.</div>';
+  box.innerHTML = messages.length ? messages.map((msg) => {
+    const attachment = msg.attachments?.length ? `<p>${msg.attachments.map((a) => `<a class="identity-pill" href="${esc(a.file_url)}">${esc(a.file_name || 'Attachment')}</a>`).join(' ')}</p>` : '';
+    return `<article class="dm-msg ${msg.sender_id === userId ? 'mine' : ''}"><b>${esc(msg.display_name || msg.username || 'Rich User')}</b><p>${esc(msg.body || '')}</p>${attachment}<small>${esc(msg.message_type || 'text')} • ${new Date(msg.created_at).toLocaleString()}</small></article>`;
+  }).join('') : '<div class="empty">No messages in this thread yet.</div>';
   box.scrollTop = box.scrollHeight;
 }
