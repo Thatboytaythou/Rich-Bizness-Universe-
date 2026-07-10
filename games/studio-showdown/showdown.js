@@ -1,0 +1,27 @@
+import { supabase } from '../../src/supabase-client.js';
+import { getAuthoritativeIdentity } from '../../src/rb-identity.js?v=profile-avatar-separate-1';
+
+const $=id=>document.getElementById(id);
+let score=0,combo=0,energy=100,round=1,step=0,player=50,rival=50,timer=null,running=true,perfectHits=0,bestCombo=0,misses=0,identity={},game=null,startedAt=Date.now();
+const pads=['kick','snare','hat','bass'];
+
+function sync(){
+  $('score').textContent=score.toLocaleString();$('combo').textContent=combo;$('energy').textContent=Math.max(0,Math.floor(energy));$('round').textContent=round;$('perfectHits').textContent=perfectHits;$('bestCombo').textContent=bestCombo;
+  $('playerMeter').style.width=player+'%';$('rivalMeter').style.width=rival+'%';
+  document.querySelectorAll('.mission').forEach(m=>{const key=m.dataset.mission,value=key==='combo'?bestCombo:key==='perfect'?perfectHits:round;m.classList.toggle('done',value>=Number(m.dataset.target))});
+}
+function writeLog(text){const row=document.createElement('div');row.textContent=text;$('log').prepend(row)}
+function pulse(){if(!running)return;document.querySelectorAll('.beat').forEach((b,i)=>b.classList.toggle('active',i===step));step=(step+1)%8;energy=Math.min(100,energy+.7);rival=Math.min(100,rival+.35+round*.04);if(rival>=100)finish(false);sync()}
+function hit(pad){if(!running||energy<8)return;const active=(step+7)%8,perfect=(active%4===0)||(pad==='hat'&&active%2===0);const node=document.querySelector(`[data-pad="${pad}"]`);node?.classList.add('pressed');setTimeout(()=>node?.classList.remove('pressed'),120);const beat=document.querySelector(`.beat[data-i="${active}"]`);beat?.classList.add('hit');setTimeout(()=>beat?.classList.remove('hit'),220);
+  if(perfect){combo++;perfectHits++;bestCombo=Math.max(bestCombo,combo);const gain=120+combo*18+round*25;score+=gain;player=Math.min(100,player+4.5);rival=Math.max(0,rival-2.5);writeLog(`PERFECT ${pad.toUpperCase()} +${gain} • ${combo}x combo`)}else{misses++;combo=0;score=Math.max(0,score-50);player=Math.max(0,player-3.5);writeLog(`OFF-BEAT ${pad.toUpperCase()} • combo lost`)}
+  energy-=8;if(player>=100){round++;player=50;rival=45;score+=1500;writeLog(`ROUND ${round-1} WON • +1500`)}sync()}
+async function finish(win){if(!running)return;running=false;clearInterval(timer);writeLog(win?'SHOWDOWN WON':'RIVAL TOOK THE ROOM');await saveResult(win?'win':'loss')}
+function reset(){clearInterval(timer);score=0;combo=0;energy=100;round=1;step=0;player=50;rival=50;perfectHits=0;bestCombo=0;misses=0;running=true;startedAt=Date.now();$('log').innerHTML='';writeLog('Press pads on the glowing beat. A S D F also work.');sync();timer=setInterval(pulse,460)}
+async function loadIdentity(){identity=await getAuthoritativeIdentity().catch(()=>({}));const profile=identity.profile||{};$('playerName').textContent=profile.display_name||profile.username||'Rich Producer';const {data}=await supabase.from('games').select('id,slug').eq('slug','studio-showdown').maybeSingle();game=data||null;loadLeaderboard()}
+async function saveResult(result='completed'){if(!identity.user)return;const duration=Math.max(1,Math.floor((Date.now()-startedAt)/1000));const payload={game_id:game?.id||null,game_slug:'studio-showdown',user_id:identity.user.id,username:identity.profile?.username||null,display_name:identity.profile?.display_name||null,result,score,platform_type:'web',duration_seconds:duration,metadata:{round,perfect_hits:perfectHits,best_combo:bestCombo,misses,source:'games/studio-showdown'}};await supabase.from('game_sessions').insert(payload);await supabase.from('game_scores').insert({game_id:game?.id||null,game_slug:'studio-showdown',user_id:identity.user.id,username:identity.profile?.username||null,display_name:identity.profile?.display_name||null,score,mode:'rhythm',platform_type:'web',is_verified:true,anti_cheat_status:'verified',metadata:{round,perfect_hits:perfectHits,best_combo:bestCombo,misses,duration_seconds:duration}});await supabase.rpc('rb_award_xp',{p_user_id:identity.user.id,p_event_key:'studio_showdown_session',p_source_table:'game_sessions',p_source_id:null,p_metadata:{score,round,best_combo:bestCombo}}).catch(()=>{});loadLeaderboard()}
+async function loadLeaderboard(){const {data}=await supabase.from('game_scores').select('display_name,username,score').eq('game_slug','studio-showdown').order('score',{ascending:false}).limit(5);$('leaderboard').innerHTML=(data||[]).map((r,i)=>`<div><span>#${i+1} ${r.display_name||r.username||'Player'}</span><b>${Number(r.score||0).toLocaleString()}</b></div>`).join('')||'<div>No scores yet</div>'}
+function togglePause(){running=!running;$('pause').textContent=running?'Pause':'Resume';writeLog(running?'Session resumed':'Session paused')}
+
+document.querySelectorAll('[data-pad]').forEach(b=>b.addEventListener('click',()=>hit(b.dataset.pad)));addEventListener('keydown',e=>{const map={a:'kick',s:'snare',d:'hat',f:'bass'};const pad=map[e.key.toLowerCase()];if(pad)hit(pad)});$('restart').addEventListener('click',reset);$('pause').addEventListener('click',togglePause);$('submit').addEventListener('click',()=>finish(true));
+for(let i=0;i<8;i++){const b=document.createElement('div');b.className='beat';b.dataset.i=i;$('timeline').appendChild(b)}
+await loadIdentity();reset();
