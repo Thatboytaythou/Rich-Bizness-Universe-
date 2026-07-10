@@ -1,5 +1,5 @@
 import { supabase } from './supabase-client.js';
-import { ensureProfile, getMetaAvatar, getSessionUser } from './rb-identity.js?v=profile-avatar-separate-1';
+import { getAuthoritativeIdentity, getProfile, getMetaAvatar } from './rb-identity.js?v=identity-owner-2';
 import { bootXp, loadXp } from './rb-xp.js?v=realtime-1';
 
 const $ = (s) => document.querySelector(s);
@@ -14,9 +14,12 @@ const requestedUsername = params.get('u') || params.get('user') || params.get('u
 let ownerUser = null;
 let viewedProfile = null;
 let isOwner = false;
+let paintFlight = null;
+let refreshTimer = null;
+let profileChannel = null;
+let loggedViewId = '';
 
 function say(text) { set('#profileStatus', text); }
-
 function calmProfileArtifacts() {
   document.querySelectorAll('.rb-overlay:not([data-rb-keep]),.rb-blocker:not([data-rb-keep])').forEach((el) => {
     el.style.pointerEvents = 'none';
@@ -24,28 +27,23 @@ function calmProfileArtifacts() {
   });
   document.body?.removeAttribute('data-rich-money');
 }
-
 function miniCard(row, type = 'post') {
   const img = row.media_url || row.public_url || row.thumbnail_url || row.cover_url || row.file_url || '';
   return `<article class="card">${img ? `<img src="${img}" alt="">` : ''}<b>${safe(row.title, type === 'post' ? 'Rich Bizness Post' : 'Upload')}</b><p>${safe(row.body || row.description, 'Profile-owned content.')}</p><small>${safe(row.section || row.category || type, type)}</small></article>`;
 }
 
-async function getProfileTarget(currentUser) {
-  if (requestedId) {
-    const { data, error } = await supabase.from('profiles').select('*').eq('id', requestedId).maybeSingle();
-    if (error) throw error;
-    return data || null;
-  }
+async function getProfileTarget() {
+  if (requestedId) return getProfile(requestedId);
   if (requestedUsername) {
     const clean = requestedUsername.replace(/^@/, '').trim();
     const { data, error } = await supabase.from('profiles').select('*').eq('username', clean).maybeSingle();
     if (error) throw error;
     return data || null;
   }
-  return ensureProfile(currentUser);
+  return getProfile(ownerUser.id);
 }
 
-async function counts(userId) {
+async function loadCounts(userId) {
   const [posts, uploads, followers] = await Promise.all([
     supabase.from('feed_posts').select('id', { count: 'exact', head: true }).eq('user_id', userId),
     supabase.from('uploads').select('id', { count: 'exact', head: true }).eq('user_id', userId),
@@ -67,17 +65,15 @@ async function loadOwnedContent(userId) {
   if (uploadBox) uploadBox.innerHTML = uploads.error ? `<div class="empty">${uploads.error.message}</div>` : (uploads.data || []).length ? uploads.data.map((r) => miniCard(r, 'upload')).join('') : '<div class="empty">No uploads yet.</div>';
 }
 
-async function access(profile, userId) {
-  const [admin, creator, secret] = await Promise.all([
-    supabase.from('admin_roles').select('role_key,can_manage_money,can_manage_platform').eq('user_id', userId).eq('is_active', true).maybeSingle(),
-    supabase.from('creator_available_balances').select('available_cents,earned_cents,pending_cents').eq('artist_user_id', userId).maybeSingle(),
-    supabase.from('rb_secret_rooms').select('room_key,required_role,entry_cost_cents').eq('is_active', true).limit(8)
+async function loadAccess(profile) {
+  const [creator, secret] = await Promise.all([
+    supabase.from('creator_available_balances').select('available_cents').eq('artist_user_id', profile.id).maybeSingle(),
+    supabase.from('rb_secret_rooms').select('id', { count: 'exact', head: true }).eq('is_active', true)
   ]);
   const creatorText = profile.is_creator || profile.is_artist || profile.is_seller || creator.data ? money(creator.data?.available_cents || 0) : 'Creator locked';
-  const secretText = profile.vault_unlocked ? `${profile.rb_secret_rank || 'VAULT'} • ${(secret.data || []).length} rooms` : `${Math.max(0, 500 - Number(profile.rich_points || 0))} XP to unlock`;
+  const secretText = profile.vault_unlocked ? `${profile.rb_secret_rank || 'VAULT'} • ${secret.count || 0} rooms` : `${Math.max(0, 500 - Number(profile.rich_points || 0))} XP to unlock`;
   set('#creatorAccess', isOwner ? creatorText : (profile.is_creator || profile.is_artist || profile.is_seller ? 'Creator profile' : 'Public profile'));
   set('#secretAccess', isOwner ? secretText : (profile.vault_unlocked ? profile.rb_secret_rank || 'VAULT' : 'Public view'));
-  return { admin: admin.data, creator: creator.data, secret: secret.data };
 }
 
 function ensureSystemsPanel() {
@@ -89,47 +85,29 @@ function ensureSystemsPanel() {
   return panel;
 }
 
-async function profileSystems(profile) {
-  const [badgesResult, themeResult, accessResult] = await Promise.all([
-    supabase.from('user_badges').select('*,badge:badges(*)').eq('user_id', profile.id).order('unlocked_at', { ascending: false }).limit(12),
+async function loadSystems(profile) {
+  const base = [
+    supabase.from('user_badges').select('id', { count: 'exact', head: true }).eq('user_id', profile.id),
     supabase.from('profile_theme_settings').select('*').eq('user_id', profile.id).maybeSingle(),
-    supabase.from('route_access_rules').select('*').eq('is_active', true).limit(60)
-  ]);
-
-  const badges = badgesResult.data || [];
-  const theme = themeResult.data || null;
+    supabase.from('route_access_rules').select('required_role').eq('is_active', true).limit(60)
+  ];
+  if (isOwner) base.push(
+    supabase.from('user_sessions').select('id', { count: 'exact', head: true }).eq('user_id', profile.id).eq('is_active', true),
+    supabase.from('trust_events').select('id', { count: 'exact', head: true }).eq('user_id', profile.id),
+    supabase.from('platform_analytics_events').select('id', { count: 'exact', head: true }).eq('user_id', profile.id)
+  );
+  const [badges, themeResult, accessResult, sessions, trust, analytics] = await Promise.all(base);
   const role = String(profile.role || 'user').toLowerCase();
   const accessRows = (accessResult.data || []).filter((row) => !row.required_role || row.required_role === role || role === 'founder' || role === 'admin');
-
-  let sessionsCount = 0;
-  let trustCount = 0;
-  let analyticsCount = 0;
-  if (isOwner) {
-    const [sessions, trust, analytics] = await Promise.all([
-      supabase.from('user_sessions').select('id', { count: 'exact', head: true }).eq('user_id', profile.id).eq('is_active', true),
-      supabase.from('trust_events').select('id', { count: 'exact', head: true }).eq('user_id', profile.id),
-      supabase.from('platform_analytics_events').select('id', { count: 'exact', head: true }).eq('user_id', profile.id)
-    ]);
-    sessionsCount = sessions.count || 0;
-    trustCount = trust.count || 0;
-    analyticsCount = analytics.count || 0;
-  }
-
   const panel = ensureSystemsPanel();
-  if (panel) {
-    panel.innerHTML = `
-      <article class="identity-stat"><b>${fmt(badges.length)}</b><small>Badges</small></article>
-      <article class="identity-stat"><b>${safe(theme?.profile_layout || theme?.background_style, 'Default')}</b><small>Theme</small></article>
-      <article class="identity-stat"><b>${fmt(accessRows.length)}</b><small>Access</small></article>
-      <article class="identity-stat"><b>${isOwner ? fmt(sessionsCount) : 'PRIVATE'}</b><small>Sessions</small></article>
-      <article class="identity-stat"><b>${isOwner ? fmt(trustCount) : 'PRIVATE'}</b><small>Trust</small></article>
-      <article class="identity-stat"><b>${isOwner ? fmt(analyticsCount) : 'PRIVATE'}</b><small>Analytics</small></article>`;
-  }
-
-  if (theme?.background_url) {
-    const hero = $('#profileHero');
-    if (hero) hero.style.backgroundImage = `linear-gradient(rgba(0,0,0,.28),rgba(0,0,0,.72)),url(${theme.background_url})`;
-  }
+  if (panel) panel.innerHTML = `
+    <article class="identity-stat"><b>${fmt(badges.count)}</b><small>Badges</small></article>
+    <article class="identity-stat"><b>${safe(themeResult.data?.profile_layout || themeResult.data?.background_style, 'Default')}</b><small>Theme</small></article>
+    <article class="identity-stat"><b>${fmt(accessRows.length)}</b><small>Access</small></article>
+    <article class="identity-stat"><b>${isOwner ? fmt(sessions?.count) : 'PRIVATE'}</b><small>Sessions</small></article>
+    <article class="identity-stat"><b>${isOwner ? fmt(trust?.count) : 'PRIVATE'}</b><small>Trust</small></article>
+    <article class="identity-stat"><b>${isOwner ? fmt(analytics?.count) : 'PRIVATE'}</b><small>Analytics</small></article>`;
+  if (themeResult.data?.background_url) $('#profileHero').style.backgroundImage = `linear-gradient(rgba(0,0,0,.28),rgba(0,0,0,.72)),url(${themeResult.data.background_url})`;
 }
 
 function tuneOwnerControls() {
@@ -141,102 +119,82 @@ function tuneOwnerControls() {
     }
   });
   const creatorBtn = document.querySelector('a[href="/creator.html"]');
-  if (creatorBtn && !isOwner) {
-    creatorBtn.textContent = 'View Feed';
-    creatorBtn.href = `/feed.html?user=${encodeURIComponent(viewedProfile?.id || '')}`;
-  }
+  if (creatorBtn && !isOwner) { creatorBtn.textContent = 'View Feed'; creatorBtn.href = `/feed.html?user=${encodeURIComponent(viewedProfile?.id || '')}`; }
 }
 
 function render(profile, meta) {
-  calmProfileArtifacts();
   viewedProfile = profile;
   isOwner = Boolean(ownerUser?.id && ownerUser.id === profile.id);
   const cfg = meta?.metadata || {};
-  const lvl = Number(profile.rich_level || meta?.level || 1);
+  const level = Number(profile.rich_level || meta?.level || 1);
   const points = Number(profile.rich_points || meta?.xp || 0);
   set('#displayName', safe(profile.display_name, 'Rich Bizness User').toUpperCase());
   set('#username', '@' + safe(profile.username, 'rich_user'));
   set('#bio', safe(profile.bio, 'Building a Rich Bizness lane across the universe.'));
   set('#rank', safe(profile.rank_title, 'BIZ LEGEND'));
-  set('#level', lvl);
+  set('#level', level);
   set('#xp', fmt(points));
   set('#balance', isOwner ? money(profile.balance_cents) : 'PUBLIC');
   if ($('#xpFill')) $('#xpFill').style.width = Math.max(0, Math.min(100, (points % 1000) / 10)) + '%';
-  const card = $('#profileCard');
-  if (card) card.style.backgroundImage = profile.banner_url ? `url(${profile.banner_url})` : '';
-  const avatarFace = $('#avatarFace');
-  if (avatarFace) {
-    avatarFace.classList.add('live-avatar');
-    avatarFace.dataset.aura = meta?.aura || cfg.aura || 'Emerald Gold';
-    avatarFace.dataset.motion = cfg.motion || 'Boss Idle';
-    avatarFace.title = `${isOwner ? 'Your profile' : 'Viewing public profile'} • profile photo separate from avatar character`;
-    if (profile.avatar_url) {
-      avatarFace.textContent = '';
-      avatarFace.style.backgroundImage = `url(${profile.avatar_url})`;
-    } else {
-      avatarFace.textContent = safe(profile.display_name || profile.username || 'RB').split(/\s+/).map((x) => x[0]).filter(Boolean).slice(0, 2).join('').toUpperCase() || 'RB';
-      avatarFace.style.backgroundImage = '';
-    }
+  if ($('#profileCard')) $('#profileCard').style.backgroundImage = profile.banner_url ? `url(${profile.banner_url})` : '';
+  const avatar = $('#avatarFace');
+  if (avatar) {
+    avatar.classList.add('live-avatar');
+    avatar.dataset.aura = meta?.aura || cfg.aura || 'Emerald Gold';
+    avatar.dataset.motion = cfg.motion || 'Boss Idle';
+    if (profile.avatar_url) { avatar.textContent = ''; avatar.style.backgroundImage = `url(${profile.avatar_url})`; }
+    else { avatar.textContent = safe(profile.display_name || profile.username || 'RB').split(/\s+/).map((x) => x[0]).filter(Boolean).slice(0, 2).join('').toUpperCase() || 'RB'; avatar.style.backgroundImage = ''; }
   }
   tuneOwnerControls();
 }
 
 async function logProfileView(profile) {
+  if (loggedViewId === profile.id) return;
+  loggedViewId = profile.id;
   const sessionId = sessionStorage.getItem('rb_session_id') || crypto.randomUUID();
   sessionStorage.setItem('rb_session_id', sessionId);
-  await supabase.from('platform_analytics_events').insert({
-    user_id: ownerUser?.id || null,
-    session_id: sessionId,
-    event_name: 'profile_view',
-    section: 'profile',
-    target_table: 'profiles',
-    target_id: profile.id,
-    device_type: innerWidth < 768 ? 'mobile' : 'desktop',
-    platform: navigator.platform || 'web',
-    route: location.pathname + location.search,
-    metadata: { owner_view: isOwner }
-  }).then(() => {}, () => {});
+  await supabase.from('platform_analytics_events').insert({ user_id: ownerUser?.id || null, session_id: sessionId, event_name: 'profile_view', section: 'profile', target_table: 'profiles', target_id: profile.id, device_type: innerWidth < 768 ? 'mobile' : 'desktop', platform: navigator.platform || 'web', route: location.pathname + location.search, metadata: { owner_view: isOwner } }).then(() => {}, () => {});
 }
 
-async function paint(currentUser) {
-  calmProfileArtifacts();
-  ownerUser = currentUser;
-  const profile = await getProfileTarget(currentUser);
-  if (!profile) { say('Profile not found.'); return; }
-  const meta = await getMetaAvatar(profile.id).catch(() => null);
-  render(profile, meta);
-  await Promise.all([
-    counts(profile.id),
-    loadOwnedContent(profile.id),
-    access(profile, profile.id),
-    profileSystems(profile),
-    logProfileView(profile)
-  ]);
-  if (isOwner) {
-    try { await loadXp(profile.id); } catch (_) {}
-  }
-  say(isOwner ? 'Profile empire connected.' : 'Viewing public profile.');
+async function paint() {
+  if (paintFlight) return paintFlight;
+  paintFlight = (async () => {
+    calmProfileArtifacts();
+    const profile = await getProfileTarget();
+    if (!profile) { say('Profile not found.'); return; }
+    const meta = await getMetaAvatar(profile.id).catch(() => null);
+    render(profile, meta);
+    await Promise.all([loadCounts(profile.id), loadOwnedContent(profile.id), loadAccess(profile), loadSystems(profile)]);
+    if (isOwner) try { await loadXp(profile.id); } catch (_) {}
+    logProfileView(profile);
+    say(isOwner ? 'Profile empire connected.' : 'Viewing public profile.');
+  })();
+  try { return await paintFlight; } finally { paintFlight = null; }
+}
+
+function schedulePaint() {
+  clearTimeout(refreshTimer);
+  refreshTimer = setTimeout(() => paint().catch((error) => say(error.message || String(error))), 250);
 }
 
 async function boot() {
   try {
     calmProfileArtifacts();
-    const user = await getSessionUser();
-    if (!user) {
-      location.href = '/auth.html?next=' + encodeURIComponent(location.pathname + location.search);
-      return;
-    }
+    const state = await getAuthoritativeIdentity();
+    ownerUser = state.user;
+    if (!ownerUser) { location.replace('/auth.html?next=' + encodeURIComponent(location.pathname + location.search)); return; }
     try { await bootXp(); } catch (_) {}
-    await paint(user);
-    const targetId = viewedProfile?.id || user.id;
-    supabase.channel('profile-view-' + targetId)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles', filter: 'id=eq.' + targetId }, () => paint(user))
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'meta_avatars', filter: 'user_id=eq.' + targetId }, () => paint(user))
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'feed_posts', filter: 'user_id=eq.' + targetId }, () => paint(user))
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'uploads', filter: 'user_id=eq.' + targetId }, () => paint(user))
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'user_levels', filter: 'user_id=eq.' + targetId }, () => paint(user))
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'user_badges', filter: 'user_id=eq.' + targetId }, () => paint(user))
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'profile_theme_settings', filter: 'user_id=eq.' + targetId }, () => paint(user))
+    await paint();
+    const targetId = viewedProfile?.id || ownerUser.id;
+    if (profileChannel) await supabase.removeChannel(profileChannel);
+    profileChannel = supabase.channel('profile-owner-' + targetId)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles', filter: 'id=eq.' + targetId }, schedulePaint)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'meta_avatars', filter: 'user_id=eq.' + targetId }, schedulePaint)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'feed_posts', filter: 'user_id=eq.' + targetId }, schedulePaint)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'uploads', filter: 'user_id=eq.' + targetId }, schedulePaint)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'user_levels', filter: 'user_id=eq.' + targetId }, schedulePaint)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'user_badges', filter: 'user_id=eq.' + targetId }, schedulePaint)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'profile_theme_settings', filter: 'user_id=eq.' + targetId }, schedulePaint)
       .subscribe();
   } catch (error) {
     console.warn(error);
@@ -244,4 +202,5 @@ async function boot() {
   }
 }
 
+addEventListener('pagehide', () => { if (profileChannel) supabase.removeChannel(profileChannel); });
 boot();
