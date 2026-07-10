@@ -1,99 +1,12 @@
 import { getAuthoritativeIdentity, ensureProfile } from '../src/rb-identity.js?v=profile-avatar-separate-1';
-import { listThreadIds, listThreads, listMessages, createMessage, markThreadRead, reactToMessage, setTyping, startCall, watchMessages } from '../features/messages/api.js';
-import { addDmAttachment } from '../features/messages/attachments.js';
-import { installMessagesLayout, renderThreads, renderMessages, setDmStatus } from '../features/messages/ui.js';
-
-let user = null;
-let profile = null;
-let threads = [];
-let active = null;
-let messages = [];
-let typingTimer = null;
-
-const $ = (selector) => document.querySelector(selector);
-
-async function requireUser() {
-  const state = await getAuthoritativeIdentity({ fresh: true });
-  user = state.user;
-  profile = state.profile || (user ? await ensureProfile(user) : null);
-  if (!user) {
-    location.href = '/auth.html?next=/messages.html';
-    return false;
-  }
-  return true;
-}
-
-async function openThread(threadId) {
-  active = threads.find((thread) => thread.id === threadId) || active;
-  renderThreads({ threads, activeId: active?.id });
-  if (!active) return;
-  messages = await listMessages(active.id);
-  renderMessages({ thread: active, messages, userId: user.id });
-  const last = messages[messages.length - 1];
-  if (last) await markThreadRead({ threadId: active.id, messageId: last.id, userId: user.id });
-}
-
-async function sendCurrentMessage() {
-  const input = $('#dmBody');
-  const attachmentInput = $('#dmAttachment');
-  const body = input?.value?.trim();
-  const attachmentUrl = attachmentInput?.value?.trim();
-  if (!active || (!body && !attachmentUrl)) return;
-  input.value = '';
-  if (attachmentInput) attachmentInput.value = '';
-  await setTyping({ threadId: active.id, userId: user.id, isTyping: false });
-  const msg = await createMessage({ thread: active, user, profile, body: body || 'Attachment' });
-  if (attachmentUrl) {
-    const attachment = await addDmAttachment({ messageId: msg.id, userId: user.id, url: attachmentUrl });
-    msg.attachments = attachment ? [attachment] : [];
-  }
-  messages.push(msg);
-  renderMessages({ thread: active, messages, userId: user.id });
-  await markThreadRead({ threadId: active.id, messageId: msg.id, userId: user.id });
-}
-
-function wire() {
-  document.addEventListener('click', async (event) => {
-    const card = event.target.closest('[data-thread-id]');
-    if (card) openThread(card.dataset.threadId);
-    if (event.target.closest('#dmReact')) {
-      const last = messages[messages.length - 1];
-      if (last) {
-        await reactToMessage({ messageId: last.id, userId: user.id, emoji: active?.default_reaction || 'SMOKE' });
-        setDmStatus('Reaction sent.');
-      }
-    }
-    if (event.target.closest('#dmCall')) {
-      const call = await startCall({ thread: active, user });
-      if (call) setDmStatus('Rich Call started: ' + call.livekit_room_name);
-    }
-  });
-  $('#dmForm')?.addEventListener('submit', async (event) => { event.preventDefault(); await sendCurrentMessage(); });
-  $('#dmBody')?.addEventListener('input', () => {
-    if (!active || !user) return;
-    setTyping({ threadId: active.id, userId: user.id, isTyping: true });
-    clearTimeout(typingTimer);
-    typingTimer = setTimeout(() => setTyping({ threadId: active.id, userId: user.id, isTyping: false }), 1200);
-  });
-}
-
-async function load() {
-  if (!await requireUser()) return;
-  const ids = await listThreadIds(user.id);
-  if ($('#memberCount')) $('#memberCount').textContent = ids.length.toLocaleString();
-  threads = await listThreads(ids);
-  if (!active && threads[0]) active = threads[0];
-  renderThreads({ threads, activeId: active?.id });
-  if (active) await openThread(active.id);
-}
-
-installMessagesLayout($('#messagesMount'));
-wire();
-load();
-watchMessages({
-  onThreads: load,
-  onMessages: () => active ? openThread(active.id) : load(),
-  onTyping: (payload) => {
-    if (payload.new?.thread_id === active?.id && payload.new?.user_id !== user?.id) setDmStatus(payload.new?.is_typing ? 'They typing...' : 'Rich-DM ready.');
-  }
-});
+import { listThreadIds, listThreads, listMessages, createMessage, markThreadRead, reactToMessage, setTyping, startCall, listActiveCalls, watchMessages } from '../features/messages/api.js';
+import { addDmAttachment, uploadDmAttachment } from '../features/messages/attachments.js';
+import { installMessagesLayout, renderThreads, renderMessages, renderCallParticipants, openAttachmentViewer, setDmStatus } from '../features/messages/ui.js';
+let user=null,profile=null,threads=[],active=null,messages=[],typingTimer=null;const $=(s)=>document.querySelector(s);
+async function requireUser(){const state=await getAuthoritativeIdentity({fresh:true});user=state.user;profile=state.profile||(user?await ensureProfile(user):null);if(!user){location.href='/auth.html?next=/messages.html';return false;}return true;}
+async function refreshCalls(){renderCallParticipants(active?await listActiveCalls(active.id):[]);}
+async function openThread(threadId){active=threads.find((t)=>t.id===threadId)||active;renderThreads({threads,activeId:active?.id});if(!active)return;messages=await listMessages(active.id);renderMessages({thread:active,messages,userId:user.id});const last=messages[messages.length-1];if(last&&last.sender_id!==user.id)await markThreadRead({threadId:active.id,messageId:last.id,userId:user.id});await refreshCalls();}
+async function sendCurrentMessage(){const input=$('#dmBody'),urlInput=$('#dmAttachment'),fileInput=$('#dmAttachmentFile');const body=input?.value?.trim();const url=urlInput?.value?.trim();const file=fileInput?.files?.[0];if(!active||(!body&&!url&&!file))return;setDmStatus(file?'Uploading attachment...':'Sending...');let uploaded=null;if(file)uploaded=await uploadDmAttachment({threadId:active.id,userId:user.id,file});const messageType=uploaded?.file_type||'text';const msg=await createMessage({thread:active,user,profile,body:body||(uploaded?.file_name||'Attachment'),messageType:uploaded||url?messageType:'text',mediaUrl:uploaded?.file_url||url||null,mediaType:uploaded?.mime_type||null});const attachment=uploaded||url?await addDmAttachment({messageId:msg.id,userId:user.id,attachment:uploaded,url}):null;if(attachment)msg.attachments=[attachment];input.value='';if(urlInput)urlInput.value='';if(fileInput)fileInput.value='';await setTyping({threadId:active.id,userId:user.id,isTyping:false});messages.push(msg);renderMessages({thread:active,messages,userId:user.id});setDmStatus('Rich-DM sent.');}
+function wire(){document.addEventListener('click',async(event)=>{const thread=event.target.closest('[data-thread-id]');if(thread)await openThread(thread.dataset.threadId);const react=event.target.closest('[data-react]');if(react){const message=react.closest('[data-message-id]');if(message){await reactToMessage({messageId:message.dataset.messageId,userId:user.id,emoji:react.dataset.react});await openThread(active.id);}}const attachment=event.target.closest('[data-view-attachment]');if(attachment)openAttachmentViewer({url:attachment.dataset.url,type:attachment.dataset.type,name:attachment.dataset.name});if(event.target.closest('[data-close-viewer]'))$('#dmAttachmentViewer')?.close();if(event.target.closest('#dmCall')){const call=await startCall({thread:active,user});if(call){setDmStatus('Rich Call started: '+call.livekit_room_name);await refreshCalls();}}});$('#dmForm')?.addEventListener('submit',async(event)=>{event.preventDefault();try{await sendCurrentMessage();}catch(error){console.error(error);setDmStatus(error.message||'Message failed.');}});$('#dmBody')?.addEventListener('input',()=>{if(!active||!user)return;setTyping({threadId:active.id,userId:user.id,isTyping:true});clearTimeout(typingTimer);typingTimer=setTimeout(()=>setTyping({threadId:active.id,userId:user.id,isTyping:false}),1200);});}
+async function load(){if(!await requireUser())return;const ids=await listThreadIds(user.id);if($('#memberCount'))$('#memberCount').textContent=ids.length.toLocaleString();threads=await listThreads(ids);if(!active&&threads[0])active=threads[0];renderThreads({threads,activeId:active?.id});if(active)await openThread(active.id);}
+installMessagesLayout($('#messagesMount'));wire();load();watchMessages({onThreads:load,onMessages:()=>active?openThread(active.id):load(),onCalls:refreshCalls,onTyping:(payload)=>{if(payload.new?.thread_id===active?.id&&payload.new?.user_id!==user?.id)setDmStatus(payload.new?.is_typing?'They typing...':'Rich-DM ready.');}});
