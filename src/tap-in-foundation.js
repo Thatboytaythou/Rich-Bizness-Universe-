@@ -1,6 +1,6 @@
 import { supabase } from './supabase-client.js';
-import { ensureTapInFoundation, slugName, safeNextRoute } from './rb-identity.js?v=profile-avatar-separate-1';
-import { loadCurrentXp, awardXp } from './rb-xp.js?v=xp-idempotent-1';
+import { ensureTapInFoundation, slugName, safeNextRoute } from './rb-identity.js?v=identity-owner-2';
+import { loadXp, awardXp } from './rb-xp.js?v=auth-owner-1';
 
 const form = document.getElementById('authForm');
 const createBtn = document.getElementById('createBtn');
@@ -10,6 +10,7 @@ const password = document.getElementById('password');
 const displayName = document.getElementById('displayName');
 const params = new URL(location.href).searchParams;
 const next = safeNextRoute(params.get('next') || '/', '/');
+let finishing = false;
 
 const say = (text) => { if (status) status.textContent = text; };
 const lock = (on) => {
@@ -25,6 +26,7 @@ const calm = () => {
 };
 const fail = (error) => {
   console.warn(error);
+  finishing = false;
   lock(false);
   document.body.classList.remove('auth-checking');
   say(error?.message || 'Tap In blocked. Check Profile Lock.');
@@ -33,11 +35,14 @@ const fail = (error) => {
 function destination(found) { return safeNextRoute(found?.route || next || '/', '/'); }
 
 async function finish(user) {
+  if (finishing) return;
   if (!user) throw new Error('Tap In did not return a user.');
+  finishing = true;
   calm();
+  lock(true);
   say('Locking Profile, Avatar, and XP...');
   const found = await ensureTapInFoundation(user, { next });
-  try { await loadCurrentXp(); } catch (_) {}
+  try { await loadXp(user.id); } catch (_) {}
   say('Tapped In. Opening Rich Bizness...');
   location.replace(destination(found));
 }
@@ -53,10 +58,9 @@ async function checkReturned() {
   const url = new URL(location.href);
   const returnedFromEmail = url.hash.includes('access_token') || url.searchParams.has('code') || url.searchParams.get('type') === 'signup';
   if (!returnedFromEmail) return false;
-  const session = await supabase.auth.getSession();
-  if (session.data?.session?.user) { await finish(session.data.session.user); return true; }
-  const user = await supabase.auth.getUser();
-  if (user.data?.user) { await finish(user.data.user); return true; }
+  const { data, error } = await supabase.auth.getSession();
+  if (error) throw error;
+  if (data?.session?.user) { await finish(data.session.user); return true; }
   lock(false);
   say('Confirmed. Tap In to finish.');
   document.body.classList.remove('auth-checking');
@@ -65,6 +69,7 @@ async function checkReturned() {
 
 form?.addEventListener('submit', async (event) => {
   event.preventDefault();
+  if (finishing) return;
   lock(true);
   calm();
   say('Opening portal...');
@@ -76,6 +81,7 @@ form?.addEventListener('submit', async (event) => {
 });
 
 createBtn?.addEventListener('click', async () => {
+  if (finishing) return;
   lock(true);
   calm();
   say('Creating Rich identity...');
@@ -93,31 +99,16 @@ createBtn?.addEventListener('click', async () => {
       },
     });
     if (result.error) throw result.error;
-    const directUser = result.data?.session?.user || result.data?.user;
     if (result.data?.session?.user) {
       try { await awardXp('daily_tap_in', { section: 'auth' }); } catch (_) {}
       await finish(result.data.session.user);
       return;
     }
-    if (directUser) {
-      try {
-        say('ID created. Opening portal...');
-        const user = await signInNow(mail, pass);
-        try { await awardXp('daily_tap_in', { section: 'auth' }); } catch (_) {}
-        await finish(user);
-        return;
-      } catch (_) {
-        lock(false);
-        say('ID created. Check email, confirm it, then Tap In.');
-        return;
-      }
-    }
     lock(false);
-    say('Check email, then confirm to Tap In.');
+    say('ID created. Check email, confirm it, then Tap In.');
   } catch (error) { fail(error); }
 });
 
-loadCurrentXp().catch(() => {});
 calm();
 
 (async () => {
@@ -125,8 +116,9 @@ calm();
   say('Checking Tap In status...');
   try {
     if (await checkReturned()) return;
-    const session = await supabase.auth.getSession();
-    if (session.data?.session?.user) { await finish(session.data.session.user); return; }
+    const { data, error } = await supabase.auth.getSession();
+    if (error) throw error;
+    if (data?.session?.user) { await finish(data.session.user); return; }
     document.body.classList.remove('auth-checking');
     lock(false);
     say('Tap In Ready.');
