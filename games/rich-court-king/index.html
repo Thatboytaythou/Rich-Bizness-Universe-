@@ -1,1 +1,45 @@
-<!doctype html><html><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><meta name="theme-color" content="#020402"><link rel="stylesheet" href="/games/shared/game.css"></head><body><script type="module" src="/games/shared/runtime.js"></script></body></html>
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <meta name="theme-color" content="#020402" />
+  <title>Rich Court King • Rich Bizness</title>
+  <link rel="stylesheet" href="/games/rich-court-king/court.css" />
+</head>
+<body>
+  <main class="app">
+    <header class="topbar">
+      <a href="/gaming.html">← ARCADE</a>
+      <div><small>RICH BIZNESS SPORTS</small><h1>RICH COURT KING</h1></div>
+      <button id="pauseBtn" type="button">PAUSE</button>
+    </header>
+    <section class="hud">
+      <article><b id="score">0</b><small>SCORE</small></article>
+      <article><b id="streak">0</b><small>STREAK</small></article>
+      <article><b id="clock">60</b><small>SECONDS</small></article>
+      <article><b id="energy">100</b><small>ENERGY</small></article>
+    </section>
+    <section class="game-grid">
+      <section class="court-panel">
+        <canvas id="court" width="960" height="540" aria-label="Rich Court King basketball court"></canvas>
+        <div class="shot-meter"><i id="shotFill"></i><span id="shotLabel">HOLD SHOOT</span></div>
+        <div class="controls">
+          <button data-action="left">LEFT</button>
+          <button data-action="shoot" class="primary">HOLD / RELEASE SHOOT</button>
+          <button data-action="right">RIGHT</button>
+          <button data-action="steal">STEAL</button>
+          <button data-action="boost">BOOST</button>
+        </div>
+      </section>
+      <aside class="side-panel">
+        <section><h2>GAME STATUS</h2><strong id="status">READY</strong><p id="detail">Build a clean scoring streak before time expires.</p></section>
+        <section><h2>MISSIONS</h2><ul><li><span>Score 5 baskets</span><b id="missionShots">0/5</b></li><li><span>Hit 3 perfects</span><b id="missionPerfect">0/3</b></li><li><span>Reach 1,500 points</span><b id="missionScore">0/1500</b></li></ul></section>
+        <section><h2>LEADERBOARD</h2><ol id="leaderboard"><li>Loading...</li></ol></section>
+        <div class="side-actions"><button id="restartBtn" type="button">NEW RUN</button><button id="saveBtn" type="button">SAVE SCORE</button><a href="/upload.html?section=gaming">DROP CLIP</a></div>
+      </aside>
+    </section>
+  </main>
+  <script type="module" src="/games/rich-court-king/court.js"></script>
+</body>
+</html>
