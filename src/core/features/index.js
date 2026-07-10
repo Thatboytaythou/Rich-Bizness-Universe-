@@ -1,4 +1,10 @@
-import { RB_SECTIONS, RB_SYSTEMS, routeFor, sectionFor, accessFor } from '../../rb-schema-map.js';
+import {
+  RB_ACCESS_RULES,
+  RB_SECTIONS,
+  RB_SYSTEMS,
+  routeFor,
+  sectionFor,
+} from '../../rb-schema-map.js';
 
 export const RB_APP_SOURCE = Object.freeze({
   appName: 'Rich Bizness Universe',
@@ -14,37 +20,67 @@ export const RB_APP_SOURCE = Object.freeze({
   xpTables: ['profiles', 'user_levels', 'user_xp_ledger', 'xp_events', 'rank_rules'],
 });
 
-export const RB_FEATURES = Object.freeze({
-  index: { key: 'index', route: '/', category: 'core', required: true },
-  auth: { key: 'auth', route: '/auth.html', category: 'core', required: true },
-  profile: { key: 'profile', route: '/profile.html', category: 'identity', required: true },
-  avatar: { key: 'avatar', route: '/avatar.html', category: 'identity', required: true },
-  avatarCharacters: { key: 'avatar-characters', route: '/avatar-characters/', category: 'identity', required: true },
-  upload: { key: 'upload', route: '/upload.html', category: 'creation', required: true },
-  feed: { key: 'feed', route: '/feed.html', category: 'social', required: true },
-  notifications: { key: 'notifications', route: '/notifications.html', category: 'alerts', required: true },
-  edit: { key: 'edit', route: '/edit.html', category: 'identity', required: true },
-  settings: { key: 'settings', route: '/settings.html', category: 'identity', required: true },
-  messages: { key: 'messages', route: '/messages.html', category: 'messaging', required: true },
-  search: { key: 'search', route: '/search.html', category: 'discovery', required: true },
-  admin: { key: 'admin', route: '/admin.html', category: 'ops', required: true },
-  secrets: { key: 'rb-secret', route: '/rb-secret-door.html', category: 'vault', required: true },
-  creator: { key: 'creator', route: '/creator.html', category: 'creator', required: true },
-  store: { key: 'store', route: '/store.html', category: 'commerce', required: true },
-  sports: { key: 'sports', route: '/sports.html', category: 'sports', required: true },
-  music: { key: 'music', route: '/music.html', category: 'audio', required: true },
-  radio: { key: 'radio', route: '/radio.html', category: 'audio', required: true },
-  podcast: { key: 'podcast', route: '/podcast.html', category: 'audio', required: true },
-  games: { key: 'games', route: '/games/', category: 'gaming', required: true },
-  gaming: { key: 'gaming', route: '/gaming.html', category: 'gaming', required: true },
-  gallery: { key: 'gallery', route: '/gallery.html', category: 'media', required: true },
-  live: { key: 'live', route: '/live.html', category: 'live', required: true },
-  watch: { key: 'watch', route: '/watch.html', category: 'live', required: true },
+const FEATURE_CATEGORIES = Object.freeze({
+  index: 'core',
+  auth: 'core',
+  profile: 'identity',
+  avatar: 'identity',
+  'avatar-characters': 'identity',
+  edit: 'identity',
+  settings: 'identity',
+  upload: 'creation',
+  feed: 'social',
+  notifications: 'alerts',
+  messages: 'messaging',
+  search: 'discovery',
+  admin: 'ops',
+  secret: 'vault',
+  'rb-secret': 'vault',
+  creator: 'creator',
+  store: 'commerce',
+  sports: 'sports',
+  music: 'audio',
+  radio: 'audio',
+  podcast: 'audio',
+  games: 'gaming',
+  gaming: 'gaming',
+  gallery: 'media',
+  live: 'live',
+  watch: 'live',
+  meta: 'meta',
 });
 
+function featureFromSection(section) {
+  return Object.freeze({
+    key: section.key,
+    route: section.route,
+    category: FEATURE_CATEGORIES[section.key] || 'section',
+    required: true,
+    primaryTable: section.primaryTable,
+    tables: section.tables,
+    buckets: section.buckets,
+  });
+}
+
+export const RB_FEATURES = Object.freeze(
+  RB_SECTIONS.reduce((registry, section) => {
+    registry[section.key] = featureFromSection(section);
+    return registry;
+  }, {})
+);
+
+function normalizeFeatureKey(value) {
+  const raw = String(value || '').trim();
+  if (!raw || raw === '/') return 'index';
+
+  const aliasRoute = routeFor(raw);
+  const section = RB_SECTIONS.find((item) => item.key === raw || item.route === raw || item.route === aliasRoute);
+  return section?.key || raw.replace(/^\//, '').replace(/\.html$/, '').replace(/_/g, '-');
+}
+
 export function getFeature(key) {
-  const normalized = String(key || '').replace(/_/g, '-');
-  return Object.values(RB_FEATURES).find((feature) => feature.key === normalized) || sectionFor(normalized) || null;
+  const normalized = normalizeFeatureKey(key);
+  return RB_FEATURES[normalized] || null;
 }
 
 export function getFeatureRoute(key) {
@@ -52,7 +88,8 @@ export function getFeatureRoute(key) {
 }
 
 export function getFeatureAccess(key) {
-  return accessFor(getFeature(key)?.key || key);
+  const normalized = normalizeFeatureKey(getFeature(key)?.key || key);
+  return RB_ACCESS_RULES[normalized] || RB_ACCESS_RULES.index || { gate: 'public', entryCostCents: 0 };
 }
 
 export const RB_UNIVERSAL_INDEX = Object.freeze({
