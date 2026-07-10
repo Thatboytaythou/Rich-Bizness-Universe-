@@ -11,6 +11,7 @@ const displayName = document.getElementById('displayName');
 const params = new URL(location.href).searchParams;
 const next = safeNextRoute(params.get('next') || '/', '/');
 let finishing = false;
+let finishFlight = null;
 
 const say = (text) => { if (status) status.textContent = text; };
 const lock = (on) => {
@@ -27,6 +28,7 @@ const calm = () => {
 const fail = (error) => {
   console.warn(error);
   finishing = false;
+  finishFlight = null;
   lock(false);
   document.body.classList.remove('auth-checking');
   say(error?.message || 'Tap In blocked. Check Profile Lock.');
@@ -35,16 +37,30 @@ const fail = (error) => {
 function destination(found) { return safeNextRoute(found?.route || next || '/', '/'); }
 
 async function finish(user) {
-  if (finishing) return;
+  if (finishFlight) return finishFlight;
   if (!user) throw new Error('Tap In did not return a user.');
+
   finishing = true;
-  calm();
-  lock(true);
-  say('Locking Profile, Avatar, and XP...');
-  const found = await ensureTapInFoundation(user, { next });
-  try { await loadXp(user.id); } catch (_) {}
-  say('Tapped In. Opening Rich Bizness...');
-  location.replace(destination(found));
+  finishFlight = (async () => {
+    calm();
+    lock(true);
+    say('Locking Profile, Avatar, and XP...');
+
+    const found = await ensureTapInFoundation(user, { next });
+    await awardXp('daily_tap_in', { section: 'auth' }).catch(() => null);
+    await loadXp(user.id).catch(() => null);
+
+    say('Tapped In. Opening Rich Bizness...');
+    location.replace(destination(found));
+    return found;
+  })();
+
+  try {
+    return await finishFlight;
+  } catch (error) {
+    fail(error);
+    throw error;
+  }
 }
 
 async function signInNow(mail, pass) {
@@ -58,9 +74,14 @@ async function checkReturned() {
   const url = new URL(location.href);
   const returnedFromEmail = url.hash.includes('access_token') || url.searchParams.has('code') || url.searchParams.get('type') === 'signup';
   if (!returnedFromEmail) return false;
+
   const { data, error } = await supabase.auth.getSession();
   if (error) throw error;
-  if (data?.session?.user) { await finish(data.session.user); return true; }
+  if (data?.session?.user) {
+    await finish(data.session.user);
+    return true;
+  }
+
   lock(false);
   say('Confirmed. Tap In to finish.');
   document.body.classList.remove('auth-checking');
@@ -75,9 +96,10 @@ form?.addEventListener('submit', async (event) => {
   say('Opening portal...');
   try {
     const user = await signInNow(email.value.trim(), password.value);
-    try { await awardXp('daily_tap_in', { section: 'auth' }); } catch (_) {}
     await finish(user);
-  } catch (error) { fail(error); }
+  } catch (error) {
+    if (!finishFlight) fail(error);
+  }
 });
 
 createBtn?.addEventListener('click', async () => {
@@ -90,6 +112,7 @@ createBtn?.addEventListener('click', async () => {
     const pass = password.value;
     const name = displayName.value.trim() || mail.split('@')[0] || 'Rich Bizness User';
     if (!mail || !pass) throw new Error('Email and password required.');
+
     const result = await supabase.auth.signUp({
       email: mail,
       password: pass,
@@ -98,15 +121,18 @@ createBtn?.addEventListener('click', async () => {
         data: { display_name: name, username: slugName(name) },
       },
     });
+
     if (result.error) throw result.error;
     if (result.data?.session?.user) {
-      try { await awardXp('daily_tap_in', { section: 'auth' }); } catch (_) {}
       await finish(result.data.session.user);
       return;
     }
+
     lock(false);
     say('ID created. Check email, confirm it, then Tap In.');
-  } catch (error) { fail(error); }
+  } catch (error) {
+    fail(error);
+  }
 });
 
 calm();
@@ -118,9 +144,14 @@ calm();
     if (await checkReturned()) return;
     const { data, error } = await supabase.auth.getSession();
     if (error) throw error;
-    if (data?.session?.user) { await finish(data.session.user); return; }
+    if (data?.session?.user) {
+      await finish(data.session.user);
+      return;
+    }
     document.body.classList.remove('auth-checking');
     lock(false);
     say('Tap In Ready.');
-  } catch (error) { fail(error); }
+  } catch (error) {
+    if (!finishFlight) fail(error);
+  }
 })();
