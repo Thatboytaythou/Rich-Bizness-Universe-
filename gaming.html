@@ -1,13 +1,47 @@
 <!doctype html>
 <html lang="en" data-section="gaming">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <meta name="theme-color" content="#020402" />
-  <title>Rich Bizness Arcade</title>
-  <link rel="stylesheet" href="/src/identity-stack.css?v=identity-stack-3" />
-  <style>
-    body[data-section="gaming"]{background:#020402;color:#f8ffe8}.rb-gaming-shell{width:min(1320px,100%)}.rb-gaming-hero{position:relative;display:grid;grid-template-columns:minmax(0,1fr) minmax(330px,.95fr);gap:16px;align-items:stretch;border:1px solid rgba(157,255,99,.18);border-radius:36px;padding:18px;background:radial-gradient(circle at 78% 20%,rgba(157,255,99,.18),transparent 34%),radial-gradient(circle at 18% 88%,rgba(255,229,138,.13),transparent 30%),linear-gradient(145deg,rgba(10,24,12,.92),rgba(0,0,0,.76));box-shadow:0 38px 100px rgba(0,0,0,.65);overflow:hidden}.rb-gaming-hero:before{content:"";position:absolute;inset:-30%;background:linear-gradient(45deg,transparent 0 47%,rgba(157,255,99,.07) 48% 52%,transparent 53% 100%);background-size:60px 60px;opacity:.7}.rb-gaming-copy,.rb-arcade-card{position:relative;z-index:1}.rb-gaming-copy{display:grid;align-content:center;padding:clamp(14px,3vw,38px)}.rb-gaming-copy h1{margin:14px 0 12px;font-size:clamp(58px,10vw,128px);line-height:.78;letter-spacing:-.12em;text-transform:uppercase}.rb-gaming-copy p{color:rgba(216,255,229,.82);font-size:clamp(15px,2vw,19px);line-height:1.55}.rb-arcade-card{border:1px solid rgba(157,255,99,.16);border-radius:30px;padding:18px;background:linear-gradient(145deg,rgba(255,255,255,.07),rgba(0,0,0,.45));display:grid;align-content:space-between;min-height:390px}.rb-arcade-screen{min-height:230px;border:1px solid rgba(157,255,99,.14);border-radius:24px;background:linear-gradient(rgba(157,255,99,.08) 1px,transparent 1px),linear-gradient(90deg,rgba(157,255,99,.08) 1px,transparent 1px),radial-gradient(circle at 50% 50%,rgba(255,229,138,.14),transparent 34%),rgba(0,0,0,.42);background-size:34px 34px;display:grid;place-items:center}.rb-arcade-screen b{font-size:clamp(58px,10vw,110px);letter-spacing:-.12em;color:#ffe58a;text-shadow:0 0 32px rgba(157,255,99,.35)}.rb-arcade-links{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:14px}.rb-arcade-links a{min-height:44px;border-radius:16px;border:1px solid rgba(157,255,99,.18);background:rgba(157,255,99,.08);color:#f8ffe8;text-decoration:none;display:grid;place-items:center;font-size:11px;font-weight:1000;letter-spacing:.06em}.rb-arcade-links a.primary{background:linear-gradient(135deg,#9dff63,#ffe58a);color:#061006;border:0}.rb-game-grid{display:grid;grid-template-columns:1.15fr .85fr;gap:14px;margin-top:14px}.rb-panel{border:1px solid rgba(157,255,99,.16);border-radius:28px;background:rgba(0,0,0,.34);padding:16px}.rb-panel-head{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:14px}.rb-panel-head h2{margin:0;font-size:22px;letter-spacing:-.04em}.rb-panel-head small{color:#88a989;font-weight:1000;letter-spacing:.1em;text-transform:uppercase}.rb-system-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px}.rb-gaming-actions{display:grid;grid-template-columns:1fr 1fr;gap:10px}.rb-action{min-height:126px;border:1px solid rgba(157,255,99,.14);border-radius:22px;background:radial-gradient(circle at 75% 20%,rgba(157,255,99,.16),transparent 40%),rgba(0,0,0,.28);padding:14px;color:#f8ffe8;text-decoration:none}.rb-action b{display:block;font-size:18px}.rb-action small{display:block;margin-top:8px;color:#88a989}.gamer-strip{margin-top:14px}#gamerProfileStrip{display:grid;grid-template-columns:repeat(4,1fr);gap:8px}@media(max-width:900px){.rb-gaming-hero,.rb-game-grid{grid-template-columns:1fr}.rb-gaming-copy h1{font-size:clamp(54px,16vw,92px)}}@media(max-width:560px){.rb-gaming-hero{border-radius:26px;padding:12px}.rb-arcade-links,.rb-gaming-actions,#gamerProfileStrip{grid-template-columns:1fr 1fr}.identity-actions{width:100%;display:grid;grid-template-columns:1fr 1fr 1fr}.identity-pill{font-size:9px;padding:0 8px}}
-  </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#020402">
+  <title>Rich Bizness Gaming</title>
+  <link rel="stylesheet" href="/styles/gaming-hub.css?v=gaming-hub-1">
 </head>
-<body data-section="gaming"><div class="identity-bg"></div><main class="identity-shell rb-gaming-shell"><header class="identity-top"><a class="identity-brand" href="/"><span class="identity-crest">RB</span><span><b>RICH BIZNESS</b><small>ARCADE COMMAND</small></span></a><nav class="identity-actions"><a class="identity-pill primary" href="/games/">PLAY ROOM</a><a class="identity-pill" href="/upload.html?section=gaming">DROP CLIP</a><a class="identity-pill" href="/meta.html">META</a></nav></header><section class="rb-gaming-hero"><div class="rb-gaming-copy"><div class="identity-kicker">Gaming Empire</div><h1>Arcade Command</h1><p>Gaming is the whole system view: games, clips, gamer profile, rooms, scores, tournaments, rewards, platform links, stream links, and XP. Games route is the actual play room.</p><div class="identity-stats"><span><b id="recordCount">0</b><small>Games</small></span><span><b id="gamingSystemCount">0</b><small>Systems</small></span><span><b>XP</b><small>Rewards</small></span></div></div><section class="rb-arcade-card"><div class="rb-arcade-screen"><b>RB</b></div><div class="rb-arcade-links"><a class="primary" href="/games/">Play</a><a href="/upload.html?section=gaming">Clip</a><a href="/watch.html">Watch</a></div></section></section><section class="gamer-strip"><div id="gamerProfileStrip"></div></section><section class="rb-game-grid"><section class="rb-panel"><div class="rb-panel-head"><h2>Featured Games</h2><small>games</small></div><div id="sectionCards" class="cards"><div class="empty">Loading games...</div></div></section><aside class="rb-panel"><div class="rb-panel-head"><h2>Gaming Actions</h2><small>hub</small></div><div class="rb-gaming-actions"><a class="rb-action" href="/games/"><b>Play Room</b><small>Launch selected game and submit score.</small></a><a class="rb-action" href="/upload.html?section=gaming"><b>Drop Clip</b><small>Upload gameplay into gaming lanes.</small></a><a class="rb-action" href="/watch.html"><b>Watch</b><small>Watch live rooms and game streams.</small></a><a class="rb-action" href="/meta.html"><b>Meta</b><small>Bring avatar movement into worlds.</small></a></div></aside></section><section class="rb-panel"><div class="rb-panel-head"><h2>Game Systems</h2><small>schema</small></div><div id="gamingSystems" class="rb-system-grid"><div class="empty">Syncing game systems...</div></div></section><section class="rb-panel"><div class="rb-panel-head"><h2>Latest Clips</h2><small>game_clips</small></div><div id="gameClips" class="rb-clip-list"><div class="empty">Loading clips...</div></div></section></main><script type="module" src="/src/game-room.js?v=game-room-7"></script></body></html>
+<body data-section="gaming">
+  <main class="gaming-hub">
+    <header class="hub-top">
+      <a class="hub-brand" href="/"><i>RB</i><span><b>RICH BIZNESS GAMING</b><small>UNIVERSE ARCADE</small></span></a>
+      <div class="hub-actions"><button id="refreshGames" type="button">REFRESH</button><a href="/upload.html?section=gaming">DROP CLIP</a><a href="/profile.html" id="hubPlayer">GUEST PLAYER</a><a class="primary" href="/games/rich-chess/">PLAY FLAGSHIP</a></div>
+    </header>
+
+    <section class="hub-hero">
+      <div class="hero-copy">
+        <span class="eyebrow">NEW GAMES • LIVE SCORES • RICH REWARDS</span>
+        <h1>PLAY THE<br>UNIVERSE</h1>
+        <p>A growing catalog built for real standalone games, tournaments, multiplayer rooms, verified scores, clips, XP, and future releases without redesigning the hub every time a new title drops.</p>
+        <div class="hero-stats"><span><b id="totalGames">0</b><small>TOTAL GAMES</small></span><span><b id="featuredGames">0</b><small>FEATURED</small></span><span><b id="activePlayers">0</b><small>ACTIVE PLAYERS</small></span><span><b id="hubPoints">0</b><small>RICH POINTS</small></span></div>
+      </div>
+      <article class="hero-feature">
+        <div class="feature-art" id="featureIcon">♛</div>
+        <div class="feature-meta"><small id="featureType">FLAGSHIP</small><h2 id="featureTitle">Rich Chess</h2><p id="featureDesc">Premium Rich Bizness strategy arena.</p><a id="featurePlay" href="/games/rich-chess/">PLAY NOW</a></div>
+      </article>
+    </section>
+
+    <section class="catalog-tools">
+      <label class="search-box">⌕<input id="gameSearch" type="search" placeholder="Search games, genres, or modes" autocomplete="off"></label>
+      <div class="category-row" id="categories"><button class="active">ALL GAMES</button></div>
+    </section>
+
+    <section>
+      <div class="section-head"><div><small>CATALOG</small><h2>RICH BIZNESS GAMES</h2></div><small id="gameCount">0 AVAILABLE</small></div>
+      <div class="game-grid" id="gameGrid"><div class="empty">Loading game universe...</div></div>
+    </section>
+
+    <section class="hub-lower">
+      <article class="panel"><div class="section-head"><div><small>COMPETE</small><h2>TOP SCORES</h2></div><a href="/games/">VIEW ALL</a></div><div class="leaderboard" id="leaderboard"><div class="empty">Loading leaderboard...</div></div></article>
+      <article class="panel"><div class="section-head"><div><small>JUST UPDATED</small><h2>NEW & IMPROVED</h2></div><a href="/upload.html?section=gaming">DROP CLIP</a></div><div class="recent-list" id="recentGames"><div class="empty">Loading releases...</div></div></article>
+    </section>
+  </main>
+  <script type="module" src="/src/gaming-hub.js?v=gaming-hub-1"></script>
+</body>
+</html>
