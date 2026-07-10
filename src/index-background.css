@@ -21,8 +21,87 @@ body[data-section="index"] .identity-bg:after{
   mask-image:radial-gradient(circle at center,#000 0 44%,transparent 84%);
   opacity:.28;
 }
+
+/* One visual owner for the Omni Dial center.
+   The previous core stacked multiple pseudo rings and a dynamic profile initial,
+   which made the center letter look doubled and partially covered on iPhone. */
+body[data-section="index"] .rb-portal-core{
+  isolation:isolate;
+  overflow:hidden;
+  width:min(224px,48vw);
+  aspect-ratio:1;
+  border:1px solid rgba(157,255,99,.55);
+  background:
+    radial-gradient(circle at 50% 34%,rgba(255,255,255,.16),transparent 16%),
+    radial-gradient(circle at center,rgba(105,255,75,.34) 0 22%,rgba(10,37,11,.96) 48%,#010301 73%);
+  box-shadow:
+    0 0 0 12px rgba(157,255,99,.055),
+    0 0 0 28px rgba(157,255,99,.035),
+    0 0 58px rgba(157,255,99,.30),
+    inset 0 0 52px rgba(157,255,99,.18);
+}
+body[data-section="index"] .rb-portal-core:before,
+body[data-section="index"] .rb-portal-core:after{
+  content:none!important;
+  display:none!important;
+}
+body[data-section="index"] .rb-portal-core span{
+  position:relative;
+  z-index:3;
+  display:block;
+  color:#f8ffe8;
+  font-size:clamp(62px,12vw,94px);
+  font-weight:1000;
+  line-height:.78;
+  letter-spacing:-.08em;
+  transform:translateX(-.03em);
+  text-shadow:0 0 18px rgba(157,255,99,.42);
+  mix-blend-mode:normal;
+  filter:none;
+}
+body[data-section="index"] .rb-portal-core b,
+body[data-section="index"] .rb-portal-core small{
+  z-index:4;
+  text-shadow:none;
+}
+body[data-section="index"] .rb-portal-core b{
+  bottom:52px;
+  letter-spacing:.22em;
+}
+body[data-section="index"] .rb-portal-core small{
+  bottom:32px;
+}
+
+/* Keep the orbit rings behind the center and prevent any ring from crossing it. */
+body[data-section="index"] .rb-portal-stage:before,
+body[data-section="index"] .rb-portal-stage:after{
+  z-index:0!important;
+  pointer-events:none;
+}
+body[data-section="index"] .rb-dial-orbit{
+  z-index:1!important;
+}
+body[data-section="index"] .rb-portal-core{
+  z-index:5!important;
+}
+
 @media (max-width:560px){
   body[data-section="index"] .identity-bg{
     background-position:center top;
+  }
+  body[data-section="index"] .rb-portal-core{
+    width:148px!important;
+    height:148px!important;
+  }
+  body[data-section="index"] .rb-portal-core span{
+    font-size:62px!important;
+  }
+  body[data-section="index"] .rb-portal-core b{
+    bottom:38px!important;
+    font-size:8px!important;
+  }
+  body[data-section="index"] .rb-portal-core small{
+    bottom:24px!important;
+    font-size:7px!important;
   }
 }
