@@ -20,7 +20,10 @@ function mount() {
 }
 
 async function findStream() {
-  const { data } = await supabase.from('live_streams').select('*').order('created_at', { ascending: false }).limit(1);
+  const roomName = $('#tvRoom')?.textContent?.trim();
+  let query = supabase.from('live_streams').select('*').order('created_at', { ascending: false }).limit(1);
+  if (roomName && roomName !== 'Bizness Party') query = supabase.from('live_streams').select('*').eq('display_room_name', roomName).order('created_at', { ascending: false }).limit(1);
+  const { data } = await query;
   stream = data?.[0] || null;
   return stream;
 }
@@ -29,26 +32,26 @@ async function loadChat() {
   if (!stream) await findStream();
   const box = $('#rbStreamChat');
   if (!box || !stream) return;
-  const { data, error } = await supabase.from('live_chat_messages').select('*').eq('stream_id', stream.id).order('created_at', { ascending: false }).limit(12);
+  const { data, error } = await supabase.from('live_chat_messages').select('*').eq('stream_id', stream.id).eq('is_deleted', false).order('is_pinned', { ascending: false }).order('created_at', { ascending: false }).limit(20);
   const rows = data || [];
   if ($('#tvChat')) $('#tvChat').textContent = String(rows.length);
-  box.innerHTML = error ? `<div class="stream-card"><b>${error.message}</b></div>` : rows.length ? rows.map((m) => `<div class="stream-card"><b>${m.display_name || m.username || 'Viewer'}</b><small>${m.body || m.message || ''}</small></div>`).join('') : '<div class="stream-card"><b>No chat yet.</b><small>Start room activity.</small></div>';
+  box.innerHTML = error ? `<div class="stream-card"><b>${error.message}</b></div>` : rows.length ? rows.map((m) => `<div class="stream-card"><b>${m.is_pinned ? 'PINNED • ' : ''}${m.display_name || m.username || 'Viewer'}</b><small>${m.body || m.message || ''}</small></div>`).join('') : '<div class="stream-card"><b>No chat yet.</b><small>Start room activity.</small></div>';
 }
 
 async function sendChat(text) {
   if (!stream || !user || !text) return;
-  await supabase.from('live_chat_messages').insert({ stream_id: stream.id, user_id: user.id, username: profile?.username, display_name: profile?.display_name, body: text, message_type: 'text' }).then(() => {}, () => {});
+  await supabase.from('live_chat_messages').insert({ stream_id: stream.id, user_id: user.id, username: profile?.username, display_name: profile?.display_name, body: text, message: text, is_pinned: false, metadata: { source: location.pathname } }).then(() => {}, () => {});
   await loadChat();
 }
 
 async function react() {
   if (!stream || !user) return;
-  await supabase.from('live_reactions').insert({ stream_id: stream.id, user_id: user.id, emoji: '🔥', reaction_type: 'fire' }).then(() => {}, () => {});
+  await supabase.from('live_reactions').insert({ stream_id: stream.id, user_id: user.id, reaction: 'FIRE', metadata: { source: location.pathname } }).then(() => {}, () => {});
 }
 
 async function tip() {
   if (!stream || !user) return;
-  await supabase.from('live_tips').insert({ stream_id: stream.id, user_id: user.id, amount_cents: 100, currency: 'usd', message: 'Rich tip' }).then(() => {}, () => {});
+  await supabase.from('live_tips').insert({ stream_id: stream.id, from_user_id: user.id, to_user_id: stream.creator_id, username: profile?.username, display_name: profile?.display_name, amount_cents: 100, platform_fee_cents: 0, creator_amount_cents: 100, currency: 'usd', status: 'pending', message: 'Rich tip', metadata: { source: location.pathname } }).then(() => {}, () => {});
 }
 
 mount();
