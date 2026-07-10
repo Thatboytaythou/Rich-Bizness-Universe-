@@ -11,7 +11,9 @@ export const DEFAULT_USER_SETTINGS = Object.freeze({
 let identityCache = null;
 let identityCacheAt = 0;
 let identityFlight = null;
+let foundationFlight = null;
 const IDENTITY_TTL = 15000;
+const PRESENCE_TTL = 300000;
 
 export function slugName(value) { return String(value || 'rich_user').toLowerCase().replace(/[^a-z0-9_]+/g, '_').replace(/^_+|_+$/g, '').slice(0, 28) || 'rich_user'; }
 export function safeNextRoute(value, fallback = '/') { const raw = String(value || '').trim(); if (!raw || !raw.startsWith('/') || raw.startsWith('//') || raw.includes('://')) return fallback; let path = raw; try { path = new URL(raw, location.origin).pathname; } catch (_) { path = raw.split('?')[0].split('#')[0]; } const blocked = new Set(['/auth.html', '/auth', '/tap-in.html', '/login.html', '/signin.html', '/signup.html']); return blocked.has(path) ? fallback : raw; }
@@ -41,10 +43,9 @@ export async function getAuthoritativeIdentity(options = {}) {
   })();
   try { return await identityFlight; } finally { identityFlight = null; }
 }
+
 export async function getSessionUser() { try { return (await getAuthoritativeIdentity()).user; } catch (_) { return null; } }
-
 export async function getProfile(userId) { if (!userId) return null; const fields = 'id,username,display_name,full_name,bio,avatar_url,banner_url,rich_level,rich_points,rank_title,balance_cents,online_status,last_seen_at,website_url,instagram_url,youtube_url,tiktok_url,facebook_url,snapchat_url,role,is_creator,is_artist,is_seller,is_verified,favorite_section,metadata,onboarding_state,has_avatar,has_profile_identity,last_route,secret_access_level,vault_unlocked,secret_room_keys,last_secret_route,rb_secret_rank,created_at,updated_at'; const { data, error } = await supabase.from('profiles').select(fields).eq('id', userId).maybeSingle(); if (error) throw error; return data ? { ...DEFAULT_PROFILE, ...data, ...secretPatch(data) } : null; }
-
 export function profileRoute(profile, nextRoute = '') { const next = safeNextRoute(nextRoute, ''); const state = profile?.onboarding_state || (profile?.has_avatar ? 'complete' : 'needs_avatar'); if (next) return next; if (state === 'new' || state === 'needs_avatar') return '/avatar.html'; if (state === 'needs_profile') return '/edit.html'; return '/'; }
 
 export async function ensureProfile(user) {
@@ -52,11 +53,15 @@ export async function ensureProfile(user) {
   const existing = await getProfile(user.id);
   if (existing) {
     const lastSeen = existing.last_seen_at ? new Date(existing.last_seen_at).getTime() : 0;
-    const needsPresenceWrite = existing.online_status !== 'online' || Date.now() - lastSeen > 60000 || !existing.has_profile_identity;
-    const patch = { ...secretPatch(existing) };
+    const needsPresenceWrite = existing.online_status !== 'online' || Date.now() - lastSeen > PRESENCE_TTL || !existing.has_profile_identity;
+    const computed = secretPatch(existing);
+    const patch = {};
+    if (computed.vault_unlocked !== existing.vault_unlocked) patch.vault_unlocked = computed.vault_unlocked;
+    if (computed.secret_access_level !== existing.secret_access_level) patch.secret_access_level = computed.secret_access_level;
+    if (computed.rb_secret_rank !== existing.rb_secret_rank) patch.rb_secret_rank = computed.rb_secret_rank;
     if (needsPresenceWrite) Object.assign(patch, { online_status: 'online', last_seen_at: new Date().toISOString(), has_profile_identity: true });
-    if (needsPresenceWrite) await supabase.from('profiles').update(patch).eq('id', user.id).then(() => {}, () => {});
-    const profile = { ...DEFAULT_PROFILE, ...existing, ...patch, rank_title: existing.rank_title || DEFAULT_PROFILE.rank_title, has_avatar: Boolean(existing.has_avatar) };
+    if (Object.keys(patch).length) await supabase.from('profiles').update(patch).eq('id', user.id).then(() => {}, () => {});
+    const profile = { ...DEFAULT_PROFILE, ...existing, ...computed, ...patch, rank_title: existing.rank_title || DEFAULT_PROFILE.rank_title, has_avatar: Boolean(existing.has_avatar) };
     identityCache = { session: identityCache?.session || null, user, profile };
     identityCacheAt = Date.now();
     return profile;
@@ -75,10 +80,53 @@ export async function ensureProfile(user) {
 }
 
 export async function getMetaAvatar(userId) { if (!userId) return null; const { data, error } = await supabase.from('meta_avatars').select('*').eq('user_id', userId).maybeSingle(); if (error) throw error; return data || null; }
-export async function ensureMetaAvatar(user, profile, config = {}) { if (!user) return null; const level = Number(profile?.rich_level || config.level || 1); const xp = Number(profile?.rich_points || config.xp || 0); const previous = await getMetaAvatar(user.id).catch(() => null); const previousMeta = previous?.metadata || {}; const metadata = { ...previousMeta, gender: config.gender || previousMeta.gender || 'boy', skin: config.skin || previousMeta.skin || 'brown', hair: config.hair || previousMeta.hair || 'shortFade', hairColor: config.hairColor || previousMeta.hairColor || 'black', outfit: config.outfit || previousMeta.outfit || 'Black Gold Boss', shoes: config.shoes || previousMeta.shoes || 'Gold Runners', motion: config.motion || previousMeta.motion || 'Boss Idle', smoke: config.smoke || previousMeta.smoke || 'cinematic', chain: config.chain || previousMeta.chain || 'RB Crown Chain', glasses: config.glasses || previousMeta.glasses || 'Black Shades', accessory: config.accessory || previousMeta.accessory || '', aura: config.aura || previousMeta.aura || 'Emerald Gold', selectedCharacter: config.selectedCharacter || previousMeta.selectedCharacter || 'Boss Walk', savedCharacters: config.savedCharacters || previousMeta.savedCharacters || [], creatorMode: true, theme: 'smoke-cloud', visualQuality: '4k-hd', personality: 'Rich Bizness green-gold motion avatar', rb_language: 'Avatar Character', updatedAt: new Date().toISOString() }; const avatar = { user_id: user.id, display_name: profile?.display_name || DEFAULT_PROFILE.display_name, avatar_url: config.avatar_url || previous?.avatar_url || '', model_url: config.model_url || previous?.model_url || '', aura: metadata.aura, rank: profile?.rank_title || config.rank || 'BIZ LEGEND', level, xp, position: config.position || previous?.position || { world: 'portal-hub', x: 0, y: 0, z: 0 }, is_active: true, metadata }; const { data, error } = await supabase.from('meta_avatars').upsert(avatar, { onConflict: 'user_id' }).select().maybeSingle(); if (error) throw error; return data; }
-export async function ensureUserLevel(user, profile = {}) { if (!user) return null; const points = Number(profile.rich_points || 0); const level = Number(profile.rich_level || 1); const row = { user_id: user.id, level, xp_total: points, xp_current: points % 1000, xp_next: 1000, rank_title: profile.rank_title || 'BIZ LEGEND', rank_style: 'green-gold smoke-cloud', rich_points: points, coins: Math.floor(points / 100), trust_score: 100, metadata: { rb_language: 'RICH LEVEL', source: 'global_tap_in_foundation' } }; const { data, error } = await supabase.from('user_levels').upsert(row, { onConflict: 'user_id' }).select().maybeSingle(); if (error) throw error; return data; }
+export async function ensureMetaAvatar(user, profile, config = {}) {
+  if (!user) return null;
+  const previous = await getMetaAvatar(user.id).catch(() => null);
+  const hasExplicitConfig = Object.keys(config || {}).length > 0;
+  if (previous && !hasExplicitConfig) return previous;
+  const level = Number(profile?.rich_level || config.level || 1);
+  const xp = Number(profile?.rich_points || config.xp || 0);
+  const previousMeta = previous?.metadata || {};
+  const metadata = { ...previousMeta, gender: config.gender || previousMeta.gender || 'boy', skin: config.skin || previousMeta.skin || 'brown', hair: config.hair || previousMeta.hair || 'shortFade', hairColor: config.hairColor || previousMeta.hairColor || 'black', outfit: config.outfit || previousMeta.outfit || 'Black Gold Boss', shoes: config.shoes || previousMeta.shoes || 'Gold Runners', motion: config.motion || previousMeta.motion || 'Boss Idle', smoke: config.smoke || previousMeta.smoke || 'cinematic', chain: config.chain || previousMeta.chain || 'RB Crown Chain', glasses: config.glasses || previousMeta.glasses || 'Black Shades', accessory: config.accessory || previousMeta.accessory || '', aura: config.aura || previousMeta.aura || 'Emerald Gold', selectedCharacter: config.selectedCharacter || previousMeta.selectedCharacter || 'Boss Walk', savedCharacters: config.savedCharacters || previousMeta.savedCharacters || [], creatorMode: true, theme: 'smoke-cloud', visualQuality: '4k-hd', personality: 'Rich Bizness green-gold motion avatar', rb_language: 'Avatar Character', updatedAt: new Date().toISOString() };
+  const avatar = { user_id: user.id, display_name: profile?.display_name || DEFAULT_PROFILE.display_name, avatar_url: config.avatar_url || previous?.avatar_url || '', model_url: config.model_url || previous?.model_url || '', aura: metadata.aura, rank: profile?.rank_title || config.rank || 'BIZ LEGEND', level, xp, position: config.position || previous?.position || { world: 'portal-hub', x: 0, y: 0, z: 0 }, is_active: true, metadata };
+  const { data, error } = await supabase.from('meta_avatars').upsert(avatar, { onConflict: 'user_id' }).select().maybeSingle();
+  if (error) throw error;
+  return data;
+}
+
+export async function ensureUserLevel(user, profile = {}) {
+  if (!user) return null;
+  const { data: existing, error: readError } = await supabase.from('user_levels').select('*').eq('user_id', user.id).maybeSingle();
+  if (readError) throw readError;
+  const points = Number(profile.rich_points || 0);
+  const level = Number(profile.rich_level || 1);
+  const row = { user_id: user.id, level, xp_total: points, xp_current: points % 1000, xp_next: 1000, rank_title: profile.rank_title || 'BIZ LEGEND', rank_style: 'green-gold smoke-cloud', rich_points: points, coins: Math.floor(points / 100), trust_score: Number(existing?.trust_score ?? 100), metadata: existing?.metadata || { rb_language: 'RICH LEVEL', source: 'global_tap_in_foundation' } };
+  if (existing && Number(existing.level) === row.level && Number(existing.xp_total) === row.xp_total && Number(existing.rich_points) === row.rich_points && existing.rank_title === row.rank_title) return existing;
+  const { data, error } = await supabase.from('user_levels').upsert(row, { onConflict: 'user_id' }).select().maybeSingle();
+  if (error) throw error;
+  return data;
+}
+
 export async function ensureUserSettings(user) { if (!user) return null; const { data: existing, error: readError } = await supabase.from('user_settings').select('*').eq('user_id', user.id).maybeSingle(); if (readError) throw readError; if (existing) return existing; const row = { user_id: user.id, ...DEFAULT_USER_SETTINGS }; const { data, error } = await supabase.from('user_settings').insert(row).select().maybeSingle(); if (error) throw error; return data || row; }
-export async function ensureTapInFoundation(user, options = {}) { if (!user) return { user: null, profile: null, avatar: null, level: null, settings: null, route: safeNextRoute(options.next, '/') }; const profile = await ensureProfile(user); const [avatar, level, settings] = await Promise.all([ensureMetaAvatar(user, profile, options.avatarConfig || {}).catch((error) => { console.warn('[RB Tap In] meta avatar sync blocked', error.message); return null; }), ensureUserLevel(user, profile).catch((error) => { console.warn('[RB Tap In] level sync blocked', error.message); return null; }), ensureUserSettings(user).catch((error) => { console.warn('[RB Tap In] settings sync blocked', error.message); return null; })]); const next = safeNextRoute(options.next || '', ''); identityCache = { session: identityCache?.session || null, user, profile }; identityCacheAt = Date.now(); return { user, profile, avatar, level, settings, route: profileRoute(profile, next) }; }
+export async function ensureTapInFoundation(user, options = {}) {
+  if (!user) return { user: null, profile: null, avatar: null, level: null, settings: null, route: safeNextRoute(options.next, '/') };
+  if (foundationFlight) return foundationFlight;
+  foundationFlight = (async () => {
+    const profile = await ensureProfile(user);
+    const [avatar, level, settings] = await Promise.all([
+      ensureMetaAvatar(user, profile, options.avatarConfig || {}).catch((error) => { console.warn('[RB Tap In] meta avatar sync blocked', error.message); return null; }),
+      ensureUserLevel(user, profile).catch((error) => { console.warn('[RB Tap In] level sync blocked', error.message); return null; }),
+      ensureUserSettings(user).catch((error) => { console.warn('[RB Tap In] settings sync blocked', error.message); return null; }),
+    ]);
+    const next = safeNextRoute(options.next || '', '');
+    identityCache = { session: identityCache?.session || null, user, profile };
+    identityCacheAt = Date.now();
+    return { user, profile, avatar, level, settings, route: profileRoute(profile, next) };
+  })();
+  try { return await foundationFlight; } finally { foundationFlight = null; }
+}
+
 export async function requireTapIn(options = {}) { const { session, user } = await getAuthoritativeIdentity(); if (!session || !user) { const next = encodeURIComponent(safeNextRoute(options.next || currentRoute(), '/')); location.replace(`/auth.html?next=${next}`); return null; } return ensureTapInFoundation(user, options); }
 export async function signOutLocal() { try { const { user } = await getAuthoritativeIdentity({ fresh: true }); if (user?.id) await supabase.from('profiles').update({ online_status: 'offline', last_seen_at: new Date().toISOString() }).eq('id', user.id); } catch (_) {} clearIdentityCache(); return supabase.auth.signOut({ scope: 'local' }); }
 export async function signOutAndGoHome() { await signOutLocal(); location.href = '/auth.html'; }
