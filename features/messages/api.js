@@ -13,6 +13,33 @@ export async function listThreads(ids) {
   return data || [];
 }
 
+export async function listProfiles({ userId, search = '' } = {}) {
+  let query = supabase.from('profiles').select('id,username,display_name,avatar_url,online_status,rank_title').neq('id', userId).order('display_name', { ascending: true }).limit(40);
+  const term = String(search || '').trim();
+  if (term) query = query.or(`display_name.ilike.%${term}%,username.ilike.%${term}%`);
+  const { data, error } = await query;
+  if (error) throw error;
+  return data || [];
+}
+
+export async function createDirectThread({ userId, profile }) {
+  if (!userId || !profile?.id) throw new Error('Choose a profile first.');
+  const title = profile.display_name || profile.username || 'Rich-DM';
+  const { data: thread, error: threadError } = await supabase.from('dm_threads').insert({
+    title,
+    thread_type: 'direct',
+    created_by: userId,
+    metadata: { direct_member_ids: [userId, profile.id] }
+  }).select('*').single();
+  if (threadError) throw threadError;
+  const { error: memberError } = await supabase.from('dm_thread_members').insert([
+    { thread_id: thread.id, user_id: userId, role: 'owner', status: 'active' },
+    { thread_id: thread.id, user_id: profile.id, role: 'member', status: 'active' }
+  ]);
+  if (memberError) throw memberError;
+  return thread;
+}
+
 export async function listMessages(threadId) {
   const { data, error } = await supabase
     .from('dm_messages')
@@ -94,7 +121,6 @@ export async function startCall({ thread, user }) {
   const room = 'rich-dm-' + thread.id.slice(0, 8) + '-' + Date.now().toString(36);
   const { data, error } = await supabase.from('dm_call_sessions').insert({ thread_id: thread.id, started_by: user.id, call_type: 'video', call_status: 'ringing', livekit_room_name: room, call_theme: thread.call_theme || 'Rich Call', visual_style: 'smoke-cloud' }).select('*').maybeSingle();
   if (error) throw error;
-
   const members = await listThreadMembers(thread.id);
   const participantRows = members.map((member) => ({
     call_id: data.id,
