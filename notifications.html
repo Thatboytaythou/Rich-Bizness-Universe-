@@ -10,85 +10,26 @@
 <body data-section="notifications">
   <div class="identity-bg"></div>
   <main class="identity-shell">
-    <header class="identity-top"><a class="identity-brand" href="/"><span class="identity-crest">RB</span><span><b>RICH BIZNESS</b><small>RICH ALERTS</small></span></a><nav class="identity-actions"><a class="identity-pill" href="/messages.html">RICH-DM’s</a><a class="identity-pill" href="/settings.html">SETTINGS</a><a class="identity-pill" href="/profile.html">PROFILE</a></nav></header>
-    <section class="identity-hero"><div class="identity-hero-inner"><div class="identity-copy"><div class="identity-kicker">Alert Lane</div><h1>Rich Alerts</h1><p>Alerts use notification rows, read receipts, groups, and device heartbeat.</p><div class="identity-stats"><span><b id="recordCount">0</b><small>Alerts</small></span><span><b id="unreadCount">0</b><small>Unread</small></span><span><b id="deviceState">OFF</b><small>Device</small></span></div></div><section class="identity-panel"><h2>Alerts</h2><div id="sectionCards" class="cards"><div class="empty">Checking alerts...</div></div></section></div></section>
+    <header class="identity-top">
+      <a class="identity-brand" href="/"><span class="identity-crest">RB</span><span><b>RICH BIZNESS</b><small>RICH ALERTS</small></span></a>
+      <nav class="identity-actions"><a class="identity-pill" href="/messages.html">RICH-DM’s</a><a class="identity-pill" href="/settings.html">SETTINGS</a><a class="identity-pill" href="/profile.html">PROFILE</a></nav>
+    </header>
+    <section class="identity-hero">
+      <div class="identity-hero-inner">
+        <div class="identity-copy">
+          <div class="identity-kicker">Alert Lane</div>
+          <h1>Rich Alerts</h1>
+          <p>Live notifications for follows, messages, store, games, sports, creator activity, and WE LIT.</p>
+          <div class="identity-stats"><span><b id="recordCount">0</b><small>Alerts</small></span><span><b id="unreadCount">0</b><small>Unread</small></span><span><b id="deviceState">OFF</b><small>Device</small></span></div>
+        </div>
+        <section class="identity-panel">
+          <div class="identity-top"><h2>Alerts</h2><button id="markAllRead" class="identity-pill" type="button">MARK ALL READ</button></div>
+          <div id="sectionCards" class="cards"><div class="empty">Checking alerts...</div></div>
+        </section>
+      </div>
+    </section>
     <section class="identity-grid"><a class="identity-card hot" data-icon="✉" href="/messages.html"><b>Rich-DM’s</b><small>Threads</small></a><a class="identity-card" data-icon="⚙" href="/settings.html"><b>Settings</b><small>Control</small></a><a class="identity-card" data-icon="◉" href="/live.html"><b>WE LIT</b><small>Live</small></a><a class="identity-card" data-icon="$" href="/store.html"><b>Store</b><small>Market</small></a></section>
   </main>
-  <script type="module">
-    import { supabase } from '/src/supabase-client.js';
-    import { getSessionUser } from '/src/rb-identity.js?v=profile-avatar-separate-1';
-
-    const $ = (selector) => document.querySelector(selector);
-    let user = null;
-    let rows = [];
-
-    function card(row) {
-      const href = row.action_url || row.target_url || '#';
-      const group = row.group || {};
-      const icon = row.emoji || group.icon || '🔔';
-      const title = `${icon} ${row.title || row.type || group.title || 'Rich Alert'}`;
-      return `<article class="card" data-alert="${row.id}"><b>${title}</b><p>${row.body || group.description || 'Rich Bizness activity.'}</p><small>${row.is_read ? 'READ' : 'NEW'} • ${row.priority || 'normal'} • ${group.title || row.target_type || row.target_table || 'activity'}</small><p><button class="identity-pill" data-read="${row.id}">MARK READ</button>${href !== '#' ? ` <a class="identity-pill primary" href="${href}">${row.action_label || 'OPEN'}</a>` : ''}</p></article>`;
-    }
-
-    function deviceToken() {
-      let token = localStorage.getItem('rb_push_device_token');
-      if (!token) {
-        token = crypto.randomUUID();
-        localStorage.setItem('rb_push_device_token', token);
-      }
-      return token;
-    }
-
-    async function device() {
-      if (!user) return;
-      const token = deviceToken();
-      const row = {
-        user_id: user.id,
-        device_token: token,
-        device_type: innerWidth < 768 ? 'mobile' : 'desktop',
-        platform: navigator.platform || 'web',
-        device_name: navigator.userAgent.slice(0, 120),
-        is_active: true,
-        last_seen_at: new Date().toISOString(),
-        metadata: { source: 'notifications-page' }
-      };
-      const existing = await supabase.from('push_devices').select('id').eq('user_id', user.id).eq('device_token', token).maybeSingle();
-      const result = existing.data?.id
-        ? await supabase.from('push_devices').update(row).eq('id', existing.data.id)
-        : await supabase.from('push_devices').insert(row);
-      $('#deviceState').textContent = result.error ? 'OFF' : 'ON';
-    }
-
-    async function markRead(id) {
-      await supabase.from('notification_reads').upsert({ notification_id: id, user_id: user.id, read_at: new Date().toISOString() }, { onConflict: 'notification_id,user_id' }).then(() => {}, () => {});
-      await supabase.from('rich_notifications').update({ is_read: true, is_seen: true, read_at: new Date().toISOString(), seen_at: new Date().toISOString() }).eq('id', id).eq('user_id', user.id).then(() => {}, () => {});
-      load();
-    }
-
-    async function load() {
-      user = user || await getSessionUser();
-      if (!user) {
-        location.href = '/auth.html?next=/notifications.html';
-        return;
-      }
-      await device();
-      const { data, error } = await supabase.from('rich_notifications').select('*,group:notification_groups(*)').eq('user_id', user.id).order('created_at', { ascending: false }).limit(60);
-      rows = data || [];
-      $('#recordCount').textContent = rows.length.toLocaleString();
-      $('#unreadCount').textContent = rows.filter((row) => !row.is_read).length.toLocaleString();
-      $('#sectionCards').innerHTML = error ? `<div class="empty">${error.message}</div>` : rows.length ? rows.map(card).join('') : '<div class="empty">No alerts yet.</div>';
-    }
-
-    document.addEventListener('click', (event) => {
-      const button = event.target.closest('[data-read]');
-      if (button) markRead(button.dataset.read);
-    });
-
-    load();
-    supabase.channel('rich-alerts-owned')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'rich_notifications' }, load)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'notification_groups' }, load)
-      .subscribe();
-  </script>
+  <script type="module" src="/src/notifications.js?v=alerts-owner-1"></script>
 </body>
 </html>
