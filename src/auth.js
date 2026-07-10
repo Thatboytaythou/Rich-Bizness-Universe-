@@ -1,1 +1,1 @@
-import './tap-in-foundation.js?v=profile-avatar-separate-1';
+import './tap-in-foundation.js?v=identity-owner-2';
