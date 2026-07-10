@@ -15,9 +15,11 @@ let ownerUser = null;
 let viewedProfile = null;
 let isOwner = false;
 let paintFlight = null;
-let refreshTimer = null;
 let profileChannel = null;
 let loggedViewId = '';
+let followRow = null;
+let followFlight = null;
+const refreshTimers = new Map();
 
 function say(text) { set('#profileStatus', text); }
 function calmProfileArtifacts() {
@@ -29,7 +31,7 @@ function calmProfileArtifacts() {
 }
 function miniCard(row, type = 'post') {
   const img = row.media_url || row.public_url || row.thumbnail_url || row.cover_url || row.file_url || '';
-  return `<article class="card">${img ? `<img src="${img}" alt="">` : ''}<b>${safe(row.title, type === 'post' ? 'Rich Bizness Post' : 'Upload')}</b><p>${safe(row.body || row.description, 'Profile-owned content.')}</p><small>${safe(row.section || row.category || type, type)}</small></article>`;
+  return `<article class="card">${img ? `<img src="${img}" alt="" loading="lazy" decoding="async">` : ''}<b>${safe(row.title, type === 'post' ? 'Rich Bizness Post' : 'Upload')}</b><p>${safe(row.body || row.description, 'Profile-owned content.')}</p><small>${safe(row.section || row.category || type, type)}</small></article>`;
 }
 
 async function getProfileTarget() {
@@ -44,14 +46,16 @@ async function getProfileTarget() {
 }
 
 async function loadCounts(userId) {
-  const [posts, uploads, followers] = await Promise.all([
+  const [posts, uploads, followers, following] = await Promise.all([
     supabase.from('feed_posts').select('id', { count: 'exact', head: true }).eq('user_id', userId),
     supabase.from('uploads').select('id', { count: 'exact', head: true }).eq('user_id', userId),
-    supabase.from('followers').select('id', { count: 'exact', head: true }).eq('following_id', userId)
+    supabase.from('followers').select('id', { count: 'exact', head: true }).eq('following_id', userId),
+    supabase.from('followers').select('id', { count: 'exact', head: true }).eq('follower_id', userId)
   ]);
   set('#postsCount', fmt(posts.count));
   set('#uploadsCount', fmt(uploads.count));
   set('#followersCount', fmt(followers.count));
+  set('#followingCount', fmt(following.count));
 }
 
 async function loadOwnedContent(userId) {
@@ -110,16 +114,83 @@ async function loadSystems(profile) {
   if (themeResult.data?.background_url) $('#profileHero').style.backgroundImage = `linear-gradient(rgba(0,0,0,.28),rgba(0,0,0,.72)),url(${themeResult.data.background_url})`;
 }
 
-function tuneOwnerControls() {
-  document.querySelectorAll('a[href="/edit.html"],a[href="/settings.html"]').forEach((el) => {
-    if (!isOwner) {
-      el.textContent = el.getAttribute('href') === '/edit.html' ? 'FOLLOW' : 'MESSAGE';
-      el.href = el.textContent === 'FOLLOW' ? '#' : `/messages.html?user=${encodeURIComponent(viewedProfile?.id || '')}`;
-      el.dataset.profileAction = el.textContent.toLowerCase();
+function followButton() {
+  return document.querySelector('[data-profile-action="follow"]');
+}
+
+function paintFollowButton() {
+  const button = followButton();
+  if (!button || isOwner) return;
+  button.textContent = followRow ? 'FOLLOWING' : 'FOLLOW';
+  button.classList.toggle('primary', !followRow);
+  button.setAttribute('aria-pressed', followRow ? 'true' : 'false');
+}
+
+async function loadFollowState() {
+  if (isOwner || !ownerUser?.id || !viewedProfile?.id) return;
+  const { data, error } = await supabase
+    .from('followers')
+    .select('id,follower_id,following_id')
+    .eq('follower_id', ownerUser.id)
+    .eq('following_id', viewedProfile.id)
+    .maybeSingle();
+  if (error) throw error;
+  followRow = data || null;
+  paintFollowButton();
+}
+
+async function toggleFollow(event) {
+  event.preventDefault();
+  if (followFlight || isOwner || !ownerUser?.id || !viewedProfile?.id) return;
+  const button = followButton();
+  if (button) button.setAttribute('aria-busy', 'true');
+  followFlight = (async () => {
+    if (followRow?.id) {
+      const { error } = await supabase.from('followers').delete().eq('id', followRow.id).eq('follower_id', ownerUser.id);
+      if (error) throw error;
+      followRow = null;
+      say('Unfollowed.');
+    } else {
+      const { data, error } = await supabase.from('followers').insert({ follower_id: ownerUser.id, following_id: viewedProfile.id }).select('id,follower_id,following_id').single();
+      if (error) throw error;
+      followRow = data;
+      say('Following profile.');
     }
-  });
+    paintFollowButton();
+    await loadCounts(viewedProfile.id);
+  })();
+  try {
+    await followFlight;
+  } catch (error) {
+    say(error.message || String(error));
+  } finally {
+    followFlight = null;
+    if (button) button.removeAttribute('aria-busy');
+  }
+}
+
+function tuneOwnerControls() {
+  const edit = document.querySelector('a[href="/edit.html"]');
+  const settings = document.querySelector('a[href="/settings.html"]');
+  if (!isOwner) {
+    if (edit) {
+      edit.textContent = 'FOLLOW';
+      edit.href = '#follow';
+      edit.dataset.profileAction = 'follow';
+      if (!edit.dataset.bound) {
+        edit.dataset.bound = 'true';
+        edit.addEventListener('click', toggleFollow);
+      }
+    }
+    if (settings) {
+      settings.textContent = 'MESSAGE';
+      settings.href = `/messages.html?user=${encodeURIComponent(viewedProfile?.id || '')}`;
+      settings.dataset.profileAction = 'message';
+    }
+  }
   const creatorBtn = document.querySelector('a[href="/creator.html"]');
   if (creatorBtn && !isOwner) { creatorBtn.textContent = 'View Feed'; creatorBtn.href = `/feed.html?user=${encodeURIComponent(viewedProfile?.id || '')}`; }
+  paintFollowButton();
 }
 
 function render(profile, meta) {
@@ -156,6 +227,33 @@ async function logProfileView(profile) {
   await supabase.from('platform_analytics_events').insert({ user_id: ownerUser?.id || null, session_id: sessionId, event_name: 'profile_view', section: 'profile', target_table: 'profiles', target_id: profile.id, device_type: innerWidth < 768 ? 'mobile' : 'desktop', platform: navigator.platform || 'web', route: location.pathname + location.search, metadata: { owner_view: isOwner } }).then(() => {}, () => {});
 }
 
+async function refreshIdentity() {
+  if (!viewedProfile?.id) return;
+  const [profileResult, meta] = await Promise.all([
+    supabase.from('profiles').select('*').eq('id', viewedProfile.id).maybeSingle(),
+    getMetaAvatar(viewedProfile.id).catch(() => null)
+  ]);
+  if (profileResult.error) throw profileResult.error;
+  if (!profileResult.data) return;
+  render(profileResult.data, meta);
+  await Promise.all([loadAccess(profileResult.data), isOwner ? loadXp(profileResult.data.id).catch(() => null) : Promise.resolve()]);
+}
+
+function scheduleRefresh(kind) {
+  clearTimeout(refreshTimers.get(kind));
+  refreshTimers.set(kind, setTimeout(async () => {
+    try {
+      if (!viewedProfile?.id) return;
+      if (kind === 'identity') await refreshIdentity();
+      if (kind === 'content') await Promise.all([loadCounts(viewedProfile.id), loadOwnedContent(viewedProfile.id)]);
+      if (kind === 'social') await Promise.all([loadCounts(viewedProfile.id), loadFollowState()]);
+      if (kind === 'systems') await loadSystems(viewedProfile);
+    } catch (error) {
+      say(error.message || String(error));
+    }
+  }, 180));
+}
+
 async function paint() {
   if (paintFlight) return paintFlight;
   paintFlight = (async () => {
@@ -164,17 +262,12 @@ async function paint() {
     if (!profile) { say('Profile not found.'); return; }
     const meta = await getMetaAvatar(profile.id).catch(() => null);
     render(profile, meta);
-    await Promise.all([loadCounts(profile.id), loadOwnedContent(profile.id), loadAccess(profile), loadSystems(profile)]);
+    await Promise.all([loadCounts(profile.id), loadOwnedContent(profile.id), loadAccess(profile), loadSystems(profile), loadFollowState()]);
     if (isOwner) try { await loadXp(profile.id); } catch (_) {}
     logProfileView(profile);
     say(isOwner ? 'Profile empire connected.' : 'Viewing public profile.');
   })();
   try { return await paintFlight; } finally { paintFlight = null; }
-}
-
-function schedulePaint() {
-  clearTimeout(refreshTimer);
-  refreshTimer = setTimeout(() => paint().catch((error) => say(error.message || String(error))), 250);
 }
 
 async function boot() {
@@ -188,13 +281,14 @@ async function boot() {
     const targetId = viewedProfile?.id || ownerUser.id;
     if (profileChannel) await supabase.removeChannel(profileChannel);
     profileChannel = supabase.channel('profile-owner-' + targetId)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles', filter: 'id=eq.' + targetId }, schedulePaint)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'meta_avatars', filter: 'user_id=eq.' + targetId }, schedulePaint)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'feed_posts', filter: 'user_id=eq.' + targetId }, schedulePaint)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'uploads', filter: 'user_id=eq.' + targetId }, schedulePaint)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'user_levels', filter: 'user_id=eq.' + targetId }, schedulePaint)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'user_badges', filter: 'user_id=eq.' + targetId }, schedulePaint)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'profile_theme_settings', filter: 'user_id=eq.' + targetId }, schedulePaint)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles', filter: 'id=eq.' + targetId }, () => scheduleRefresh('identity'))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'meta_avatars', filter: 'user_id=eq.' + targetId }, () => scheduleRefresh('identity'))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'user_levels', filter: 'user_id=eq.' + targetId }, () => scheduleRefresh('identity'))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'feed_posts', filter: 'user_id=eq.' + targetId }, () => scheduleRefresh('content'))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'uploads', filter: 'user_id=eq.' + targetId }, () => scheduleRefresh('content'))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'followers', filter: 'following_id=eq.' + targetId }, () => scheduleRefresh('social'))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'user_badges', filter: 'user_id=eq.' + targetId }, () => scheduleRefresh('systems'))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'profile_theme_settings', filter: 'user_id=eq.' + targetId }, () => scheduleRefresh('systems'))
       .subscribe();
   } catch (error) {
     console.warn(error);
@@ -202,5 +296,9 @@ async function boot() {
   }
 }
 
-addEventListener('pagehide', () => { if (profileChannel) supabase.removeChannel(profileChannel); });
+addEventListener('pagehide', () => {
+  refreshTimers.forEach((timer) => clearTimeout(timer));
+  refreshTimers.clear();
+  if (profileChannel) supabase.removeChannel(profileChannel);
+});
 boot();
