@@ -1,4 +1,5 @@
 import { supabase } from './supabase-client.js';
+import { getAuthoritativeIdentity } from './rb-identity.js?v=identity-owner-2';
 
 const fmt = (n) => Number(n || 0).toLocaleString();
 const clamp = (value, min, max) => Math.max(min, Math.min(max, value));
@@ -89,8 +90,8 @@ export async function loadXp(userId) {
 }
 
 export async function loadCurrentXp() {
-  const { data } = await supabase.auth.getUser();
-  return loadXp(data?.user?.id);
+  const state = await getAuthoritativeIdentity();
+  return loadXp(state.user?.id);
 }
 
 export function installRealtimeXp(userId) {
@@ -105,9 +106,10 @@ export function installRealtimeXp(userId) {
 }
 
 export async function awardXp(eventKey = 'section_visit', opts = {}) {
-  const { data } = await supabase.auth.getUser();
-  if (!data?.user) return { ok: false, reason: 'not_signed_in' };
-  installRealtimeXp(data.user.id);
+  const state = await getAuthoritativeIdentity();
+  const user = state.user;
+  if (!user) return { ok: false, reason: 'not_signed_in' };
+  installRealtimeXp(user.id);
   const payload = {
     p_event_key: eventKey,
     p_section: opts.section || document.body?.dataset?.section || 'global',
@@ -117,7 +119,7 @@ export async function awardXp(eventKey = 'section_visit', opts = {}) {
   };
   const { data: award, error } = await supabase.rpc('rb_award_xp', payload);
   if (error) { console.warn('[RB XP] award failed', error.message); return { ok: false, reason: error.message }; }
-  await loadXp(data.user.id);
+  await loadXp(user.id);
   window.dispatchEvent(new CustomEvent('rb-xp-awarded', { detail: { eventKey, award } }));
   return award;
 }
@@ -127,14 +129,25 @@ export function installXpBadge() { cleanXpMoneyArtifacts(); }
 
 export async function bootXp(eventKey) {
   cleanXpMoneyArtifacts();
-  if (xpBooted && !eventKey) return loadCurrentXp();
+  const state = await getAuthoritativeIdentity();
+  const userId = state.user?.id;
+  if (xpBooted && !eventKey) return loadXp(userId);
   xpBooted = true;
-  const { data } = await supabase.auth.getUser();
-  if (data?.user?.id) installRealtimeXp(data.user.id);
-  await loadCurrentXp();
+  if (userId) installRealtimeXp(userId);
+  await loadXp(userId);
   if (eventKey) awardXp(eventKey).catch(() => {});
   if (!xpAuthListenerInstalled) {
     xpAuthListenerInstalled = true;
-    supabase.auth.onAuthStateChange((_event, session) => { if (session?.user?.id) installRealtimeXp(session.user.id); loadCurrentXp(); });
+    supabase.auth.onAuthStateChange((_event, session) => {
+      const nextUserId = session?.user?.id || null;
+      if (nextUserId) installRealtimeXp(nextUserId);
+      loadXp(nextUserId);
+    });
   }
 }
+
+addEventListener('pagehide', () => {
+  if (xpChannel) supabase.removeChannel(xpChannel);
+  xpChannel = null;
+  xpUserId = null;
+});
