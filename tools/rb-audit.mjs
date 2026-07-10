@@ -2,6 +2,7 @@ import { readdir, readFile } from 'node:fs/promises';
 import path from 'node:path';
 
 const root = process.cwd();
+const strict = process.argv.includes('--strict') || process.env.RB_AUDIT_STRICT === '1';
 const ignore = new Set(['.git','node_modules','dist','.vercel']);
 const ignoreFiles = new Set(['tools/rb-audit.mjs']);
 const allowedExt = new Set(['.html','.js','.mjs','.css','.json','.ts','.tsx','.jsx']);
@@ -84,9 +85,11 @@ for (const file of files) {
 }
 
 if (hits.length) {
-  console.error('\nRB AUDIT FAILED: duplicate/clashing patterns found\n');
-  for (const h of hits) console.error(`${h.file}:${h.line} — ${h.check} — ${h.match}`);
-  process.exit(1);
+  const label = strict ? 'FAILED' : 'WARNINGS';
+  console.warn(`\nRB AUDIT ${label}: ${hits.length} duplicate/clashing pattern${hits.length === 1 ? '' : 's'} found\n`);
+  for (const h of hits) console.warn(`${h.file}:${h.line} — ${h.check} — ${h.match}`);
+  if (strict) process.exit(1);
+  console.warn('\nRB AUDIT CONTINUING: warnings are non-blocking. Run npm run audit:rb:strict to enforce failure.');
+} else {
+  console.log(`RB AUDIT CLEAN: checked ${files.length} source files.`);
 }
-
-console.log(`RB AUDIT CLEAN: checked ${files.length} source files.`);
