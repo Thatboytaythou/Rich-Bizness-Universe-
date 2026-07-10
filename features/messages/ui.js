@@ -1,57 +1,8 @@
-const esc = (value) => String(value ?? '').replace(/[&<>"']/g, (m) => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[m]));
-const fmt = (value) => Number(value || 0).toLocaleString();
-
-export function installMessagesLayout(root) {
-  if (!root || document.querySelector('#dmThreadList')) return;
-  root.innerHTML = `
-    <section class="dm-shell">
-      <section class="dm-list">
-        <h2>Threads</h2>
-        <div id="dmThreadList" class="cards"><div class="empty">Checking Rich-DM's...</div></div>
-      </section>
-      <section class="dm-room">
-        <h2 id="roomTitle">Select Thread</h2>
-        <p id="roomStatus">Open a thread to view messages.</p>
-        <div id="dmMessages" class="dm-messages"><div class="empty">No thread selected.</div></div>
-        <form id="dmForm" class="dm-compose">
-          <input id="dmBody" placeholder="Type Rich-DM..." autocomplete="off" />
-          <input id="dmAttachment" placeholder="Attachment URL" autocomplete="off" />
-          <button class="primary" type="submit">SEND</button>
-          <button type="button" id="dmReact">SMOKE</button>
-          <button type="button" id="dmCall">CALL</button>
-        </form>
-      </section>
-    </section>`;
-}
-
-export function setDmStatus(text) {
-  const status = document.querySelector('#roomStatus');
-  if (status) status.textContent = text;
-}
-
-export function renderThreads({ threads, activeId }) {
-  const list = document.querySelector('#dmThreadList');
-  const count = document.querySelector('#recordCount');
-  if (count) count.textContent = fmt(threads.length);
-  if (!list) return;
-  list.innerHTML = threads.length ? threads.map((thread) => {
-    const active = thread.id === activeId ? ' active' : '';
-    return `<article class="card dm-thread${active}" data-thread-id="${thread.id}"><b>${esc(thread.title || thread.thread_type || 'Rich-DM Thread')}</b><p>${esc(thread.last_message || 'Message thread ready.')}</p><small>${esc(thread.thread_type || 'direct')} • ${thread.is_archived ? 'ARCHIVED' : 'ACTIVE'} • ${esc(thread.dm_brand || 'Rich-DM')}</small></article>`;
-  }).join('') : '<div class="empty">No Rich-DM threads yet.</div>';
-}
-
-export function renderMessages({ thread, messages, userId }) {
-  const title = document.querySelector('#roomTitle');
-  const status = document.querySelector('#roomStatus');
-  const box = document.querySelector('#dmMessages');
-  const messageCount = document.querySelector('#messageCount');
-  if (messageCount) messageCount.textContent = fmt(messages.length);
-  if (title) title.textContent = thread?.title || thread?.thread_type || 'Rich-DM Thread';
-  if (status) status.textContent = thread ? `${thread.dm_brand || 'Rich-DM'} • ${thread.typing_label || 'rolling smoke...'}` : 'Open a thread.';
-  if (!box) return;
-  box.innerHTML = messages.length ? messages.map((msg) => {
-    const attachment = msg.attachments?.length ? `<p>${msg.attachments.map((a) => `<a class="identity-pill" href="${esc(a.file_url)}">${esc(a.file_name || 'Attachment')}</a>`).join(' ')}</p>` : '';
-    return `<article class="dm-msg ${msg.sender_id === userId ? 'mine' : ''}"><b>${esc(msg.display_name || msg.username || 'Rich User')}</b><p>${esc(msg.body || '')}</p>${attachment}<small>${esc(msg.message_type || 'text')} • ${new Date(msg.created_at).toLocaleString()}</small></article>`;
-  }).join('') : '<div class="empty">No messages in this thread yet.</div>';
-  box.scrollTop = box.scrollHeight;
-}
+const esc=(v)=>String(v??'').replace(/[&<>"']/g,(m)=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));const fmt=(v)=>Number(v||0).toLocaleString();
+export function installMessagesLayout(root){if(!root||document.querySelector('#dmThreadList'))return;root.innerHTML=`<section class="dm-shell"><section class="dm-list"><h2>Threads</h2><div id="dmThreadList" class="cards"><div class="empty">Checking Rich-DM's...</div></div></section><section class="dm-room"><div class="dm-room-head"><div><h2 id="roomTitle">Select Thread</h2><p id="roomStatus">Open a thread to view messages.</p></div><button type="button" id="dmCall">CALL</button></div><div id="dmCallPanel" class="dm-call-panel"></div><div id="dmMessages" class="dm-messages"><div class="empty">No thread selected.</div></div><form id="dmForm" class="dm-compose"><input id="dmBody" placeholder="Type Rich-DM..." autocomplete="off" /><label class="dm-file-label">ATTACH<input id="dmAttachmentFile" type="file" /></label><input id="dmAttachment" placeholder="or paste attachment URL" autocomplete="off" /><button class="primary" type="submit">SEND</button></form></section></section><dialog id="dmAttachmentViewer" class="dm-viewer"><button type="button" data-close-viewer>CLOSE</button><div id="dmViewerBody"></div></dialog>`;}
+export function setDmStatus(text){const n=document.querySelector('#roomStatus');if(n)n.textContent=text;}
+export function renderThreads({threads,activeId}){const list=document.querySelector('#dmThreadList');const count=document.querySelector('#recordCount');if(count)count.textContent=fmt(threads.length);if(!list)return;list.innerHTML=threads.length?threads.map((t)=>`<article class="card dm-thread${t.id===activeId?' active':''}" data-thread-id="${t.id}"><b>${esc(t.title||t.thread_type||'Rich-DM Thread')}</b><p>${esc(t.last_message||'Message thread ready.')}</p><small>${esc(t.thread_type||'direct')} • ${t.is_archived?'ARCHIVED':'ACTIVE'} • ${esc(t.dm_brand||'Rich-DM')}</small></article>`).join(''):'<div class="empty">No Rich-DM threads yet.</div>';}
+function attachmentHtml(a){const type=String(a.file_type||a.mime_type||'file');const preview=type.includes('image')?`<img src="${esc(a.file_url)}" alt="${esc(a.file_name||'Attachment')}"/>`:type.includes('video')?`<video src="${esc(a.file_url)}" controls preload="metadata"></video>`:type.includes('audio')?`<audio src="${esc(a.file_url)}" controls preload="metadata"></audio>`:`<span>FILE</span>`;return `<button class="dm-attachment" type="button" data-view-attachment data-url="${esc(a.file_url)}" data-type="${esc(type)}" data-name="${esc(a.file_name||'Attachment')}">${preview}<b>${esc(a.file_name||'Attachment')}</b></button>`;}
+export function renderMessages({thread,messages,userId}){const title=document.querySelector('#roomTitle'),status=document.querySelector('#roomStatus'),box=document.querySelector('#dmMessages'),messageCount=document.querySelector('#messageCount');if(messageCount)messageCount.textContent=fmt(messages.length);if(title)title.textContent=thread?.title||thread?.thread_type||'Rich-DM Thread';if(status)status.textContent=thread?`${thread.dm_brand||'Rich-DM'} • ${thread.typing_label||'rolling smoke...'}`:'Open a thread.';if(!box)return;box.innerHTML=messages.length?messages.map((msg)=>{const attachments=(msg.attachments||[]).map(attachmentHtml).join('');const reactions=Object.entries(msg.reaction_counts||{}).map(([emoji,count])=>`<span>${esc(emoji)} ${fmt(count)}</span>`).join('');return `<article class="dm-msg ${msg.sender_id===userId?'mine':''}" data-message-id="${msg.id}"><b>${esc(msg.display_name||msg.username||'Rich User')}</b><p>${esc(msg.body||'')}</p>${attachments?`<div class="dm-attachments">${attachments}</div>`:''}<div class="dm-meta-row"><small>${esc(msg.message_type||'text')} • ${new Date(msg.created_at).toLocaleString()}</small><span class="dm-counts">${reactions}<span>READ ${fmt(msg.read_count)}</span></span></div><div class="dm-reactions"><button type="button" data-react="💨">💨</button><button type="button" data-react="🔥">🔥</button><button type="button" data-react="💸">💸</button></div></article>`;}).join(''):'<div class="empty">No messages in this thread yet.</div>';box.scrollTop=box.scrollHeight;}
+export function renderCallParticipants(calls=[]){const panel=document.querySelector('#dmCallPanel');if(!panel)return;const call=calls[0];if(!call){panel.innerHTML='';return;}panel.innerHTML=`<div class="dm-call-card"><b>${esc(call.call_theme||'Rich Call')}</b><small>${esc(call.call_status||'ringing')} • ${esc(call.call_type||'video')}</small><div class="dm-participants">${(call.participants||[]).map((p)=>`<span><img src="${esc(p.profile?.avatar_url||'/images/brand/Avatar-hero-Banner.png.jpeg')}" alt=""><b>${esc(p.profile?.display_name||p.profile?.username||'Participant')}</b><small>${esc(p.role)} • ${esc(p.status)}</small></span>`).join('')}</div></div>`;}
+export function openAttachmentViewer({url,type,name}){const dialog=document.querySelector('#dmAttachmentViewer'),body=document.querySelector('#dmViewerBody');if(!dialog||!body)return;const safe=esc(url);body.innerHTML=String(type).includes('image')?`<img src="${safe}" alt="${esc(name)}">`:String(type).includes('video')?`<video src="${safe}" controls autoplay></video>`:String(type).includes('audio')?`<audio src="${safe}" controls autoplay></audio>`:`<a href="${safe}" target="_blank" rel="noopener">OPEN ${esc(name||'ATTACHMENT')}</a>`;dialog.showModal();}

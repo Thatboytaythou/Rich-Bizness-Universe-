@@ -6,11 +6,11 @@
   <meta name="theme-color" content="#020402" />
   <title>Rich DMs - Rich Bizness</title>
   <link rel="stylesheet" href="/src/identity-stack.css?v=identity-stack-3" />
-  <link rel="stylesheet" href="/features/messages/styles.css?v=messages-feature-1" />
+  <link rel="stylesheet" href="/features/messages/styles.css?v=messages-feature-2" />
 </head>
 <body data-section="messages">
   <div class="identity-bg"></div>
-  <main class="identity-shell">
+  <main class="identity-shell messages-page">
     <header class="identity-top">
       <a class="identity-brand" href="/">
         <span class="identity-crest">RB</span>
@@ -23,35 +23,21 @@
       </nav>
     </header>
 
-    <section class="identity-hero">
-      <div class="identity-hero-inner">
-        <div class="identity-copy">
-          <div class="identity-kicker">Message Lane</div>
-          <h1>Rich DMs</h1>
-          <p>Threads and messages now run through a page owner and feature modules instead of hidden inline route logic.</p>
-          <div class="identity-stats">
-            <span><b id="recordCount">0</b><small>Threads</small></span>
-            <span><b id="memberCount">0</b><small>Member Rows</small></span>
-            <span><b id="messageCount">0</b><small>Messages</small></span>
-          </div>
-        </div>
-        <section class="identity-panel">
-          <h2>System Owners</h2>
-          <p>/pages/messages.js</p>
-          <p>/features/messages</p>
-        </section>
+    <section class="messages-hero">
+      <div>
+        <div class="identity-kicker">Private communication</div>
+        <h1>Rich DMs</h1>
+        <p>Message, share media, react, track reads, and move into Rich Calls from one private workspace.</p>
+      </div>
+      <div class="messages-stats" aria-label="Messages overview">
+        <span><b id="recordCount">0</b><small>Threads</small></span>
+        <span><b id="memberCount">0</b><small>Connections</small></span>
+        <span><b id="messageCount">0</b><small>Messages</small></span>
       </div>
     </section>
 
-    <section id="messagesMount"></section>
-
-    <section class="identity-grid">
-      <a class="identity-card hot" data-icon="!" href="/notifications.html"><b>Alerts</b><small>Activity</small></a>
-      <a class="identity-card" data-icon="P" href="/profile.html"><b>Profile</b><small>Identity</small></a>
-      <a class="identity-card" data-icon="L" href="/live.html"><b>Live</b><small>Calls</small></a>
-      <a class="identity-card" data-icon="S" href="/settings.html"><b>Settings</b><small>Control</small></a>
-    </section>
+    <section id="messagesMount" aria-live="polite"></section>
   </main>
-  <script type="module" src="/pages/messages.js?v=messages-page-1"></script>
+  <script type="module" src="/pages/messages.js?v=messages-page-2"></script>
 </body>
 </html>
