@@ -5,7 +5,8 @@ const root = process.cwd();
 const ignore = new Set(['.git','node_modules','dist','.vercel']);
 const ignoreFiles = new Set(['tools/rb-audit.mjs']);
 const allowedExt = new Set(['.html','.js','.mjs','.css','.json','.ts','.tsx','.jsx']);
-const coreRoutes = new Set(['messages.html','meta.html','store.html','notifications.html','sports.html','music.html','radio.html','podcast.html','live.html','watch.html','profile.html','index.html','auth.html','edit.html','settings.html']);
+const coreRoutes = new Set(['messages.html','meta.html','store.html','notifications.html','sports.html','music.html','radio.html','podcast.html','live.html','watch.html','profile.html','index.html','auth.html','edit.html','settings.html','feed.html','upload.html','gaming.html','gallery.html']);
+const lockedHomepageFiles = new Set(['index.html','styles/main.css','core/engine/omni-engine.js','core/pages/index.js']);
 
 const checks = [
   { name:'old identity stack', pattern:/identity-stack\.css\?v=identity-stack-[12]/g },
@@ -18,7 +19,12 @@ const checks = [
   { name:'stale route cache key', pattern:/profile-avatar-separate-2|avatar-extreme-2|selector-extreme-1|realtime-2|avatar-core-8|drop-feed-4/g },
   { name:'stale identity import', pattern:/rb-identity\.js\?v=tap-in-foundation-2/g },
   { name:'profile photo/avatar class collision', pattern:/class="avatar"\s+id="avatarFace"/g },
-  { name:'duplicate homepage realtime risk', pattern:/channel\('home-profile-'[\s\S]{0,160}channel\('home-profile-'/g }
+  { name:'duplicate homepage realtime risk', pattern:/channel\('home-profile-'[\s\S]{0,160}channel\('home-profile-'/g },
+  { name:'legacy Supabase project ref', pattern:/zsancpcyhdidrlezggrl/g },
+  { name:'legacy Supabase URL', pattern:/https:\/\/zsancpcyhdidrlezggrl\.supabase\.co/g },
+  { name:'legacy notifications table', pattern:/\.from\(['"]notifications['"]\)/g },
+  { name:'live owner column mismatch', pattern:/\.from\(['"]live_streams['"]\)[\s\S]{0,240}\buser_id\b/g },
+  { name:'unscoped realtime channel', pattern:/\.on\(['"]postgres_changes['"],\s*\{\s*event:\s*['"]\*['"],\s*schema:\s*['"]public['"],\s*table:\s*['"][^'"]+['"]\s*\}/g },
 ];
 
 async function walk(dir, files = []) {
@@ -39,6 +45,7 @@ const hits = [];
 for (const file of files) {
   const rel = path.relative(root, file).replaceAll('\\', '/');
   const text = await readFile(file, 'utf8').catch(() => '');
+
   for (const check of checks) {
     const matches = [...text.matchAll(check.pattern)];
     for (const match of matches) {
@@ -46,6 +53,17 @@ for (const file of files) {
       hits.push({ file: rel, line, check: check.name, match: match[0].slice(0, 120) });
     }
   }
+
+  if (rel !== 'src/supabase-client.js' && /\bcreateClient\s*\(/.test(text)) {
+    const index = text.search(/\bcreateClient\s*\(/);
+    hits.push({ file: rel, line: text.slice(0, index).split('\n').length, check: 'local Supabase client', match: 'use src/supabase-client.js only' });
+  }
+
+  if (/from\s+['"]@supabase\/supabase-js['"]/.test(text) && rel !== 'src/supabase-client.js') {
+    const index = text.search(/from\s+['"]@supabase\/supabase-js['"]/);
+    hits.push({ file: rel, line: text.slice(0, index).split('\n').length, check: 'direct Supabase SDK import', match: 'import shared supabase client instead' });
+  }
+
   if (coreRoutes.has(rel)) {
     const lineCount = text.split('\n').length;
     if (lineCount < 8 && text.includes('<script type="module">')) {
@@ -54,6 +72,14 @@ for (const file of files) {
     if (text.includes('<script type="module">import') && !text.includes('src="/src/')) {
       hits.push({ file: rel, line: 1, check: 'inline route owner logic', match: 'move route logic into /src owner file' });
     }
+    const moduleSources = [...text.matchAll(/<script\s+type=["']module["']\s+src=["']([^"']+)["']/g)].map((match) => match[1]);
+    if (moduleSources.length > 1) {
+      hits.push({ file: rel, line: 1, check: 'multiple route owners', match: moduleSources.join(', ').slice(0, 120) });
+    }
+  }
+
+  if (lockedHomepageFiles.has(rel) && /TODO|TEMP|DEBUG|console\.log\(/.test(text)) {
+    hits.push({ file: rel, line: 1, check: 'locked homepage debug residue', match: 'locked homepage file contains temporary/debug code' });
   }
 }
 
