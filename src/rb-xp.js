@@ -50,7 +50,7 @@ export function xpMath(profile = {}, levelRow = {}, avatar = {}) {
   const progress = clamp(current / next, 0, 1) * 100;
   const richPoints = Number(levelRow.rich_points ?? profile.rich_points ?? total);
   const rank = rankFromXp(total, levelRow.rank_title || profile.rank_title || avatar.rank);
-  return { total, level, current, next, progress, rank, points: richPoints, coins: Number(levelRow.coins ?? 0), trust: Number(levelRow.trust_score ?? profile.trust_score ?? 100) };
+  return { total, level, current, next, progress, rank, points: richPoints, coins: Number(levelRow.coins ?? 0), trust: Number(levelRow.trust_score ?? 100) };
 }
 
 export function cleanXpMoneyArtifacts() {
@@ -82,7 +82,7 @@ export async function loadXp(userId) {
   if (!userId) return renderXp({});
   if (xpLoading) return xpLoading;
   xpLoading = Promise.all([
-    supabase.from('profiles').select('rich_points,rich_level,rank_title,trust_score').eq('id', userId).maybeSingle(),
+    supabase.from('profiles').select('rich_points,rich_level,rank_title').eq('id', userId).maybeSingle(),
     supabase.from('user_levels').select('level,xp_total,xp_current,xp_next,rank_title,rich_points,coins,trust_score').eq('user_id', userId).maybeSingle(),
     supabase.from('meta_avatars').select('level,xp,rank').eq('user_id', userId).maybeSingle(),
   ]).then(([{ data: profile }, { data: levelRow }, { data: avatar }]) => renderXp({ profile: profile || {}, levelRow: levelRow || {}, avatar: avatar || {} })).finally(() => { xpLoading = null; });
