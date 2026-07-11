@@ -2,11 +2,12 @@ import { supabase } from './supabase-client.js';
 import { getAuthoritativeIdentity, getProfile, getMetaAvatar } from './rb-identity.js?v=identity-owner-2';
 import { bootXp, loadXp } from './rb-xp.js?v=realtime-1';
 
-const $ = (s) => document.querySelector(s);
-const fmt = (n) => Number(n || 0).toLocaleString();
-const money = (n) => '$' + (Number(n || 0) / 100).toFixed(2);
-const safe = (v, fallback = '') => String(v ?? fallback);
-const set = (s, v) => { const el = $(s); if (el) el.textContent = v; };
+const $ = (selector) => document.querySelector(selector);
+const fmt = (value) => Number(value || 0).toLocaleString();
+const money = (value) => '$' + (Number(value || 0) / 100).toFixed(2);
+const text = (value, fallback = '') => String(value ?? fallback);
+const set = (selector, value) => { const el = $(selector); if (el) el.textContent = value; };
+const escapeHtml = (value) => text(value).replace(/[&<>'"]/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[char]));
 const params = new URLSearchParams(location.search);
 const requestedId = params.get('id') || params.get('user_id') || '';
 const requestedUsername = params.get('u') || params.get('user') || params.get('username') || '';
@@ -19,9 +20,11 @@ let profileChannel = null;
 let loggedViewId = '';
 let followRow = null;
 let followFlight = null;
+let socialFlight = null;
 const refreshTimers = new Map();
 
-function say(text) { set('#profileStatus', text); }
+function say(message) { set('#profileStatus', message); }
+
 function calmProfileArtifacts() {
   document.querySelectorAll('.rb-overlay:not([data-rb-keep]),.rb-blocker:not([data-rb-keep])').forEach((el) => {
     el.style.pointerEvents = 'none';
@@ -29,9 +32,10 @@ function calmProfileArtifacts() {
   });
   document.body?.removeAttribute('data-rich-money');
 }
+
 function miniCard(row, type = 'post') {
-  const img = row.media_url || row.public_url || row.thumbnail_url || row.cover_url || row.file_url || '';
-  return `<article class="card">${img ? `<img src="${img}" alt="" loading="lazy" decoding="async">` : ''}<b>${safe(row.title, type === 'post' ? 'Rich Bizness Post' : 'Upload')}</b><p>${safe(row.body || row.description, 'Profile-owned content.')}</p><small>${safe(row.section || row.category || type, type)}</small></article>`;
+  const image = row.media_url || row.public_url || row.thumbnail_url || row.cover_url || row.file_url || '';
+  return `<article class="card">${image ? `<img src="${escapeHtml(image)}" alt="" loading="lazy" decoding="async">` : ''}<b>${escapeHtml(row.title || (type === 'post' ? 'Rich Bizness Post' : 'Upload'))}</b><p>${escapeHtml(row.body || row.description || 'Profile-owned content.')}</p><small>${escapeHtml(row.section || row.category || type)}</small></article>`;
 }
 
 async function getProfileTarget() {
@@ -65,8 +69,8 @@ async function loadOwnedContent(userId) {
   ]);
   const postBox = $('#profilePosts');
   const uploadBox = $('#profileUploads');
-  if (postBox) postBox.innerHTML = posts.error ? `<div class="empty">${posts.error.message}</div>` : (posts.data || []).length ? posts.data.map((r) => miniCard(r, 'post')).join('') : '<div class="empty">No posts yet.</div>';
-  if (uploadBox) uploadBox.innerHTML = uploads.error ? `<div class="empty">${uploads.error.message}</div>` : (uploads.data || []).length ? uploads.data.map((r) => miniCard(r, 'upload')).join('') : '<div class="empty">No uploads yet.</div>';
+  if (postBox) postBox.innerHTML = posts.error ? `<div class="empty">${escapeHtml(posts.error.message)}</div>` : (posts.data || []).length ? posts.data.map((row) => miniCard(row, 'post')).join('') : '<div class="empty">No posts yet.</div>';
+  if (uploadBox) uploadBox.innerHTML = uploads.error ? `<div class="empty">${escapeHtml(uploads.error.message)}</div>` : (uploads.data || []).length ? uploads.data.map((row) => miniCard(row, 'upload')).join('') : '<div class="empty">No uploads yet.</div>';
 }
 
 async function loadAccess(profile) {
@@ -90,33 +94,25 @@ function ensureSystemsPanel() {
 }
 
 async function loadSystems(profile) {
-  const base = [
+  const requests = [
     supabase.from('user_badges').select('id', { count: 'exact', head: true }).eq('user_id', profile.id),
     supabase.from('profile_theme_settings').select('*').eq('user_id', profile.id).maybeSingle(),
     supabase.from('route_access_rules').select('required_role').eq('is_active', true).limit(60)
   ];
-  if (isOwner) base.push(
+  if (isOwner) requests.push(
     supabase.from('user_sessions').select('id', { count: 'exact', head: true }).eq('user_id', profile.id).eq('is_active', true),
     supabase.from('trust_events').select('id', { count: 'exact', head: true }).eq('user_id', profile.id),
     supabase.from('platform_analytics_events').select('id', { count: 'exact', head: true }).eq('user_id', profile.id)
   );
-  const [badges, themeResult, accessResult, sessions, trust, analytics] = await Promise.all(base);
-  const role = String(profile.role || 'user').toLowerCase();
+  const [badges, themeResult, accessResult, sessions, trust, analytics] = await Promise.all(requests);
+  const role = text(profile.role, 'user').toLowerCase();
   const accessRows = (accessResult.data || []).filter((row) => !row.required_role || row.required_role === role || role === 'founder' || role === 'admin');
   const panel = ensureSystemsPanel();
-  if (panel) panel.innerHTML = `
-    <article class="identity-stat"><b>${fmt(badges.count)}</b><small>Badges</small></article>
-    <article class="identity-stat"><b>${safe(themeResult.data?.profile_layout || themeResult.data?.background_style, 'Default')}</b><small>Theme</small></article>
-    <article class="identity-stat"><b>${fmt(accessRows.length)}</b><small>Access</small></article>
-    <article class="identity-stat"><b>${isOwner ? fmt(sessions?.count) : 'PRIVATE'}</b><small>Sessions</small></article>
-    <article class="identity-stat"><b>${isOwner ? fmt(trust?.count) : 'PRIVATE'}</b><small>Trust</small></article>
-    <article class="identity-stat"><b>${isOwner ? fmt(analytics?.count) : 'PRIVATE'}</b><small>Analytics</small></article>`;
-  if (themeResult.data?.background_url) $('#profileHero').style.backgroundImage = `linear-gradient(rgba(0,0,0,.28),rgba(0,0,0,.72)),url(${themeResult.data.background_url})`;
+  if (panel) panel.innerHTML = `<article class="identity-stat"><b>${fmt(badges.count)}</b><small>Badges</small></article><article class="identity-stat"><b>${escapeHtml(themeResult.data?.profile_layout || themeResult.data?.background_style || 'Default')}</b><small>Theme</small></article><article class="identity-stat"><b>${fmt(accessRows.length)}</b><small>Access</small></article><article class="identity-stat"><b>${isOwner ? fmt(sessions?.count) : 'PRIVATE'}</b><small>Sessions</small></article><article class="identity-stat"><b>${isOwner ? fmt(trust?.count) : 'PRIVATE'}</b><small>Trust</small></article><article class="identity-stat"><b>${isOwner ? fmt(analytics?.count) : 'PRIVATE'}</b><small>Analytics</small></article>`;
+  if (themeResult.data?.background_url && $('#profileHero')) $('#profileHero').style.backgroundImage = `linear-gradient(rgba(0,0,0,.28),rgba(0,0,0,.72)),url(${themeResult.data.background_url})`;
 }
 
-function followButton() {
-  return document.querySelector('[data-profile-action="follow"]');
-}
+function followButton() { return document.querySelector('[data-profile-action="follow"]'); }
 
 function paintFollowButton() {
   const button = followButton();
@@ -128,12 +124,7 @@ function paintFollowButton() {
 
 async function loadFollowState() {
   if (isOwner || !ownerUser?.id || !viewedProfile?.id) return;
-  const { data, error } = await supabase
-    .from('followers')
-    .select('id,follower_id,following_id')
-    .eq('follower_id', ownerUser.id)
-    .eq('following_id', viewedProfile.id)
-    .maybeSingle();
+  const { data, error } = await supabase.from('followers').select('id,follower_id,following_id').eq('follower_id', ownerUser.id).eq('following_id', viewedProfile.id).maybeSingle();
   if (error) throw error;
   followRow = data || null;
   paintFollowButton();
@@ -159,14 +150,54 @@ async function toggleFollow(event) {
     paintFollowButton();
     await loadCounts(viewedProfile.id);
   })();
-  try {
-    await followFlight;
-  } catch (error) {
-    say(error.message || String(error));
-  } finally {
+  try { await followFlight; } catch (error) { say(error.message || String(error)); } finally {
     followFlight = null;
     if (button) button.removeAttribute('aria-busy');
   }
+}
+
+function socialCard(profile) {
+  const initials = text(profile.display_name || profile.username || 'RB').split(/\s+/).map((part) => part[0]).filter(Boolean).slice(0, 2).join('').toUpperCase();
+  const avatar = profile.avatar_url ? `<img src="${escapeHtml(profile.avatar_url)}" alt="" loading="lazy">` : `<span>${escapeHtml(initials || 'RB')}</span>`;
+  return `<a class="profile-social-row" href="/profile.html?id=${encodeURIComponent(profile.id)}"><div class="profile-social-avatar">${avatar}</div><div><b>${escapeHtml(profile.display_name || profile.username || 'Rich Bizness User')}</b><small>@${escapeHtml(profile.username || 'rich_user')} • ${escapeHtml(profile.rank_title || 'MEMBER')}</small></div><strong>VIEW</strong></a>`;
+}
+
+function closeSocialDrawer() {
+  const drawer = $('#profileSocialDrawer');
+  if (!drawer) return;
+  drawer.hidden = true;
+  document.body.classList.remove('profile-social-open');
+}
+
+async function openSocialDrawer(kind) {
+  if (!viewedProfile?.id || socialFlight) return;
+  const drawer = $('#profileSocialDrawer');
+  const list = $('#profileSocialList');
+  if (!drawer || !list) return;
+  drawer.hidden = false;
+  document.body.classList.add('profile-social-open');
+  set('#profileSocialTitle', kind === 'followers' ? 'FOLLOWERS' : 'FOLLOWING');
+  list.innerHTML = '<div class="profile-social-empty">Loading circle...</div>';
+  socialFlight = (async () => {
+    const column = kind === 'followers' ? 'following_id' : 'follower_id';
+    const profileColumn = kind === 'followers' ? 'follower_id' : 'following_id';
+    const { data: relations, error } = await supabase.from('followers').select(`id,${profileColumn},created_at`).eq(column, viewedProfile.id).order('created_at', { ascending: false }).limit(100);
+    if (error) throw error;
+    const ids = [...new Set((relations || []).map((row) => row[profileColumn]).filter(Boolean))];
+    if (!ids.length) { list.innerHTML = `<div class="profile-social-empty">No ${kind} yet.</div>`; return; }
+    const { data: profiles, error: profileError } = await supabase.from('profiles').select('id,username,display_name,avatar_url,rank_title').in('id', ids);
+    if (profileError) throw profileError;
+    const byId = new Map((profiles || []).map((profile) => [profile.id, profile]));
+    list.innerHTML = ids.map((id) => byId.get(id)).filter(Boolean).map(socialCard).join('') || `<div class="profile-social-empty">No visible ${kind} yet.</div>`;
+  })();
+  try { await socialFlight; } catch (error) { list.innerHTML = `<div class="profile-social-empty">${escapeHtml(error.message || String(error))}</div>`; } finally { socialFlight = null; }
+}
+
+function installSocialDrawer() {
+  document.querySelectorAll('[data-social-list]').forEach((button) => button.addEventListener('click', () => openSocialDrawer(button.dataset.socialList)));
+  $('#profileSocialClose')?.addEventListener('click', closeSocialDrawer);
+  $('#profileSocialDrawer')?.addEventListener('click', (event) => { if (event.target === event.currentTarget) closeSocialDrawer(); });
+  addEventListener('keydown', (event) => { if (event.key === 'Escape') closeSocialDrawer(); });
 }
 
 function tuneOwnerControls() {
@@ -177,10 +208,7 @@ function tuneOwnerControls() {
       edit.textContent = 'FOLLOW';
       edit.href = '#follow';
       edit.dataset.profileAction = 'follow';
-      if (!edit.dataset.bound) {
-        edit.dataset.bound = 'true';
-        edit.addEventListener('click', toggleFollow);
-      }
+      if (!edit.dataset.bound) { edit.dataset.bound = 'true'; edit.addEventListener('click', toggleFollow); }
     }
     if (settings) {
       settings.textContent = 'MESSAGE';
@@ -188,21 +216,21 @@ function tuneOwnerControls() {
       settings.dataset.profileAction = 'message';
     }
   }
-  const creatorBtn = document.querySelector('a[href="/creator.html"]');
-  if (creatorBtn && !isOwner) { creatorBtn.textContent = 'View Feed'; creatorBtn.href = `/feed.html?user=${encodeURIComponent(viewedProfile?.id || '')}`; }
+  const creatorButton = document.querySelector('a[href="/creator.html"]');
+  if (creatorButton && !isOwner) { creatorButton.textContent = 'View Feed'; creatorButton.href = `/feed.html?user=${encodeURIComponent(viewedProfile?.id || '')}`; }
   paintFollowButton();
 }
 
 function render(profile, meta) {
   viewedProfile = profile;
   isOwner = Boolean(ownerUser?.id && ownerUser.id === profile.id);
-  const cfg = meta?.metadata || {};
+  const config = meta?.metadata || {};
   const level = Number(profile.rich_level || meta?.level || 1);
   const points = Number(profile.rich_points || meta?.xp || 0);
-  set('#displayName', safe(profile.display_name, 'Rich Bizness User').toUpperCase());
-  set('#username', '@' + safe(profile.username, 'rich_user'));
-  set('#bio', safe(profile.bio, 'Building a Rich Bizness lane across the universe.'));
-  set('#rank', safe(profile.rank_title, 'BIZ LEGEND'));
+  set('#displayName', text(profile.display_name, 'Rich Bizness User').toUpperCase());
+  set('#username', '@' + text(profile.username, 'rich_user'));
+  set('#bio', text(profile.bio, 'Building a Rich Bizness lane across the universe.'));
+  set('#rank', text(profile.rank_title, 'BIZ LEGEND'));
   set('#level', level);
   set('#xp', fmt(points));
   set('#balance', isOwner ? money(profile.balance_cents) : 'PUBLIC');
@@ -211,10 +239,10 @@ function render(profile, meta) {
   const avatar = $('#avatarFace');
   if (avatar) {
     avatar.classList.add('live-avatar');
-    avatar.dataset.aura = meta?.aura || cfg.aura || 'Emerald Gold';
-    avatar.dataset.motion = cfg.motion || 'Boss Idle';
+    avatar.dataset.aura = meta?.aura || config.aura || 'Emerald Gold';
+    avatar.dataset.motion = config.motion || 'Boss Idle';
     if (profile.avatar_url) { avatar.textContent = ''; avatar.style.backgroundImage = `url(${profile.avatar_url})`; }
-    else { avatar.textContent = safe(profile.display_name || profile.username || 'RB').split(/\s+/).map((x) => x[0]).filter(Boolean).slice(0, 2).join('').toUpperCase() || 'RB'; avatar.style.backgroundImage = ''; }
+    else { avatar.textContent = text(profile.display_name || profile.username || 'RB').split(/\s+/).map((part) => part[0]).filter(Boolean).slice(0, 2).join('').toUpperCase() || 'RB'; avatar.style.backgroundImage = ''; }
   }
   tuneOwnerControls();
 }
@@ -248,9 +276,7 @@ function scheduleRefresh(kind) {
       if (kind === 'content') await Promise.all([loadCounts(viewedProfile.id), loadOwnedContent(viewedProfile.id)]);
       if (kind === 'social') await Promise.all([loadCounts(viewedProfile.id), loadFollowState()]);
       if (kind === 'systems') await loadSystems(viewedProfile);
-    } catch (error) {
-      say(error.message || String(error));
-    }
+    } catch (error) { say(error.message || String(error)); }
   }, 180));
 }
 
@@ -273,6 +299,7 @@ async function paint() {
 async function boot() {
   try {
     calmProfileArtifacts();
+    installSocialDrawer();
     const state = await getAuthoritativeIdentity();
     ownerUser = state.user;
     if (!ownerUser) { location.replace('/auth.html?next=' + encodeURIComponent(location.pathname + location.search)); return; }
@@ -287,6 +314,7 @@ async function boot() {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'feed_posts', filter: 'user_id=eq.' + targetId }, () => scheduleRefresh('content'))
       .on('postgres_changes', { event: '*', schema: 'public', table: 'uploads', filter: 'user_id=eq.' + targetId }, () => scheduleRefresh('content'))
       .on('postgres_changes', { event: '*', schema: 'public', table: 'followers', filter: 'following_id=eq.' + targetId }, () => scheduleRefresh('social'))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'followers', filter: 'follower_id=eq.' + targetId }, () => scheduleRefresh('social'))
       .on('postgres_changes', { event: '*', schema: 'public', table: 'user_badges', filter: 'user_id=eq.' + targetId }, () => scheduleRefresh('systems'))
       .on('postgres_changes', { event: '*', schema: 'public', table: 'profile_theme_settings', filter: 'user_id=eq.' + targetId }, () => scheduleRefresh('systems'))
       .subscribe();
@@ -301,4 +329,5 @@ addEventListener('pagehide', () => {
   refreshTimers.clear();
   if (profileChannel) supabase.removeChannel(profileChannel);
 });
+
 boot();
