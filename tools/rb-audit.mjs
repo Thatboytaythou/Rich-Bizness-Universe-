@@ -2,7 +2,7 @@ import { readdir, readFile } from 'node:fs/promises';
 import path from 'node:path';
 
 const root = process.cwd();
-const strict = process.argv.includes('--strict') || process.env.RB_AUDIT_STRICT === '1';
+const reportOnly = process.argv.includes('--report') || process.env.RB_AUDIT_REPORT_ONLY === '1';
 const ignore = new Set(['.git','node_modules','dist','.vercel']);
 const ignoreFiles = new Set(['tools/rb-audit.mjs']);
 const allowedExt = new Set(['.html','.js','.mjs','.css','.json','.ts','.tsx','.jsx']);
@@ -26,6 +26,8 @@ const checks = [
   { name:'legacy notifications table', pattern:/\.from\(['"]notifications['"]\)/g },
   { name:'live owner column mismatch', pattern:/\.from\(['"]live_streams['"]\)[\s\S]{0,240}\buser_id\b/g },
   { name:'unscoped realtime channel', pattern:/\.on\(['"]postgres_changes['"],\s*\{\s*event:\s*['"]\*['"],\s*schema:\s*['"]public['"],\s*table:\s*['"][^'"]+['"]\s*\}/g },
+  { name:'invalid profiles trust_score select', pattern:/\.from\(['"]profiles['"]\)[\s\S]{0,200}select\([^)]*trust_score/g },
+  { name:'invalid rb_secret_rooms id dependency', pattern:/\.from\(['"]rb_secret_rooms['"]\)[\s\S]{0,200}select\(['"]id['"]/g },
 ];
 
 async function walk(dir, files = []) {
@@ -85,11 +87,10 @@ for (const file of files) {
 }
 
 if (hits.length) {
-  const label = strict ? 'FAILED' : 'WARNINGS';
-  console.warn(`\nRB AUDIT ${label}: ${hits.length} duplicate/clashing pattern${hits.length === 1 ? '' : 's'} found\n`);
-  for (const h of hits) console.warn(`${h.file}:${h.line} — ${h.check} — ${h.match}`);
-  if (strict) process.exit(1);
-  console.warn('\nRB AUDIT CONTINUING: warnings are non-blocking. Run npm run audit:rb:strict to enforce failure.');
+  console.error(`\nRB AUDIT FAILED: ${hits.length} duplicate/clashing pattern${hits.length === 1 ? '' : 's'} found\n`);
+  for (const h of hits) console.error(`${h.file}:${h.line} — ${h.check} — ${h.match}`);
+  if (!reportOnly) process.exit(1);
+  console.warn('\nRB AUDIT REPORT ONLY: failures were reported without blocking because --report was explicitly requested.');
 } else {
   console.log(`RB AUDIT CLEAN: checked ${files.length} source files.`);
 }
