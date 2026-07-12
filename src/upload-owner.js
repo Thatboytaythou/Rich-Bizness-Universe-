@@ -1,7 +1,6 @@
 import { supabase } from './supabase-client.js';
 import { awardXp } from './rb-xp.js?v=identity-owner-3';
 import { getAuthoritativeIdentity } from './rb-identity.js?v=identity-owner-2';
-import './section-language-foundation.js?v=copy-only-1';
 
 const $ = (selector) => document.querySelector(selector);
 const routes = [
