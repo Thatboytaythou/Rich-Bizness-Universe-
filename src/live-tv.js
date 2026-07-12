@@ -1,7 +1,6 @@
 import { Room, createLocalTracks } from 'https://esm.sh/livekit-client@2';
 import { awardXp } from './rb-xp.js?v=xp-idempotent-1';
 import { getAuthoritativeIdentity } from './rb-identity.js?v=profile-avatar-separate-1';
-import './section-language-foundation.js?v=copy-only-1';
 
 const LIVE_TITLE = 'WE LIT🔥';
 const LIVE_ROOM = 'Bizness Party';
