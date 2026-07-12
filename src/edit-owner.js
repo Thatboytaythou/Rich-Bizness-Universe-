@@ -4,7 +4,7 @@ import { ensureProfile, getAuthoritativeIdentity, slugName } from './rb-identity
 const $ = (selector) => document.querySelector(selector);
 const fields = ['display_name','username','bio','avatar_url','banner_url','website_url','instagram_url','youtube_url','tiktok_url','facebook_url','snapchat_url','favorite_section','role'];
 const allowedRoles = new Set(['user','member','creator','artist','seller']);
-const allowedSections = new Set(['feed','live','watch','music','podcast','radio','store','gaming','sports','gallery','meta']);
+const allowedSections = new Set(['feed','live','watch','music','podcast','radio','store','gaming','sports','gallery','meta','profile']);
 const maxImageBytes = 12 * 1024 * 1024;
 
 let user = null;
