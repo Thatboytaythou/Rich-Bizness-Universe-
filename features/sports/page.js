@@ -1,4 +1,4 @@
-import { getAuthoritativeIdentity } from '../../src/rb-identity.js?v=profile-avatar-separate-1';
+import { getAuthoritativeIdentity } from '../../src/rb-identity.js?v=identity-owner-2';
 import {
   loadSportsPosts,
   loadSportsSystems,
@@ -27,6 +27,13 @@ const state = {
   selectedPost: null
 };
 
+let stopWatching = null;
+let postsTimer = null;
+let systemsTimer = null;
+let loadingPosts = false;
+let loadingSocial = false;
+let loadingSystems = false;
+
 async function loadIdentity() {
   const identity = await getAuthoritativeIdentity({ fresh: true }).catch(() => ({}));
   state.user = identity.user || null;
@@ -34,16 +41,25 @@ async function loadIdentity() {
 }
 
 async function loadPosts() {
-  const result = await loadSportsPosts();
-  state.rows = result.rows;
-  state.sourceTable = result.sourceTable;
-  if (!state.selectedPost && state.rows.length && state.sourceTable === 'sports_posts') state.selectedPost = state.rows[0];
-  renderSportsPosts({
-    rows: state.rows,
-    selectedId: state.selectedPost?.id,
-    onSelect: selectPost
-  });
-  if (state.selectedPost) await loadSocial();
+  if (loadingPosts) return;
+  loadingPosts = true;
+  const selectedId = state.selectedPost?.id || null;
+  try {
+    const result = await loadSportsPosts();
+    state.rows = result.rows;
+    state.sourceTable = result.sourceTable;
+    state.selectedPost = selectedId ? state.rows.find((row) => row.id === selectedId) || null : null;
+    if (!state.selectedPost && state.rows.length && state.sourceTable === 'sports_posts') state.selectedPost = state.rows[0];
+    renderSportsPosts({
+      rows: state.rows,
+      selectedId: state.selectedPost?.id,
+      onSelect: selectPost
+    });
+    restartRealtime();
+    if (state.selectedPost) await loadSocial();
+  } finally {
+    loadingPosts = false;
+  }
 }
 
 async function selectPost(index) {
@@ -53,22 +69,35 @@ async function selectPost(index) {
     selectedId: state.selectedPost?.id,
     onSelect: selectPost
   });
+  restartRealtime();
   await loadSocial();
 }
 
 async function loadSocial() {
-  const enabled = Boolean(state.selectedPost?.id && state.sourceTable === 'sports_posts');
-  const social = enabled ? await loadSportsSocial(state.selectedPost.id) : { comments: [], reactions: 0 };
-  renderSportsSocial({
-    post: state.selectedPost,
-    comments: social.comments,
-    reactions: social.reactions,
-    enabled
-  });
+  if (loadingSocial) return;
+  loadingSocial = true;
+  try {
+    const enabled = Boolean(state.selectedPost?.id && state.sourceTable === 'sports_posts');
+    const social = enabled ? await loadSportsSocial(state.selectedPost.id) : { comments: [], reactions: 0 };
+    renderSportsSocial({
+      post: state.selectedPost,
+      comments: social.comments,
+      reactions: social.reactions,
+      enabled
+    });
+  } finally {
+    loadingSocial = false;
+  }
 }
 
 async function loadSystems() {
-  renderSportsSystems(await loadSportsSystems());
+  if (loadingSystems) return;
+  loadingSystems = true;
+  try {
+    renderSportsSystems(await loadSportsSystems());
+  } finally {
+    loadingSystems = false;
+  }
 }
 
 async function loadProfile() {
@@ -110,17 +139,40 @@ async function submitPick(event) {
   await loadSystems();
 }
 
+function schedulePosts() {
+  clearTimeout(postsTimer);
+  postsTimer = setTimeout(loadPosts, 180);
+}
+
+function scheduleSystems() {
+  clearTimeout(systemsTimer);
+  systemsTimer = setTimeout(loadSystems, 180);
+}
+
+function restartRealtime() {
+  stopWatching?.();
+  stopWatching = watchSports({
+    postId: state.sourceTable === 'sports_posts' ? state.selectedPost?.id : null,
+    posts: schedulePosts,
+    social: loadSocial,
+    systems: scheduleSystems
+  });
+}
+
+function cleanup() {
+  clearTimeout(postsTimer);
+  clearTimeout(systemsTimer);
+  stopWatching?.();
+  stopWatching = null;
+}
+
 mountSportsSystems();
 loadIdentity().then(async () => {
   await Promise.all([loadPosts(), loadSystems(), loadProfile()]);
+  restartRealtime();
 });
 
 $('#sportsCommentBtn')?.addEventListener('click', submitComment);
 $('#sportsReactBtn')?.addEventListener('click', submitReaction);
 $('#sportsPickForm')?.addEventListener('submit', submitPick);
-
-watchSports({
-  posts: loadPosts,
-  social: loadSocial,
-  systems: loadSystems
-});
+window.addEventListener('pagehide', cleanup, { once: true });

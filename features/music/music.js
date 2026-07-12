@@ -1,6 +1,6 @@
 import { supabase } from '../../src/supabase-client.js';
 import { awardXp } from '../../src/rb-xp.js?v=xp-idempotent-1';
-import { getAuthoritativeIdentity } from '../../src/rb-identity.js?v=profile-avatar-separate-1';
+import { getAuthoritativeIdentity } from '../../src/rb-identity.js?v=identity-owner-2';
 
 const $ = (selector) => document.querySelector(selector);
 const fmt = (value) => Number(value || 0).toLocaleString();
@@ -13,7 +13,12 @@ let user = null;
 let profile = null;
 let playEvent = null;
 let playStartedAt = null;
-let sessionId = sessionStorage.getItem('rb_music_session') || crypto.randomUUID();
+let tracksChannel = null;
+let socialChannel = null;
+let reloadTimer = null;
+let loadingTracks = false;
+let loadingSocial = false;
+const sessionId = sessionStorage.getItem('rb_music_session') || crypto.randomUUID();
 sessionStorage.setItem('rb_music_session', sessionId);
 
 const sourceOf = (row) => row.audio_url || row.file_url || row.media_url || row.stream_url || '';
@@ -74,6 +79,7 @@ async function selectTrack(index) {
     audio.src = audioSource;
     audio.load?.();
   }
+  startSocialRealtime();
   await loadSocial();
 }
 
@@ -82,35 +88,50 @@ async function readTable(table) {
 }
 
 async function loadTracks() {
-  let result = await readTable('music_tracks');
-  sourceTable = 'music_tracks';
-  if (result.error || !(result.data || []).length) {
-    result = await readTable('tracks');
-    sourceTable = 'tracks';
+  if (loadingTracks) return;
+  loadingTracks = true;
+  const selectedId = current?.id || null;
+  try {
+    let result = await readTable('music_tracks');
+    sourceTable = 'music_tracks';
+    if (result.error || !(result.data || []).length) {
+      result = await readTable('tracks');
+      sourceTable = 'tracks';
+    }
+    rows = result.data || [];
+    if (result.error && $('#sectionCards')) $('#sectionCards').innerHTML = `<div class="empty">${esc(result.error.message)}</div>`;
+    if (selectedId) current = rows.find((row) => row.id === selectedId) || null;
+    paintList();
+    if (!current && rows.length) await selectTrack(0);
+    else if (current) await selectTrack(rows.findIndex((row) => row.id === current.id));
+  } finally {
+    loadingTracks = false;
   }
-  rows = result.data || [];
-  if (result.error && $('#sectionCards')) $('#sectionCards').innerHTML = `<div class="empty">${result.error.message}</div>`;
-  paintList();
-  if (!current && rows.length) await selectTrack(0);
 }
 
 async function loadSocial() {
+  if (loadingSocial) return;
   const box = $('#musicComments');
   if (!current?.id || sourceTable !== 'music_tracks') {
     if (box) box.innerHTML = '<div class="empty">Social actions require a music_tracks record.</div>';
     if ($('#musicSocialStatus')) $('#musicSocialStatus').textContent = 'TRACK FALLBACK';
     return;
   }
-  const [commentsResult, likesResult, myLikeResult] = await Promise.all([
-    supabase.from('music_comments').select('*').eq('track_id', current.id).order('created_at', { ascending: false }).limit(30),
-    supabase.from('music_likes').select('id', { count: 'exact', head: true }).eq('track_id', current.id),
-    user ? supabase.from('music_likes').select('id').eq('track_id', current.id).eq('user_id', user.id).maybeSingle() : Promise.resolve({ data: null })
-  ]);
-  const comments = commentsResult.data || [];
-  if (box) box.innerHTML = comments.length ? comments.map((comment) => `<article style="border:1px solid rgba(157,255,99,.12);border-radius:16px;padding:10px;background:rgba(0,0,0,.26)"><b>${esc(comment.display_name || comment.username || 'Listener')}</b><p>${esc(comment.comment || '')}</p><small>${new Date(comment.created_at).toLocaleString()}</small></article>`).join('') : '<div class="empty">No comments yet.</div>';
-  if ($('#nowLikes')) $('#nowLikes').textContent = fmt(likesResult.count);
-  if ($('#musicLikeState')) $('#musicLikeState').textContent = myLikeResult.data ? 'Liked' : 'Tap to like';
-  if ($('#musicSocialStatus')) $('#musicSocialStatus').textContent = `${comments.length} COMMENTS`;
+  loadingSocial = true;
+  try {
+    const [commentsResult, likesResult, myLikeResult] = await Promise.all([
+      supabase.from('music_comments').select('*').eq('track_id', current.id).order('created_at', { ascending: false }).limit(30),
+      supabase.from('music_likes').select('id', { count: 'exact', head: true }).eq('track_id', current.id),
+      user ? supabase.from('music_likes').select('id').eq('track_id', current.id).eq('user_id', user.id).maybeSingle() : Promise.resolve({ data: null })
+    ]);
+    const comments = commentsResult.data || [];
+    if (box) box.innerHTML = comments.length ? comments.map((comment) => `<article style="border:1px solid rgba(157,255,99,.12);border-radius:16px;padding:10px;background:rgba(0,0,0,.26)"><b>${esc(comment.display_name || comment.username || 'Listener')}</b><p>${esc(comment.comment || '')}</p><small>${new Date(comment.created_at).toLocaleString()}</small></article>`).join('') : '<div class="empty">No comments yet.</div>';
+    if ($('#nowLikes')) $('#nowLikes').textContent = fmt(likesResult.count);
+    if ($('#musicLikeState')) $('#musicLikeState').textContent = myLikeResult.data ? 'Liked' : 'Tap to like';
+    if ($('#musicSocialStatus')) $('#musicSocialStatus').textContent = `${comments.length} COMMENTS`;
+  } finally {
+    loadingSocial = false;
+  }
 }
 
 async function likeCurrent() {
@@ -139,17 +160,15 @@ async function addCurrentToPlaylist() {
   if (!existing.data) {
     const countResult = await supabase.from('playlist_tracks').select('id', { count: 'exact', head: true }).eq('playlist_id', playlistId);
     await supabase.from('playlist_tracks').insert({ playlist_id: playlistId, track_id: current.id, position: Number(countResult.count || 0), added_at: new Date().toISOString() });
-    await supabase.from('playlists').update({ track_count: Number(countResult.count || 0) + 1, updated_at: new Date().toISOString() }).eq('id', playlistId);
   }
   if ($('#musicSocialStatus')) $('#musicSocialStatus').textContent = 'SAVED TO PLAYLIST';
 }
 
 async function beginPlayEvent() {
-  if (!current?.id || sourceTable !== 'music_tracks') return;
+  if (!current?.id || sourceTable !== 'music_tracks' || playEvent) return;
   playStartedAt = Date.now();
   const result = await supabase.from('music_play_events').insert({ track_id: current.id, user_id: user?.id || null, session_id: sessionId, seconds_played: 0, completed: false, device_info: { mobile: innerWidth < 768, platform: navigator.platform || 'web' }, metadata: { source: 'music-page' } }).select('*').maybeSingle();
   playEvent = result.data || null;
-  await supabase.from('music_tracks').update({ play_count: Number(current.play_count || 0) + 1 }).eq('id', current.id).then(() => {}, () => {});
   await awardXp('music_play', { section: 'music', sourceTable: 'music_tracks', sourceId: current.id }).catch(() => {});
 }
 
@@ -159,6 +178,33 @@ async function finishPlayEvent(completed = false) {
   await supabase.from('music_play_events').update({ seconds_played: seconds, completed }).eq('id', playEvent.id).then(() => {}, () => {});
   playEvent = null;
   playStartedAt = null;
+}
+
+function scheduleTracks() {
+  clearTimeout(reloadTimer);
+  reloadTimer = setTimeout(loadTracks, 180);
+}
+
+function startSocialRealtime() {
+  if (socialChannel) {
+    supabase.removeChannel(socialChannel);
+    socialChannel = null;
+  }
+  if (!current?.id || sourceTable !== 'music_tracks') return;
+  const filter = `track_id=eq.${current.id}`;
+  socialChannel = supabase.channel(`music-social:${current.id}`)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'music_comments', filter }, loadSocial)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'music_likes', filter }, loadSocial)
+    .subscribe();
+}
+
+function cleanup() {
+  clearTimeout(reloadTimer);
+  finishPlayEvent(false);
+  if (tracksChannel) supabase.removeChannel(tracksChannel);
+  if (socialChannel) supabase.removeChannel(socialChannel);
+  tracksChannel = null;
+  socialChannel = null;
 }
 
 mountSocial();
@@ -175,10 +221,9 @@ $('#musicCommentForm')?.addEventListener('submit', (event) => {
 $('#musicAudio')?.addEventListener('play', beginPlayEvent);
 $('#musicAudio')?.addEventListener('pause', () => finishPlayEvent(false));
 $('#musicAudio')?.addEventListener('ended', () => finishPlayEvent(true));
-window.addEventListener('pagehide', () => finishPlayEvent(false));
+window.addEventListener('pagehide', cleanup, { once: true });
 
-supabase.channel('music-feature-owner')
-  .on('postgres_changes', { event: '*', schema: 'public', table: 'music_tracks' }, loadTracks)
-  .on('postgres_changes', { event: '*', schema: 'public', table: 'music_comments' }, loadSocial)
-  .on('postgres_changes', { event: '*', schema: 'public', table: 'music_likes' }, loadSocial)
+tracksChannel = supabase.channel('music-feature-owner')
+  .on('postgres_changes', { event: '*', schema: 'public', table: 'music_tracks' }, scheduleTracks)
+  .on('postgres_changes', { event: '*', schema: 'public', table: 'tracks' }, scheduleTracks)
   .subscribe();

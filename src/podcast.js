@@ -1,6 +1,6 @@
 import { supabase } from './supabase-client.js';
 import { awardXp } from './rb-xp.js?v=xp-idempotent-1';
-import { getAuthoritativeIdentity } from './rb-identity.js?v=profile-avatar-separate-1';
+import { getAuthoritativeIdentity } from './rb-identity.js?v=identity-owner-2';
 
 const $ = (s) => document.querySelector(s);
 const fmt = (n) => Number(n || 0).toLocaleString();
@@ -11,6 +11,10 @@ let current = null;
 let user = null;
 let profile = null;
 let awarded = new Set();
+let channel = null;
+let refreshTimer = null;
+let loadingEpisodes = false;
+let loadingSocial = false;
 
 function titleOf(row) { return row.title || 'Rich Bizness Episode'; }
 function subOf(row) { return [row.display_name || row.username || 'Rich Bizness', row.episode_number ? `Episode ${row.episode_number}` : 'Podcast'].filter(Boolean).join(' • '); }
@@ -44,7 +48,7 @@ function mountSocial() {
 
 function card(row, index) {
   const cover = coverOf(row);
-  return `<article class="card podcast-episode ${current?.id === row.id ? 'active' : ''}" data-episode="${index}">${cover ? `<img src="${cover}" alt="">` : ''}<b>${esc(titleOf(row))}</b><p>${esc(row.description || row.caption || 'Podcast episode ready.')}</p><small>${esc(subOf(row))} • ${fmt(row.play_count)} plays • ${fmt(row.like_count)} likes</small></article>`;
+  return `<article class="card podcast-episode ${current?.id === row.id ? 'active' : ''}" data-episode="${index}">${cover ? `<img src="${esc(cover)}" alt="">` : ''}<b>${esc(titleOf(row))}</b><p>${esc(row.description || row.caption || 'Podcast episode ready.')}</p><small>${esc(subOf(row))} • ${fmt(row.play_count)} plays • ${fmt(row.like_count)} likes</small></article>`;
 }
 
 function paint() {
@@ -66,7 +70,7 @@ async function selectEpisode(index) {
   if (note) note.textContent = current ? subOf(current) : 'Pick an episode from live records or drop a new one through Upload.';
   if (cover) {
     const url = current ? coverOf(current) : '';
-    cover.innerHTML = url ? `<img src="${url}" alt="">` : 'RB';
+    cover.innerHTML = url ? `<img src="${esc(url)}" alt="">` : 'RB';
   }
   if (audio) {
     const src = current ? audioOf(current) : '';
@@ -76,36 +80,49 @@ async function selectEpisode(index) {
     }
   }
   await loadSocial();
+  await startRealtime();
 }
 
 async function loadEpisodes() {
-  const { data, error } = await supabase.from('podcast_episodes').select('*').or('is_published.is.true,is_published.is.null').order('is_featured', { ascending: false }).order('created_at', { ascending: false }).limit(36);
-  if (error) {
+  if (loadingEpisodes) return;
+  loadingEpisodes = true;
+  try {
+    const { data, error } = await supabase.from('podcast_episodes').select('*').or('is_published.is.true,is_published.is.null').order('is_featured', { ascending: false }).order('created_at', { ascending: false }).limit(36);
+    if (error) throw error;
+    const selectedId = current?.id || null;
+    episodes = data || [];
+    current = selectedId ? episodes.find((episode) => episode.id === selectedId) || null : null;
+    paint();
+    if (!current && episodes.length) await selectEpisode(0);
+  } catch (error) {
     const list = $('#sectionCards');
-    if (list) list.innerHTML = `<div class="empty">${error.message}</div>`;
-    return;
+    if (list) list.innerHTML = `<div class="empty">${esc(error.message)}</div>`;
+  } finally {
+    loadingEpisodes = false;
   }
-  episodes = data || [];
-  paint();
-  if (!current && episodes.length) await selectEpisode(0);
 }
 
 async function loadSocial() {
-  if (!current?.id) return;
-  const [commentsResult, likesResult, myLikeResult, showResult] = await Promise.all([
-    supabase.from('podcast_comments').select('*').eq('episode_id', current.id).order('created_at', { ascending: false }).limit(30),
-    supabase.from('podcast_likes').select('id', { count: 'exact', head: true }).eq('episode_id', current.id),
-    user ? supabase.from('podcast_likes').select('id').eq('episode_id', current.id).eq('user_id', user.id).maybeSingle() : Promise.resolve({ data: null }),
-    current.show_id ? supabase.from('podcast_shows').select('*').eq('id', current.show_id).maybeSingle() : Promise.resolve({ data: null })
-  ]);
-  const comments = commentsResult.data || [];
-  if ($('#podcastComments')) $('#podcastComments').innerHTML = comments.length ? comments.map((comment) => `<div class="stream-card"><b>${esc(comment.display_name || comment.username || 'Listener')}</b><small>${esc(comment.body || '')}</small></div>`).join('') : '<div class="stream-card"><b>No comments yet.</b></div>';
-  if ($('#podcastLikeBtn')) $('#podcastLikeBtn').textContent = myLikeResult.data ? `LIKED • ${fmt(likesResult.count)}` : `LIKE • ${fmt(likesResult.count)}`;
-  const show = showResult.data || null;
-  if ($('#podcastShowState')) $('#podcastShowState').textContent = show?.title || 'NO SHOW';
-  if ($('#podcastShowLink')) {
-    $('#podcastShowLink').textContent = show ? `${show.episode_count || 0} EPISODES` : 'SHOW';
-    $('#podcastShowLink').href = show ? `/search.html?q=${encodeURIComponent(show.title)}` : '#';
+  if (!current?.id || loadingSocial) return;
+  loadingSocial = true;
+  try {
+    const [commentsResult, likesResult, myLikeResult, showResult] = await Promise.all([
+      supabase.from('podcast_comments').select('*').eq('episode_id', current.id).order('created_at', { ascending: false }).limit(30),
+      supabase.from('podcast_likes').select('id', { count: 'exact', head: true }).eq('episode_id', current.id),
+      user ? supabase.from('podcast_likes').select('id').eq('episode_id', current.id).eq('user_id', user.id).maybeSingle() : Promise.resolve({ data: null }),
+      current.show_id ? supabase.from('podcast_shows').select('*').eq('id', current.show_id).maybeSingle() : Promise.resolve({ data: null })
+    ]);
+    const comments = commentsResult.data || [];
+    if ($('#podcastComments')) $('#podcastComments').innerHTML = comments.length ? comments.map((comment) => `<div class="stream-card"><b>${esc(comment.display_name || comment.username || 'Listener')}</b><small>${esc(comment.body || '')}</small></div>`).join('') : '<div class="stream-card"><b>No comments yet.</b></div>';
+    if ($('#podcastLikeBtn')) $('#podcastLikeBtn').textContent = myLikeResult.data ? `LIKED • ${fmt(likesResult.count)}` : `LIKE • ${fmt(likesResult.count)}`;
+    const show = showResult.data || null;
+    if ($('#podcastShowState')) $('#podcastShowState').textContent = show?.title || 'NO SHOW';
+    if ($('#podcastShowLink')) {
+      $('#podcastShowLink').textContent = show ? `${show.episode_count || 0} EPISODES` : 'SHOW';
+      $('#podcastShowLink').href = show ? `/search.html?q=${encodeURIComponent(show.title)}` : '#';
+    }
+  } finally {
+    loadingSocial = false;
   }
 }
 
@@ -127,8 +144,38 @@ async function commentCurrent(body) {
   await loadSocial();
 }
 
+function scheduleEpisodes() {
+  clearTimeout(refreshTimer);
+  refreshTimer = setTimeout(loadEpisodes, 180);
+}
+
+async function startRealtime() {
+  if (channel) {
+    await supabase.removeChannel(channel).catch(() => {});
+    channel = null;
+  }
+  const episodeId = current?.id;
+  channel = supabase.channel(`podcast-owner:${episodeId || 'list'}`)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'podcast_episodes' }, scheduleEpisodes);
+  if (episodeId) {
+    const filter = `episode_id=eq.${episodeId}`;
+    channel
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'podcast_comments', filter }, loadSocial)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'podcast_likes', filter }, loadSocial);
+  }
+  channel.subscribe();
+}
+
+async function cleanup() {
+  clearTimeout(refreshTimer);
+  if (channel) {
+    await supabase.removeChannel(channel).catch(() => {});
+    channel = null;
+  }
+}
+
 mountSocial();
-loadIdentity().then(loadEpisodes);
+loadIdentity().then(loadEpisodes).then(startRealtime);
 $('#podcastLikeBtn')?.addEventListener('click', likeCurrent);
 $('#podcastCommentForm')?.addEventListener('submit', (event) => {
   event.preventDefault();
@@ -143,10 +190,4 @@ $('#podcastAudio')?.addEventListener('play', async () => {
   await supabase.from('podcast_episodes').update({ play_count: Number(current.play_count || 0) + 1 }).eq('id', current.id).then(() => {}, () => {});
   await awardXp('podcast_play', { section: 'podcast', sourceTable: 'podcast_episodes', sourceId: current.id }).catch(() => {});
 });
-
-supabase.channel('podcast-feature-owner')
-  .on('postgres_changes', { event: '*', schema: 'public', table: 'podcast_episodes' }, loadEpisodes)
-  .on('postgres_changes', { event: '*', schema: 'public', table: 'podcast_comments' }, loadSocial)
-  .on('postgres_changes', { event: '*', schema: 'public', table: 'podcast_likes' }, loadSocial)
-  .on('postgres_changes', { event: '*', schema: 'public', table: 'podcast_shows' }, loadSocial)
-  .subscribe();
+window.addEventListener('pagehide', cleanup, { once: true });

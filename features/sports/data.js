@@ -76,16 +76,31 @@ export async function createSportsPick({ user, profile, title, teamName, opponen
   });
 }
 
-export function watchSports(callbacks = {}) {
-  return supabase.channel('sports-feature-owner')
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'sports_posts' }, callbacks.posts || (() => {}))
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'sports_uploads' }, callbacks.posts || (() => {}))
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'sports_comments' }, callbacks.social || (() => {}))
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'sports_reactions' }, callbacks.social || (() => {}))
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'sports_picks' }, callbacks.systems || (() => {}))
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'sports_leagues' }, callbacks.systems || (() => {}))
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'sports_teams' }, callbacks.systems || (() => {}))
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'sports_brackets' }, callbacks.systems || (() => {}))
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'sports_broadcasts' }, callbacks.systems || (() => {}))
+export function watchSports({ postId, posts, social, systems } = {}) {
+  const channels = [];
+  const postsChannel = supabase.channel('sports-posts-owner')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'sports_posts' }, posts || (() => {}))
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'sports_uploads' }, posts || (() => {}))
     .subscribe();
+  channels.push(postsChannel);
+
+  const systemsChannel = supabase.channel('sports-systems-owner')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'sports_picks' }, systems || (() => {}))
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'sports_leagues' }, systems || (() => {}))
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'sports_teams' }, systems || (() => {}))
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'sports_brackets' }, systems || (() => {}))
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'sports_broadcasts' }, systems || (() => {}))
+    .subscribe();
+  channels.push(systemsChannel);
+
+  if (postId) {
+    const filter = `post_id=eq.${postId}`;
+    const socialChannel = supabase.channel(`sports-social:${postId}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'sports_comments', filter }, social || (() => {}))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'sports_reactions', filter }, social || (() => {}))
+      .subscribe();
+    channels.push(socialChannel);
+  }
+
+  return () => Promise.all(channels.map((channel) => supabase.removeChannel(channel).catch(() => {})));
 }

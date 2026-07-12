@@ -1,11 +1,13 @@
-import { readdir, readFile } from 'node:fs/promises';
+import { readdir, readFile, access } from 'node:fs/promises';
 import path from 'node:path';
+import crypto from 'node:crypto';
 
 const root = process.cwd();
 const reportOnly = process.argv.includes('--report') || process.env.RB_AUDIT_REPORT_ONLY === '1';
 const ignore = new Set(['.git','node_modules','dist','.vercel']);
 const ignoreFiles = new Set(['tools/rb-audit.mjs']);
 const allowedExt = new Set(['.html','.js','.mjs','.css','.json','.ts','.tsx','.jsx']);
+const duplicateExt = new Set(['.html','.js','.mjs','.css','.ts','.tsx','.jsx']);
 const coreRoutes = new Set(['messages.html','meta.html','store.html','notifications.html','sports.html','music.html','radio.html','podcast.html','live.html','watch.html','profile.html','index.html','auth.html','edit.html','settings.html','feed.html','upload.html','gaming.html','gallery.html']);
 const lockedHomepageFiles = new Set(['index.html','styles/main.css','core/engine/omni-engine.js','core/pages/index.js']);
 
@@ -28,6 +30,9 @@ const checks = [
   { name:'unscoped realtime channel', pattern:/\.on\(['"]postgres_changes['"],\s*\{\s*event:\s*['"]\*['"],\s*schema:\s*['"]public['"],\s*table:\s*['"][^'"]+['"]\s*\}/g },
   { name:'invalid profiles trust_score select', pattern:/\.from\(['"]profiles['"]\)[\s\S]{0,200}select\([^)]*trust_score/g },
   { name:'invalid rb_secret_rooms id dependency', pattern:/\.from\(['"]rb_secret_rooms['"]\)[\s\S]{0,200}select\(['"]id['"]/g },
+  { name:'removed global copy layer', pattern:/section-language-foundation\.js/g },
+  { name:'removed shared feed-upload owner', pattern:/drop-feed\.js/g },
+  { name:'removed meta boot owner', pattern:/features\/meta\/boot\.js/g },
 ];
 
 async function walk(dir, files = []) {
@@ -43,8 +48,28 @@ async function walk(dir, files = []) {
   return files;
 }
 
+async function exists(file) {
+  try { await access(file); return true; } catch { return false; }
+}
+
+function stripQuery(value) {
+  return value.split(/[?#]/, 1)[0];
+}
+
+async function resolveLocalImport(sourceFile, specifier) {
+  if (!specifier.startsWith('.') && !specifier.startsWith('/')) return true;
+  const clean = stripQuery(specifier);
+  const base = clean.startsWith('/') ? path.join(root, clean.slice(1)) : path.resolve(path.dirname(sourceFile), clean);
+  const candidates = [base];
+  if (!path.extname(base)) candidates.push(`${base}.js`, `${base}.mjs`, `${base}.ts`, path.join(base, 'index.js'));
+  for (const candidate of candidates) if (await exists(candidate)) return true;
+  return false;
+}
+
 const files = await walk(root);
 const hits = [];
+const hashes = new Map();
+
 for (const file of files) {
   const rel = path.relative(root, file).replaceAll('\\', '/');
   const text = await readFile(file, 'utf8').catch(() => '');
@@ -67,6 +92,23 @@ for (const file of files) {
     hits.push({ file: rel, line: text.slice(0, index).split('\n').length, check: 'direct Supabase SDK import', match: 'import shared supabase client instead' });
   }
 
+  const importPatterns = [
+    /(?:import|export)\s+(?:[^'";]+?\s+from\s+)?['"]([^'"]+)['"]/g,
+    /import\(\s*['"]([^'"]+)['"]\s*\)/g,
+    /<script[^>]+src=['"]([^'"]+)['"]/g,
+    /<link[^>]+href=['"]([^'"]+\.css(?:\?[^'"]*)?)['"]/g,
+  ];
+  for (const pattern of importPatterns) {
+    for (const match of text.matchAll(pattern)) {
+      const specifier = match[1];
+      if (!specifier || /^(https?:|data:|blob:|#|mailto:|tel:)/.test(specifier)) continue;
+      if (!(await resolveLocalImport(file, specifier))) {
+        const line = text.slice(0, match.index).split('\n').length;
+        hits.push({ file: rel, line, check: 'missing local dependency', match: specifier });
+      }
+    }
+  }
+
   if (coreRoutes.has(rel)) {
     const lineCount = text.split('\n').length;
     if (lineCount < 8 && text.includes('<script type="module">')) {
@@ -76,14 +118,28 @@ for (const file of files) {
       hits.push({ file: rel, line: 1, check: 'inline route owner logic', match: 'move route logic into /src owner file' });
     }
     const moduleSources = [...text.matchAll(/<script\s+type=["']module["']\s+src=["']([^"']+)["']/g)].map((match) => match[1]);
-    if (moduleSources.length > 1) {
-      hits.push({ file: rel, line: 1, check: 'multiple route owners', match: moduleSources.join(', ').slice(0, 120) });
-    }
+    if (moduleSources.length > 1) hits.push({ file: rel, line: 1, check: 'multiple route owners', match: moduleSources.join(', ').slice(0, 120) });
   }
 
   if (lockedHomepageFiles.has(rel) && /TODO|TEMP|DEBUG|console\.log\(/.test(text)) {
     hits.push({ file: rel, line: 1, check: 'locked homepage debug residue', match: 'locked homepage file contains temporary/debug code' });
   }
+
+  const trimmed = text.trim();
+  if (duplicateExt.has(path.extname(file)) && trimmed.length >= 120 && !lockedHomepageFiles.has(rel)) {
+    const hash = crypto.createHash('sha256').update(trimmed).digest('hex');
+    const matches = hashes.get(hash) || [];
+    matches.push(rel);
+    hashes.set(hash, matches);
+  }
+
+  if (/^(?:\/\/[^\n]*\n|\/\*[\s\S]*?\*\/\s*)?export\s*\{\s*\}\s*;?$/.test(trimmed)) {
+    hits.push({ file: rel, line: 1, check: 'dead no-op module', match: 'delete file and remove its imports' });
+  }
+}
+
+for (const matches of hashes.values()) {
+  if (matches.length > 1) hits.push({ file: matches[0], line: 1, check: 'identical duplicate files', match: matches.join(', ').slice(0, 180) });
 }
 
 if (hits.length) {
@@ -92,5 +148,5 @@ if (hits.length) {
   if (!reportOnly) process.exit(1);
   console.warn('\nRB AUDIT REPORT ONLY: failures were reported without blocking because --report was explicitly requested.');
 } else {
-  console.log(`RB AUDIT CLEAN: checked ${files.length} source files.`);
+  console.log(`RB AUDIT CLEAN: checked ${files.length} source files, local dependencies, route owners, and duplicate source bodies.`);
 }

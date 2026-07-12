@@ -2,17 +2,11 @@ import { supabase } from './supabase-client.js';
 import { getAuthoritativeIdentity } from './rb-identity.js?v=profile-avatar-separate-1';
 
 const $ = (s) => document.querySelector(s);
-const section = document.body?.dataset?.section || '';
-const enabled = section === 'watch' || document.body?.hasAttribute('data-rb-stream-activity');
-
 let user = null;
 let profile = null;
 let stream = null;
-let viewSession = null;
-let joinedAt = null;
 let channel = null;
 let loading = false;
-let closing = false;
 
 function setError(message) {
   const box = $('#rbStreamChat');
@@ -26,75 +20,25 @@ async function bootUser() {
 }
 
 function mount() {
-  if (!enabled || $('#rbStreamActivity')) return false;
+  if ($('#rbStreamActivity')) return false;
   const side = document.querySelector('.stream-side-card');
   if (!side) return false;
   side.insertAdjacentHTML('beforeend', `<section id="rbStreamActivity" class="stream-panel compact-room-list" style="margin-top:12px"><div class="stream-panel-head"><b>Room Activity</b><small id="rbVipState">PUBLIC</small></div><div id="rbStreamChat" class="stream-grid"><div class="stream-card"><b>Loading activity...</b></div></div><form id="rbStreamForm" style="display:grid;grid-template-columns:1fr auto auto auto;gap:8px;margin-top:8px"><input id="rbStreamBody" placeholder="Say it live..." style="min-height:42px;border-radius:14px;border:1px solid rgba(157,255,99,.16);background:rgba(0,0,0,.35);color:#f8ffe8;padding:0 10px" /><button class="identity-pill primary">SEND</button><button type="button" id="rbStreamReact" class="identity-pill">FIRE</button><button type="button" id="rbStreamTip" class="identity-pill">TIP</button></form><div class="identity-stats" style="margin-top:10px"><span><b id="rbMemberCount">0</b><small>Members</small></span><span><b id="rbReactionCount">0</b><small>Reactions</small></span><span><b id="rbTipTotal">$0.00</b><small>Tips</small></span></div></section>`);
+  $('#rbStreamForm')?.addEventListener('submit', (event) => { event.preventDefault(); const input = $('#rbStreamBody'); const text = input?.value?.trim(); if (input) input.value = ''; sendChat(text); });
+  $('#rbStreamReact')?.addEventListener('click', react);
+  $('#rbStreamTip')?.addEventListener('click', tip);
   return true;
 }
 
-async function findStream() {
-  const roomName = $('#tvRoom')?.textContent?.trim();
-  let query = supabase.from('live_streams').select('*').in('status', ['live', 'active']).order('created_at', { ascending: false }).limit(1);
-  if (roomName && roomName !== 'Bizness Party') {
-    query = supabase.from('live_streams').select('*').eq('display_room_name', roomName).in('status', ['live', 'active']).order('created_at', { ascending: false }).limit(1);
+async function setStream(nextStream) {
+  if (!nextStream?.id || nextStream.id === stream?.id) return;
+  stream = nextStream;
+  if (channel) {
+    await supabase.removeChannel(channel).catch(() => {});
+    channel = null;
   }
-  const { data, error } = await query;
-  if (error) throw error;
-  stream = data?.[0] || null;
-  return stream;
-}
-
-async function ensureMember() {
-  if (!stream || !user) return;
-  const role = section === 'live' ? 'host' : 'viewer';
-  const { error } = await supabase.from('live_stream_members').upsert({
-    stream_id: stream.id,
-    user_id: user.id,
-    role,
-    status: 'active',
-    joined_at: new Date().toISOString(),
-    metadata: { source: location.pathname }
-  }, { onConflict: 'stream_id,user_id,role' });
-  if (error) throw error;
-}
-
-async function ensureViewSession() {
-  if (!stream || !user || section !== 'watch' || viewSession) return;
-  joinedAt = new Date();
-  const { data, error } = await supabase.from('live_view_sessions').insert({
-    stream_id: stream.id,
-    user_id: user.id,
-    username: profile?.username || null,
-    display_name: profile?.display_name || null,
-    joined_at: joinedAt.toISOString(),
-    device_info: { section: 'watch' },
-    metadata: { source: location.pathname }
-  }).select('*').maybeSingle();
-  if (error) throw error;
-  viewSession = data || null;
-}
-
-async function closeViewSession() {
-  if (closing) return;
-  closing = true;
-  try {
-    if (viewSession?.id && joinedAt) {
-      const leftAt = new Date();
-      const watchSeconds = Math.max(0, Math.round((leftAt - joinedAt) / 1000));
-      await supabase.from('live_view_sessions').update({ left_at: leftAt.toISOString(), watch_seconds: watchSeconds }).eq('id', viewSession.id);
-    }
-    if (stream?.id && user?.id) {
-      await supabase.from('live_stream_members').update({ status: 'left', left_at: new Date().toISOString() }).eq('stream_id', stream.id).eq('user_id', user.id).eq('role', 'viewer');
-    }
-  } finally {
-    viewSession = null;
-    joinedAt = null;
-    if (channel) {
-      await supabase.removeChannel(channel).catch(() => {});
-      channel = null;
-    }
-  }
+  await loadChat();
+  startRealtime();
 }
 
 async function loadChat() {
@@ -157,29 +101,18 @@ function startRealtime() {
     .subscribe();
 }
 
-async function boot() {
-  if (!mount()) return;
-  try {
-    await bootUser();
-    await findStream();
-    if (!stream) {
-      const box = $('#rbStreamChat');
-      if (box) box.innerHTML = '<div class="stream-card"><b>No live room yet.</b><small>Refresh when a host starts streaming.</small></div>';
-      return;
-    }
-    await ensureMember();
-    await ensureViewSession();
-    await loadChat();
-    startRealtime();
-  } catch (error) {
-    setError(error?.message || error);
+async function cleanup() {
+  if (channel) {
+    await supabase.removeChannel(channel).catch(() => {});
+    channel = null;
   }
 }
 
-if (enabled) {
-  boot();
-  $('#rbStreamForm')?.addEventListener('submit', (event) => { event.preventDefault(); const input = $('#rbStreamBody'); const text = input?.value?.trim(); if (input) input.value = ''; sendChat(text); });
-  $('#rbStreamReact')?.addEventListener('click', react);
-  $('#rbStreamTip')?.addEventListener('click', tip);
-  window.addEventListener('pagehide', closeViewSession, { once: true });
+async function boot() {
+  if (!mount()) return;
+  await bootUser();
+  window.addEventListener('rb:watch-stream-selected', (event) => setStream(event.detail?.stream));
+  window.addEventListener('pagehide', cleanup, { once: true });
 }
+
+boot().catch((error) => setError(error?.message || error));
