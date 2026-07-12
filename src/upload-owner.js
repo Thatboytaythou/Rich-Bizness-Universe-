@@ -78,15 +78,27 @@ function fileKind(file) {
 }
 
 function validateFile(route, file) {
-  if (['music','podcast'].includes(route) && file.mediaType !== 'audio') throw new Error('Music and podcast drops require an audio file.');
-  if (route === 'gaming' && !['video','image'].includes(file.mediaType)) throw new Error('Gaming drops require a video clip or image.');
-  if (route === 'store-digital' && !file.publicUrl) throw new Error('Digital products require a file.');
+  if (['music','podcast','radio','sports','gaming','gallery','store-product','store-digital'].includes(route) && !file.publicUrl) {
+    throw new Error(`${route} drops require a file.`);
+  }
+  if (['music','podcast','radio'].includes(route) && file.mediaType !== 'audio') {
+    throw new Error('Music, podcast, and radio drops require an audio file.');
+  }
+  if (route === 'gaming' && !['video','image'].includes(file.mediaType)) {
+    throw new Error('Gaming drops require a video clip or image.');
+  }
+  if (route === 'gallery' && !['video','image'].includes(file.mediaType)) {
+    throw new Error('Gallery drops require an image or video.');
+  }
+  if (route === 'store-product' && file.mediaType !== 'image') {
+    throw new Error('Store products require a product image.');
+  }
 }
 
 async function uploadFile() {
   if (!pickedFile) return { publicUrl:'', bucket:'', filePath:'', mimeType:'', fileSize:0, mediaType:'text' };
   const bucket = bucketFor(selectedRoute);
-  const ext = pickedFile.name.split('.').pop() || 'bin';
+  const ext = (pickedFile.name.split('.').pop() || 'bin').toLowerCase().replace(/[^a-z0-9]/g, '') || 'bin';
   const filePath = `${user.id}/${crypto.randomUUID()}.${ext}`;
   const { error } = await supabase.storage.from(bucket).upload(filePath, pickedFile, { contentType: pickedFile.type || undefined, upsert:false });
   if (error) throw error;
@@ -98,6 +110,12 @@ async function uploadFile() {
     fileSize: pickedFile.size || 0,
     mediaType: fileKind(pickedFile),
   };
+}
+
+async function removeUploadedFile(file) {
+  if (!file?.bucket || !file?.filePath) return;
+  const { error } = await supabase.storage.from(file.bucket).remove([file.filePath]);
+  if (error) console.warn('[RB Upload cleanup]', error.message);
 }
 
 async function insert(table, row) {
@@ -119,7 +137,7 @@ function routePayload(route, title, description, file, upload) {
   if (route === 'feed' || route === 'gallery') return ['feed_posts', { ...who, title, body:description, section:route, post_type:file.mediaType, media_url:file.publicUrl || null, file_url:file.publicUrl || null, cover_url:image, visibility:'public', metadata:source }];
   if (route === 'music') return ['music_tracks', { ...who, artist_user_id:user.id, title, description, audio_url:file.publicUrl, file_url:file.publicUrl, cover_url:null, is_published:true, visibility:'public', metadata:source }];
   if (route === 'podcast') return ['podcast_episodes', { ...who, creator_id:user.id, title, description, audio_url:file.publicUrl, file_url:file.publicUrl, cover_url:null, is_published:true, visibility:'public', metadata:source }];
-  if (route === 'radio') return ['radio_stations', { ...who, station_name:title, description, stream_url:file.publicUrl, cover_url:image, is_live:false, is_public:true, metadata:source }];
+  if (route === 'radio') return ['radio_stations', { ...who, station_name:title, description, stream_url:file.publicUrl, cover_url:null, is_live:false, is_public:true, metadata:source }];
   if (route === 'sports') return ['sports_posts', { ...who, title, body:description, media_url:file.publicUrl || null, media_type:file.mediaType, cover_url:image, thumbnail_url:image, metadata:source }];
   if (route === 'gaming') return ['game_clips', { ...who, title, caption:description, clip_url:file.publicUrl, thumbnail_url:image, metadata:source }];
   if (route === 'store-product' || route === 'store-digital') {
@@ -136,6 +154,7 @@ async function submitUpload(event) {
   const button = event.submitter;
   if (button) button.disabled = true;
   let upload = null;
+  let file = null;
   try {
     await ensureIdentity();
     if (!user) {
@@ -145,7 +164,7 @@ async function submitUpload(event) {
     say('Uploading...');
     const title = $('#dropTitle')?.value?.trim() || 'Rich Bizness Drop';
     const description = $('#dropCaption')?.value?.trim() || '';
-    const file = await uploadFile();
+    file = await uploadFile();
     validateFile(selectedRoute, file);
     upload = await insert('uploads', { user_id:user.id, title, description, section:selectedRoute, category:selectedRoute, bucket:file.bucket, file_path:file.filePath, public_url:file.publicUrl || null, mime_type:file.mimeType, file_size:file.fileSize, media_type:file.mediaType, visibility:'public', processing_status:'routing', metadata:metadata(file) });
     const [table, row] = routePayload(selectedRoute, title, description, file, upload);
@@ -157,7 +176,11 @@ async function submitUpload(event) {
     pickedFile = null;
     await loadUploadCount();
   } catch (error) {
-    await updateUpload(upload?.id, { processing_status:'failed', metadata:metadata({ error:error.message || String(error) }) });
+    if (upload?.id) {
+      await updateUpload(upload.id, { processing_status:'failed', metadata:metadata({ error:error.message || String(error) }) });
+    } else {
+      await removeUploadedFile(file);
+    }
     say(error.message || String(error));
   } finally {
     submitting = false;
