@@ -1,3 +1,4 @@
+import { supabase } from '../src/supabase-client.js';
 import { getAuthoritativeIdentity, ensureProfile } from '../src/rb-identity.js?v=identity-owner-2';
 import { listThreadIds, listThreads, listProfiles, createDirectThread, listMessages, createMessage, markThreadRead, reactToMessage, setTyping, startCall, listActiveCalls } from '../features/messages/api.js';
 import { addDmAttachment, uploadDmAttachment } from '../features/messages/attachments.js';
