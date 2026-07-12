@@ -35,6 +35,6 @@
     document.querySelectorAll('[data-move]').forEach(b=>b.addEventListener('click',()=>{const m=b.dataset.move; if(m==='watch'){location.href='/watch.html';return} if(m==='portal')pos={x:0,y:0,z:0}; if(m==='left')pos.x-=24; if(m==='right')pos.x+=24; if(m==='up')pos.y-=20; if(m==='down')pos.y+=20; paintAvatar(); savePosition()}));
     boot(); supabase.channel('meta-avatar-world').on('postgres_changes',{event:'*',schema:'public',table:'meta_worlds'},load).subscribe();
   </script>
-  <script type="module" src="/features/meta/boot.js?v=meta-systems-1"></script>
+  <script type="module" src="/features/meta/systems.js?v=meta-systems-2"></script>
 </body>
 </html>
