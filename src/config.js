@@ -11,6 +11,6 @@ export const RB_CONFIG = Object.freeze({
     games:'games',gameRooms:'game_rooms',gameScores:'game_scores',gameComments:'game_comments',gameLikes:'game_likes',gameClips:'game_clips',gamingUploads:'gaming_uploads',gamerProfiles:'gamer_profiles',
     sportsPosts:'sports_posts',sportsComments:'sports_comments',sportsUploads:'sports_uploads',sportsProfiles:'sports_profiles',
     metaWorlds:'meta_worlds',metaWorldLikes:'meta_world_likes',metaPortals:'meta_portals',metaAvatars:'meta_avatars',
-    products:'products',uploads:'uploads',storageRoutes:'storage_bucket_routes',userLevels:'user_levels',userSettings:'user_settings',profileThemes:'profile_theme_settings',creatorPages:'creator_page_settings'
+    products:'products',productLikes:'product_likes',productViews:'product_views',storeComments:'store_comments',storeCartItems:'store_cart_items',storeOrders:'store_orders',storeSellerProfiles:'store_seller_profiles',productUnlocks:'user_product_unlocks',creatorBalances:'creator_available_balances',uploads:'uploads',storageRoutes:'storage_bucket_routes',userLevels:'user_levels',userSettings:'user_settings',profileThemes:'profile_theme_settings',creatorPages:'creator_page_settings'
   })
 });
