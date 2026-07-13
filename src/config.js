@@ -7,7 +7,8 @@ export const RB_CONFIG = Object.freeze({
   tables: Object.freeze({
     profiles:'profiles',followers:'followers',feedPosts:'feed_posts',feedLikes:'feed_post_likes',feedComments:'feed_comments',feedViews:'feed_post_views',
     liveStreams:'live_streams',liveRecordings:'live_recordings',liveChatMessages:'live_chat_messages',liveReactions:'live_reactions',
-    musicTracks:'music_tracks',musicComments:'music_comments',podcastEpisodes:'podcast_episodes',podcastComments:'podcast_comments',podcastLikes:'podcast_likes',radioStations:'radio_stations',radioLikes:'radio_likes',playlists:'playlists',playlistTracks:'playlist_tracks',
-    games:'games',products:'products',metaWorlds:'meta_worlds',metaAvatars:'meta_avatars',sportsPosts:'sports_posts',uploads:'uploads',storageRoutes:'storage_bucket_routes',userLevels:'user_levels',userSettings:'user_settings',profileThemes:'profile_theme_settings',creatorPages:'creator_page_settings'
+    musicTracks:'music_tracks',musicLikes:'music_likes',musicComments:'music_comments',podcastEpisodes:'podcast_episodes',podcastComments:'podcast_comments',podcastLikes:'podcast_likes',radioStations:'radio_stations',radioLikes:'radio_likes',playlists:'playlists',playlistTracks:'playlist_tracks',audioHistory:'audio_listening_history',
+    games:'games',gameRooms:'game_rooms',gameScores:'game_scores',gameComments:'game_comments',gameLikes:'game_likes',gameClips:'game_clips',gamingUploads:'gaming_uploads',gamerProfiles:'gamer_profiles',
+    products:'products',metaWorlds:'meta_worlds',metaAvatars:'meta_avatars',sportsPosts:'sports_posts',uploads:'uploads',storageRoutes:'storage_bucket_routes',userLevels:'user_levels',userSettings:'user_settings',profileThemes:'profile_theme_settings',creatorPages:'creator_page_settings'
   })
 });
