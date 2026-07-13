@@ -28,7 +28,16 @@ export default defineConfig(({ mode }) => {
         input: {
           index: resolve(webRoot, 'index.html'),
           profile: resolve(webRoot, 'profile.html'),
-          gaming: resolve(webRoot, 'gaming.html')
+          gaming: resolve(webRoot, 'gaming.html'),
+          feed: resolve(webRoot, 'feed.html'),
+          gallery: resolve(webRoot, 'gallery.html'),
+          live: resolve(webRoot, 'live.html'),
+          music: resolve(webRoot, 'music.html'),
+          sports: resolve(webRoot, 'sports.html'),
+          store: resolve(webRoot, 'store.html'),
+          meta: resolve(webRoot, 'meta.html'),
+          creator: resolve(webRoot, 'creator.html'),
+          admin: resolve(webRoot, 'admin.html')
         }
       }
     },
