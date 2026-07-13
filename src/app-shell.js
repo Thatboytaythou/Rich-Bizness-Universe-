@@ -7,6 +7,7 @@ const ROUTES=[
 let currentUser=null;
 let channels=[];
 let stateTimer=0;
+let lastSavedRoute='';
 const normalizedPath=()=>location.pathname.replace(/\/index\.html$/,'/').replace(/\/$/,'')||'/';
 const safeInternal=(value)=>typeof value==='string'&&value.startsWith('/')&&!value.startsWith('//');
 
@@ -20,12 +21,18 @@ function showState(text){
 }
 
 function mountStyles(){
-  if(document.querySelector('link[data-rb-shell]'))return;
-  const link=document.createElement('link');
-  link.rel='stylesheet';
-  link.href='/src/app-shell.css';
-  link.dataset.rbShell='true';
-  document.head.append(link);
+  const styles=[
+    ['/src/mobile-regression.css','mobile'],
+    ['/src/app-shell.css','shell']
+  ];
+  styles.forEach(([href,key])=>{
+    if(document.querySelector(`link[data-rb-${key}]`))return;
+    const link=document.createElement('link');
+    link.rel='stylesheet';
+    link.href=href;
+    link.dataset[`rb${key[0].toUpperCase()}${key.slice(1)}`]='true';
+    document.head.append(link);
+  });
 }
 
 function mountDock(){
@@ -42,12 +49,13 @@ function mountDock(){
   state.id='rbShellState';
   state.className='rb-shell-state';
   document.body.append(shell,state);
+  shell.querySelector('[aria-current="page"]')?.scrollIntoView({block:'nearest',inline:'center'});
   shell.addEventListener('click',event=>{
     const link=event.target.closest('a[href]');
     if(!link)return;
     const href=link.getAttribute('href');
     if(!safeInternal(href)){event.preventDefault();return;}
-    saveRoute(href);
+    void saveRoute(href);
   });
 }
 
@@ -60,8 +68,13 @@ function setBadge(name,count){
 }
 
 async function saveRoute(route){
-  if(!supabase||!currentUser||!safeInternal(route))return;
-  await supabase.from('profiles').update({last_route:route,last_seen_at:new Date().toISOString(),online_status:'online'}).eq('id',currentUser.id);
+  if(!supabase||!currentUser||!safeInternal(route)||route===lastSavedRoute)return;
+  lastSavedRoute=route;
+  const {error}=await supabase.from('profiles').update({last_route:route,last_seen_at:new Date().toISOString()}).eq('id',currentUser.id);
+  if(error){
+    lastSavedRoute='';
+    console.warn('Rich route continuity update skipped:',error.message);
+  }
 }
 
 async function loadBadges(){
