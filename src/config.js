@@ -21,17 +21,26 @@ export const RB_CONFIG = Object.freeze({
     meta: '/meta.html',
     store: '/store.html',
     profile: '/profile.html',
+    edit: '/edit.html',
+    avatar: '/avatar.html',
+    settings: '/settings.html',
     auth: '/auth.html'
   }),
   tables: Object.freeze({
     profiles: 'profiles',
+    followers: 'followers',
     feedPosts: 'feed_posts',
     liveStreams: 'live_streams',
     musicTracks: 'music_tracks',
     games: 'games',
     products: 'products',
     metaWorlds: 'meta_worlds',
+    metaAvatars: 'meta_avatars',
     sportsPosts: 'sports_posts',
-    uploads: 'uploads'
+    uploads: 'uploads',
+    userLevels: 'user_levels',
+    userSettings: 'user_settings',
+    profileThemes: 'profile_theme_settings',
+    creatorPages: 'creator_page_settings'
   })
 });
