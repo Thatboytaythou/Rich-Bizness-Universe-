@@ -1,0 +1,1 @@
+export default Object.freeze({slug:'boss-walk-battle',title:'Boss Walk Battle',genre:'fighting',route:'/games/boss-walk-battle/',entry:'./game.ts',saveNamespace:'rb.boss-walk-battle',runtime:'arena-fighter',mechanics:['stance combat','power clashes','boss finishers'],standalone:true,status:'building'});
