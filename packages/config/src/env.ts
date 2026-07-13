@@ -1,10 +1,13 @@
 export const PUBLIC_ENV_KEYS = [
-  'VITE_SUPABASE_URL',
-  'VITE_SUPABASE_PUBLISHABLE_KEY',
-  'VITE_LIVEKIT_URL',
-  'VITE_APP_URL',
-  'VITE_APP_NAME',
-  'VITE_ENVIRONMENT'
+  'NEXT_PUBLIC_SUPABASE_URL',
+  'NEXT_PUBLIC_SUPABASE_ANON_KEY',
+  'LIVEKIT_URL'
+] as const;
+
+export const OPTIONAL_PUBLIC_ENV_KEYS = [
+  'APP_URL',
+  'APP_NAME',
+  'APP_ENVIRONMENT'
 ] as const;
 
 export type PublicEnvKey = (typeof PUBLIC_ENV_KEYS)[number];
@@ -14,7 +17,7 @@ export function readPublicEnvironment(source: Record<string, string | undefined>
   const missing = PUBLIC_ENV_KEYS.filter((key) => !values[key]);
 
   if (missing.length > 0) {
-    throw new Error(`Missing public environment values: ${missing.join(', ')}`);
+    throw new Error(`Missing Vercel public environment values: ${missing.join(', ')}`);
   }
 
   return values as Record<PublicEnvKey, string>;
