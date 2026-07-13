@@ -1,0 +1,1 @@
+export default Object.freeze({slug:'studio-showdown',title:'Studio Showdown',genre:'arcade',route:'/games/studio-showdown/',entry:'./game.ts',saveNamespace:'rb.studio-showdown',runtime:'rhythm-battle',mechanics:['track battles','timing rounds','audience scoring'],standalone:true,status:'building'});
