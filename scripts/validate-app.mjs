@@ -77,6 +77,21 @@ if (await exists(configPath)) {
   }
 }
 
+const mobileCssPath = join(ROOT, 'src/mobile-regression.css');
+const shellJsPath = join(ROOT, 'src/app-shell.js');
+if (!await exists(mobileCssPath)) failures.push('Missing src/mobile-regression.css global mobile guard.');
+if (await exists(shellJsPath)) {
+  const shell = await readFile(shellJsPath, 'utf8');
+  if (!shell.includes('/src/mobile-regression.css')) failures.push('src/app-shell.js does not mount the mobile regression guard.');
+  if (!shell.includes('safeInternal')) failures.push('src/app-shell.js is missing safe internal route validation.');
+}
+if (await exists(mobileCssPath)) {
+  const mobileCss = await readFile(mobileCssPath, 'utf8');
+  if (!mobileCss.includes('safe-area-inset-bottom')) failures.push('Mobile guard is missing bottom safe-area handling.');
+  if (!mobileCss.includes('100dvh')) warnings.push('Mobile guard does not use dynamic viewport height.');
+  if (!mobileCss.includes('--rb-touch:44px')) failures.push('Mobile guard is missing the 44px minimum tap target lock.');
+}
+
 for (const warning of warnings) console.warn(`WARN ${warning}`);
 for (const failure of failures) console.error(`FAIL ${failure}`);
 console.log(`Checked ${htmlFiles.length} HTML files and ${jsFiles.length} JavaScript modules.`);
