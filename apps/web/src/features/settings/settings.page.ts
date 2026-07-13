@@ -1,0 +1,17 @@
+import { supabase } from '../../core/supabase/client';
+import './settings.css';
+
+type JsonMap = Record<string, boolean | string | number | null>;
+type ProfileSettings = { privacy_config: JsonMap | null; notification_config: JsonMap | null; favorite_section: string | null };
+
+export async function mount(): Promise<void> {
+  const app=document.querySelector<HTMLElement>('#app'); if(!app) throw new Error('Missing #app mount');
+  const {data:{session}}=await supabase.auth.getSession(); if(!session){location.replace(`/tap-in.html?next=${encodeURIComponent('/settings.html')}`);return;}
+  const {data,error}=await supabase.from('profiles').select('privacy_config,notification_config,favorite_section').eq('id',session.user.id).single(); if(error) throw error;
+  const profile=data as ProfileSettings;
+  const privacy=profile.privacy_config??{}; const alerts=profile.notification_config??{};
+  const checked=(value:unknown)=>value===false?'':' checked';
+  app.innerHTML=`<main class="settings-shell"><header><a href="/profile.html">← PROFILE</a><div><p>RICH BIZNESS CONTROL CENTER</p><h1>Settings</h1></div><span id="state">READY</span></header><form id="settingsForm"><section><h2>Privacy</h2><label><span>Show online status</span><input type="checkbox" name="show_online_status"${checked(privacy.show_online_status)}></label><label><span>Allow direct messages</span><input type="checkbox" name="allow_messages"${checked(privacy.allow_messages)}></label><label><span>Show activity</span><input type="checkbox" name="show_activity"${checked(privacy.show_activity)}></label></section><section><h2>Notifications</h2><label><span>Messages</span><input type="checkbox" name="messages"${checked(alerts.messages)}></label><label><span>Followers</span><input type="checkbox" name="followers"${checked(alerts.followers)}></label><label><span>Live alerts</span><input type="checkbox" name="live"${checked(alerts.live)}></label><label><span>Store activity</span><input type="checkbox" name="store"${checked(alerts.store)}></label></section><section><h2>Experience</h2><label class="select-row"><span>Start section</span><select name="favorite_section">${['portal','profile','feed','gallery','live','music','sports','store','gaming','meta'].map(v=>`<option value="${v}"${profile.favorite_section===v?' selected':''}>${v.toUpperCase()}</option>`).join('')}</select></label></section><p id="message" role="status"></p><button type="submit">SAVE SETTINGS</button></form></main>`;
+  const form=document.querySelector<HTMLFormElement>('#settingsForm')!; const state=document.querySelector<HTMLElement>('#state')!; const message=document.querySelector<HTMLElement>('#message')!;
+  form.addEventListener('submit',async event=>{event.preventDefault();state.textContent='SAVING';message.textContent='';const fd=new FormData(form);const privacy_config={show_online_status:fd.has('show_online_status'),allow_messages:fd.has('allow_messages'),show_activity:fd.has('show_activity')};const notification_config={messages:fd.has('messages'),followers:fd.has('followers'),live:fd.has('live'),store:fd.has('store')};const favorite_section=fd.get('favorite_section')?.toString()??'portal';const {error:updateError}=await supabase.from('profiles').update({privacy_config,notification_config,favorite_section,updated_at:new Date().toISOString()}).eq('id',session.user.id);if(updateError){state.textContent='ERROR';message.textContent=updateError.message;return;}state.textContent='SAVED';message.textContent='Settings saved.';});
+}
