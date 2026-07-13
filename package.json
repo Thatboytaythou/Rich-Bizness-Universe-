@@ -1,18 +1,26 @@
 {
   "name": "rich-bizness-universe",
   "private": true,
-  "version": "1.0.0",
+  "version": "0.1.0",
   "type": "module",
+  "packageManager": "npm@11.4.2",
+  "workspaces": [
+    "apps/*",
+    "packages/*",
+    "engines/*"
+  ],
   "scripts": {
-    "dev": "vite",
-    "build": "vite build",
-    "preview": "vite preview"
+    "dev": "npm run dev --workspace @rich-bizness/web",
+    "build": "npm run validate && npm run build --workspace @rich-bizness/web",
+    "preview": "npm run preview --workspace @rich-bizness/web",
+    "typecheck": "tsc -p tsconfig.base.json --noEmit",
+    "validate": "node scripts/validate-env.mjs && node scripts/validate-routes.mjs",
+    "test": "npm run typecheck"
   },
-  "dependencies": {
-    "@supabase/supabase-js": "^2.57.4",
-    "three": "^0.179.1"
+  "engines": {
+    "node": ">=24"
   },
   "devDependencies": {
-    "vite": "^7.1.7"
+    "typescript": "^5.9.2"
   }
 }
