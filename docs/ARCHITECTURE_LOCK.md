@@ -26,6 +26,16 @@ This rebuild starts from the repository's first commit.
 9. Every push to `main` runs the production route smoke suite after the Vercel deployment window.
 10. Release failures are fixed in the owning file instead of adding another wrapper or fallback runtime.
 
+## Privileged database RPC rules
+
+1. Every `SECURITY DEFINER` function must pin its `search_path`.
+2. Privileged RPC execution is revoked from `public` and `anon` unless the function is intentionally public.
+3. Browser callers may never choose XP, Rich Points, rank, level, balance, admin access, or other server-owned progression values.
+4. Award amounts come from active server-side event configuration only.
+5. Avatar saves may update presentation fields, but progression is loaded from server-owned level records.
+6. Room and DM helper functions must verify `auth.uid()` and membership inside the function.
+7. Every production RPC change must also exist in `supabase/migrations/` with the same behavior.
+
 ## Release guard
 
 The required local release command is:
