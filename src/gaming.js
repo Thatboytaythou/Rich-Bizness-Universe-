@@ -1,0 +1,3 @@
+import { GAMES } from '../games/registry.js';
+const grid=document.querySelector('#gameGrid');
+for(const game of GAMES){const card=document.createElement('a');card.href=game.route;card.style.cssText='display:block;padding:22px;border:1px solid rgba(142,255,117,.22);border-radius:24px;background:linear-gradient(145deg,rgba(8,22,10,.9),rgba(2,6,3,.75));box-shadow:0 20px 55px rgba(0,0,0,.28)';card.innerHTML=`<small style="color:#f4cf69;letter-spacing:.16em">WORLD ${String(game.index).padStart(2,'0')}</small><h2 style="margin:.45em 0;color:#72ff58">${game.title}</h2><p style="color:#9fb29d">Individual runtime route • rebuild in progress</p>`;grid.append(card)}
