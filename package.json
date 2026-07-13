@@ -1,0 +1,27 @@
+{
+  "name": "rich-bizness-universe",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "packageManager": "npm@11.4.2",
+  "workspaces": [
+    "apps/*",
+    "packages/*",
+    "engines/*"
+  ],
+  "scripts": {
+    "dev": "npm run dev --workspace @rich-bizness/web",
+    "build": "npm run validate && npm run build --workspace @rich-bizness/web",
+    "preview": "npm run preview --workspace @rich-bizness/web",
+    "typecheck": "tsc -p tsconfig.base.json --noEmit",
+    "validate": "node scripts/validate-env.mjs && node scripts/validate-routes.mjs",
+    "test": "npm run typecheck"
+  },
+  "engines": {
+    "node": "24.x"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.2",
+    "vite": "^7.1.7"
+  }
+}

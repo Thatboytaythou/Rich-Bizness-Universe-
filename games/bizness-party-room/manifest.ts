@@ -1,0 +1,1 @@
+export default Object.freeze({slug:'bizness-party-room',title:'Bizness Party Room',genre:'party',route:'/games/bizness-party-room/',entry:'./game.ts',saveNamespace:'rb.bizness-party-room',runtime:'multiplayer-room',mechanics:['party rounds','room voting','social challenges'],standalone:true,status:'building'});

@@ -1,0 +1,1 @@
+export default Object.freeze({slug:'rich-runner',title:'Rich Runner',genre:'arcade',route:'/games/rich-runner/',entry:'./game.ts',saveNamespace:'rb.rich-runner',runtime:'precision-runner',mechanics:['jump timing','route branching','streak scoring'],standalone:true,status:'building'});

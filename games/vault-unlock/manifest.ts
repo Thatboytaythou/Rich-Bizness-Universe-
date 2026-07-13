@@ -1,0 +1,1 @@
+export default Object.freeze({slug:'vault-unlock',title:'Vault Unlock',genre:'arcade',route:'/games/vault-unlock/',entry:'./game.ts',saveNamespace:'rb.vault-unlock',runtime:'puzzle-arcade',mechanics:['code puzzles','timed locks','vault rewards'],standalone:true,status:'building'});

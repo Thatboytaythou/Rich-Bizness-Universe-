@@ -1,0 +1,8 @@
+import { supabase } from './supabase.js';
+
+const form=document.querySelector('#authForm');const status=document.querySelector('#authStatus');const email=document.querySelector('#email');const password=document.querySelector('#password');const displayName=document.querySelector('#displayName');
+const next=(()=>{const value=new URLSearchParams(location.search).get('next');return value&&value.startsWith('/')&&!value.startsWith('//')?value:'/';})();
+function setStatus(message,error=false){status.textContent=message;status.style.color=error?'#ff8b8b':'#72ff58'}
+form.addEventListener('submit',async event=>{event.preventDefault();const mode=event.submitter?.value||'signin';setStatus(mode==='signup'?'CREATING RICH ID…':'TAPPING IN…');const credentials={email:email.value.trim(),password:password.value};const result=mode==='signup'?await supabase.auth.signUp({...credentials,options:{data:{display_name:displayName.value.trim()||'Rich Member'}}}):await supabase.auth.signInWithPassword(credentials);if(result.error){setStatus(result.error.message,true);return}if(mode==='signup'&&!result.data.session){setStatus('CHECK YOUR EMAIL TO VERIFY YOUR RICH ID');return}location.assign(next)});
+document.querySelector('#recoverButton').addEventListener('click',async()=>{if(!email.value.trim()){setStatus('ENTER YOUR EMAIL FIRST',true);return}const {error}=await supabase.auth.resetPasswordForEmail(email.value.trim(),{redirectTo:`${location.origin}/tap-in.html?mode=recovery`});setStatus(error?error.message:'PASSWORD RESET LINK SENT',Boolean(error))});
+const {data:{session}}=await supabase.auth.getSession();if(session) setStatus('ALREADY TAPPED IN');

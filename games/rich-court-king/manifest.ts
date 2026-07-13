@@ -1,0 +1,1 @@
+export default Object.freeze({slug:'rich-court-king',title:'Rich Court King',genre:'sports',route:'/games/rich-court-king/',entry:'./game.ts',saveNamespace:'rb.rich-court-king',runtime:'basketball-sim',mechanics:['shot timing','dribble moves','court progression'],standalone:true,status:'building'});

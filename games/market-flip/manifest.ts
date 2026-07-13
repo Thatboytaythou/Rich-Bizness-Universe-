@@ -1,0 +1,1 @@
+export default Object.freeze({slug:'market-flip',title:'Market Flip',genre:'strategy',route:'/games/market-flip/',entry:'./game.ts',saveNamespace:'rb.market-flip',runtime:'market-sim',mechanics:['buy-sell timing','trend reading','portfolio growth'],standalone:true,status:'building'});

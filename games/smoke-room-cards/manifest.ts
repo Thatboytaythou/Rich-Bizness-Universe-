@@ -1,0 +1,1 @@
+export default Object.freeze({slug:'smoke-room-cards',title:'Smoke Room Cards',genre:'party',route:'/games/smoke-room-cards/',entry:'./game.ts',saveNamespace:'rb.smoke-room-cards',runtime:'card-room',mechanics:['turn-based cards','room rules','multiplayer rounds'],standalone:true,status:'building'});

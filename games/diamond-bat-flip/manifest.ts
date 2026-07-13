@@ -1,0 +1,1 @@
+export default Object.freeze({slug:'diamond-bat-flip',title:'Diamond Bat Flip',genre:'sports',route:'/games/diamond-bat-flip/',entry:'./game.ts',saveNamespace:'rb.diamond-bat-flip',runtime:'sports-timing',mechanics:['pitch timing','power swings','bat-flip scoring'],standalone:true,status:'building'});

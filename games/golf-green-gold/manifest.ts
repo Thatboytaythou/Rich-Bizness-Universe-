@@ -1,0 +1,1 @@
+export default Object.freeze({slug:'golf-green-gold',title:'Golf Green Gold',genre:'sports',route:'/games/golf-green-gold/',entry:'./game.ts',saveNamespace:'rb.golf-green-gold',runtime:'golf-sim',mechanics:['swing timing','club selection','course scoring'],standalone:true,status:'building'});

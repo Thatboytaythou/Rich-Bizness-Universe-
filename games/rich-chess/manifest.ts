@@ -1,0 +1,1 @@
+export default Object.freeze({slug:'rich-chess',title:'Rich Chess',genre:'strategy',route:'/games/rich-chess/',entry:'./game.ts',saveNamespace:'rb.rich-chess',runtime:'turn-based-board',mechanics:['legal move engine','timed matches','ranked rooms'],standalone:true,status:'building'});

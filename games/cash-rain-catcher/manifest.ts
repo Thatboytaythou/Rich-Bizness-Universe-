@@ -1,0 +1,1 @@
+export default Object.freeze({slug:'cash-rain-catcher',title:'Cash Rain Catcher',genre:'arcade',route:'/games/cash-rain-catcher/',entry:'./game.ts',saveNamespace:'rb.cash-rain-catcher',runtime:'arcade-canvas',mechanics:['falling-cash collection','combo multipliers','hazard dodging'],standalone:true,status:'building'});

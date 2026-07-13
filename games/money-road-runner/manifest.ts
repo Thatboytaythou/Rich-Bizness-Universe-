@@ -1,0 +1,1 @@
+export default Object.freeze({slug:'money-road-runner',title:'Money Road Runner',genre:'arcade',route:'/games/money-road-runner/',entry:'./game.ts',saveNamespace:'rb.money-road-runner',runtime:'endless-runner',mechanics:['lane switching','cash collection','obstacle chains'],standalone:true,status:'building'});

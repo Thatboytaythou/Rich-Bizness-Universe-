@@ -1,0 +1,1 @@
+export default Object.freeze({slug:'avatar-free-roam',title:'Avatar Free Roam',genre:'simulation',route:'/games/avatar-free-roam/',entry:'./game.ts',saveNamespace:'rb.avatar-free-roam',runtime:'three-world',mechanics:['third-person movement','world exploration','avatar interactions'],standalone:true,status:'building'});

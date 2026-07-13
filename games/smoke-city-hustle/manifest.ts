@@ -1,0 +1,1 @@
+export default Object.freeze({slug:'smoke-city-hustle',title:'Smoke City Hustle',genre:'racing',route:'/games/smoke-city-hustle/',entry:'./game.ts',saveNamespace:'rb.smoke-city-hustle',runtime:'city-racer',mechanics:['street racing','vehicle upgrades','city routes'],standalone:true,status:'building'});
