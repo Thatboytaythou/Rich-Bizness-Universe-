@@ -1,0 +1,77 @@
+export type Json = string | number | boolean | null | { [key: string]: Json | undefined } | Json[];
+
+type Row = Record<string, Json | undefined>;
+type Table = { Row: Row; Insert: Row; Update: Row; Relationships: [] };
+
+export type Database = {
+  public: {
+    Tables: {
+      profiles: Table;
+      public_profile_cards: Table;
+      followers: Table;
+      feed_posts: Table;
+      feed_comments: Table;
+      feed_post_likes: Table;
+      feed_post_views: Table;
+      uploads: Table;
+      upload_processing_queue: Table;
+      music_tracks: Table;
+      podcast_episodes: Table;
+      podcast_shows: Table;
+      radio_stations: Table;
+      live_streams: Table;
+      live_stream_members: Table;
+      live_chat_messages: Table;
+      live_reactions: Table;
+      live_recordings: Table;
+      products: Table;
+      store_orders: Table;
+      store_seller_profiles: Table;
+      games: Table;
+      game_runtime_manifests: Table;
+      game_sessions: Table;
+      game_scores: Table;
+      game_player_progress: Table;
+      meta_avatars: Table;
+      avatar_models: Table;
+      avatar_animation_clips: Table;
+      avatar_controller_profiles: Table;
+      user_avatar_loadouts: Table;
+      avatar_motion_state: Table;
+      meta_worlds: Table;
+      meta_rooms: Table;
+      dm_threads: Table;
+      dm_thread_members: Table;
+      dm_messages: Table;
+      dm_message_attachments: Table;
+      dm_message_reactions: Table;
+      dm_message_reads: Table;
+      dm_typing_status: Table;
+      dm_call_sessions: Table;
+      dm_call_participants: Table;
+      rich_notifications: Table;
+      user_levels: Table;
+      xp_events: Table;
+      xp_event_queue: Table;
+      xp_section_progress: Table;
+      route_registry: Table;
+      route_access_rules: Table;
+      storage_bucket_routes: Table;
+      app_env_contract: Table;
+      app_runtime_modules: Table;
+    };
+    Views: {
+      active_brand_assets: Table;
+      creator_products: Table;
+    };
+    Functions: {
+      rb_award_xp: { Args: Record<string, Json | undefined>; Returns: Json };
+      rb_is_admin: { Args: { p_min_permission?: number }; Returns: boolean };
+      rb_is_dm_thread_member: { Args: { p_thread_id: string }; Returns: boolean };
+      rb_join_game_room: { Args: { p_room_code: string }; Returns: Row };
+      save_meta_avatar: { Args: Record<string, Json | undefined>; Returns: Row };
+    };
+    Enums: Record<string, never>;
+    CompositeTypes: Record<string, never>;
+  };
+};
