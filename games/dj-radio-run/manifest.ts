@@ -1,0 +1,1 @@
+export default Object.freeze({slug:'dj-radio-run',title:'DJ Radio Run',genre:'arcade',route:'/games/dj-radio-run/',entry:'./game.ts',saveNamespace:'rb.dj-radio-run',runtime:'rhythm-runner',mechanics:['beat lanes','track switching','crowd meter'],standalone:true,status:'building'});
