@@ -1,0 +1,1 @@
+export default Object.freeze({slug:'hero-villain-showdown',title:'Hero Villain Showdown',genre:'fighting',route:'/games/hero-villain-showdown/',entry:'./game.ts',saveNamespace:'rb.hero-villain-showdown',runtime:'power-fighter',mechanics:['power selection','arena combat','hero-villain campaigns'],standalone:true,status:'building'});
