@@ -1,0 +1,1 @@
+export default Object.freeze({slug:'empire-builder',title:'Empire Builder',genre:'strategy',route:'/games/empire-builder/',entry:'./game.ts',saveNamespace:'rb.empire-builder',runtime:'strategy-sim',mechanics:['business growth','resource planning','city upgrades'],standalone:true,status:'building'});
