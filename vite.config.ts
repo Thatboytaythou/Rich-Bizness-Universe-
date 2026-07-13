@@ -5,7 +5,6 @@ const webRoot = resolve(__dirname, 'apps/web');
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, __dirname, '');
-
   const runtimeEnv = {
     NEXT_PUBLIC_SUPABASE_URL: env.NEXT_PUBLIC_SUPABASE_URL ?? '',
     NEXT_PUBLIC_SUPABASE_ANON_KEY: env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? '',
@@ -19,9 +18,7 @@ export default defineConfig(({ mode }) => {
     root: webRoot,
     publicDir: resolve(webRoot, 'public'),
     envDir: __dirname,
-    define: {
-      __RB_PUBLIC_ENV__: JSON.stringify(runtimeEnv)
-    },
+    define: { __RB_PUBLIC_ENV__: JSON.stringify(runtimeEnv) },
     build: {
       outDir: resolve(__dirname, 'apps/web/dist'),
       emptyOutDir: true,
@@ -29,7 +26,9 @@ export default defineConfig(({ mode }) => {
       target: 'es2022',
       rollupOptions: {
         input: {
-          index: resolve(webRoot, 'index.html')
+          index: resolve(webRoot, 'index.html'),
+          profile: resolve(webRoot, 'profile.html'),
+          gaming: resolve(webRoot, 'gaming.html')
         }
       }
     },
