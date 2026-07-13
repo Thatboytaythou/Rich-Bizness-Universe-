@@ -1,0 +1,1 @@
+export default Object.freeze({slug:'treehouse-ride',title:'Treehouse Ride',genre:'racing',route:'/games/treehouse-ride/',entry:'./game.ts',saveNamespace:'rb.treehouse-ride',runtime:'ride-racer',mechanics:['track riding','branch paths','stunt scoring'],standalone:true,status:'building'});
