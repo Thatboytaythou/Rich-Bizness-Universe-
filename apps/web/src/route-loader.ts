@@ -12,7 +12,7 @@ const pageModules: Record<string, () => Promise<PageModule>> = {
   meta: () => import('./pages/meta/meta.page'),
   creator: () => import('./pages/creator/creator.page'),
   admin: () => import('./pages/admin/admin.page'),
-  'edit-profile': routeShell,
+  'edit-profile': () => import('./features/edit-profile/edit-profile.page'),
   settings: routeShell,
   notifications: routeShell,
   messages: routeShell,
