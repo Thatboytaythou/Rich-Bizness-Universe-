@@ -10,9 +10,33 @@
     {"source": "/portal", "destination": "/portal.html"},
     {"source": "/tap-in", "destination": "/tap-in.html"},
     {"source": "/profile", "destination": "/profile.html"},
-    {"source": "/gaming", "destination": "/gaming.html"}
+    {"source": "/edit-profile", "destination": "/edit-profile.html"},
+    {"source": "/settings", "destination": "/settings.html"},
+    {"source": "/notifications", "destination": "/notifications.html"},
+    {"source": "/messages", "destination": "/messages.html"},
+    {"source": "/search", "destination": "/search.html"},
+    {"source": "/upload", "destination": "/upload.html"},
+    {"source": "/creator", "destination": "/creator.html"},
+    {"source": "/admin", "destination": "/admin.html"},
+    {"source": "/feed", "destination": "/feed.html"},
+    {"source": "/gallery", "destination": "/gallery.html"},
+    {"source": "/live", "destination": "/live.html"},
+    {"source": "/watch", "destination": "/watch.html"},
+    {"source": "/music", "destination": "/music.html"},
+    {"source": "/sports", "destination": "/sports.html"},
+    {"source": "/store", "destination": "/store.html"},
+    {"source": "/gaming", "destination": "/gaming.html"},
+    {"source": "/meta", "destination": "/meta.html"},
+    {"source": "/avatar", "destination": "/avatar.html"}
   ],
   "headers": [
+    {
+      "source": "/api/(.*)",
+      "headers": [
+        {"key": "Cache-Control", "value": "no-store"},
+        {"key": "X-Content-Type-Options", "value": "nosniff"}
+      ]
+    },
     {
       "source": "/(.*)",
       "headers": [
