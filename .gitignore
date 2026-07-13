@@ -1,0 +1,9 @@
+node_modules/
+apps/web/dist/
+dist/
+.vercel/
+coverage/
+playwright-report/
+test-results/
+.DS_Store
+*.log
