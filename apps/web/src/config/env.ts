@@ -7,22 +7,20 @@ type BrowserEnv = Readonly<{
   environment: 'development' | 'preview' | 'production';
 }>;
 
-function required(name: keyof ImportMetaEnv): string {
-  const value = import.meta.env[name];
-  if (!value || typeof value !== 'string') throw new Error(`Missing browser environment variable: ${name}`);
+function required(name: keyof typeof __RB_PUBLIC_ENV__): string {
+  const value = __RB_PUBLIC_ENV__[name];
+  if (!value || typeof value !== 'string') throw new Error(`Missing browser environment value: ${name}`);
   return value;
 }
 
-const environment = required('VITE_ENVIRONMENT');
-if (!['development', 'preview', 'production'].includes(environment)) {
-  throw new Error(`Invalid VITE_ENVIRONMENT: ${environment}`);
-}
+const rawEnvironment = __RB_PUBLIC_ENV__.APP_ENVIRONMENT || 'development';
+const environment = rawEnvironment === 'production' || rawEnvironment === 'preview' ? rawEnvironment : 'development';
 
 export const ENV: BrowserEnv = Object.freeze({
-  supabaseUrl: required('VITE_SUPABASE_URL'),
-  supabasePublishableKey: required('VITE_SUPABASE_PUBLISHABLE_KEY'),
-  livekitUrl: required('VITE_LIVEKIT_URL'),
-  appUrl: required('VITE_APP_URL'),
-  appName: required('VITE_APP_NAME'),
-  environment: environment as BrowserEnv['environment']
+  supabaseUrl: required('NEXT_PUBLIC_SUPABASE_URL'),
+  supabasePublishableKey: required('NEXT_PUBLIC_SUPABASE_ANON_KEY'),
+  livekitUrl: required('LIVEKIT_URL'),
+  appUrl: __RB_PUBLIC_ENV__.APP_URL || globalThis.location?.origin || '',
+  appName: __RB_PUBLIC_ENV__.APP_NAME || 'Rich Bizness Universe',
+  environment
 });
