@@ -14,6 +14,8 @@ export default defineConfig(({ mode }) => {
     APP_ENVIRONMENT: env.VERCEL_ENV ?? mode
   };
 
+  const page = (name: string) => resolve(webRoot, `${name}.html`);
+
   return {
     root: webRoot,
     publicDir: resolve(webRoot, 'public'),
@@ -26,18 +28,28 @@ export default defineConfig(({ mode }) => {
       target: 'es2022',
       rollupOptions: {
         input: {
-          index: resolve(webRoot, 'index.html'),
-          profile: resolve(webRoot, 'profile.html'),
-          gaming: resolve(webRoot, 'gaming.html'),
-          feed: resolve(webRoot, 'feed.html'),
-          gallery: resolve(webRoot, 'gallery.html'),
-          live: resolve(webRoot, 'live.html'),
-          music: resolve(webRoot, 'music.html'),
-          sports: resolve(webRoot, 'sports.html'),
-          store: resolve(webRoot, 'store.html'),
-          meta: resolve(webRoot, 'meta.html'),
-          creator: resolve(webRoot, 'creator.html'),
-          admin: resolve(webRoot, 'admin.html')
+          index: page('index'),
+          portal: page('portal'),
+          tapIn: page('tap-in'),
+          profile: page('profile'),
+          editProfile: page('edit-profile'),
+          settings: page('settings'),
+          notifications: page('notifications'),
+          messages: page('messages'),
+          search: page('search'),
+          upload: page('upload'),
+          creator: page('creator'),
+          admin: page('admin'),
+          feed: page('feed'),
+          gallery: page('gallery'),
+          live: page('live'),
+          watch: page('watch'),
+          music: page('music'),
+          sports: page('sports'),
+          store: page('store'),
+          gaming: page('gaming'),
+          meta: page('meta'),
+          avatar: page('avatar')
         }
       }
     },
