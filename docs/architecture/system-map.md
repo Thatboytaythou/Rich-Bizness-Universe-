@@ -2,6 +2,8 @@
 
 This document is the source of truth for the rebuild. The platform is one connected product, not a collection of disconnected pages.
 
+The complete live database, Auth, Storage, Realtime, migration, table-domain, and GitHub ownership map is maintained in [`docs/architecture/supabase-master-map.md`](./supabase-master-map.md). The machine-readable introspection query is [`supabase/schema-map.sql`](../../supabase/schema-map.sql).
+
 ## Root architecture
 
 ```text
@@ -11,7 +13,7 @@ Rich-Bizness-Universe-/
 │   └── api/          # Vercel server functions and protected integrations
 ├── packages/         # Shared config, database, UI, auth, XP, realtime, media, payments, types
 ├── engines/          # Portal, avatar, Meta, Live, media, and shared game runtimes
-├── games/            # 24 individual playable games
+├── games/            # 24 individual game products
 ├── supabase/         # Migrations, Edge Functions, policies, triggers, storage, tests, generated types
 ├── infrastructure/   # Vercel, domains, security, monitoring, feature flags
 ├── scripts/          # Validation, sync, audits, production smoke, release
@@ -31,6 +33,8 @@ Rich-Bizness-Universe-/
 - Route registry: `packages/config/src/routes.ts`
 - Table registry: `packages/config/src/tables.ts`
 - Bucket registry: `packages/config/src/buckets.ts`
+- Complete data map: `docs/architecture/supabase-master-map.md`
+- Schema introspection: `supabase/schema-map.sql`
 - Avatar runtime: `engines/avatar/`
 - Portal runtime: `engines/portal/`
 - Meta runtime: `engines/meta/`
@@ -141,7 +145,7 @@ games/<slug>/
 └── tests/
 ```
 
-All 24 game folders must have separate mechanics, rules, controls, scoring, saves, mobile behavior, and visual identity even when they share low-level engine utilities.
+All 24 game folders must have separate mechanics, rules, controls, scoring, saves, mobile behavior, and visual identity even when they share low-level engine utilities. A game is playable only when its own database status and real runtime both prove it.
 
 ## Supabase contract
 
@@ -154,8 +158,9 @@ GitHub owns frontend and server code. Vercel builds and serves that code. Supaba
 - Frontend: `apps/web`
 - Server functions: `apps/api`
 - Framework: Vite
-- Public environment values use `VITE_` prefixes.
-- Secrets never use `VITE_` and never enter browser bundles.
+- Existing public deployment names are `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `LIVEKIT_URL`, `APP_URL`, `APP_NAME`, and `APP_ENVIRONMENT`.
+- Vite explicitly injects only the approved browser-safe values.
+- Service-role, LiveKit API secret, Stripe secret, webhook secret, and signing secrets never enter browser bundles.
 - Production deployment is blocked when required environment variables, routes, game manifests, or imports are missing.
 
 ## No empty-folder deception
