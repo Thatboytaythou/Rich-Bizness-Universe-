@@ -1,0 +1,1 @@
+export default Object.freeze({slug:'smoke-tap',title:'Smoke Tap',genre:'arcade',route:'/games/smoke-tap/',entry:'./game.ts',saveNamespace:'rb.smoke-tap',runtime:'tap-arcade',mechanics:['tap timing','smoke chains','score multipliers'],standalone:true,status:'building'});
