@@ -29,11 +29,7 @@ export default defineConfig(({ mode }) => {
       target: 'es2022',
       rollupOptions: {
         input: {
-          index: resolve(webRoot, 'index.html'),
-          portal: resolve(webRoot, 'portal.html'),
-          tapIn: resolve(webRoot, 'tap-in.html'),
-          profile: resolve(webRoot, 'profile.html'),
-          gaming: resolve(webRoot, 'gaming.html')
+          index: resolve(webRoot, 'index.html')
         }
       }
     },
