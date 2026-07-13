@@ -3,7 +3,28 @@ import { resolve } from 'node:path';
 
 const root = process.cwd();
 const implementedEntries = [
-  'apps/web/index.html'
+  'apps/web/index.html',
+  'apps/web/portal.html',
+  'apps/web/tap-in.html',
+  'apps/web/profile.html',
+  'apps/web/edit-profile.html',
+  'apps/web/settings.html',
+  'apps/web/notifications.html',
+  'apps/web/messages.html',
+  'apps/web/search.html',
+  'apps/web/upload.html',
+  'apps/web/creator.html',
+  'apps/web/admin.html',
+  'apps/web/feed.html',
+  'apps/web/gallery.html',
+  'apps/web/live.html',
+  'apps/web/watch.html',
+  'apps/web/music.html',
+  'apps/web/sports.html',
+  'apps/web/store.html',
+  'apps/web/gaming.html',
+  'apps/web/meta.html',
+  'apps/web/avatar.html'
 ];
 
 const missing = [];
@@ -20,4 +41,4 @@ if (missing.length) {
   process.exit(1);
 }
 
-console.log(`Route contract valid for ${implementedEntries.length} implemented entry point.`);
+console.log(`Route contract valid for ${implementedEntries.length} implemented entry points.`);
