@@ -45,6 +45,16 @@ img, video, canvas { display: block; max-width: 100%; }
   background: linear-gradient(135deg, var(--rb-green), var(--rb-gold));
   border-color: transparent;
 }
+.route-shell { display: grid; align-content: start; gap: 22px; padding-top: calc(var(--rb-safe-top) + 22px); }
+.route-shell__header { display: flex; justify-content: space-between; gap: 16px; font-size: .72rem; font-weight: 900; letter-spacing: .16em; color: var(--rb-gold); }
+.route-shell__back { color: var(--rb-green); }
+.route-shell__panel { width: min(100%, 760px); margin: 8vh auto 0; padding: clamp(24px, 6vw, 54px); }
+.route-shell__eyebrow { margin: 0 0 14px; color: var(--rb-gold); font-size: .68rem; font-weight: 900; letter-spacing: .14em; }
+.route-shell h1 { margin: 0; font-size: clamp(2.6rem, 12vw, 6rem); line-height: .9; letter-spacing: -.06em; }
+.route-shell__copy { max-width: 54ch; color: rgba(255,255,255,.72); line-height: 1.6; }
+.route-shell__count { display: block; margin-top: 24px; font-size: clamp(3rem, 16vw, 7rem); color: var(--rb-green); text-shadow: 0 0 28px rgba(114,255,88,.3); }
+.route-shell__nav { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 28px; }
+.route-shell__nav a { padding: 12px 15px; border: 1px solid var(--rb-line); border-radius: 999px; font-size: .72rem; font-weight: 900; letter-spacing: .08em; background: rgba(0,0,0,.3); }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: 0.001ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; }
 }
