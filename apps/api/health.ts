@@ -1,7 +1,11 @@
-import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { supabaseAdmin } from './_shared/supabase-admin';
 
-export default async function handler(_req: VercelRequest, res: VercelResponse) {
+type ApiResponse = {
+  status(code: number): ApiResponse;
+  json(payload: unknown): unknown;
+};
+
+export default async function handler(_req: unknown, res: ApiResponse) {
   const startedAt = Date.now();
 
   try {
