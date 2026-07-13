@@ -1,0 +1,1 @@
+export default Object.freeze({slug:'portal-room-rush',title:'Portal Room Rush',genre:'simulation',route:'/games/portal-room-rush/',entry:'./game.ts',saveNamespace:'rb.portal-room-rush',runtime:'room-rush',mechanics:['room traversal','portal puzzles','time challenges'],standalone:true,status:'building'});
