@@ -1,0 +1,1 @@
+export default Object.freeze({slug:'portal-dash',title:'Portal Dash',genre:'arcade',route:'/games/portal-dash/',entry:'./game.ts',saveNamespace:'rb.portal-dash',runtime:'portal-runner',mechanics:['portal timing','dimension lanes','speed boosts'],standalone:true,status:'building'});
