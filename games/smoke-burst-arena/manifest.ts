@@ -1,0 +1,1 @@
+export default Object.freeze({slug:'smoke-burst-arena',title:'Smoke Burst Arena',genre:'fighting',route:'/games/smoke-burst-arena/',entry:'./game.ts',saveNamespace:'rb.smoke-burst-arena',runtime:'arena-fighter',mechanics:['smoke powers','arena knockback','burst combos'],standalone:true,status:'building'});
