@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#020402">
+  <title>Admin Command | Rich Bizness</title>
+  <link rel="stylesheet" href="/src/admin.css">
+</head>
+<body>
+  <main class="admin-shell">
+    <header class="admin-top">
+      <a class="brand" href="/"><span class="brand-mark">RB</span><span><b>RICH BIZNESS</b><small>ADMIN COMMAND</small></span></a>
+      <nav><a href="/">HOME</a><a href="/creator.html">CREATOR</a><a href="/admin.html" aria-current="page">ADMIN</a><a href="/profile.html">PROFILE</a></nav>
+    </header>
+
+    <section class="hero">
+      <span class="eyebrow">ONE PLATFORM OPERATIONS OWNER</span>
+      <h1>CONTROL THE UNIVERSE.</h1>
+      <p>Announcements, feature flags, moderation, content review, health checks, and audit history stay inside one authenticated command surface.</p>
+      <div class="status-row"><span id="adminStatus" class="pill">CHECKING ACCESS</span><span id="adminRole" class="pill muted">NO ROLE LOADED</span></div>
+    </section>
+
+    <section class="metric-grid">
+      <article><span>OPEN REPORTS</span><strong id="reportMetric">—</strong></article>
+      <article><span>REVIEW QUEUE</span><strong id="reviewMetric">—</strong></article>
+      <article><span>ACTIVE FLAGS</span><strong id="flagMetric">—</strong></article>
+      <article><span>HEALTH SIGNALS</span><strong id="healthMetric">—</strong></article>
+    </section>
+
+    <section class="admin-grid">
+      <div class="stack">
+        <article class="panel">
+          <div class="panel-head"><div><span class="eyebrow">PLATFORM VOICE</span><h2>Announcements</h2></div><span id="announcementCount" class="count">0</span></div>
+          <form id="announcementForm" class="form">
+            <input id="announcementTitle" maxlength="140" placeholder="Announcement title" required>
+            <textarea id="announcementBody" maxlength="1200" placeholder="What does the universe need to know?"></textarea>
+            <div class="two"><input id="announcementEmoji" maxlength="8" placeholder="🔥"><select id="announcementPriority"><option value="normal">NORMAL</option><option value="high">HIGH</option><option value="critical">CRITICAL</option></select></div>
+            <button class="button primary" type="submit">PUBLISH ANNOUNCEMENT</button>
+          </form>
+          <div id="announcementList" class="list"></div>
+        </article>
+
+        <article class="panel">
+          <div class="panel-head"><div><span class="eyebrow">MODERATION</span><h2>Reports</h2></div><span id="reportCount" class="count">0</span></div>
+          <div id="reportList" class="list"></div>
+        </article>
+
+        <article class="panel">
+          <div class="panel-head"><div><span class="eyebrow">CONTENT CONTROL</span><h2>Review Queue</h2></div><span id="reviewCount" class="count">0</span></div>
+          <div id="reviewList" class="list"></div>
+        </article>
+      </div>
+
+      <aside class="stack">
+        <article class="panel">
+          <div class="panel-head"><div><span class="eyebrow">RELEASE CONTROL</span><h2>Feature Flags</h2></div><span id="flagCount" class="count">0</span></div>
+          <div id="flagList" class="list"></div>
+        </article>
+
+        <article class="panel">
+          <div class="panel-head"><div><span class="eyebrow">SYSTEM STATUS</span><h2>Health</h2></div><span id="healthCount" class="count">0</span></div>
+          <div id="healthList" class="list"></div>
+        </article>
+
+        <article class="panel">
+          <div class="panel-head"><div><span class="eyebrow">ACCOUNTABILITY</span><h2>Audit Trail</h2></div><span id="auditCount" class="count">0</span></div>
+          <div id="auditList" class="list"></div>
+        </article>
+      </aside>
+    </section>
+
+    <footer><span id="adminFooter">CONNECTING ADMIN COMMAND</span></footer>
+  </main>
+  <script type="module" src="/src/admin.js"></script>
+</body>
+</html>
