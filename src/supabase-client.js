@@ -12,3 +12,8 @@ export const supabase = settings.url && settings.publishableKey
       }
     })
   : null;
+
+if (typeof window !== 'undefined' && !window.__RB_APP_SHELL_BOOTED__) {
+  window.__RB_APP_SHELL_BOOTED__ = true;
+  queueMicrotask(() => import('./app-shell.js'));
+}
