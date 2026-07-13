@@ -1,0 +1,1 @@
+export default Object.freeze({slug:'gym-grind-reps',title:'Gym Grind Reps',genre:'sports',route:'/games/gym-grind-reps/',entry:'./game.ts',saveNamespace:'rb.gym-grind-reps',runtime:'fitness-challenge',mechanics:['rep timing','stamina management','workout streaks'],standalone:true,status:'building'});
