@@ -1,0 +1,12 @@
+{
+  "name": "@rich-bizness/config",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "exports": {
+    "./routes": "./src/routes.ts",
+    "./tables": "./src/tables.ts",
+    "./buckets": "./src/buckets.ts",
+    "./games": "./src/games.ts"
+  }
+}
