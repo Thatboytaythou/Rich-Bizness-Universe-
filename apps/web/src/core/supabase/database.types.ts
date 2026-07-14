@@ -42,7 +42,15 @@ export type Database = {
       avatar_items: Table;
       avatar_inventory: Table;
       meta_worlds: Table;
+      meta_portals: Table;
+      meta_visits: Table;
       meta_rooms: Table;
+      meta_room_members: Table;
+      meta_chat_messages: Table;
+      meta_world_likes: Table;
+      meta_items: Table;
+      meta_inventory: Table;
+      meta_stream_links: Table;
       dm_threads: Table;
       dm_thread_members: Table;
       dm_messages: Table;
@@ -80,6 +88,9 @@ export type Database = {
       rb_watch_feed: { Args: { p_limit?: number }; Returns: Row[] };
       rb_save_avatar_studio: { Args: { p_display_name: string; p_preset_key: string; p_aura: string; p_outfit?: Json; p_accessories?: Json; p_smoke?: Json; p_emotes?: Json; p_character_type?: string }; Returns: Json };
       rb_sync_avatar_motion: { Args: { p_position: Json; p_rotation: Json; p_velocity: Json; p_locomotion_state: string; p_action_state?: string; p_active_clip_key?: string; p_input_state?: Json; p_sequence?: number }; Returns: Json };
+      rb_enter_meta_world: { Args: { p_world_id: string }; Returns: Json };
+      rb_join_meta_room: { Args: { p_room_id: string }; Returns: Json };
+      rb_leave_meta_room: { Args: { p_room_id: string }; Returns: Json };
       rb_is_admin: { Args: { p_min_permission?: number }; Returns: boolean };
       rb_is_dm_thread_member: { Args: { p_thread_id: string }; Returns: boolean };
       rb_join_game_room: { Args: { p_room_code: string }; Returns: Row };
