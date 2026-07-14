@@ -20,6 +20,8 @@ const implementedEntries = [
   'apps/web/live.html',
   'apps/web/watch.html',
   'apps/web/music.html',
+  'apps/web/podcast.html',
+  'apps/web/radio.html',
   'apps/web/sports.html',
   'apps/web/store.html',
   'apps/web/gaming.html',
