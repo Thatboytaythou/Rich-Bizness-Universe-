@@ -1,10 +1,22 @@
-import { ROUTES } from '@rb/config/routes';
-import { mountSectionPage } from '../shared/section-page';
+import { supabase } from '../../core/supabase/client';
+import '../../styles/deep-sections.css';
 
-export const mount = () => mountSectionPage({
-  title: 'Gallery',
-  route: ROUTES.gallery,
-  table: 'feed_posts',
-  section: 'gallery',
-  emptyMessage: 'No gallery drops yet.'
-});
+type GalleryRow={id:string;user_id:string;display_name:string|null;username:string|null;title:string|null;body:string|null;media_url:string|null;file_url:string|null;thumbnail_url:string|null;cover_url:string|null;media_type:string|null;post_type:string|null;like_count:number|null;comment_count:number|null;view_count:number|null;created_at:string|null};
+const esc=(v:string|null|undefined)=>(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]??c));
+const media=(row:GalleryRow)=>row.media_url||row.file_url||row.thumbnail_url||row.cover_url||'';
+
+export async function mount():Promise<void>{
+ const root=document.querySelector<HTMLElement>('#app');if(!root)throw new Error('Missing #app');
+ const {data:{session}}=await supabase.auth.getSession();
+ root.innerHTML=`<main class="deep-shell"><div class="deep-wrap"><header class="deep-top"><a href="/portal.html">←</a><div><p>RICH BIZNESS VISUAL DISTRICT</p><h1>Gallery</h1></div><span class="deep-live">REALTIME</span></header><section class="deep-hero" style="--hero-image:url('/images/brand/IMG_5997.png')"><div><small>ART • PHOTOS • MOTION • CREATOR DROPS</small><h2>THE VISUAL UNIVERSE</h2><p>Discover original creator visuals, cinematic uploads, photography, artwork, and motion drops connected to every Rich Bizness identity.</p><div class="deep-actions"><a class="deep-btn primary" href="/upload.html?route=gallery">DROP VISUAL</a><a class="deep-btn" href="/search.html?category=gallery">DISCOVER CREATORS</a></div></div></section><nav id="tabs" class="deep-tabs"></nav><section class="deep-stats" id="stats"></section><section id="grid" class="deep-grid"></section><p id="status" class="deep-status"></p></div></main>`;
+ const grid=document.querySelector<HTMLElement>('#grid')!,tabs=document.querySelector<HTMLElement>('#tabs')!,stats=document.querySelector<HTMLElement>('#stats')!,status=document.querySelector<HTMLElement>('#status')!;
+ let rows:GalleryRow[]=[];let lane='all';
+ const setStatus=(v:string)=>{status.textContent=v;setTimeout(()=>{if(status.textContent===v)status.textContent=''},2200)};
+ const lanes=[['all','ALL VISUALS'],['image','PHOTOS + ART'],['video','MOTION'],['featured','FEATURED'],['mine','MY DROPS']];
+ const visible=()=>rows.filter(r=>lane==='all'||(lane==='image'&&(r.media_type?.startsWith('image')||r.post_type==='image'))||(lane==='video'&&(r.media_type?.startsWith('video')||r.post_type==='video'))||(lane==='featured'&&Number((r as any).is_featured??0)>0)||(lane==='mine'&&r.user_id===session?.user.id));
+ const renderTabs=()=>{tabs.innerHTML=lanes.map(([key,label])=>`<button class="deep-tab ${lane===key?'active':''}" data-lane="${key}">${label}</button>`).join('');tabs.querySelectorAll<HTMLButtonElement>('[data-lane]').forEach(b=>b.onclick=()=>{lane=b.dataset.lane!;renderTabs();render();});};
+ const render=()=>{const list=visible();stats.innerHTML=`<article><small>VISUAL DROPS</small><strong>${rows.length}</strong></article><article><small>CREATORS</small><strong>${new Set(rows.map(r=>r.user_id)).size}</strong></article><article><small>LIKES</small><strong>${rows.reduce((n,r)=>n+(r.like_count??0),0).toLocaleString()}</strong></article><article><small>VIEWS</small><strong>${rows.reduce((n,r)=>n+(r.view_count??0),0).toLocaleString()}</strong></article>`;grid.innerHTML=list.length?list.map(r=>{const url=media(r),isVideo=r.media_type?.startsWith('video')||r.post_type==='video';return `<article class="deep-card"><div class="deep-card-media">${url?(isVideo?`<video src="${esc(url)}" poster="${esc(r.thumbnail_url||r.cover_url)}" controls playsinline></video>`:`<img src="${esc(url)}" alt="${esc(r.title||'Gallery visual')}" loading="lazy">`):''}<span>${esc((r.post_type||r.media_type||'VISUAL').toUpperCase())}</span></div><div class="deep-card-body"><h3>${esc(r.title||r.body||'Rich Visual')}</h3><p>${esc(r.display_name||r.username||'Rich Creator')}</p><div class="deep-card-meta"><span>♥ ${r.like_count??0} · ◌ ${r.comment_count??0}</span><span>◉ ${r.view_count??0}</span></div><div class="deep-card-actions"><a href="/profile.html?id=${r.user_id}">CREATOR</a><button data-like="${r.id}">LIKE</button></div></div></article>`}).join(''):'<div class="deep-empty">No visuals in this lane yet.</div>';grid.querySelectorAll<HTMLButtonElement>('[data-like]').forEach(b=>b.onclick=async()=>{if(!session){location.assign('/tap-in.html?next=/gallery.html');return;}const {error}=await supabase.rpc('rb_feed_toggle_like',{p_post_id:b.dataset.like!});if(error)setStatus(error.message);else await load();});};
+ const load=async()=>{const {data,error}=await supabase.from('feed_posts').select('id,user_id,display_name,username,title,body,media_url,file_url,thumbnail_url,cover_url,media_type,post_type,like_count,comment_count,view_count,is_featured,created_at').eq('section','gallery').order('created_at',{ascending:false}).limit(120);if(error){setStatus(error.message);return;}rows=(data??[]) as GalleryRow[];render();};
+ renderTabs();await load();
+ supabase.channel('gallery-universe').on('postgres_changes',{event:'*',schema:'public',table:'feed_posts',filter:'section=eq.gallery'},()=>void load()).subscribe();
+}
