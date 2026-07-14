@@ -79,6 +79,7 @@ export type Database = {
       rb_register_upload: { Args: { p_route_key: string; p_title: string; p_description: string; p_file_path: string; p_public_url: string; p_mime_type: string; p_file_size: number; p_visibility?: string; p_metadata?: Json }; Returns: Row };
       rb_watch_feed: { Args: { p_limit?: number }; Returns: Row[] };
       rb_save_avatar_studio: { Args: { p_display_name: string; p_preset_key: string; p_aura: string; p_outfit?: Json; p_accessories?: Json; p_smoke?: Json; p_emotes?: Json; p_character_type?: string }; Returns: Json };
+      rb_sync_avatar_motion: { Args: { p_position: Json; p_rotation: Json; p_velocity: Json; p_locomotion_state: string; p_action_state?: string; p_active_clip_key?: string; p_input_state?: Json; p_sequence?: number }; Returns: Json };
       rb_is_admin: { Args: { p_min_permission?: number }; Returns: boolean };
       rb_is_dm_thread_member: { Args: { p_thread_id: string }; Returns: boolean };
       rb_join_game_room: { Args: { p_room_code: string }; Returns: Row };
