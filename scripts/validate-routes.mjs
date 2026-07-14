@@ -4,7 +4,6 @@ import { resolve } from 'node:path';
 const root = process.cwd();
 const implementedEntries = [
   'apps/web/index.html',
-  'apps/web/portal.html',
   'apps/web/tap-in.html',
   'apps/web/profile.html',
   'apps/web/edit-profile.html',
