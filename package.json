@@ -20,6 +20,10 @@
   "engines": {
     "node": "24.x"
   },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.57.4",
+    "livekit-server-sdk": "^2.13.3"
+  },
   "devDependencies": {
     "typescript": "^5.9.2",
     "vite": "^7.1.7"
