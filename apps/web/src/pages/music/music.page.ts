@@ -1,5 +1,6 @@
 import { supabase } from '../../core/supabase/client';
 import '../../styles/rich-sound.css';
+import '../../styles/music-universe-redesign.css';
 
 type Row = Record<string, any>;
 const esc = (v: any) => String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c] ?? c));
@@ -107,4 +108,10 @@ export async function mount(): Promise<void> {
   const requested = new URLSearchParams(location.search).get('id');
   const initial = rows.find((x) => String(x.id) === requested) ?? rows[0];
   if (initial) await openTrack(initial); else hero.innerHTML = '<div class="sound-empty">No music releases yet.</div>';
+  window.addEventListener('pagehide', () => {
+    audio.pause();
+    audio.removeAttribute('src');
+    audio.load();
+    if (channel) void supabase.removeChannel(channel);
+  }, { once: true });
 }
