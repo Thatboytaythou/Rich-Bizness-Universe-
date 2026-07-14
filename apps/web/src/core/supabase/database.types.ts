@@ -25,8 +25,14 @@ export type Database = {
       live_reactions: Table;
       live_recordings: Table;
       products: Table;
+      product_likes: Table;
+      product_views: Table;
+      store_cart_items: Table;
+      store_comments: Table;
+      store_notifications: Table;
       store_orders: Table;
       store_seller_profiles: Table;
+      user_product_unlocks: Table;
       games: Table;
       game_runtime_manifests: Table;
       game_sessions: Table;
@@ -91,6 +97,10 @@ export type Database = {
       rb_enter_meta_world: { Args: { p_world_id: string }; Returns: Json };
       rb_join_meta_room: { Args: { p_room_id: string }; Returns: Json };
       rb_leave_meta_room: { Args: { p_room_id: string }; Returns: Json };
+      rb_store_catalog: { Args: { p_limit?: number }; Returns: Row[] };
+      rb_store_cart_set: { Args: { p_product_id: string; p_quantity?: number }; Returns: Json };
+      rb_store_toggle_like: { Args: { p_product_id: string }; Returns: Json };
+      rb_store_record_view: { Args: { p_product_id: string; p_anonymous_id?: string | null }; Returns: undefined };
       rb_is_admin: { Args: { p_min_permission?: number }; Returns: boolean };
       rb_is_dm_thread_member: { Args: { p_thread_id: string }; Returns: boolean };
       rb_join_game_room: { Args: { p_room_code: string }; Returns: Row };
