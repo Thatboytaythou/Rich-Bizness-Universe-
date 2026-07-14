@@ -17,7 +17,7 @@ const pageModules: Record<string, () => Promise<PageModule>> = {
   upload: () => import('./features/upload/upload.page'),
   search: () => import('./features/search/search.page'),
   watch: () => import('./features/watch/watch.page'),
-  avatar: () => import('./features/avatar/avatar.page')
+  avatar: () => import('./features/avatar/avatar.entry')
 };
 
 export async function loadPageModule(page: string): Promise<PageModule | null> {
