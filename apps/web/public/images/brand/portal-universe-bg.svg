@@ -1,0 +1,43 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1290 2796" preserveAspectRatio="xMidYMid slice">
+  <defs>
+    <radialGradient id="core" cx="50%" cy="42%" r="48%">
+      <stop offset="0" stop-color="#31ff63" stop-opacity=".24"/>
+      <stop offset=".38" stop-color="#0b3d1b" stop-opacity=".16"/>
+      <stop offset="1" stop-color="#020402" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="gold" cx="82%" cy="14%" r="36%">
+      <stop offset="0" stop-color="#f7c948" stop-opacity=".18"/>
+      <stop offset="1" stop-color="#020402" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop stop-color="#010201"/>
+      <stop offset=".48" stop-color="#071208"/>
+      <stop offset="1" stop-color="#000"/>
+    </linearGradient>
+    <filter id="blur"><feGaussianBlur stdDeviation="42"/></filter>
+    <filter id="glow"><feGaussianBlur stdDeviation="12"/></filter>
+    <pattern id="stars" width="96" height="96" patternUnits="userSpaceOnUse">
+      <circle cx="12" cy="18" r="1.2" fill="#fff" opacity=".45"/>
+      <circle cx="72" cy="36" r="1" fill="#31ff63" opacity=".6"/>
+      <circle cx="46" cy="78" r=".8" fill="#f7c948" opacity=".45"/>
+    </pattern>
+  </defs>
+  <rect width="1290" height="2796" fill="url(#sky)"/>
+  <rect width="1290" height="2796" fill="url(#stars)" opacity=".55"/>
+  <ellipse cx="645" cy="1170" rx="620" ry="760" fill="url(#core)"/>
+  <ellipse cx="1040" cy="410" rx="420" ry="520" fill="url(#gold)"/>
+  <g opacity=".18" filter="url(#blur)">
+    <path d="M-120 1780C180 1500 350 1600 560 1420s390-150 850-460v1080H-120z" fill="#0c7a33"/>
+    <path d="M-90 810C210 560 420 690 660 510s420-90 760-360v730H-90z" fill="#b78c24"/>
+  </g>
+  <g fill="none" stroke="#31ff63" opacity=".09">
+    <circle cx="645" cy="1270" r="430"/>
+    <circle cx="645" cy="1270" r="330"/>
+    <circle cx="645" cy="1270" r="230"/>
+  </g>
+  <g opacity=".22" filter="url(#glow)">
+    <path d="M645 870v800" stroke="#31ff63" stroke-width="4"/>
+    <path d="M245 1270h800" stroke="#f7c948" stroke-width="3"/>
+  </g>
+  <path d="M0 2330c230-170 420-210 645-110 240-110 430-55 645 105v471H0z" fill="#010201"/>
+</svg>
