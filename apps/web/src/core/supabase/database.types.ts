@@ -50,6 +50,10 @@ export type Database = {
       dm_call_sessions: Table;
       dm_call_participants: Table;
       rich_notifications: Table;
+      watch_progress: Table;
+      watch_likes: Table;
+      watch_comments: Table;
+      watchlist_items: Table;
       user_levels: Table;
       xp_events: Table;
       xp_event_queue: Table;
@@ -70,6 +74,7 @@ export type Database = {
       rb_create_direct_thread: { Args: { p_other_user: string }; Returns: string };
       rb_global_search: { Args: { p_query: string; p_limit?: number }; Returns: Row[] };
       rb_register_upload: { Args: { p_route_key: string; p_title: string; p_description: string; p_file_path: string; p_public_url: string; p_mime_type: string; p_file_size: number; p_visibility?: string; p_metadata?: Json }; Returns: Row };
+      rb_watch_feed: { Args: { p_limit?: number }; Returns: Row[] };
       rb_is_admin: { Args: { p_min_permission?: number }; Returns: boolean };
       rb_is_dm_thread_member: { Args: { p_thread_id: string }; Returns: boolean };
       rb_join_game_room: { Args: { p_room_code: string }; Returns: Row };
