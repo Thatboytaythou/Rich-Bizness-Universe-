@@ -127,19 +127,16 @@ export async function mountTapInPage(): Promise<void> {
 
     const activeSession = result.data.session;
     if (activeSession) {
-      const now = new Date().toISOString();
-      await supabase.from('profiles').update({
+      const chosenName = displayName.value.trim() || String(activeSession.user.user_metadata.display_name ?? activeSession.user.email?.split('@')[0] ?? 'Rich Member');
+      const { error: profileError } = await supabase.from('profiles').upsert({
+        id: activeSession.user.id,
+        display_name: chosenName,
+        username: String(activeSession.user.user_metadata.username ?? chosenName.toLowerCase().replace(/[^a-z0-9_]+/g, '_')),
         online_status: 'online',
-        last_seen_at: now,
-        updated_at: now
-      }).eq('id', activeSession.user.id);
-      await supabase.rpc('rb_award_xp', {
-        p_event_key: 'daily_tap_in',
-        p_section: 'auth',
-        p_source_table: null,
-        p_source_id: null,
-        p_amount: null
-      });
+        has_avatar: false,
+        updated_at: new Date().toISOString()
+      }, { onConflict: 'id' });
+      if (profileError) return setStatus('YOU TAPPED IN, BUT PROFILE LOCK NEEDS A RETRY', true);
     }
 
     setStatus(`WELCOME BACK ${esc(displayName.value.trim() || email.value.split('@')[0]).toUpperCase()} — TAPPED IN`);
