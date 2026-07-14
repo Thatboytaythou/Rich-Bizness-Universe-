@@ -3,6 +3,7 @@ import { getAuthSnapshot } from '../../core/auth/auth-store';
 import { supabase } from '../../core/supabase/client';
 import { mountPortalMotion } from './portal.motion';
 import './portal.motion.css';
+import './portal.overdrive.css';
 
 type JsonMap = Record<string, unknown>;
 type PortalSnapshot = {
