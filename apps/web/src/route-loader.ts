@@ -5,6 +5,8 @@ const pageModules: Record<string, () => Promise<PageModule>> = {
   gallery: () => import('./pages/gallery/gallery.page'),
   live: () => import('./pages/live/live.page'),
   music: () => import('./pages/music/music.page'),
+  podcast: () => import('./pages/podcast/podcast.page'),
+  radio: () => import('./pages/radio/radio.page'),
   sports: () => import('./pages/sports/sports.page'),
   store: () => import('./pages/store/store.page'),
   meta: () => import('./pages/meta/meta.page'),
