@@ -12,7 +12,7 @@ const pageModules: Record<string, () => Promise<PageModule>> = {
   meta: () => import('./pages/meta/meta.page'),
   creator: () => import('./pages/creator/creator.page'),
   admin: () => import('./pages/admin/admin.page'),
-  'edit-profile': () => import('./features/edit-profile/edit-profile.page'),
+  'edit-profile': () => import('./features/edit-profile/edit-profile.entry'),
   settings: () => import('./features/communications/settings.page'),
   notifications: () => import('./features/communications/notifications.page'),
   messages: () => import('./features/communications/messages.page'),
