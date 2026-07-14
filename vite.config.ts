@@ -50,7 +50,8 @@ export default defineConfig(({ mode }) => {
           store: page('store'),
           gaming: page('gaming'),
           meta: page('meta'),
-          avatar: page('avatar')
+          avatar: page('avatar'),
+          richChess: page('rich-chess')
         }
       }
     },
