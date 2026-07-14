@@ -4,7 +4,7 @@ type XpSnapshot={level?:number;xp_total?:number;xp_current?:number;xp_next?:numb
 
 const pageSection=()=>document.body.dataset.page||location.pathname.replace(/^\//,'').replace(/\.html$/,'')||'portal';
 const esc=(v:string)=>v.replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]??c));
-const immersivePages=new Set(['portal','tap-in','live','watch','music','podcast','radio','gaming','meta','avatar']);
+const immersivePages=new Set(['live','watch','music','gaming','meta','avatar']);
 
 export async function mountXpRuntime():Promise<void>{
   const section=pageSection();
@@ -38,7 +38,8 @@ export async function mountXpRuntime():Promise<void>{
   toggle.onclick=()=>{panel.hidden=!panel.hidden;toggle.setAttribute('aria-expanded',String(!panel.hidden));};
   close.onclick=()=>{panel.hidden=true;toggle.setAttribute('aria-expanded','false');};
 
-  await supabase.rpc('rb_award_xp',{p_event_key:'section_visit',p_section:section,p_source_table:null,p_source_id:null,p_amount:null});
+  await supabase.rpc('rb_award_xp',{p_event_key:'daily_tap_in',p_section:'auth',p_source_table:null,p_source_id:null,p_amount:null});
+  if(!['tap-in','auth'].includes(section))await supabase.rpc('rb_award_xp',{p_event_key:'section_visit',p_section:section,p_source_table:null,p_source_id:null,p_amount:null});
   await load();
 
   const channel=supabase.channel(`xp-runtime:${session.user.id}`).on('postgres_changes',{event:'*',schema:'public',table:'user_levels',filter:`user_id=eq.${session.user.id}`},()=>void load()).subscribe();
