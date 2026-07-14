@@ -23,7 +23,7 @@ export type Database = {
       platform_analytics_events: Table; platform_announcements: Table; playlist_tracks: Table; playlists: Table;
       podcast_comments: Table; podcast_episodes: Table; podcast_likes: Table; podcast_shows: Table;
       product_likes: Table; product_views: Table; products: Table;
-      profile_theme_settings: Table; profiles: Table; public_profile_cards: Table; push_devices: Table;
+      profile_theme_settings: Table; profile_view_events: Table; profiles: Table; public_profile_cards: Table; push_devices: Table;
       radio_likes: Table; radio_sessions: Table; radio_stations: Table; rank_rules: Table; rb_personality_settings: Table; rb_secret_rooms: Table; rich_notifications: Table; route_access_rules: Table; route_registry: Table;
       search_clicks: Table; search_queries: Table; section_theme_settings: Table;
       sports_alert_subscriptions: Table; sports_brackets: Table; sports_broadcasts: Table; sports_comments: Table; sports_leagues: Table; sports_pick_results: Table; sports_picks: Table; sports_posts: Table; sports_profiles: Table; sports_reactions: Table; sports_teams: Table; sports_uploads: Table;
@@ -52,6 +52,9 @@ export type Database = {
       rb_join_meta_room: { Args: { p_room_id: string }; Returns: Json };
       rb_leave_meta_room: { Args: { p_room_id: string }; Returns: Json };
       rb_personality: { Args: { p_key?: string }; Returns: Json };
+      rb_profile_record_view: { Args: { p_profile_id: string; p_session_id?: string | null; p_source?: string }; Returns: undefined };
+      rb_profile_toggle_follow: { Args: { p_profile_id: string }; Returns: Json };
+      rb_profile_universe_snapshot: { Args: { p_profile_id?: string | null }; Returns: Json };
       rb_rank_for_level: { Args: { p_level: number }; Returns: string };
       rb_reconcile_xp_identity: { Args: { p_user_id: string }; Returns: Json };
       rb_record_game_move: { Args: Record<string, Json | undefined>; Returns: Row };
