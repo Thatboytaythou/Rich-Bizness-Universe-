@@ -29,7 +29,6 @@ export default defineConfig(({ mode }) => {
       rollupOptions: {
         input: {
           index: page('index'),
-          portal: page('portal'),
           tapIn: page('tap-in'),
           profile: page('profile'),
           editProfile: page('edit-profile'),
