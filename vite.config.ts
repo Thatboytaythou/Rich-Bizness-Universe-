@@ -45,6 +45,8 @@ export default defineConfig(({ mode }) => {
           live: page('live'),
           watch: page('watch'),
           music: page('music'),
+          podcast: page('podcast'),
+          radio: page('radio'),
           sports: page('sports'),
           store: page('store'),
           gaming: page('gaming'),
