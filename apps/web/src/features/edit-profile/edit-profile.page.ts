@@ -17,6 +17,11 @@ type ProfileDraft = {
 };
 
 const PROFILE_COLUMNS = 'username,display_name,bio,avatar_url,banner_url,website_url,instagram_url,youtube_url,tiktok_url,facebook_url,snapchat_url,favorite_section';
+const STARTER_AVATARS = [
+  '/images/brand/Avatar-hero-Banner.png.jpeg',
+  '/brand/icons/profile-placeholder.svg',
+  '/images/profile/default-avatar.png'
+];
 
 function inputValue(form: HTMLFormElement, name: string): string | null {
   const value = new FormData(form).get(name)?.toString().trim() ?? '';
@@ -43,6 +48,11 @@ function escapeHtml(value: string | null | undefined): string {
   return (value ?? '').replace(/[&<>'"]/g, (character) => ({
     '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;'
   })[character] ?? character);
+}
+
+function isCustomAvatar(value: string | null): boolean {
+  if (!value) return false;
+  return !STARTER_AVATARS.some((starter) => value.includes(starter));
 }
 
 async function uploadProfileAsset(userId: string, bucket: 'avatars' | 'profile-banners', file: File): Promise<string> {
@@ -104,7 +114,7 @@ export async function mount(): Promise<void> {
           <label><span>USERNAME</span><input name="username" minlength="3" maxlength="30" autocomplete="username" value="${escapeHtml(profile.username)}" /></label>
           <label class="wide"><span>BIO</span><textarea name="bio" maxlength="300" rows="4">${escapeHtml(profile.bio)}</textarea></label>
           <label><span>FAVORITE SECTION</span><select name="favorite_section">
-            ${['portal','feed','gallery','live','music','sports','store','gaming','meta','profile'].map((section) => `<option value="${section}"${profile.favorite_section === section ? ' selected' : ''}>${section.toUpperCase()}</option>`).join('')}
+            ${['portal','feed','gallery','live','music','podcast','radio','sports','store','gaming','meta','profile'].map((section) => `<option value="${section}"${profile.favorite_section === section ? ' selected' : ''}>${section.toUpperCase()}</option>`).join('')}
           </select></label>
           <label><span>WEBSITE</span><input name="website_url" inputmode="url" placeholder="https://" value="${escapeHtml(profile.website_url)}" /></label>
           <label><span>INSTAGRAM</span><input name="instagram_url" inputmode="url" placeholder="https://" value="${escapeHtml(profile.instagram_url)}" /></label>
@@ -154,11 +164,14 @@ export async function mount(): Promise<void> {
       if (banner) bannerUrl = await uploadProfileAsset(session.user.id, 'profile-banners', banner);
 
       const username = safeUsername(inputValue(form, 'username'));
+      const displayName = inputValue(form, 'display_name');
       if (!username) throw new Error('Username must be at least 3 letters, numbers, or underscores.');
+      if (!displayName) throw new Error('Display name is required.');
 
       const payload = {
         username,
-        display_name: inputValue(form, 'display_name'),
+        display_name: displayName,
+        full_name: displayName,
         bio: inputValue(form, 'bio'),
         avatar_url: avatarUrl,
         banner_url: bannerUrl,
@@ -169,7 +182,7 @@ export async function mount(): Promise<void> {
         tiktok_url: safeUrl(inputValue(form, 'tiktok_url')),
         facebook_url: safeUrl(inputValue(form, 'facebook_url')),
         snapchat_url: safeUrl(inputValue(form, 'snapchat_url')),
-        has_avatar: Boolean(avatarUrl),
+        has_avatar: isCustomAvatar(avatarUrl),
         has_profile_identity: true,
         onboarding_state: 'complete',
         updated_at: new Date().toISOString()
@@ -178,8 +191,29 @@ export async function mount(): Promise<void> {
       const { error: updateError } = await supabase.from('profiles').update(payload).eq('id', session.user.id);
       if (updateError) throw updateError;
 
-      await supabase.auth.updateUser({ data: { username, display_name: payload.display_name, avatar_url: avatarUrl } });
-      message.textContent = 'Profile saved.';
+      const { error: avatarSyncError } = await supabase.from('meta_avatars').upsert({
+        user_id: session.user.id,
+        display_name: displayName,
+        avatar_url: avatarUrl,
+        is_active: true,
+        updated_at: new Date().toISOString()
+      }, { onConflict: 'user_id' });
+      if (avatarSyncError) throw avatarSyncError;
+
+      const { error: authError } = await supabase.auth.updateUser({
+        data: { username, display_name: displayName, full_name: displayName, avatar_url: avatarUrl, banner_url: bannerUrl }
+      });
+      if (authError) throw authError;
+
+      await supabase.rpc('rb_award_xp', {
+        p_event_key: 'profile_completed',
+        p_section: 'profile',
+        p_source_table: 'profiles',
+        p_source_id: session.user.id,
+        p_amount: null
+      });
+
+      message.textContent = 'Profile, avatar identity, and Rich ID saved.';
       saveState.textContent = 'SAVED';
     } catch (caught) {
       message.textContent = caught instanceof Error ? caught.message : 'Unable to save profile.';
