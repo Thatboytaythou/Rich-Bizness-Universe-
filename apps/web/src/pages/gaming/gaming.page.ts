@@ -1,47 +1,30 @@
 import { supabase } from '../../core/supabase/client';
+import '../../styles/media-universe.css';
 
-type GameRow = {
-  slug: string;
-  title: string;
-  description: string | null;
-  game_type: string | null;
-  play_url: string | null;
-  runtime_status: string | null;
-  is_playable: boolean | null;
-  cover_url: string | null;
-};
+type Row=Record<string,any>;
+const esc=(v:any)=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]??c));
+const money=(v:any)=>new Intl.NumberFormat('en-US',{style:'currency',currency:'USD'}).format(Number(v??0)/100);
 
-export async function mountGamingPage(): Promise<void> {
-  const root = document.querySelector<HTMLElement>('#app');
-  if (!root) throw new Error('Missing #app mount');
-
-  const { data, error } = await supabase
-    .from('games')
-    .select('slug,title,description,game_type,play_url,runtime_status,is_playable,cover_url')
-    .eq('is_active', true)
-    .order('title');
-
-  if (error) throw error;
-  const games = (data ?? []) as GameRow[];
-
-  root.innerHTML = `
-    <main class="page-shell gaming-page">
-      <header class="section-hero glass-card">
-        <p class="eyebrow">24 SOLO WORLDS</p>
-        <h1>Rich Bizness Gaming</h1>
-        <p>Every title owns its own route, runtime, controls, save data and Supabase progress.</p>
-      </header>
-      <section class="game-grid">
-        ${games.map((game) => `
-          <article class="game-card glass-card" data-game="${game.slug}">
-            <div class="game-art" style="background-image:url('${game.cover_url ?? ''}')"></div>
-            <p class="eyebrow">${game.game_type ?? 'game'} · ${game.runtime_status ?? 'catalog_only'}</p>
-            <h2>${game.title}</h2>
-            <p>${game.description ?? 'Standalone Rich Bizness game world.'}</p>
-            <a class="game-launch ${game.is_playable ? '' : 'is-locked'}" href="${game.play_url ?? `/games/${game.slug}/`}" aria-disabled="${!game.is_playable}">
-              ${game.is_playable ? 'PLAY NOW' : 'RUNTIME BUILDING'}
-            </a>
-          </article>`).join('')}
-      </section>
-    </main>`;
+export async function mountGamingPage():Promise<void>{
+ const root=document.querySelector<HTMLElement>('#app');if(!root)throw new Error('Missing #app mount');
+ const {data:{session}}=await supabase.auth.getSession();if(!session){location.replace('/tap-in.html?next=%2Fgaming.html');return;}
+ const {data,error}=await supabase.rpc('rb_media_universe_snapshot',{});if(error)throw error;
+ const game=(data as any)?.gaming??{};const games=(game.games??[]) as Row[];const tournaments=(game.tournaments??[]) as Row[];const missions=(game.missions??[]) as Row[];const clips=(game.clips??[]) as Row[];const progress=(game.progress??[]) as Row[];const rewards=(game.rewards??[]) as Row[];const rooms=(game.rooms??[]) as Row[];
+ const featured=games.find(g=>g.is_featured)??games[0]??null;
+ root.innerHTML=`<main class="universe-shell"><div class="universe-wrap"><header class="universe-head"><a href="/portal.html">←</a><div><p>RICH BIZNESS PLAY NETWORK</p><h1>GAMING UNIVERSE</h1></div><span class="universe-sync">${games.filter(g=>g.is_playable).length} PLAYABLE</span></header>
+ <section class="universe-game-hero">${featured?`<article class="universe-game-feature" style="background-image:url('${esc(featured.cover_url||featured.thumbnail_url||'/images/brand/IMG_5997.png')}')"><div><span class="universe-kicker">${featured.is_playable?'● READY TO PLAY':'RUNTIME BUILDING'} · ${esc(featured.engine_type||featured.platform_type||'WEB')}</span><h2>${esc(featured.title)}</h2><p>${esc(featured.description||'Enter the Rich Bizness gaming universe.')}</p><div class="universe-actions"><a class="universe-btn primary" href="${esc(featured.play_url||`/games/${featured.slug}/`)}">${featured.is_playable?'PLAY NOW':'OPEN WORLD'}</a><a class="universe-btn" href="/watch.html?gaming=${esc(featured.id)}">WATCH CLIPS</a></div></div></article>`:'<div class="universe-empty">No game worlds are active.</div>'}
+ <div class="universe-stack"><article><small>ACTIVE PLAYERS</small><strong>${games.reduce((n,g)=>n+Number(g.active_players??0),0).toLocaleString()}</strong><p>Realtime players across every world.</p></article><article><small>OPEN ROOMS</small><strong>${rooms.length}</strong><p>Multiplayer rooms waiting or active.</p></article><article><small>PRIZE POOLS</small><strong>${money(tournaments.reduce((n,t)=>n+Number(t.prize_pool_cents??0),0))}</strong><p>Active tournament rewards.</p></article></div></section>
+ <section class="universe-metrics"><article><small>GAME WORLDS</small><strong>${games.length}</strong></article><article><small>TOURNAMENTS</small><strong>${tournaments.length}</strong></article><article><small>MISSIONS</small><strong>${missions.length}</strong></article><article><small>MY REWARDS</small><strong>${rewards.length}</strong></article></section>
+ <nav class="universe-tabs">${[['games','GAME WORLDS'],['tournaments','TOURNAMENTS'],['missions','MISSIONS'],['clips','CLIPS'],['progress','MY PROGRESS'],['rooms','ROOMS']].map(([v,l],i)=>`<button class="universe-tab ${i===0?'active':''}" data-lane="${v}">${l}</button>`).join('')}</nav>
+ <section class="universe-section"><header><div><h2 id="gameLaneTitle">Game Worlds</h2><p>Standalone runtimes, tournaments, missions, rooms, clips and persistent player progression.</p></div><a class="universe-btn" href="/upload.html?section=gaming">UPLOAD CLIP</a></header><div id="gameGrid" class="universe-grid"></div></section>
+ <section class="universe-side-grid universe-section"><article class="universe-panel"><header><h3>Player Command</h3></header><div id="playerCommand" class="universe-list"></div></article><article class="universe-panel"><header><h3>Rewards Vault</h3></header><div class="universe-list">${rewards.slice(0,8).map(r=>`<div class="universe-row"><div><h4>${esc(r.reward_type||r.badge||'Game Reward')}</h4><p>${esc(r.status||'earned')}</p></div><strong>${r.xp?`+${r.xp} XP`:money(r.amount_cents)}</strong></div>`).join('')||'<div class="universe-empty">Rewards will appear here.</div>'}</div></article></section>
+ </div></main>`;
+ const lanes:Record<string,Row[]>={games,tournaments,missions,clips,progress,rooms};let lane='games';const grid=document.querySelector<HTMLElement>('#gameGrid')!;const command=document.querySelector<HTMLElement>('#playerCommand')!;
+ const labels:Record<string,string>={games:'Game Worlds',tournaments:'Tournaments',missions:'Missions',clips:'Community Clips',progress:'My Progress',rooms:'Live Rooms'};
+ const render=()=>{const rows=lanes[lane];document.querySelector<HTMLElement>('#gameLaneTitle')!.textContent=labels[lane];grid.innerHTML=rows.length?rows.map(r=>card(r,lane)).join(''):'<div class="universe-empty">Nothing in this lane yet.</div>';grid.querySelectorAll<HTMLElement>('[data-id]').forEach(el=>el.onclick=()=>{const row=rows.find(r=>String(r.id)===el.dataset.id);if(row)open(row);});};
+ const open=(r:Row)=>{const p=progress.find(x=>String(x.game_id)===String(r.id))??r;const pct=Math.min(100,Math.round(Number(p.xp??0)/Math.max(1,Number(p.xp??0)+500)*100));command.innerHTML=`<div class="universe-row"><img src="${esc(r.cover_url||r.thumbnail_url||'/images/brand/IMG_5997.png')}" alt=""><div><h4>${esc(r.title||r.game_slug||r.mission_key||r.room_code||'Game World')}</h4><p>${esc(r.game_type||r.status||r.mission_type||r.platform_type||'Rich Gaming')}</p></div><strong>${r.is_playable?'READY':esc(r.runtime_status||'ACTIVE')}</strong></div><div class="universe-row"><div><h4>Persistent Progress</h4><p>Level ${p.current_level??1} · Best score ${Number(p.best_score??r.high_score??0).toLocaleString()}</p><div class="universe-progress"><span style="width:${pct}%"></span></div></div><strong>${Number(p.xp??0).toLocaleString()} XP</strong></div><div class="universe-row"><div><h4>Capabilities</h4><p>${r.is_tournament_enabled?'Tournaments · ':''}${r.is_stream_enabled?'Streaming · ':''}${r.is_meta_enabled?'Meta · ':''}${r.is_cash_enabled?'Cash Play':''}</p></div><strong>${esc(r.engine_type||'WEB')}</strong></div><div class="universe-row"><div><h4>World Activity</h4><p>${Number(r.total_plays??0).toLocaleString()} plays · ${Number(r.active_players??0).toLocaleString()} active</p></div><a class="universe-btn primary" href="${esc(r.play_url||`/games/${r.slug||''}/`)}">LAUNCH</a></div>`;};
+ document.querySelectorAll<HTMLButtonElement>('[data-lane]').forEach(b=>b.onclick=()=>{lane=b.dataset.lane!;document.querySelectorAll('[data-lane]').forEach(x=>x.classList.toggle('active',x===b));render();const first=lanes[lane][0];if(first)open(first);});
+ render();if(featured)open(featured);
 }
+
+function card(r:Row,lane:string){const title=r.title||r.game_slug||r.mission_key||r.room_code||'Rich Gaming';const art=r.cover_url||r.thumbnail_url||'/images/brand/IMG_5997.png';const badge=lane==='games'?(r.is_playable?'PLAYABLE':r.runtime_status||'BUILDING'):lane==='tournaments'?r.status:lane==='missions'?`${r.xp_reward??0} XP`:lane==='clips'?'CLIP':lane==='progress'?`LVL ${r.current_level??1}`:r.status;const meta1=lane==='tournaments'?money(r.prize_pool_cents):lane==='missions'?`${r.target_value??0} TARGET`:lane==='clips'?`${Number(r.view_count??0).toLocaleString()} views`:lane==='progress'?`${Number(r.best_score??0).toLocaleString()} best`:lane==='rooms'?r.room_code:`${Number(r.active_players??0).toLocaleString()} active`;return `<article class="universe-card" data-id="${r.id}"><div class="universe-card__art"><img src="${esc(art)}" alt=""><span class="universe-card__badge">${esc(String(badge||'ACTIVE').toUpperCase())}</span></div><div class="universe-card__body"><h3>${esc(title)}</h3><p>${esc(r.description||r.caption||r.game_type||r.mission_type||'Rich Bizness gaming world')}</p><div class="universe-card__meta"><span>${meta1}</span><span>${esc(r.platform_type||r.engine_type||r.status||'WEB')}</span></div></div></article>`;}
