@@ -57,6 +57,11 @@ export type Database = {
       meta_items: Table;
       meta_inventory: Table;
       meta_stream_links: Table;
+      sports_posts: Table;
+      sports_uploads: Table;
+      sports_picks: Table;
+      sports_broadcasts: Table;
+      sports_profiles: Table;
       dm_threads: Table;
       dm_thread_members: Table;
       dm_messages: Table;
@@ -72,8 +77,10 @@ export type Database = {
       watch_comments: Table;
       watchlist_items: Table;
       user_levels: Table;
+      user_xp_ledger: Table;
       xp_events: Table;
       xp_event_queue: Table;
+      xp_rule_bindings: Table;
       xp_section_progress: Table;
       route_registry: Table;
       route_access_rules: Table;
@@ -87,7 +94,10 @@ export type Database = {
     };
     Functions: {
       rb_authorize_livekit_room: { Args: { p_room_name: string }; Returns: Json };
-      rb_award_xp: { Args: Record<string, Json | undefined>; Returns: Json };
+      rb_award_xp: { Args: { p_event_key: string; p_section?: string; p_source_table?: string | null; p_source_id?: string | null; p_amount?: number | null }; Returns: Json };
+      rb_xp_event_allowed: { Args: { p_user_id: string; p_event_key: string }; Returns: boolean };
+      rb_xp_snapshot: { Args: { p_user_id?: string }; Returns: Json };
+      rb_reconcile_xp_identity: { Args: { p_user_id: string }; Returns: Json };
       rb_create_direct_thread: { Args: { p_other_user: string }; Returns: string };
       rb_global_search: { Args: { p_query: string; p_limit?: number }; Returns: Row[] };
       rb_register_upload: { Args: { p_route_key: string; p_title: string; p_description: string; p_file_path: string; p_public_url: string; p_mime_type: string; p_file_size: number; p_visibility?: string; p_metadata?: Json }; Returns: Row };
