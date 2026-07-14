@@ -6,25 +6,41 @@ import './portal.motion.css';
 import './portal.overdrive.css';
 
 type JsonMap = Record<string, unknown>;
+type Activity = { kind?: string; title?: string; href?: string };
 type PortalSnapshot = {
   profile?: JsonMap;
   level?: JsonMap;
   avatar?: JsonMap;
+  theme?: JsonMap;
+  settings?: JsonMap;
   announcement?: JsonMap;
+  background?: JsonMap;
+  layout?: JsonMap;
+  section_pulse?: Record<string, number>;
+  recent_activity?: Activity[];
   unread_notifications?: number;
   unread_threads?: number;
 };
 
-const destinations = [
-  ['LIVE', '◉', '/live.html', 'top'],
-  ['GALLERY', '▣', '/gallery.html', 'top-left'],
-  ['MUSIC', '♪', '/music.html', 'top-right'],
-  ['UPLOAD', '⬆', '/upload.html', 'left'],
-  ['GAMING', '🎮', ROUTES.gaming, 'right'],
-  ['SPORTS', '🏆', '/sports.html', 'bottom-left'],
-  ['META', '◎', '/meta.html', 'bottom'],
-  ['STORE', '🛒', '/store.html', 'bottom-right']
-] as const;
+type Destination = {
+  key: string;
+  label: string;
+  icon: string;
+  href: string;
+  position: string;
+  kicker: string;
+};
+
+const destinations: Destination[] = [
+  { key: 'live', label: 'LIVE', icon: '◉', href: '/live.html', position: 'top', kicker: 'BROADCAST' },
+  { key: 'gallery', label: 'GALLERY', icon: '▣', href: '/gallery.html', position: 'top-left', kicker: 'VISUALS' },
+  { key: 'music', label: 'MUSIC', icon: '♪', href: '/music.html', position: 'top-right', kicker: 'AUDIO' },
+  { key: 'upload', label: 'UPLOAD', icon: '⬆', href: '/upload.html', position: 'left', kicker: 'CREATE' },
+  { key: 'gaming', label: 'GAMING', icon: '🎮', href: ROUTES.gaming, position: 'right', kicker: 'PLAY' },
+  { key: 'sports', label: 'SPORTS', icon: '🏆', href: '/sports.html', position: 'bottom-left', kicker: 'ARENA' },
+  { key: 'meta', label: 'META', icon: '◎', href: '/meta.html', position: 'bottom', kicker: 'WORLDS' },
+  { key: 'store', label: 'STORE', icon: '🛒', href: '/store.html', position: 'bottom-right', kicker: 'MARKET' }
+];
 
 const esc = (value: unknown) => String(value ?? '').replace(/[&<>"']/g, (character) => ({
   '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
@@ -34,6 +50,13 @@ const money = (value: unknown) => new Intl.NumberFormat('en-US', {
   style: 'currency', currency: 'USD', maximumFractionDigits: 2
 }).format(Number(value ?? 0) / 100);
 
+const safeUrl = (value: unknown): string => {
+  const raw = String(value ?? '').trim();
+  if (!raw) return '';
+  if (raw.startsWith('/') || raw.startsWith('https://')) return raw;
+  return '';
+};
+
 export async function mountPortalPage(): Promise<void> {
   const app = document.querySelector<HTMLDivElement>('#app');
   if (!app) throw new Error('Missing #app mount');
@@ -41,74 +64,106 @@ export async function mountPortalPage(): Promise<void> {
   const user = getAuthSnapshot().user;
   let snapshot: PortalSnapshot = {};
   if (user) {
-    const { data } = await supabase.rpc('rb_portal_universe_snapshot', {});
-    snapshot = (data ?? {}) as PortalSnapshot;
+    const { data, error } = await supabase.rpc('rb_portal_elite_snapshot', {});
+    if (!error) snapshot = (data ?? {}) as PortalSnapshot;
   }
 
   const profile = snapshot.profile ?? {};
   const level = snapshot.level ?? {};
   const avatar = snapshot.avatar ?? {};
+  const theme = snapshot.theme ?? {};
+  const settings = snapshot.settings ?? {};
   const announcement = snapshot.announcement ?? {};
+  const background = snapshot.background ?? {};
+  const pulse = snapshot.section_pulse ?? {};
+  const recent = Array.isArray(snapshot.recent_activity) ? snapshot.recent_activity.slice(0, 5) : [];
+
   const identityRoute = user ? ROUTES.profile : ROUTES.tapIn;
   const name = String(profile.display_name ?? profile.username ?? avatar.display_name ?? user?.email?.split('@')[0] ?? 'RICH BIZNESS');
-  const avatarUrl = String(profile.avatar_url ?? avatar.avatar_url ?? '');
+  const avatarUrl = safeUrl(profile.avatar_url ?? avatar.avatar_url);
+  const backgroundUrl = safeUrl(theme.background_url ?? background.background_url);
+  const accent = String(settings.accent_color ?? '#31ff63');
   const richLevel = Number(level.level ?? profile.rich_level ?? avatar.level ?? 1);
   const xpCurrent = Number(level.xp_current ?? 0);
   const xpNext = Math.max(1, Number(level.xp_next ?? 100));
   const xpPercent = Math.min(100, Math.max(0, (xpCurrent / xpNext) * 100));
+  const motionLevel = String(settings.motion_level ?? 'full').toLowerCase();
+  const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches || motionLevel === 'reduced' || motionLevel === 'off';
 
   app.innerHTML = `
-    <main class="portal-stage portal-stage--motion">
+    <main class="portal-stage portal-stage--elite" style="--portal-accent:${esc(accent)};${backgroundUrl ? `--portal-bg:url('${esc(backgroundUrl)}');` : ''}">
       <canvas id="portalMotionCanvas" class="portal-motion-canvas" aria-hidden="true"></canvas>
-      <div class="portal-backdrop" aria-hidden="true"></div>
+      <div class="portal-bg" aria-hidden="true"></div>
+      <div class="portal-vignette" aria-hidden="true"></div>
       <div class="portal-grid" aria-hidden="true"></div>
       <div class="portal-nebula" aria-hidden="true"><i></i><i></i><i></i></div>
-      <div class="portal-cosmos" aria-hidden="true"><i></i><i></i><i></i></div>
-      <div class="portal-noise" aria-hidden="true"></div>
-      <div class="portal-glow portal-glow--green" aria-hidden="true"></div>
-      <div class="portal-glow portal-glow--gold" aria-hidden="true"></div>
-      <div class="portal-sparks" aria-hidden="true">${Array.from({ length: 18 }, (_, index) => `<i style="--spark:${index}"></i>`).join('')}</div>
+      <div class="portal-stars" aria-hidden="true">${Array.from({ length: 28 }, (_, index) => `<i style="--star:${index}"></i>`).join('')}</div>
 
       <header class="portal-topbar">
-        <a class="portal-profile" href="${identityRoute}">
+        <a class="portal-profile" href="${identityRoute}" aria-label="Open ${user ? 'profile' : 'Tap In'}">
           <span class="portal-profile__avatar">${avatarUrl ? `<img src="${esc(avatarUrl)}" alt="">` : 'RB'}<i></i></span>
-          <span class="portal-profile__copy"><small>${user ? 'WELCOME BACK' : 'RICH ACCESS'}</small><strong>${esc(name)}</strong><em>${user ? `LEVEL ${richLevel}` : 'TAP IN TO SYNC'}</em></span>
+          <span class="portal-profile__copy">
+            <small>${user ? 'WELCOME BACK' : 'RICH ACCESS'}</small>
+            <strong>${esc(name)}</strong>
+            <em>${user ? `LEVEL ${richLevel}` : 'TAP IN TO SYNC'}</em>
+          </span>
         </a>
-        <div class="portal-brand"><small>RICH BIZNESS LLC</small><strong>UNIVERSE</strong><span>ROTATING OMNI PORTAL</span></div>
+        <div class="portal-brand" aria-label="Rich Bizness Universe">
+          <small>RICH BIZNESS LLC</small>
+          <strong>UNIVERSE</strong>
+          <span>GLOBAL CREATOR OPERATING SYSTEM</span>
+        </div>
       </header>
 
-      ${announcement.title ? `<a class="portal-announcement" href="${esc(announcement.action_url ?? announcement.target_url ?? '#')}"><span>${esc(announcement.emoji ?? '✦')}</span><div><small>${esc(announcement.priority ?? 'UPDATE')}</small><strong>${esc(announcement.title)}</strong></div><i>OPEN</i></a>` : ''}
+      ${announcement.title ? `<a class="portal-announcement" href="${esc(safeUrl(announcement.action_url ?? announcement.target_url) || '#')}"><span>${esc(announcement.emoji ?? '✦')}</span><div><small>${esc(announcement.priority ?? 'UPDATE')}</small><strong>${esc(announcement.title)}</strong></div><i>OPEN</i></a>` : ''}
 
       <section class="portal-world" aria-label="Rich Bizness Universe portal">
-        <div class="portal-dial" aria-hidden="false">
-          <div class="portal-depth" aria-hidden="true">
-            <div class="portal-orbit portal-orbit--outer"></div>
-            <div class="portal-orbit portal-orbit--middle"></div>
-            <div class="portal-orbit portal-orbit--inner"></div>
-            <div class="portal-orbit portal-orbit--ticks"></div>
-            <div class="portal-scan"></div>
-            <div class="portal-energy-lines"></div>
-            <div class="portal-light-beam portal-light-beam--one"></div>
-            <div class="portal-light-beam portal-light-beam--two"></div>
-          </div>
-          ${destinations.map(([label, icon, href, position], index) => `<a class="portal-node portal-node--${position}" href="${href}" style="--node:${index};--delay:${index * 0.12}s"><span class="portal-node__trail"></span><span class="portal-node__halo"></span><span class="portal-node__glass"></span><span class="portal-node__icon">${icon}</span><span class="portal-node__label">${label}</span><small>ENTER</small></a>`).join('')}
+        <div class="portal-horizon" aria-hidden="true"></div>
+        <div class="portal-orbit-system" aria-hidden="true">
+          <div class="portal-orbit portal-orbit--outer"></div>
+          <div class="portal-orbit portal-orbit--middle"></div>
+          <div class="portal-orbit portal-orbit--inner"></div>
+          <div class="portal-orbit portal-orbit--ticks"></div>
+          <div class="portal-orbit portal-orbit--signal"></div>
+          <div class="portal-beam portal-beam--green"></div>
+          <div class="portal-beam portal-beam--gold"></div>
+          <div class="portal-scan"></div>
         </div>
 
-        <a class="portal-core" href="${identityRoute}">
-          <span class="portal-core__energy"></span>
-          <span class="portal-core__ring portal-core__ring--one"></span>
-          <span class="portal-core__ring portal-core__ring--two"></span>
-          <span class="portal-core__ring portal-core__ring--three"></span>
-          <span class="portal-core__iris"></span>
-          <span class="portal-core__content"><small>RICH BIZNESS LLC</small><strong>${user ? 'ENTER' : 'ACTIVATE'}</strong><span>${user ? 'OPEN YOUR UNIVERSE' : 'CREATE YOUR RICH ID'}</span><b>${user ? `${xpCurrent.toLocaleString()} / ${xpNext.toLocaleString()} XP` : 'TAP TO BEGIN'}</b><i style="--xp:${xpPercent}%"></i></span>
+        <div class="portal-route-layer">
+          ${destinations.map((destination, index) => {
+            const count = Number(pulse[destination.key] ?? 0);
+            return `<a class="portal-node portal-node--${destination.position}" href="${destination.href}" style="--node:${index};--delay:${index * 0.1}s" aria-label="Open ${destination.label}">
+              <span class="portal-node__aura" aria-hidden="true"></span>
+              <span class="portal-node__icon">${destination.icon}</span>
+              <span class="portal-node__copy"><small>${destination.kicker}</small><strong>${destination.label}</strong></span>
+              <b>${count > 999 ? '999+' : count}</b>
+            </a>`;
+          }).join('')}
+        </div>
+
+        <a class="portal-core" href="${identityRoute}" aria-label="${user ? 'Enter your universe' : 'Create your Rich ID'}">
+          <span class="portal-core__halo" aria-hidden="true"></span>
+          <span class="portal-core__ring portal-core__ring--one" aria-hidden="true"></span>
+          <span class="portal-core__ring portal-core__ring--two" aria-hidden="true"></span>
+          <span class="portal-core__iris" aria-hidden="true"></span>
+          <span class="portal-core__content">
+            <small>RICH BIZNESS LLC</small>
+            <strong>${user ? 'ENTER' : 'ACTIVATE'}</strong>
+            <span>${user ? 'OPEN YOUR UNIVERSE' : 'CREATE YOUR RICH ID'}</span>
+            <b>${user ? `${xpCurrent.toLocaleString()} / ${xpNext.toLocaleString()} XP` : 'TAP TO BEGIN'}</b>
+            <i><u style="width:${xpPercent}%"></u></i>
+          </span>
         </a>
       </section>
 
-      <aside class="portal-actions">
-        <a href="/search.html"><span>⌕</span><small>SEARCH</small></a>
-        <a href="/messages.html"><span>✦</span><small>DM</small>${Number(snapshot.unread_threads ?? 0) ? `<b>${snapshot.unread_threads}</b>` : ''}</a>
-        <a href="/notifications.html"><span>◌</span><small>ALERTS</small>${Number(snapshot.unread_notifications ?? 0) ? `<b>${snapshot.unread_notifications}</b>` : ''}</a>
-        <a href="${identityRoute}"><span>◎</span><small>${user ? 'PROFILE' : 'TAP IN'}</small></a>
+      ${recent.length ? `<section class="portal-pulse" aria-label="Universe activity"><span>LIVE PULSE</span><div>${recent.map((item) => `<a href="${esc(safeUrl(item.href) || '#')}"><small>${esc(String(item.kind ?? 'update').toUpperCase())}</small><strong>${esc(item.title ?? 'Rich Bizness update')}</strong></a>`).join('')}</div></section>` : ''}
+
+      <aside class="portal-actions" aria-label="Quick actions">
+        <a href="/search.html" aria-label="Search"><span>⌕</span><small>SEARCH</small></a>
+        <a href="/messages.html" aria-label="Messages"><span>✦</span><small>DM</small>${Number(snapshot.unread_threads ?? 0) ? `<b>${snapshot.unread_threads}</b>` : ''}</a>
+        <a href="/notifications.html" aria-label="Notifications"><span>◌</span><small>ALERTS</small>${Number(snapshot.unread_notifications ?? 0) ? `<b>${snapshot.unread_notifications}</b>` : ''}</a>
+        <a href="${identityRoute}" aria-label="${user ? 'Profile' : 'Tap In'}"><span>◎</span><small>${user ? 'PROFILE' : 'TAP IN'}</small></a>
       </aside>
 
       <footer class="portal-stats">
@@ -119,5 +174,14 @@ export async function mountPortalPage(): Promise<void> {
       </footer>
     </main>`;
 
-  mountPortalMotion({ reduced: matchMedia('(prefers-reduced-motion: reduce)').matches });
+  const cleanupMotion = mountPortalMotion({ reduced: reducedMotion });
+  const pulseTrack = document.querySelector<HTMLElement>('.portal-pulse > div');
+  if (pulseTrack && !reducedMotion) {
+    let pulseIndex = 0;
+    window.setInterval(() => {
+      pulseIndex = (pulseIndex + 1) % Math.max(1, recent.length);
+      pulseTrack.style.transform = `translateY(-${pulseIndex * 100}%)`;
+    }, 4200);
+  }
+  window.addEventListener('beforeunload', cleanupMotion, { once: true });
 }
