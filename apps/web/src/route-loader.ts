@@ -16,8 +16,8 @@ const pageModules: Record<string, () => Promise<PageModule>> = {
   settings: () => import('./features/communications/settings.page'),
   notifications: () => import('./features/communications/notifications.page'),
   messages: () => import('./features/communications/messages.page'),
+  upload: () => import('./features/upload/upload.page'),
   search: routeShell,
-  upload: routeShell,
   watch: routeShell,
   avatar: routeShell
 };
