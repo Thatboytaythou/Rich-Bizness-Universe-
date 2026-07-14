@@ -68,6 +68,7 @@ export type Database = {
       rb_authorize_livekit_room: { Args: { p_room_name: string }; Returns: Json };
       rb_award_xp: { Args: Record<string, Json | undefined>; Returns: Json };
       rb_create_direct_thread: { Args: { p_other_user: string }; Returns: string };
+      rb_global_search: { Args: { p_query: string; p_limit?: number }; Returns: Row[] };
       rb_register_upload: { Args: { p_route_key: string; p_title: string; p_description: string; p_file_path: string; p_public_url: string; p_mime_type: string; p_file_size: number; p_visibility?: string; p_metadata?: Json }; Returns: Row };
       rb_is_admin: { Args: { p_min_permission?: number }; Returns: boolean };
       rb_is_dm_thread_member: { Args: { p_thread_id: string }; Returns: boolean };
