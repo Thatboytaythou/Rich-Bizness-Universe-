@@ -26,13 +26,6 @@ const destinations = [
   ['STORE', '🛒', '/store.html', 'bottom-right']
 ] as const;
 
-const satellites = [
-  ['LIVE NOW', 'CREATOR ROOMS'],
-  ['RICH DROP', 'NEW MEDIA'],
-  ['META WORLD', 'AVATAR READY'],
-  ['STORE PULSE', 'SELLER ACTIVE']
-] as const;
-
 const esc = (value: unknown) => String(value ?? '').replace(/[&<>"']/g, (character) => ({
   '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
 }[character] ?? character));
@@ -87,13 +80,6 @@ export async function mountPortalPage(): Promise<void> {
       ${announcement.title ? `<a class="portal-announcement" href="${esc(announcement.action_url ?? announcement.target_url ?? '#')}"><span>${esc(announcement.emoji ?? '✦')}</span><div><small>${esc(announcement.priority ?? 'UPDATE')}</small><strong>${esc(announcement.title)}</strong></div><i>OPEN</i></a>` : ''}
 
       <section class="portal-world" aria-label="Rich Bizness Universe portal">
-        <div class="portal-visual-rail portal-visual-rail--left" aria-hidden="true">
-          ${satellites.slice(0, 2).map(([title, sub], index) => `<article style="--card:${index}"><span>${index === 0 ? '◉' : '▣'}</span><div><small>${sub}</small><strong>${title}</strong></div></article>`).join('')}
-        </div>
-        <div class="portal-visual-rail portal-visual-rail--right" aria-hidden="true">
-          ${satellites.slice(2).map(([title, sub], index) => `<article style="--card:${index + 2}"><span>${index === 0 ? '◎' : '🛒'}</span><div><small>${sub}</small><strong>${title}</strong></div></article>`).join('')}
-        </div>
-
         <div class="portal-dial" aria-hidden="false">
           <div class="portal-depth" aria-hidden="true">
             <div class="portal-orbit portal-orbit--outer"></div>
