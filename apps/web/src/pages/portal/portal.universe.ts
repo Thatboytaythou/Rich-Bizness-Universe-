@@ -3,6 +3,7 @@ import { getAuthSnapshot } from '../../core/auth/auth-store';
 import { supabase } from '../../core/supabase/client';
 import { mountPortalMotion } from './portal.motion';
 import './portal.motion.css';
+import './portal.overdrive.css';
 
 type JsonMap = Record<string, unknown>;
 type PortalSnapshot = {
@@ -23,6 +24,13 @@ const destinations = [
   ['SPORTS', '🏆', '/sports.html', 'bottom-left'],
   ['META', '◎', '/meta.html', 'bottom'],
   ['STORE', '🛒', '/store.html', 'bottom-right']
+] as const;
+
+const satellites = [
+  ['LIVE NOW', 'CREATOR ROOMS'],
+  ['RICH DROP', 'NEW MEDIA'],
+  ['META WORLD', 'AVATAR READY'],
+  ['STORE PULSE', 'SELLER ACTIVE']
 ] as const;
 
 const esc = (value: unknown) => String(value ?? '').replace(/[&<>"']/g, (character) => ({
@@ -54,33 +62,60 @@ export async function mountPortalPage(): Promise<void> {
   const richLevel = Number(level.level ?? profile.rich_level ?? avatar.level ?? 1);
   const xpCurrent = Number(level.xp_current ?? 0);
   const xpNext = Math.max(1, Number(level.xp_next ?? 100));
+  const xpPercent = Math.min(100, Math.max(0, (xpCurrent / xpNext) * 100));
 
   app.innerHTML = `
     <main class="portal-stage portal-stage--motion">
       <canvas id="portalMotionCanvas" class="portal-motion-canvas" aria-hidden="true"></canvas>
       <div class="portal-backdrop" aria-hidden="true"></div>
       <div class="portal-grid" aria-hidden="true"></div>
+      <div class="portal-nebula" aria-hidden="true"><i></i><i></i><i></i></div>
       <div class="portal-cosmos" aria-hidden="true"><i></i><i></i><i></i></div>
       <div class="portal-noise" aria-hidden="true"></div>
       <div class="portal-glow portal-glow--green" aria-hidden="true"></div>
       <div class="portal-glow portal-glow--gold" aria-hidden="true"></div>
+      <div class="portal-sparks" aria-hidden="true">${Array.from({ length: 18 }, (_, index) => `<i style="--spark:${index}"></i>`).join('')}</div>
 
       <header class="portal-topbar">
         <a class="portal-profile" href="${identityRoute}">
           <span class="portal-profile__avatar">${avatarUrl ? `<img src="${esc(avatarUrl)}" alt="">` : 'RB'}<i></i></span>
           <span class="portal-profile__copy"><small>${user ? 'WELCOME BACK' : 'RICH ACCESS'}</small><strong>${esc(name)}</strong><em>${user ? `LEVEL ${richLevel}` : 'TAP IN TO SYNC'}</em></span>
         </a>
-        <div class="portal-brand"><small>RICH BIZNESS LLC</small><strong>UNIVERSE</strong><span>MOTION PORTAL SYSTEM</span></div>
+        <div class="portal-brand"><small>RICH BIZNESS LLC</small><strong>UNIVERSE</strong><span>ROTATING OMNI PORTAL</span></div>
       </header>
 
       ${announcement.title ? `<a class="portal-announcement" href="${esc(announcement.action_url ?? announcement.target_url ?? '#')}"><span>${esc(announcement.emoji ?? '✦')}</span><div><small>${esc(announcement.priority ?? 'UPDATE')}</small><strong>${esc(announcement.title)}</strong></div><i>OPEN</i></a>` : ''}
 
       <section class="portal-world" aria-label="Rich Bizness Universe portal">
-        <div class="portal-depth" aria-hidden="true">
-          <div class="portal-orbit portal-orbit--outer"></div><div class="portal-orbit portal-orbit--middle"></div><div class="portal-orbit portal-orbit--inner"></div><div class="portal-scan"></div><div class="portal-energy-lines"></div>
+        <div class="portal-visual-rail portal-visual-rail--left" aria-hidden="true">
+          ${satellites.slice(0, 2).map(([title, sub], index) => `<article style="--card:${index}"><span>${index === 0 ? '◉' : '▣'}</span><div><small>${sub}</small><strong>${title}</strong></div></article>`).join('')}
         </div>
-        ${destinations.map(([label, icon, href, position], index) => `<a class="portal-node portal-node--${position}" href="${href}" style="--node:${index};--delay:${index * 0.12}s"><span class="portal-node__trail"></span><span class="portal-node__halo"></span><span class="portal-node__icon">${icon}</span><span class="portal-node__label">${label}</span><small>ENTER</small></a>`).join('')}
-        <a class="portal-core" href="${identityRoute}"><span class="portal-core__energy"></span><span class="portal-core__ring portal-core__ring--one"></span><span class="portal-core__ring portal-core__ring--two"></span><span class="portal-core__ring portal-core__ring--three"></span><span class="portal-core__content"><small>RICH BIZNESS LLC</small><strong>${user ? 'ENTER' : 'ACTIVATE'}</strong><span>${user ? 'OPEN YOUR UNIVERSE' : 'CREATE YOUR RICH ID'}</span><b>${user ? `${xpCurrent.toLocaleString()} / ${xpNext.toLocaleString()} XP` : 'TAP TO BEGIN'}</b></span></a>
+        <div class="portal-visual-rail portal-visual-rail--right" aria-hidden="true">
+          ${satellites.slice(2).map(([title, sub], index) => `<article style="--card:${index + 2}"><span>${index === 0 ? '◎' : '🛒'}</span><div><small>${sub}</small><strong>${title}</strong></div></article>`).join('')}
+        </div>
+
+        <div class="portal-dial" aria-hidden="false">
+          <div class="portal-depth" aria-hidden="true">
+            <div class="portal-orbit portal-orbit--outer"></div>
+            <div class="portal-orbit portal-orbit--middle"></div>
+            <div class="portal-orbit portal-orbit--inner"></div>
+            <div class="portal-orbit portal-orbit--ticks"></div>
+            <div class="portal-scan"></div>
+            <div class="portal-energy-lines"></div>
+            <div class="portal-light-beam portal-light-beam--one"></div>
+            <div class="portal-light-beam portal-light-beam--two"></div>
+          </div>
+          ${destinations.map(([label, icon, href, position], index) => `<a class="portal-node portal-node--${position}" href="${href}" style="--node:${index};--delay:${index * 0.12}s"><span class="portal-node__trail"></span><span class="portal-node__halo"></span><span class="portal-node__glass"></span><span class="portal-node__icon">${icon}</span><span class="portal-node__label">${label}</span><small>ENTER</small></a>`).join('')}
+        </div>
+
+        <a class="portal-core" href="${identityRoute}">
+          <span class="portal-core__energy"></span>
+          <span class="portal-core__ring portal-core__ring--one"></span>
+          <span class="portal-core__ring portal-core__ring--two"></span>
+          <span class="portal-core__ring portal-core__ring--three"></span>
+          <span class="portal-core__iris"></span>
+          <span class="portal-core__content"><small>RICH BIZNESS LLC</small><strong>${user ? 'ENTER' : 'ACTIVATE'}</strong><span>${user ? 'OPEN YOUR UNIVERSE' : 'CREATE YOUR RICH ID'}</span><b>${user ? `${xpCurrent.toLocaleString()} / ${xpNext.toLocaleString()} XP` : 'TAP TO BEGIN'}</b><i style="--xp:${xpPercent}%"></i></span>
+        </a>
       </section>
 
       <aside class="portal-actions">
