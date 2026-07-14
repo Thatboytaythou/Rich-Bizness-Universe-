@@ -26,28 +26,18 @@
     {"source": "/live", "destination": "/live.html"},
     {"source": "/watch", "destination": "/watch.html"},
     {"source": "/music", "destination": "/music.html"},
+    {"source": "/podcast", "destination": "/podcast.html"},
+    {"source": "/radio", "destination": "/radio.html"},
     {"source": "/sports", "destination": "/sports.html"},
     {"source": "/store", "destination": "/store.html"},
     {"source": "/gaming", "destination": "/gaming.html"},
     {"source": "/meta", "destination": "/meta.html"},
-    {"source": "/avatar", "destination": "/avatar.html"}
+    {"source": "/avatar", "destination": "/avatar.html"},
+    {"source": "/games/rich-chess", "destination": "/rich-chess.html"},
+    {"source": "/games/rich-chess/", "destination": "/rich-chess.html"}
   ],
   "headers": [
-    {
-      "source": "/api/(.*)",
-      "headers": [
-        {"key": "Cache-Control", "value": "no-store"},
-        {"key": "X-Content-Type-Options", "value": "nosniff"}
-      ]
-    },
-    {
-      "source": "/(.*)",
-      "headers": [
-        {"key": "X-Content-Type-Options", "value": "nosniff"},
-        {"key": "Referrer-Policy", "value": "strict-origin-when-cross-origin"},
-        {"key": "Permissions-Policy", "value": "camera=(self), microphone=(self), geolocation=()"},
-        {"key": "Cross-Origin-Opener-Policy", "value": "same-origin"}
-      ]
-    }
+    {"source": "/api/(.*)", "headers": [{"key": "Cache-Control", "value": "no-store"},{"key": "X-Content-Type-Options", "value": "nosniff"}]},
+    {"source": "/(.*)", "headers": [{"key": "X-Content-Type-Options", "value": "nosniff"},{"key": "Referrer-Policy", "value": "strict-origin-when-cross-origin"},{"key": "Permissions-Policy", "value": "camera=(self), microphone=(self), geolocation=()"},{"key": "Cross-Origin-Opener-Policy", "value": "same-origin"}]}
   ]
 }
