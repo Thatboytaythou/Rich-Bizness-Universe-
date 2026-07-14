@@ -1,7 +1,5 @@
 export type PageModule = Readonly<{ mount: () => void | Promise<void> }>;
 
-const routeShell = () => import('./features/route-shell/route-shell.page');
-
 const pageModules: Record<string, () => Promise<PageModule>> = {
   feed: () => import('./pages/feed/feed.page'),
   gallery: () => import('./pages/gallery/gallery.page'),
@@ -19,7 +17,7 @@ const pageModules: Record<string, () => Promise<PageModule>> = {
   upload: () => import('./features/upload/upload.page'),
   search: () => import('./features/search/search.page'),
   watch: () => import('./features/watch/watch.page'),
-  avatar: routeShell
+  avatar: () => import('./features/avatar/avatar.page')
 };
 
 export async function loadPageModule(page: string): Promise<PageModule | null> {
