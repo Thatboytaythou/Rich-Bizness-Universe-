@@ -15,7 +15,7 @@ export type Database = {
       feature_flags: Table; feed_comments: Table; feed_post_likes: Table; feed_post_views: Table; feed_posts: Table; followers: Table;
       game_alert_subscriptions: Table; game_categories: Table; game_challenges: Table; game_clips: Table; game_comments: Table; game_levels: Table; game_likes: Table; game_missions: Table; game_moves: Table; game_platform_accounts: Table; game_player_progress: Table; game_rewards: Table; game_room_members: Table; game_rooms: Table; game_runtime_manifests: Table; game_scores: Table; game_sessions: Table; game_stream_links: Table; game_tournaments: Table; gamer_profiles: Table; games: Table; gaming_uploads: Table;
       layout_presets: Table;
-      live_alert_subscriptions: Table; live_chat_messages: Table; live_reactions: Table; live_recordings: Table; live_stream_bans: Table; live_stream_cards: Table; live_stream_members: Table; live_stream_purchases: Table; live_streams: Table; live_tips: Table; live_view_sessions: Table; livekit_room_events: Table;
+      live_alert_subscriptions: Table; live_categories: Table; live_chat_messages: Table; live_reactions: Table; live_recordings: Table; live_stream_bans: Table; live_stream_cards: Table; live_stream_members: Table; live_stream_purchases: Table; live_streams: Table; live_tips: Table; live_view_sessions: Table; livekit_room_events: Table;
       meta_avatars: Table; meta_chat_messages: Table; meta_inventory: Table; meta_items: Table; meta_portals: Table; meta_room_members: Table; meta_rooms: Table; meta_stream_links: Table; meta_visits: Table; meta_world_likes: Table; meta_worlds: Table;
       moderation_reports: Table;
       music_comments: Table; music_likes: Table; music_play_events: Table; music_tracks: Table;
@@ -41,11 +41,13 @@ export type Database = {
       rb_avatar_set_item: { Args: { p_item_key: string; p_equipped?: boolean }; Returns: Json };
       rb_award_xp: { Args: { p_event_key: string; p_section?: string; p_source_table?: string | null; p_source_id?: string | null; p_amount?: number | null }; Returns: Json };
       rb_create_direct_thread: { Args: { p_other_user: string }; Returns: string };
+      rb_end_live_stream: { Args: { p_stream_id: string }; Returns: Json };
       rb_enter_meta_world: { Args: { p_world_id: string }; Returns: Json };
       rb_feed_add_comment: { Args: { p_post_id: string; p_body: string }; Returns: Row };
       rb_feed_record_view: { Args: { p_post_id: string; p_session_id?: string | null }; Returns: undefined };
       rb_feed_toggle_like: { Args: { p_post_id: string }; Returns: Json };
       rb_global_search: { Args: { p_query: string; p_limit?: number }; Returns: Row[] };
+      rb_go_live_bootstrap: { Args: Record<string, never>; Returns: Json };
       rb_is_admin: { Args: { p_min_permission?: number }; Returns: boolean };
       rb_is_dm_thread_member: { Args: { p_thread_id: string }; Returns: boolean };
       rb_join_game_room: { Args: { p_room_code: string }; Returns: Row };
@@ -65,6 +67,7 @@ export type Database = {
       rb_record_game_move: { Args: Record<string, Json | undefined>; Returns: Row };
       rb_register_upload: { Args: { p_route_key: string; p_title: string; p_description: string; p_file_path: string; p_public_url: string; p_mime_type: string; p_file_size: number; p_visibility?: string; p_metadata?: Json }; Returns: Row };
       rb_save_avatar_studio: { Args: { p_display_name: string; p_preset_key: string; p_aura: string; p_outfit?: Json; p_accessories?: Json; p_smoke?: Json; p_emotes?: Json; p_character_type?: string }; Returns: Json };
+      rb_start_live_stream: { Args: { p_title: string; p_description?: string | null; p_category?: string; p_access_type?: string; p_price_cents?: number; p_thumbnail_url?: string | null; p_cover_url?: string | null; p_is_chat_enabled?: boolean; p_is_cohost_enabled?: boolean; p_recording_enabled?: boolean; p_transcription_enabled?: boolean }; Returns: Json };
       rb_store_cart_set: { Args: { p_product_id: string; p_quantity?: number }; Returns: Json };
       rb_store_catalog: { Args: { p_limit?: number }; Returns: Row[] };
       rb_store_record_view: { Args: { p_product_id: string; p_anonymous_id?: string | null }; Returns: undefined };
