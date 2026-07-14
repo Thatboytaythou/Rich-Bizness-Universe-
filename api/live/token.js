@@ -13,17 +13,28 @@ const bearer = (req) => {
   return value.startsWith('Bearer ') ? value.slice(7).trim() : '';
 };
 
+const env = (...names) => names.map((name) => process.env[name]).find((value) => typeof value === 'string' && value.trim())?.trim();
+
 export default async function handler(req, res) {
   if (req.method !== 'POST') return json(res, 405, { error: 'Use POST.' });
 
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  const livekitUrl = process.env.LIVEKIT_URL;
-  const livekitKey = process.env.LIVEKIT_API_KEY;
-  const livekitSecret = process.env.LIVEKIT_API_SECRET;
+  const supabaseUrl = env('SUPABASE_URL', 'NEXT_PUBLIC_SUPABASE_URL', 'VITE_SUPABASE_URL');
+  const supabaseKey = env('SUPABASE_PUBLISHABLE_KEY', 'NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY', 'NEXT_PUBLIC_SUPABASE_ANON_KEY', 'VITE_SUPABASE_PUBLISHABLE_KEY', 'VITE_SUPABASE_ANON_KEY');
+  const livekitUrl = env('LIVEKIT_URL', 'NEXT_PUBLIC_LIVEKIT_URL', 'VITE_LIVEKIT_URL');
+  const livekitKey = env('LIVEKIT_API_KEY');
+  const livekitSecret = env('LIVEKIT_API_SECRET');
 
   if (!supabaseUrl || !supabaseKey || !livekitUrl || !livekitKey || !livekitSecret) {
-    return json(res, 500, { error: 'Live runtime is missing server environment values.' });
+    return json(res, 500, {
+      error: 'Live runtime is missing server environment values.',
+      missing: {
+        supabaseUrl: !supabaseUrl,
+        supabasePublishableKey: !supabaseKey,
+        livekitUrl: !livekitUrl,
+        livekitApiKey: !livekitKey,
+        livekitApiSecret: !livekitSecret
+      }
+    });
   }
 
   const accessToken = bearer(req);
@@ -31,13 +42,19 @@ export default async function handler(req, res) {
 
   const supabase = createClient(supabaseUrl, supabaseKey, {
     global: { headers: { Authorization: `Bearer ${accessToken}` } },
-    auth: { persistSession: false, autoRefreshToken: false }
+    auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false }
   });
 
   const { data: userData, error: userError } = await supabase.auth.getUser(accessToken);
   if (userError || !userData.user) return json(res, 401, { error: 'Your Rich ID session expired. Tap in again.' });
 
-  const body = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : (req.body || {});
+  let body = {};
+  try {
+    body = typeof req.body === 'string' ? JSON.parse(req.body || '{}') : (req.body || {});
+  } catch {
+    return json(res, 400, { error: 'That live-room request was not valid.' });
+  }
+
   const roomName = String(body.roomName || '').trim();
   const role = body.role === 'host' ? 'host' : 'viewer';
   const streamId = String(body.streamId || '').trim();
@@ -51,8 +68,9 @@ export default async function handler(req, res) {
       .eq('id', streamId)
       .eq('creator_id', userData.user.id)
       .eq('livekit_room_name', roomName)
+      .in('status', ['live', 'ready'])
       .maybeSingle();
-    if (error || !stream) return json(res, 403, { error: 'That Bizness Party room is not yours.' });
+    if (error || !stream) return json(res, 403, { error: 'That Bizness Party room is not yours or is no longer active.' });
   } else {
     const { data: stream, error } = await supabase
       .from('live_streams')
@@ -69,7 +87,7 @@ export default async function handler(req, res) {
   const token = new AccessToken(livekitKey, livekitSecret, {
     identity,
     name: displayName,
-    metadata: JSON.stringify({ role, richBizness: true })
+    metadata: JSON.stringify({ role, richBizness: true, streamId })
   });
 
   token.addGrant({
