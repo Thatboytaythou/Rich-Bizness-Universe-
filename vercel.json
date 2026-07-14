@@ -33,8 +33,8 @@
     {"source": "/gaming", "destination": "/gaming.html"},
     {"source": "/meta", "destination": "/meta.html"},
     {"source": "/avatar", "destination": "/avatar.html"},
-    {"source": "/games/rich-chess", "destination": "/rich-chess.html"},
-    {"source": "/games/rich-chess/", "destination": "/rich-chess.html"}
+    {"source": "/games/rich-chess", "destination": "/rich-chess"},
+    {"source": "/games/rich-chess/", "destination": "/rich-chess"}
   ],
   "headers": [
     {"source": "/api/(.*)", "headers": [{"key": "Cache-Control", "value": "no-store"},{"key": "X-Content-Type-Options", "value": "nosniff"}]},
