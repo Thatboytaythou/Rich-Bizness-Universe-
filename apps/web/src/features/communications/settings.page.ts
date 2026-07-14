@@ -1,5 +1,6 @@
 import { supabase } from '../../core/supabase/client';
 import './communications.css';
+import './settings-universe.css';
 
 type JsonMap=Record<string,unknown>;
 type UserSettings={profile_visibility?:string;dm_privacy?:string;motion_level?:string;notification_level?:string;accent_color?:string;cinema_mode?:boolean;tv_mode?:boolean;metadata?:JsonMap};
@@ -43,6 +44,12 @@ export async function mount():Promise<void>{
  <label class="toggle-row"><span><strong>3D depth</strong><br/>Enable layered cinematic profile depth.</span><input type="checkbox" name="depth_3d" ${theme.depth_3d!==false?'checked':''}></label></section>
  <p id="status" class="status-line" role="status"></p><button id="saveButton" class="comm-button primary" type="submit">SAVE SETTINGS</button></form></div></main>`;
  const form=document.querySelector<HTMLFormElement>('#settingsForm')!;const status=document.querySelector<HTMLElement>('#status')!;const saveState=document.querySelector<HTMLElement>('#saveState')!;const saveButton=document.querySelector<HTMLButtonElement>('#saveButton')!;
+ const accentInput=form.elements.namedItem('accent_color') as HTMLInputElement|null;
+ if(accentInput){document.documentElement.style.setProperty('--rb-user-accent',accentInput.value);accentInput.addEventListener('input',()=>document.documentElement.style.setProperty('--rb-user-accent',accentInput.value));}
+ let dirty=false;
+ form.addEventListener('input',()=>{dirty=true;saveState.textContent='UNSAVED';status.textContent='';});
+ const guard=(event:BeforeUnloadEvent)=>{if(!dirty)return;event.preventDefault();event.returnValue='';};
+ window.addEventListener('beforeunload',guard);
  form.addEventListener('submit',async e=>{e.preventDefault();saveButton.disabled=true;saveState.textContent='SAVING';status.textContent='';const fd=new FormData(form);const now=new Date().toISOString();
   const notification_config={...notify,dm:fd.has('dm'),live:fd.has('live'),music:fd.has('music'),store:fd.has('store'),sports:fd.has('sports'),gaming:fd.has('gaming')};
   const privacy_config={...privacy,show_online:fd.has('show_online'),allow_messages:fd.has('allow_messages'),allow_follows:fd.has('allow_follows')};
@@ -54,6 +61,7 @@ export async function mount():Promise<void>{
    supabase.from('profile_theme_settings').upsert(themePayload,{onConflict:'user_id'})
   ]);
   const updateError=profileUpdateError??settingsUpdateError??themeUpdateError;if(updateError){saveState.textContent='ERROR';status.textContent=updateError.message;saveButton.disabled=false;return;}
-  saveState.textContent='SAVED';status.textContent='Universe settings saved.';saveButton.disabled=false;
+  dirty=false;saveState.textContent='SAVED';status.textContent='Universe settings saved across Profile, Rich-DM, notifications, and visual experience.';saveButton.disabled=false;
  });
+ window.addEventListener('pagehide',()=>{window.removeEventListener('beforeunload',guard);},{once:true});
 }
