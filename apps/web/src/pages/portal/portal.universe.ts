@@ -4,6 +4,7 @@ import { supabase } from '../../core/supabase/client';
 import { mountPortalMotion } from './portal.motion';
 import './portal.motion.css';
 import './portal.overdrive.css';
+import './portal.index-fix.css';
 
 type JsonMap = Record<string, unknown>;
 type Activity = { kind?: string; title?: string; href?: string };
@@ -137,7 +138,7 @@ export async function mountPortalPage(): Promise<void> {
               <span class="portal-node__aura" aria-hidden="true"></span>
               <span class="portal-node__icon">${destination.icon}</span>
               <span class="portal-node__copy"><small>${destination.kicker}</small><strong>${destination.label}</strong></span>
-              <b>${count > 999 ? '999+' : count}</b>
+              <b data-count="${count}">${count > 999 ? '999+' : count}</b>
             </a>`;
           }).join('')}
         </div>
