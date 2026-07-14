@@ -9,21 +9,28 @@ const money = (v: any) => new Intl.NumberFormat('en-US', { style: 'currency', cu
 
 async function requireRichSession() {
   let { data: { session } } = await supabase.auth.getSession();
-  if (!session) {
-    const refreshed = await supabase.auth.refreshSession();
-    session = refreshed.data.session;
-  }
+  if (!session) session = (await supabase.auth.refreshSession()).data.session;
   if (!session) {
     location.replace('/tap-in.html?next=%2Flive.html');
     return null;
   }
-  const { data: userData, error } = await supabase.auth.getUser();
+  const { data: userData, error } = await supabase.auth.getUser(session.access_token);
   if (error || !userData.user) {
     await supabase.auth.signOut({ scope: 'local' });
     location.replace('/tap-in.html?next=%2Flive.html&reason=session');
     return null;
   }
   return session;
+}
+
+function lockVideoElement(element: HTMLMediaElement, className: string) {
+  element.className = className;
+  element.setAttribute('playsinline', 'true');
+  element.setAttribute('webkit-playsinline', 'true');
+  element.setAttribute('controlsList', 'nodownload noremoteplayback nofullscreen');
+  element.disableRemotePlayback = true;
+  if (element instanceof HTMLVideoElement) element.disablePictureInPicture = true;
+  return element;
 }
 
 export async function mount(): Promise<void> {
@@ -41,7 +48,12 @@ export async function mount(): Promise<void> {
 
   const snap = (universe ?? {}) as Row;
   const setup = (studio ?? {}) as Row;
-  const streams = (snap.live ?? []) as Row[];
+  const now = Date.now();
+  const streams = ((snap.live ?? []) as Row[]).filter((stream) => {
+    if (String(stream.status).toLowerCase() !== 'live') return true;
+    const activity = Date.parse(String(stream.last_activity_at ?? stream.updated_at ?? stream.started_at ?? 0));
+    return Number.isFinite(activity) && now - activity < 2 * 60 * 60 * 1000;
+  });
   const recordings = (snap.recordings ?? []) as Row[];
   const cards = (snap.live_cards ?? []) as Row[];
   const purchases = (snap.live_purchases ?? []) as Row[];
@@ -53,20 +65,22 @@ export async function mount(): Promise<void> {
   let lane = 'live';
   let active: Row | null = streams.find((s) => String(s.status).toLowerCase() === 'live') ?? streams[0] ?? recordings[0] ?? null;
   let channel: any = null;
+  let viewerRoom: Room | null = null;
   let hostRoom: Room | null = null;
   let hostVideo: LocalVideoTrack | null = null;
   let hostAudio: LocalAudioTrack | null = null;
-  let selectedCategory = String(categories[0]?.slug ?? 'family-bizness');
+  let heartbeat: number | null = null;
+  let selectedCategory = String(setup.active_stream?.category ?? categories[0]?.slug ?? 'family-bizness');
   let activeHostStream: Row | null = setup.active_stream ?? null;
 
-  root.innerHTML = `<main class="media-ultimate"><div class="media-ultimate__wrap">
+  root.innerHTML = `<main class="media-ultimate live-mobile-safe"><div class="media-ultimate__wrap">
     <header class="media-ultimate__head">
       <a href="/portal.html">←</a>
       <div><p>RICH BIZNESS LLC • GLOBAL LIVE</p><h1>WE LIT🔥</h1></div>
       <span class="media-ultimate__status">● TAPPED IN</span>
     </header>
 
-    <section id="liveHero" class="media-ultimate__hero">${active ? hero(active) : '<div class="media-ultimate__empty">Ain’t nobody live yet. Light this bitch up.</div>'}</section>
+    <section id="liveHero" class="media-ultimate__hero live-hero-clean">${active ? hero(active) : '<div class="media-ultimate__empty">Ain’t nobody live yet. Light this shyt up.</div>'}</section>
 
     <section class="media-ultimate__metrics">
       <article><small>WE LIT🔥</small><strong>${streams.filter((s) => String(s.status).toLowerCase() === 'live').length}</strong></article>
@@ -99,15 +113,15 @@ export async function mount(): Promise<void> {
   <dialog id="goLiveStudio" class="live-studio">
     <div class="live-studio__shell">
       <section id="studioPreview" class="live-studio__preview">
-        <div class="live-studio__preview-empty"><strong>PREVIEW CAM</strong><p>Pick your lane, check the camera, then light this bitch up.</p></div>
-        <div class="live-studio__preview-overlay"><small id="previewCategory">${esc(categories[0]?.slang_label ?? 'FAMILY BIZNESS')}</small><h3 id="previewTitle">Your Live Title</h3></div>
+        <div class="live-studio__preview-empty"><strong>PREVIEW CAM</strong><p>Pick your lane, check the camera, then light this shyt up.</p></div>
+        <div class="live-studio__preview-overlay"><small id="previewCategory">${esc(categories.find((c) => c.slug === selectedCategory)?.slang_label ?? 'FAMILY BIZNESS')}</small><h3 id="previewTitle">${esc(activeHostStream?.title ?? 'Your Live Title')}</h3></div>
       </section>
       <aside class="live-studio__panel">
         <header class="live-studio__top"><div><p>RICH BIZNESS LLC</p><h2>GO LIVE 🔴</h2></div><button id="closeStudio" class="live-studio__close" type="button">×</button></header>
         <form id="goLiveForm" class="live-studio__form">
           <label>WHAT WE CALLIN’ THIS LIVE?<input id="liveTitle" maxlength="120" required value="${esc(activeHostStream?.title ?? 'Family Bizness')}" placeholder="Family Bizness"></label>
           <label>WHAT’S THE MOVE?<textarea id="liveDescription" maxlength="1200" placeholder="Tell everybody what type time we on...">${esc(activeHostStream?.description ?? '')}</textarea></label>
-          <label>PICK YOUR LIVE LANE<div id="categoryGrid" class="live-category-grid">${categories.map((c, i) => `<button class="live-category ${i === 0 ? 'active' : ''}" type="button" data-category="${esc(c.slug)}" style="background-image:url('${esc(c.hero_asset_url)}')"><span>${esc(c.icon)}</span><strong>${esc(c.slang_label)}</strong><small>${esc(c.label)}</small></button>`).join('')}</div></label>
+          <label>PICK YOUR LIVE LANE<div id="categoryGrid" class="live-category-grid">${categories.map((c) => `<button class="live-category ${c.slug === selectedCategory ? 'active' : ''}" type="button" data-category="${esc(c.slug)}" style="background-image:url('${esc(c.hero_asset_url)}')"><span>${esc(c.icon)}</span><strong>${esc(c.slang_label)}</strong><small>${esc(c.label)}</small></button>`).join('')}</div></label>
           <div class="live-studio__toggles">
             <label>ROOM ACCESS<select id="liveAccess"><option value="free">FREE ROOM ACCESS</option><option value="vip">VIP RICH ROOM</option><option value="paid">PAID ROOM</option><option value="private">PRIVATE BIZNESS</option></select></label>
             <label>PRICE<input id="livePrice" type="number" min="0" step="1" value="0" inputmode="decimal"></label>
@@ -118,7 +132,7 @@ export async function mount(): Promise<void> {
             <label class="live-studio__toggle"><input id="liveRecordingEnabled" type="checkbox" checked> SAVE REPLAY</label>
             <label class="live-studio__toggle"><input id="liveCaptionsEnabled" type="checkbox"> LIVE CAPTIONS</label>
           </div>
-          <button id="startLiveButton" class="live-studio__submit" type="submit">LIGHT THIS BITCH UP</button>
+          <button id="startLiveButton" class="live-studio__submit" type="submit">LIGHT THIS SHYT UP</button>
           <p id="studioStatus" class="live-studio__status">TAP IN READY • CAMERA AND MIC ASK WHEN YOU START</p>
         </form>
       </aside>
@@ -162,6 +176,8 @@ export async function mount(): Promise<void> {
 
   const open = async (r: Row) => {
     active = r;
+    await viewerRoom?.disconnect();
+    viewerRoom = null;
     document.querySelector<HTMLElement>('#liveHero')!.innerHTML = hero(r);
     detail.innerHTML = [
       ['BIZNESS PARTY', `${r.metadata?.slang_label || r.display_room_name || r.category || 'Family Bizness'} · ${r.access_type || 'free'}`],
@@ -195,7 +211,8 @@ export async function mount(): Promise<void> {
   };
 
   const tokenFor = async (stream: Row, role: 'host' | 'viewer') => {
-    const current = (await supabase.auth.getSession()).data.session;
+    let current = (await supabase.auth.getSession()).data.session;
+    if (!current) current = (await supabase.auth.refreshSession()).data.session;
     if (!current) throw new Error('Your Rich ID session expired. Tap in again.');
     const response = await fetch('/api/live/token', {
       method: 'POST',
@@ -210,12 +227,14 @@ export async function mount(): Promise<void> {
   const popIn = async (stream: Row) => {
     try {
       const payload = await tokenFor(stream, 'viewer');
-      const room = new Room({ adaptiveStream: true, dynacast: true });
-      await room.connect(payload.url, payload.token);
-      document.querySelector<HTMLElement>('#liveHero')!.innerHTML = `<div id="viewerStage" class="media-ultimate__hero-media"></div><div class="media-ultimate__hero-copy"><span class="media-ultimate__eyebrow">NOW WATCHING · ${esc(stream.display_room_name || stream.category || 'BIZNESS PARTY')}</span><h2>${esc(stream.title)}</h2><p>You popped in. WE LIT🔥</p></div>`;
+      await viewerRoom?.disconnect();
+      viewerRoom = new Room({ adaptiveStream: true, dynacast: true });
+      await viewerRoom.connect(payload.url, payload.token);
+      document.querySelector<HTMLElement>('#liveHero')!.innerHTML = `<div id="viewerStage" class="live-viewer-stage"></div><div class="media-ultimate__hero-copy"><span class="media-ultimate__eyebrow">NOW WATCHING · ${esc(stream.display_room_name || stream.category || 'BIZNESS PARTY')}</span><h2>${esc(stream.title)}</h2><p>You popped in. WE LIT🔥</p></div>`;
       const stage = document.querySelector<HTMLElement>('#viewerStage')!;
-      room.on(RoomEvent.TrackSubscribed, (track) => {
-        if (track.kind === Track.Kind.Video || track.kind === Track.Kind.Audio) stage.append(track.attach());
+      viewerRoom.on(RoomEvent.TrackSubscribed, (track) => {
+        const media = lockVideoElement(track.attach(), track.kind === Track.Kind.Video ? 'live-inline-video' : 'live-inline-audio');
+        stage.append(media);
       });
     } catch (error) {
       detail.innerHTML = `<div class="media-ultimate__empty">${esc(error instanceof Error ? error.message : 'Could not pop in.')}</div>`;
@@ -231,8 +250,12 @@ export async function mount(): Promise<void> {
     hostAudio = await createLocalAudioTrack({ echoCancellation: true, noiseSuppression: true, autoGainControl: true });
     await hostRoom.localParticipant.publishTrack(hostVideo, { simulcast: true });
     await hostRoom.localParticipant.publishTrack(hostAudio);
-    studioPreview.innerHTML = `<div id="hostVideoMount"></div><span class="live-host-badge">● WE LIT🔥</span><div class="live-host-controls"><button id="toggleMic" type="button">🎙️</button><button id="toggleCam" type="button">📹</button><button id="endLive" class="danger" type="button">■</button></div><div class="live-studio__preview-overlay"><small>${esc(stream.display_room_name || stream.metadata?.slang_label || 'BIZNESS PARTY')}</small><h3>${esc(stream.title)}</h3></div>`;
-    document.querySelector<HTMLElement>('#hostVideoMount')!.append(hostVideo.attach());
+    studioPreview.innerHTML = `<div id="hostVideoMount" class="live-host-stage"></div><span class="live-host-badge">● WE LIT🔥</span><div class="live-host-controls"><button id="toggleMic" type="button">🎙️</button><button id="toggleCam" type="button">📹</button><button id="endLive" class="danger" type="button">■</button></div><div class="live-studio__preview-overlay"><small>${esc(stream.display_room_name || stream.metadata?.slang_label || 'BIZNESS PARTY')}</small><h3>${esc(stream.title)}</h3></div>`;
+    const hostElement = lockVideoElement(hostVideo.attach(), 'live-inline-video live-host-video');
+    hostElement.muted = true;
+    hostElement.autoplay = true;
+    document.querySelector<HTMLElement>('#hostVideoMount')!.append(hostElement);
+    heartbeat = window.setInterval(() => void supabase.rpc('rb_live_heartbeat', { p_stream_id: stream.id }), 30_000);
     setStudioStatus('WE LIT🔥 — YOU LIVE AS ' + String(profile.display_name || profile.username || 'RICH CREATOR').toUpperCase());
     document.querySelector<HTMLButtonElement>('#toggleMic')!.onclick = async () => {
       if (!hostAudio) return;
@@ -249,6 +272,10 @@ export async function mount(): Promise<void> {
 
   const endHostLive = async (stream: Row) => {
     setStudioStatus('WRAPPIN’ THE PARTY UP...');
+    if (heartbeat) window.clearInterval(heartbeat);
+    heartbeat = null;
+    hostVideo?.detach().forEach((element) => element.remove());
+    hostAudio?.detach().forEach((element) => element.remove());
     hostVideo?.stop();
     hostAudio?.stop();
     await hostRoom?.disconnect();
@@ -258,7 +285,7 @@ export async function mount(): Promise<void> {
     const { error } = await supabase.rpc('rb_end_live_stream', { p_stream_id: stream.id });
     if (error) return setStudioStatus(error.message, true);
     setStudioStatus('PARTY’S OVER — REPLAY GETTIN’ RIGHT');
-    window.setTimeout(() => location.reload(), 900);
+    window.setTimeout(() => location.reload(), 700);
   };
 
   document.querySelectorAll<HTMLButtonElement>('[data-lane]').forEach((button) => button.onclick = () => {
@@ -281,19 +308,15 @@ export async function mount(): Promise<void> {
   };
 
   document.querySelector<HTMLButtonElement>('#goLiveButton')!.onclick = () => studioDialog.showModal();
-  document.querySelector<HTMLButtonElement>('#closeStudio')!.onclick = () => {
-    if (!hostRoom) studioDialog.close();
-  };
-  studioDialog.addEventListener('cancel', (event) => {
-    if (hostRoom) event.preventDefault();
-  });
+  document.querySelector<HTMLButtonElement>('#closeStudio')!.onclick = () => { if (!hostRoom) studioDialog.close(); };
+  studioDialog.addEventListener('cancel', (event) => { if (hostRoom) event.preventDefault(); });
 
   document.querySelectorAll<HTMLButtonElement>('[data-category]').forEach((button) => button.onclick = () => {
     selectedCategory = button.dataset.category!;
     document.querySelectorAll('[data-category]').forEach((node) => node.classList.toggle('active', node === button));
     const category = categories.find((c) => c.slug === selectedCategory);
     document.querySelector<HTMLElement>('#previewCategory')!.textContent = category?.slang_label ?? 'BIZNESS PARTY';
-    if (!hostRoom) studioPreview.style.backgroundImage = `linear-gradient(180deg,rgba(0,0,0,.1),rgba(0,0,0,.8)),url('${category?.hero_asset_url ?? ''}')`;
+    if (!hostRoom) studioPreview.style.backgroundImage = `linear-gradient(180deg,rgba(0,0,0,.05),rgba(0,0,0,.82)),url('${category?.hero_asset_url ?? ''}')`;
   });
 
   document.querySelector<HTMLInputElement>('#liveTitle')!.addEventListener('input', (event) => {
@@ -333,18 +356,28 @@ export async function mount(): Promise<void> {
     }
   };
 
+  window.addEventListener('pagehide', () => {
+    if (heartbeat) window.clearInterval(heartbeat);
+    hostVideo?.detach().forEach((element) => element.remove());
+    hostAudio?.detach().forEach((element) => element.remove());
+    void viewerRoom?.disconnect();
+  }, { once: true });
+
   render();
   if (active) await open(active);
 }
 
 function hero(r: Row) {
-  const media = r.recording_url ? `<video class="media-ultimate__hero-media" controls playsinline poster="${esc(r.thumbnail_url || r.cover_url)}" src="${esc(r.recording_url)}"></video>` : `<img class="media-ultimate__hero-media" src="${esc(r.cover_url || r.thumbnail_url || '/images/live/family-bizness.svg')}" alt="">`;
+  const source = r.cover_url || r.thumbnail_url || '/images/live/categories/family-bizness.svg';
+  const media = r.recording_url
+    ? `<video class="media-ultimate__hero-media live-inline-video" controls playsinline disablepictureinpicture poster="${esc(source)}" src="${esc(r.recording_url)}"></video>`
+    : `<img class="media-ultimate__hero-media" src="${esc(source)}" alt="">`;
   const isLive = String(r.status).toLowerCase() === 'live';
   return `${media}<div class="media-ultimate__hero-copy"><span class="media-ultimate__eyebrow">${isLive ? '● WE LIT🔥' : 'WE 🔥📺'} · ${esc(r.metadata?.slang_label || r.display_room_name || r.category || 'FAMILY BIZNESS')}</span><h2>${esc(r.title || 'Family Bizness')}</h2><p>${esc(r.description || 'Pop in and see what type time the Rich Bizness universe on.')}</p><div class="media-ultimate__actions">${isLive ? '<button id="popInBtn" class="media-ultimate__btn primary" type="button">POP IN</button>' : '<button class="media-ultimate__btn primary" type="button">WATCH REPLAY</button>'}<a class="media-ultimate__btn" href="/profile.html?id=${esc(r.creator_id)}">CREATOR</a><button id="reactBtn" class="media-ultimate__btn">💨 REACT</button><button id="alertBtn" class="media-ultimate__btn">🔔 STAY LOCKED</button></div></div>`;
 }
 
 function card(r: Row, badge: string) {
-  return `<article class="media-ultimate__card" data-id="${esc(r.id)}"><img src="${esc(r.thumbnail_url || r.cover_url || '/images/live/family-bizness.svg')}" alt=""><div class="media-ultimate__card-body"><h4>${esc(r.title || r.subtitle || 'Family Bizness')}</h4><p>${esc(r.description || r.metadata?.slang_label || r.category || r.card_type || 'Bizness Party')}</p><div class="media-ultimate__meta"><span>${badge}</span><span>${Number(r.viewer_count ?? r.view_count ?? 0).toLocaleString()} watching</span></div></div></article>`;
+  return `<article class="media-ultimate__card" data-id="${esc(r.id)}"><img src="${esc(r.thumbnail_url || r.cover_url || '/images/live/categories/family-bizness.svg')}" alt=""><div class="media-ultimate__card-body"><h4>${esc(r.title || r.subtitle || 'Family Bizness')}</h4><p>${esc(r.description || r.metadata?.slang_label || r.category || r.card_type || 'Bizness Party')}</p><div class="media-ultimate__meta"><span>${badge}</span><span>${Number(r.viewer_count ?? r.view_count ?? 0).toLocaleString()} watching</span></div></div></article>`;
 }
 
 function burst(value: string) {
