@@ -7,5 +7,7 @@ import './styles/xp-runtime.css';
 import './styles/media-containment.css';
 import { bootstrap } from './bootstrap';
 import { mountXpRuntime } from './core/xp/xp-runtime';
+import { installMediaLifecycleGuard } from './core/media/media-lifecycle';
 
+installMediaLifecycleGuard();
 void bootstrap().then(() => mountXpRuntime());
