@@ -1,0 +1,46 @@
+body[data-page="portal"] {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  min-height: 100%;
+  overflow: hidden;
+  overscroll-behavior: none;
+  background: #020402;
+}
+
+body[data-page="portal"] #app {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+.portal-stage--elite .portal-bg {
+  background:
+    linear-gradient(180deg, rgba(2, 6, 3, .22), rgba(0, 0, 0, .82)),
+    var(--portal-bg, url('/images/brand/portal-universe-bg.svg')),
+    radial-gradient(circle at 50% 42%, rgba(49, 255, 99, .18), transparent 27%),
+    radial-gradient(circle at 18% 18%, rgba(247, 201, 72, .08), transparent 22%),
+    linear-gradient(160deg, #071108, #020402 56%, #000);
+  background-size: cover;
+  background-position: center center;
+  background-repeat: no-repeat;
+}
+
+.portal-stage--elite .portal-node > b:empty,
+.portal-stage--elite .portal-node > b[data-count="0"] {
+  display: none;
+}
+
+@media (max-width: 430px) {
+  .portal-stage--elite {
+    min-height: 100dvh;
+    height: 100dvh;
+  }
+
+  .portal-stage--elite .portal-world {
+    max-height: calc(100dvh - 176px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+  }
+}
