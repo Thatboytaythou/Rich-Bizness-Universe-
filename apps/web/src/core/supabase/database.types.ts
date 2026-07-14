@@ -37,6 +37,8 @@ export type Database = {
     Functions: {
       rb_apply_xp_queue_row: { Args: { p_queue_id: string }; Returns: Json };
       rb_authorize_livekit_room: { Args: { p_room_name: string }; Returns: Json };
+      rb_avatar_runtime_snapshot: { Args: Record<string, never>; Returns: Json };
+      rb_avatar_set_item: { Args: { p_item_key: string; p_equipped?: boolean }; Returns: Json };
       rb_award_xp: { Args: { p_event_key: string; p_section?: string; p_source_table?: string | null; p_source_id?: string | null; p_amount?: number | null }; Returns: Json };
       rb_create_direct_thread: { Args: { p_other_user: string }; Returns: string };
       rb_enter_meta_world: { Args: { p_world_id: string }; Returns: Json };
