@@ -53,6 +53,7 @@ export type Database = {
       rb_leave_meta_room: { Args: { p_room_id: string }; Returns: Json };
       rb_meta_universe_snapshot: { Args: { p_world_id?: string | null }; Returns: Json };
       rb_personality: { Args: { p_key?: string }; Returns: Json };
+      rb_portal_elite_snapshot: { Args: Record<string, never>; Returns: Json };
       rb_portal_universe_snapshot: { Args: Record<string, never>; Returns: Json };
       rb_profile_record_view: { Args: { p_profile_id: string; p_session_id?: string | null; p_source?: string }; Returns: undefined };
       rb_profile_toggle_follow: { Args: { p_profile_id: string }; Returns: Json };
