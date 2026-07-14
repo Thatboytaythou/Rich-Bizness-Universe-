@@ -4,8 +4,11 @@ type XpSnapshot={level?:number;xp_total?:number;xp_current?:number;xp_next?:numb
 
 const pageSection=()=>document.body.dataset.page||location.pathname.replace(/^\//,'').replace(/\.html$/,'')||'portal';
 const esc=(v:string)=>v.replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]??c));
+const immersivePages=new Set(['live','watch','music','gaming','meta','avatar']);
 
 export async function mountXpRuntime():Promise<void>{
+  const section=pageSection();
+  if(immersivePages.has(section))return;
   const {data:{session}}=await supabase.auth.getSession();
   if(!session||document.querySelector('#rbXpDock'))return;
 
@@ -36,7 +39,6 @@ export async function mountXpRuntime():Promise<void>{
   close.onclick=()=>{panel.hidden=true;toggle.setAttribute('aria-expanded','false');};
 
   await supabase.rpc('rb_award_xp',{p_event_key:'daily_tap_in',p_section:'auth',p_source_table:null,p_source_id:null,p_amount:null});
-  const section=pageSection();
   if(!['tap-in','auth'].includes(section))await supabase.rpc('rb_award_xp',{p_event_key:'section_visit',p_section:section,p_source_table:null,p_source_id:null,p_amount:null});
   await load();
 
