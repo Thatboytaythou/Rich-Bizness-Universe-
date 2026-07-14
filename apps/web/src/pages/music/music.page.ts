@@ -2,7 +2,7 @@ import { supabase } from '../../core/supabase/client';
 import '../../styles/broadcast-cinema-podcast.css';
 
 type Row=Record<string,any>;
-const esc=(v:any)=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]??c));
+const esc=(v:any)=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot',"'":'&#39;'}[c]??c));
 const fmt=(n:any)=>Number(n??0).toLocaleString();
 const duration=(n:any)=>n?`${Math.floor(Number(n)/60)}:${String(Number(n)%60).padStart(2,'0')}`:'LIVE';
 
@@ -20,7 +20,7 @@ export async function mount():Promise<void>{
  const bindActions=(e:Row)=>{document.querySelector<HTMLButtonElement>('#podcastPlayBtn')?.addEventListener('click',()=>void audio.play());document.querySelector<HTMLButtonElement>('#podcastLikeBtn')?.addEventListener('click',async()=>{if(liked.has(String(e.id))){await supabase.from('podcast_likes').delete().eq('user_id',session.user.id).eq('episode_id',e.id);liked.delete(String(e.id));}else{await supabase.from('podcast_likes').insert({user_id:session.user.id,episode_id:e.id});liked.add(String(e.id));}await open(e);});};
  document.querySelectorAll<HTMLButtonElement>('[data-show]').forEach(b=>b.onclick=()=>{showId=b.dataset.show!;document.querySelectorAll('[data-show]').forEach(x=>x.classList.toggle('active',x===b));renderQueue();const first=visible()[0];if(first)void open(first);});
  document.querySelector<HTMLFormElement>('#podcastCommentForm')!.onsubmit=async ev=>{ev.preventDefault();if(!active)return;const input=document.querySelector<HTMLInputElement>('#podcastCommentInput')!;const body=input.value.trim();if(!body)return;const p=snap.profile??{};const {error}=await supabase.from('podcast_comments').insert({episode_id:active.id,user_id:session.user.id,body,username:p.username,display_name:p.display_name});if(!error){input.value='';await loadComments();}};
- audio.addEventListener('ended',async()=>{if(active)await supabase.from('audio_listening_history').insert({user_id:session.user.id,source_type:'podcast',source_id:active.id,position_seconds:Math.floor(audio.duration||0),duration_seconds:Math.floor(audio.duration||0),completed:true});});
+ audio.addEventListener('ended',async()=>{if(active)await supabase.from('audio_listening_history').upsert({user_id:session.user.id,source_type:'podcast',source_id:active.id,progress_seconds:Math.floor(audio.duration||0),completed:true,last_played_at:new Date().toISOString(),metadata:{duration_seconds:Math.floor(audio.duration||0)}},{onConflict:'user_id,source_type,source_id'});});
  renderQueue();if(active)await open(active);
 }
 function cover(e:Row){return `<img src="${esc(e.cover_url||e.show_cover_url||'/images/brand/IMG_5997.png')}" alt=""><div class="podcast-cover__copy"><span class="media-ultimate__eyebrow">RICH ORIGINAL · ${esc(e.show_category||'PODCAST')}</span><h2>${esc(e.title||'Rich Podcast')}</h2><p>${esc(e.description||'Long-form conversation, culture and creator stories from the Rich Bizness universe.')}</p><div class="media-ultimate__actions"><button id="podcastPlayBtn" class="media-ultimate__btn primary">▶ PLAY EPISODE</button><button id="podcastLikeBtn" class="media-ultimate__btn">♡ LIKE</button><a class="media-ultimate__btn" href="/profile.html?id=${esc(e.creator_id||e.user_id)}">HOST PROFILE</a></div></div>`;}
