@@ -6,8 +6,11 @@
   "outputDirectory": "apps/web/dist",
   "cleanUrls": true,
   "trailingSlash": false,
+  "redirects": [
+    {"source": "/portal", "destination": "/", "permanent": true},
+    {"source": "/portal.html", "destination": "/", "permanent": true}
+  ],
   "rewrites": [
-    {"source": "/portal", "destination": "/portal.html"},
     {"source": "/tap-in", "destination": "/tap-in.html"},
     {"source": "/profile", "destination": "/profile.html"},
     {"source": "/edit-profile", "destination": "/edit-profile.html"},
