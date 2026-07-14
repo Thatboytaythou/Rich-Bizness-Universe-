@@ -1,126 +1,64 @@
 import { supabase } from '../../core/supabase/client';
+import './profile-universe.css';
 
-const esc = (value: string | null | undefined) => (value ?? '').replace(/[&<>"']/g, (char) => ({
-  '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
-}[char] ?? char));
+type JsonRow=Record<string,any>;
+type Snapshot={restricted?:boolean;viewer?:JsonRow;profile?:JsonRow;theme?:JsonRow;settings?:JsonRow;level?:JsonRow;avatar?:JsonRow;loadout?:JsonRow;creator?:JsonRow;seller?:JsonRow;gamer?:JsonRow;sports?:JsonRow;counts?:JsonRow;badges?:JsonRow[];feed?:JsonRow[];music?:JsonRow[];products?:JsonRow[];gaming?:JsonRow[];sports_content?:JsonRow[];worlds?:JsonRow[];activity?:JsonRow[]};
+const esc=(v:any)=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]??c));
+const money=(c:any)=>new Intl.NumberFormat('en-US',{style:'currency',currency:'USD'}).format(Number(c??0)/100);
+const compact=(n:any)=>new Intl.NumberFormat('en-US',{notation:'compact',maximumFractionDigits:1}).format(Number(n??0));
+const media=(x:JsonRow)=>x.thumbnail_url??x.cover_url??x.image_url??x.media_url??x.file_url??x.clip_url??x.background_url??'';
+const relative=(value:any)=>{if(!value)return'';const d=(Date.now()-new Date(value).getTime())/1000;if(d<60)return'NOW';if(d<3600)return`${Math.floor(d/60)}M`;if(d<86400)return`${Math.floor(d/3600)}H`;return`${Math.floor(d/86400)}D`;};
 
-function money(cents: number | null | undefined): string {
-  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format((cents ?? 0) / 100);
+function socialLinks(p:JsonRow):string{
+ const links=[['WEB',p.website_url],['IG',p.instagram_url],['YT',p.youtube_url],['TT',p.tiktok_url],['FB',p.facebook_url],['SC',p.snapchat_url]].filter(([,url])=>url);
+ return links.length?`<div class="profile-socials">${links.map(([label,url])=>`<a href="${esc(url)}" target="_blank" rel="noreferrer">${label}</a>`).join('')}</div>`:'';
 }
 
-export async function mountProfilePage(): Promise<void> {
-  const root = document.querySelector<HTMLElement>('#app');
-  if (!root) throw new Error('Missing #app mount');
+function contentCard(item:JsonRow,type:string):string{
+ const image=media(item);const title=item.title??item.body??item.caption??item.description??item.world_type??type;
+ const meta=[item.genre,item.sport,item.team_name,item.product_type,item.world_type].filter(Boolean).join(' · ');
+ const href=type==='MUSIC'?`/music.html?track=${item.id}`:type==='STORE'?`/store.html?product=${item.id}`:type==='GAMING'?`/gaming.html?clip=${item.id}`:type==='SPORTS'?`/sports.html?post=${item.id}`:type==='META'?`/meta.html?world=${item.id}`:`/feed.html?post=${item.id}`;
+ return `<a class="pu-card" href="${href}">${image?`<img src="${esc(image)}" alt="">`:`<div class="pu-card__empty">RB</div>`}<div class="pu-card__shade"></div><div class="pu-card__copy"><small>${type}${item.created_at?` · ${relative(item.created_at)}`:''}</small><strong>${esc(title)}</strong>${meta?`<span>${esc(meta)}</span>`:''}<em>${compact(item.view_count??item.views??item.play_count??item.visit_count??0)} views · ${compact(item.like_count??item.likes??0)} likes</em></div></a>`;
+}
 
-  const { data: { session } } = await supabase.auth.getSession();
-  const params = new URLSearchParams(location.search);
-  const requestedId = params.get('id') || params.get('user') || params.get('u');
-  if (!session && !requestedId) {
-    location.replace(`/tap-in.html?next=${encodeURIComponent('/profile.html')}`);
-    return;
-  }
+function stat(label:string,value:any,sub=''):string{return `<article><small>${label}</small><strong>${esc(value)}</strong>${sub?`<span>${esc(sub)}</span>`:''}</article>`;}
 
-  const profileId = requestedId || session!.user.id;
-  const isOwner = session?.user.id === profileId;
-  const [profileResult, avatarResult, followersResult, followingResult, postsResult, feedResult] = await Promise.all([
-    supabase.from('profiles').select('id,username,display_name,bio,avatar_url,banner_url,website_url,rich_level,rank_title,rich_points,balance_cents,online_status,is_creator,is_verified,has_avatar').eq('id', profileId).maybeSingle(),
-    supabase.from('meta_avatars').select('display_name,avatar_url,aura,rank,level,xp,character_type,is_realistic_3d,is_controllable').eq('user_id', profileId).maybeSingle(),
-    supabase.from('followers').select('follower_id', { count: 'exact', head: true }).eq('following_id', profileId),
-    supabase.from('followers').select('following_id', { count: 'exact', head: true }).eq('follower_id', profileId),
-    supabase.from('feed_posts').select('id', { count: 'exact', head: true }).eq('user_id', profileId),
-    supabase.from('feed_posts').select('id,title,body,media_url,file_url,thumbnail_url,cover_url,media_type,post_type,section,created_at').eq('user_id', profileId).order('created_at', { ascending: false }).limit(12)
-  ]);
-
-  const profile = profileResult.data;
-  const avatar = avatarResult.data;
-  if (!profile) {
-    root.innerHTML = `<main class="profile-missing"><a href="/portal.html">← PORTAL</a><h1>PROFILE NOT FOUND</h1><p>This Rich Bizness identity is not available.</p></main>`;
-    return;
-  }
-
-  const displayName = profile.display_name ?? profile.username ?? avatar?.display_name ?? 'Rich Member';
-  const avatarUrl = profile.avatar_url ?? avatar?.avatar_url ?? '/brand/icons/profile-placeholder.svg';
-  const bannerUrl = profile.banner_url ?? '/images/brand/Avatar-hero-Banner.png.jpeg';
-  const feed = feedResult.data ?? [];
-
-  root.innerHTML = `
-    <main class="profile-shell">
-      <header class="profile-topbar">
-        <a href="/portal.html" aria-label="Back to portal">←</a>
-        <div><small>RICH BIZNESS IDENTITY</small><strong>${isOwner ? 'MY PROFILE' : 'CREATOR PROFILE'}</strong></div>
-        <a href="${isOwner ? '/settings.html' : `/messages.html?to=${profile.id}`}" aria-label="${isOwner ? 'Settings' : 'Message'}">${isOwner ? '⚙' : '✦'}</a>
-      </header>
-
-      <section class="profile-hero">
-        <div class="profile-banner" style="background-image:linear-gradient(180deg,transparent 30%,rgba(0,0,0,.92)),url('${esc(bannerUrl)}')"></div>
-        <div class="profile-hero-glow" aria-hidden="true"></div>
-        <div class="profile-identity">
-          <div class="profile-avatar-wrap"><img class="profile-avatar" src="${esc(avatarUrl)}" alt="${esc(displayName)}"><i class="${profile.online_status === 'online' ? 'online' : ''}"></i></div>
-          <div class="profile-name-block">
-            <p>${profile.is_verified ? '◆ VERIFIED RICH ID' : 'RICH BIZNESS MEMBER'}</p>
-            <h1>${esc(displayName)}</h1>
-            <span>@${esc(profile.username ?? 'member')}</span>
-            <small>${esc(profile.bio ?? 'Building a Rich Bizness universe.')}</small>
-          </div>
-          <div class="profile-rank-seal"><span>LEVEL</span><strong>${profile.rich_level ?? avatar?.level ?? 1}</strong><small>${esc(profile.rank_title ?? avatar?.rank ?? 'Starter')}</small></div>
-        </div>
-      </section>
-
-      <section class="profile-statbar">
-        <article><strong>${followersResult.count ?? 0}</strong><span>FOLLOWERS</span></article>
-        <article><strong>${followingResult.count ?? 0}</strong><span>FOLLOWING</span></article>
-        <article><strong>${postsResult.count ?? 0}</strong><span>POSTS</span></article>
-        <article><strong>${Number(profile.rich_points ?? 0).toLocaleString()}</strong><span>RICH POINTS</span></article>
-      </section>
-
-      <section class="profile-command-grid">
-        <article class="profile-command profile-command--identity">
-          <div><small>IDENTITY CORE</small><h2>${esc(avatar?.character_type ?? 'CUSTOM')} AVATAR</h2><p>${esc(avatar?.aura ?? 'Emerald Gold')} aura · ${avatar?.is_controllable ? 'CONTROLLABLE' : 'READY TO BUILD'}</p></div>
-          <a href="/avatar.html">OPEN 3D AVATAR</a>
-        </article>
-        <article class="profile-command"><small>RICH BALANCE</small><strong>${money(profile.balance_cents)}</strong><span>Creator and store balance</span></article>
-        <article class="profile-command"><small>CREATOR STATUS</small><strong>${profile.is_creator ? 'ACTIVE' : 'UNLOCK'}</strong><span>${profile.is_creator ? 'Creator tools enabled' : 'Build your creator hub'}</span></article>
-        <article class="profile-command"><small>ONLINE STATE</small><strong>${esc((profile.online_status ?? 'offline').toUpperCase())}</strong><span>Realtime universe presence</span></article>
-      </section>
-
-      <nav class="profile-actions" aria-label="Profile actions">
-        ${isOwner ? `
-          <a href="/edit-profile.html">EDIT PROFILE</a>
-          <a href="/upload.html">UPLOAD</a>
-          <a href="/creator.html">CREATOR HUB</a>
-          <a href="/settings.html">SETTINGS</a>
-        ` : `
-          <button id="followButton" type="button">FOLLOW</button>
-          <a href="/messages.html?to=${profile.id}">MESSAGE</a>
-          <a href="/creator.html?id=${profile.id}">CREATOR PAGE</a>
-          <a href="/store.html?seller=${profile.id}">STORE</a>
-        `}
-      </nav>
-
-      <section class="profile-content">
-        <header><div><small>RECENT DROPS</small><h2>THE UNIVERSE OF ${esc(displayName.toUpperCase())}</h2></div><a href="/feed.html?user=${profile.id}">VIEW ALL</a></header>
-        <div class="profile-feed-grid">
-          ${feed.length ? feed.map((post) => {
-            const media = post.thumbnail_url ?? post.cover_url ?? post.media_url ?? post.file_url;
-            return `<a class="profile-drop" href="/feed.html?post=${post.id}">${media ? `<img src="${esc(media)}" alt="">` : '<div class="profile-drop-placeholder">RB</div>'}<span>${esc(post.title ?? post.body ?? post.section ?? 'Rich Drop')}</span><small>${esc((post.post_type ?? post.media_type ?? post.section ?? 'POST').toUpperCase())}</small></a>`;
-          }).join('') : '<div class="profile-empty">No drops yet. This universe is ready to be built.</div>'}
-        </div>
-      </section>
-    </main>`;
-
-  if (!isOwner && session) {
-    const followButton = document.querySelector<HTMLButtonElement>('#followButton');
-    const { data: existing } = await supabase.from('followers').select('follower_id').eq('follower_id', session.user.id).eq('following_id', profileId).maybeSingle();
-    let following = Boolean(existing);
-    const renderFollow = () => { if (followButton) followButton.textContent = following ? 'FOLLOWING' : 'FOLLOW'; };
-    renderFollow();
-    followButton?.addEventListener('click', async () => {
-      followButton.disabled = true;
-      if (following) await supabase.from('followers').delete().eq('follower_id', session.user.id).eq('following_id', profileId);
-      else await supabase.from('followers').insert({ follower_id: session.user.id, following_id: profileId });
-      following = !following;
-      followButton.disabled = false;
-      renderFollow();
-    });
-  }
+export async function mountProfilePage():Promise<void>{
+ const root=document.querySelector<HTMLElement>('#app');if(!root)throw new Error('Missing #app mount');
+ const {data:{session}}=await supabase.auth.getSession();const params=new URLSearchParams(location.search);const requested=params.get('id')||params.get('user')||params.get('u');
+ if(!session&&!requested){location.replace(`/tap-in.html?next=${encodeURIComponent('/profile.html')}`);return;}
+ const profileId=requested||session!.user.id;
+ const {data,error}=await supabase.rpc('rb_profile_universe_snapshot',{p_profile_id:profileId});
+ if(error){root.innerHTML=`<main class="pu-fail"><a href="/portal.html">← PORTAL</a><h1>PROFILE ENGINE OFFLINE</h1><p>${esc(error.message)}</p></main>`;return;}
+ const snap=(data??{}) as unknown as Snapshot,p=snap.profile??{},viewer=snap.viewer??{},isOwner=Boolean(viewer.is_owner),counts=snap.counts??{},level=snap.level??{},avatar=snap.avatar??{};
+ const display=p.display_name??p.username??avatar.display_name??'Rich Member';const avatarUrl=p.avatar_url??avatar.avatar_url??'/brand/icons/profile-placeholder.svg';const banner=p.banner_url??'/images/brand/Avatar-hero-Banner.png.jpeg';
+ if(snap.restricted){root.innerHTML=`<main class="pu-restricted"><a href="/portal.html">←</a><img src="${esc(avatarUrl)}"><h1>${esc(display)}</h1><p>@${esc(p.username??'member')}</p><strong>PRIVATE RICH ID</strong><span>This profile is only available to approved followers.</span></main>`;return;}
+ void supabase.rpc('rb_profile_record_view',{p_profile_id:profileId,p_session_id:crypto.randomUUID(),p_source:'profile-page'});
+ const xpCurrent=Number(level.xp_current??avatar.xp??0),xpNext=Math.max(Number(level.xp_next??100),1),xpPct=Math.min(100,Math.round(xpCurrent/xpNext*100));
+ const tabs=[['feed','DROPS',snap.feed??[]],['music','MUSIC',snap.music??[]],['store','STORE',snap.products??[]],['gaming','GAMING',snap.gaming??[]],['sports','SPORTS',snap.sports_content??[]],['meta','META',snap.worlds??[]]] as const;
+ const roles=[p.is_verified&&'VERIFIED',p.is_creator&&'CREATOR',p.is_artist&&'ARTIST',p.is_seller&&'SELLER',snap.gamer&&'GAMER',snap.sports&&'SPORTS'].filter(Boolean);
+ root.innerHTML=`<main class="profile-universe" style="--profile-bg:url('${esc(snap.theme?.background_url??banner)}')">
+ <div class="pu-atmosphere"><i></i><i></i><i></i></div>
+ <header class="pu-top"><a href="/portal.html">←</a><div><small>RICH BIZNESS UNIVERSAL IDENTITY</small><strong>${isOwner?'MY COMMAND CENTER':'PUBLIC PROFILE'}</strong></div><a href="${isOwner?'/settings.html':`/messages.html?to=${profileId}`}">${isOwner?'⚙':'✦'}</a></header>
+ <section class="pu-hero">
+  <div class="pu-banner" style="background-image:linear-gradient(180deg,rgba(1,4,2,.04),rgba(1,4,2,.93)),url('${esc(banner)}')"></div>
+  <div class="pu-hero-grid">
+   <div class="pu-avatar"><img src="${esc(avatarUrl)}" alt="${esc(display)}"><span class="${p.online_status==='online'?'online':''}"></span><b>${avatar.is_realistic_3d?'3D':'RB'}</b></div>
+   <div class="pu-identity"><div class="pu-kickers"><span>${p.is_verified?'◆ VERIFIED RICH ID':'RICH BIZNESS MEMBER'}</span>${roles.map(x=>`<span>${x}</span>`).join('')}</div><h1>${esc(display)}</h1><p>@${esc(p.username??'member')}</p><blockquote>${esc(p.bio??'Building a Rich Bizness universe.')}</blockquote>${socialLinks(p)}</div>
+   <aside class="pu-level"><small>RICH LEVEL</small><strong>${esc(level.level??p.rich_level??avatar.level??1)}</strong><span>${esc(level.rank_title??p.rank_title??avatar.rank??'Smoke Rookie')}</span><div><i style="width:${xpPct}%"></i></div><em>${compact(xpCurrent)} / ${compact(xpNext)} XP</em></aside>
+  </div>
+ </section>
+ <section class="pu-metrics">${stat('FOLLOWERS',compact(counts.followers))}${stat('FOLLOWING',compact(counts.following))}${stat('TOTAL DROPS',compact(counts.posts))}${stat('PROFILE VIEWS',compact(counts.views))}${stat('RICH POINTS',compact(level.rich_points??p.rich_points))}${stat('TRUST',`${level.trust_score??p.trust_score??100}%`)}</section>
+ <nav class="pu-actions">${isOwner?`<a class="primary" href="/edit-profile.html">EDIT IDENTITY</a><a href="/avatar.html">3D AVATAR</a><a href="/upload.html">DROP CONTENT</a><a href="/creator.html">CREATOR HQ</a><a href="/settings.html">PRIVACY</a>`:`<button id="followButton" class="primary">${viewer.following?'FOLLOWING':'FOLLOW'}</button><a href="/messages.html?to=${profileId}">MESSAGE</a><a href="/creator.html?id=${profileId}">CREATOR PAGE</a><a href="/store.html?seller=${profileId}">STORE</a><button id="shareButton">SHARE</button>`}</nav>
+ <section class="pu-command">
+  <article class="pu-command__avatar"><div><small>UNIVERSAL CHARACTER</small><h2>${esc((avatar.character_type??'CUSTOM').toUpperCase())}</h2><p>${esc(avatar.aura??'Emerald Gold')} aura · ${avatar.is_controllable?'Realtime controllable':'Identity ready'} · ${esc(snap.loadout?.version??1)} loadout</p></div><a href="/avatar.html">ENTER AVATAR UNIVERSE</a></article>
+  ${stat('BALANCE',money(p.balance_cents),'Wallet + creator funds')}${stat('CREATOR',snap.creator?'ACTIVE':'LOCKED',snap.creator?.creator_title??'Build creator presence')}${stat('SELLER',snap.seller?'ACTIVE':'LOCKED',snap.seller?.seller_rank??'Open Rich Store')}${stat('GAMER',snap.gamer?.rank_title??'ROOKIE',`${compact(snap.gamer?.wins??0)} wins`)}${stat('SPORTS',snap.sports?.rank_title??'FAN',`${compact(snap.sports?.points??0)} points`)}
+ </section>
+ <section class="pu-badges"><header><div><small>ACHIEVEMENT VAULT</small><h2>BADGES + STATUS</h2></div><span>${compact(counts.badges)} UNLOCKED</span></header><div>${(snap.badges??[]).length?(snap.badges??[]).map(b=>`<article class="${b.equipped?'equipped':''}"><i>${esc(b.icon??'◆')}</i><div><strong>${esc(b.title)}</strong><small>${esc(b.rarity)} · ${esc(b.badge_type)}</small></div></article>`).join(''):'<p>No badges unlocked yet.</p>'}</div></section>
+ <section class="pu-library"><header><div><small>COMPLETE PROFILE UNIVERSE</small><h2>${esc(display.toUpperCase())}</h2></div><div class="pu-tabs">${tabs.map(([key,label,items],i)=>`<button data-tab="${key}" class="${i===0?'active':''}">${label}<span>${items.length}</span></button>`).join('')}</div></header>${tabs.map(([key,label,items],i)=>`<div class="pu-panel ${i===0?'active':''}" data-panel="${key}">${items.length?items.map(x=>contentCard(x,label)).join(''):`<div class="pu-empty">NO ${label} YET — THIS SECTION IS READY.</div>`}</div>`).join('')}</section>
+ <section class="pu-activity"><header><small>RECENT POWER MOVES</small><h2>XP + UNIVERSE ACTIVITY</h2></header><div>${(snap.activity??[]).length?(snap.activity??[]).map(a=>`<article><span>+${esc(a.xp_amount??0)} XP</span><div><strong>${esc(String(a.event_key??'activity').replaceAll('_',' ').toUpperCase())}</strong><small>${esc(a.section??'global')} · ${relative(a.created_at)}</small></div><em>+${esc(a.rich_points_amount??0)} RP</em></article>`).join(''):'<p>No activity recorded yet.</p>'}</div></section>
+ </main>`;
+ document.querySelectorAll<HTMLButtonElement>('[data-tab]').forEach(button=>button.onclick=()=>{document.querySelectorAll('[data-tab]').forEach(x=>x.classList.remove('active'));document.querySelectorAll('[data-panel]').forEach(x=>x.classList.remove('active'));button.classList.add('active');document.querySelector(`[data-panel="${button.dataset.tab}"]`)?.classList.add('active');});
+ const follow=document.querySelector<HTMLButtonElement>('#followButton');follow?.addEventListener('click',async()=>{follow.disabled=true;const {data:result,error:followError}=await supabase.rpc('rb_profile_toggle_follow',{p_profile_id:profileId});if(!followError){const r=result as any;follow.textContent=r.following?'FOLLOWING':'FOLLOW';const first=document.querySelector<HTMLElement>('.pu-metrics article strong');if(first)first.textContent=compact(r.followers);if(r.following)void supabase.rpc('rb_award_xp',{p_event_key:'profile_followed',p_section:'profile',p_source_table:'followers'});}follow.disabled=false;});
+ document.querySelector<HTMLButtonElement>('#shareButton')?.addEventListener('click',async()=>{const url=`${location.origin}/profile.html?id=${profileId}`;if(navigator.share)await navigator.share({title:`${display} · Rich Bizness`,url});else await navigator.clipboard.writeText(url);});
 }
