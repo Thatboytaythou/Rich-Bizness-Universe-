@@ -31,7 +31,9 @@ const implementedEntries = [
   'apps/web/dj-radio-run.html',
   'apps/web/money-road-runner.html',
   'apps/web/rich-samurais-son-ninja.html',
-  'apps/web/aura-shinobi-clash.html'
+  'apps/web/aura-shinobi-clash.html',
+  'apps/web/boss-walk-battle.html',
+  'apps/web/smoke-burst-arena.html'
 ];
 
 const missing = [];
