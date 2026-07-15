@@ -54,7 +54,8 @@ export default defineConfig(({ mode }) => {
           richChess: page('rich-chess'),
           smokeRoomCards: page('smoke-room-cards'),
           djRadioRun: page('dj-radio-run'),
-          moneyRoadRunner: page('money-road-runner')
+          moneyRoadRunner: page('money-road-runner'),
+          richSamuraisSonNinja: page('rich-samurais-son-ninja')
         }
       }
     },
