@@ -29,7 +29,8 @@ const implementedEntries = [
   'apps/web/rich-chess.html',
   'apps/web/smoke-room-cards.html',
   'apps/web/dj-radio-run.html',
-  'apps/web/money-road-runner.html'
+  'apps/web/money-road-runner.html',
+  'apps/web/rich-samurais-son-ninja.html'
 ];
 
 const missing = [];
