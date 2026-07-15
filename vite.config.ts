@@ -57,7 +57,8 @@ export default defineConfig(({ mode }) => {
           moneyRoadRunner: page('money-road-runner'),
           richSamuraisSonNinja: page('rich-samurais-son-ninja'),
           auraShinobiClash: page('aura-shinobi-clash'),
-          bossWalkBattle: page('boss-walk-battle')
+          bossWalkBattle: page('boss-walk-battle'),
+          smokeBurstArena: page('smoke-burst-arena')
         }
       }
     },
