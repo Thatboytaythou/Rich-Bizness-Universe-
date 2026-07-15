@@ -177,12 +177,17 @@ export async function mountPortalPage(): Promise<void> {
 
   const cleanupMotion = mountPortalMotion({ reduced: reducedMotion });
   const pulseTrack = document.querySelector<HTMLElement>('.portal-pulse > div');
+  let pulseTimer: number | null = null;
   if (pulseTrack && !reducedMotion) {
     let pulseIndex = 0;
-    window.setInterval(() => {
+    pulseTimer = window.setInterval(() => {
       pulseIndex = (pulseIndex + 1) % Math.max(1, recent.length);
       pulseTrack.style.transform = `translateY(-${pulseIndex * 100}%)`;
     }, 4200);
   }
-  window.addEventListener('beforeunload', cleanupMotion, { once: true });
+  const cleanup = () => {
+    cleanupMotion();
+    if (pulseTimer !== null) window.clearInterval(pulseTimer);
+  };
+  window.addEventListener('beforeunload', cleanup, { once: true });
 }
