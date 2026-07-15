@@ -38,7 +38,9 @@
     {"source": "/games/smoke-room-cards", "destination": "/smoke-room-cards"},
     {"source": "/games/smoke-room-cards/", "destination": "/smoke-room-cards"},
     {"source": "/games/dj-radio-run", "destination": "/dj-radio-run"},
-    {"source": "/games/dj-radio-run/", "destination": "/dj-radio-run"}
+    {"source": "/games/dj-radio-run/", "destination": "/dj-radio-run"},
+    {"source": "/games/money-road-runner", "destination": "/money-road-runner"},
+    {"source": "/games/money-road-runner/", "destination": "/money-road-runner"}
   ],
   "headers": [
     {"source": "/api/(.*)", "headers": [{"key": "Cache-Control", "value": "no-store"},{"key": "X-Content-Type-Options", "value": "nosniff"}]},
