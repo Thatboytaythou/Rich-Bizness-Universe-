@@ -56,7 +56,8 @@ export default defineConfig(({ mode }) => {
           djRadioRun: page('dj-radio-run'),
           moneyRoadRunner: page('money-road-runner'),
           richSamuraisSonNinja: page('rich-samurais-son-ninja'),
-          auraShinobiClash: page('aura-shinobi-clash')
+          auraShinobiClash: page('aura-shinobi-clash'),
+          bossWalkBattle: page('boss-walk-battle')
         }
       }
     },
