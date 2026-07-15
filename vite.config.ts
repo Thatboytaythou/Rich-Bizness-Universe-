@@ -55,7 +55,8 @@ export default defineConfig(({ mode }) => {
           smokeRoomCards: page('smoke-room-cards'),
           djRadioRun: page('dj-radio-run'),
           moneyRoadRunner: page('money-road-runner'),
-          richSamuraisSonNinja: page('rich-samurais-son-ninja')
+          richSamuraisSonNinja: page('rich-samurais-son-ninja'),
+          auraShinobiClash: page('aura-shinobi-clash')
         }
       }
     },
