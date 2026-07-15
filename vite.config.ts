@@ -51,7 +51,8 @@ export default defineConfig(({ mode }) => {
           gaming: page('gaming'),
           meta: page('meta'),
           avatar: page('avatar'),
-          richChess: page('rich-chess')
+          richChess: page('rich-chess'),
+          smokeRoomCards: page('smoke-room-cards')
         }
       }
     },
