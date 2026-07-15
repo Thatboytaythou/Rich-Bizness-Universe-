@@ -8,7 +8,9 @@
   "trailingSlash": false,
   "redirects": [
     {"source": "/portal", "destination": "/", "permanent": true},
-    {"source": "/portal.html", "destination": "/", "permanent": true}
+    {"source": "/portal.html", "destination": "/", "permanent": true},
+    {"source": "/auth", "destination": "/tap-in", "permanent": true},
+    {"source": "/auth.html", "destination": "/tap-in", "permanent": true}
   ],
   "rewrites": [
     {"source": "/tap-in", "destination": "/tap-in.html"},{"source": "/profile", "destination": "/profile.html"},{"source": "/edit-profile", "destination": "/edit-profile.html"},{"source": "/settings", "destination": "/settings.html"},{"source": "/notifications", "destination": "/notifications.html"},{"source": "/messages", "destination": "/messages.html"},{"source": "/search", "destination": "/search.html"},{"source": "/upload", "destination": "/upload.html"},{"source": "/creator", "destination": "/creator.html"},{"source": "/admin", "destination": "/admin.html"},{"source": "/feed", "destination": "/feed.html"},{"source": "/gallery", "destination": "/gallery.html"},{"source": "/live", "destination": "/live.html"},{"source": "/watch", "destination": "/watch.html"},{"source": "/music", "destination": "/music.html"},{"source": "/podcast", "destination": "/podcast.html"},{"source": "/radio", "destination": "/radio.html"},{"source": "/sports", "destination": "/sports.html"},{"source": "/store", "destination": "/store.html"},{"source": "/gaming", "destination": "/gaming.html"},{"source": "/meta", "destination": "/meta.html"},{"source": "/avatar", "destination": "/avatar.html"},
