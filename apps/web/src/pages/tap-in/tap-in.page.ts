@@ -13,8 +13,7 @@ export async function mountTapInPage(): Promise<void> {
   const next = safeInternalRoute(params.get('next'));
   const recoveryMode = params.get('mode') === 'recovery';
   const reason = params.get('reason');
-  let { data: { session } } = await supabase.auth.getSession();
-  if (!session) session = (await supabase.auth.refreshSession()).data.session;
+  const { data: { session } } = await supabase.auth.getSession();
   if (session && !recoveryMode) {
     location.replace(next);
     return;
@@ -116,9 +115,10 @@ export async function mountTapInPage(): Promise<void> {
     submitButton.disabled = true;
     setStatus(mode === 'signup' ? 'BUILDIN’ YOUR RICH ID...' : 'CHECKIN’ YOUR RICH ID...');
     const credentials = { email: email.value.trim(), password: password.value };
-    const username = displayName.value.trim().toLowerCase().replace(/[^a-z0-9_]+/g, '_');
+    const requestedName = displayName.value.trim();
+    const username = requestedName.toLowerCase().replace(/[^a-z0-9_]+/g, '_');
     const result = mode === 'signup'
-      ? await supabase.auth.signUp({ ...credentials, options: { emailRedirectTo: `${location.origin}/tap-in.html?next=${encodeURIComponent(next)}`, data: { display_name: displayName.value.trim(), username } } })
+      ? await supabase.auth.signUp({ ...credentials, options: { emailRedirectTo: `${location.origin}/tap-in.html?next=${encodeURIComponent(next)}`, data: { display_name: requestedName, username } } })
       : await supabase.auth.signInWithPassword(credentials);
 
     submitButton.disabled = false;
@@ -127,19 +127,25 @@ export async function mountTapInPage(): Promise<void> {
 
     const activeSession = result.data.session;
     if (activeSession) {
-      const chosenName = displayName.value.trim() || String(activeSession.user.user_metadata.display_name ?? activeSession.user.email?.split('@')[0] ?? 'Rich Member');
-      const { error: profileError } = await supabase.from('profiles').upsert({
-        id: activeSession.user.id,
-        display_name: chosenName,
-        username: String(activeSession.user.user_metadata.username ?? chosenName.toLowerCase().replace(/[^a-z0-9_]+/g, '_')),
-        online_status: 'online',
-        has_avatar: false,
-        updated_at: new Date().toISOString()
-      }, { onConflict: 'id' });
+      const chosenName = requestedName || String(activeSession.user.user_metadata.display_name ?? activeSession.user.email?.split('@')[0] ?? 'Rich Member');
+      const chosenUsername = String(activeSession.user.user_metadata.username ?? chosenName.toLowerCase().replace(/[^a-z0-9_]+/g, '_'));
+      const profileWrite = mode === 'signup'
+        ? supabase.from('profiles').upsert({
+            id: activeSession.user.id,
+            display_name: chosenName,
+            username: chosenUsername,
+            online_status: 'online',
+            updated_at: new Date().toISOString()
+          }, { onConflict: 'id' })
+        : supabase.from('profiles').update({
+            online_status: 'online',
+            updated_at: new Date().toISOString()
+          }).eq('id', activeSession.user.id);
+      const { error: profileError } = await profileWrite;
       if (profileError) return setStatus('YOU TAPPED IN, BUT PROFILE LOCK NEEDS A RETRY', true);
     }
 
-    setStatus(`WELCOME BACK ${esc(displayName.value.trim() || email.value.split('@')[0]).toUpperCase()} — TAPPED IN`);
+    setStatus(`WELCOME BACK ${esc(requestedName || email.value.split('@')[0]).toUpperCase()} — TAPPED IN`);
     window.setTimeout(() => location.assign(next), 450);
   });
 
