@@ -44,7 +44,9 @@
     {"source": "/games/rich-samurais-son-ninja", "destination": "/rich-samurais-son-ninja"},
     {"source": "/games/rich-samurais-son-ninja/", "destination": "/rich-samurais-son-ninja"},
     {"source": "/games/aura-shinobi-clash", "destination": "/aura-shinobi-clash"},
-    {"source": "/games/aura-shinobi-clash/", "destination": "/aura-shinobi-clash"}
+    {"source": "/games/aura-shinobi-clash/", "destination": "/aura-shinobi-clash"},
+    {"source": "/games/boss-walk-battle", "destination": "/boss-walk-battle"},
+    {"source": "/games/boss-walk-battle/", "destination": "/boss-walk-battle"}
   ],
   "headers": [
     {"source": "/api/(.*)", "headers": [{"key": "Cache-Control", "value": "no-store"},{"key": "X-Content-Type-Options", "value": "nosniff"}]},
