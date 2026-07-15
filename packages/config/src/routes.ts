@@ -1,6 +1,5 @@
 export const ROUTES = Object.freeze({
   portal: '/',
-  portalPage: '/portal.html',
   tapIn: '/tap-in.html',
   profile: '/profile.html',
   editProfile: '/edit-profile.html',
@@ -16,6 +15,8 @@ export const ROUTES = Object.freeze({
   live: '/live.html',
   watch: '/watch.html',
   music: '/music.html',
+  podcast: '/podcast.html',
+  radio: '/radio.html',
   sports: '/sports.html',
   store: '/store.html',
   gaming: '/gaming.html',
@@ -27,5 +28,8 @@ export type RouteKey = keyof typeof ROUTES;
 
 export function safeInternalRoute(value: string | null | undefined, fallback = ROUTES.portal): string {
   if (!value || !value.startsWith('/') || value.startsWith('//')) return fallback;
+  const target = value.split('#', 1)[0]?.split('?', 1)[0] ?? value;
+  if (target === '/portal' || target === '/portal.html') return ROUTES.portal;
+  if (target === '/auth' || target === '/auth.html') return ROUTES.tapIn;
   return value;
 }
