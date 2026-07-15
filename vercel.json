@@ -40,7 +40,9 @@
     {"source": "/games/dj-radio-run", "destination": "/dj-radio-run"},
     {"source": "/games/dj-radio-run/", "destination": "/dj-radio-run"},
     {"source": "/games/money-road-runner", "destination": "/money-road-runner"},
-    {"source": "/games/money-road-runner/", "destination": "/money-road-runner"}
+    {"source": "/games/money-road-runner/", "destination": "/money-road-runner"},
+    {"source": "/games/rich-samurais-son-ninja", "destination": "/rich-samurais-son-ninja"},
+    {"source": "/games/rich-samurais-son-ninja/", "destination": "/rich-samurais-son-ninja"}
   ],
   "headers": [
     {"source": "/api/(.*)", "headers": [{"key": "Cache-Control", "value": "no-store"},{"key": "X-Content-Type-Options", "value": "nosniff"}]},
