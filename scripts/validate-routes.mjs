@@ -30,16 +30,14 @@ const implementedEntries = [
   'apps/web/smoke-room-cards.html',
   'apps/web/dj-radio-run.html',
   'apps/web/money-road-runner.html',
-  'apps/web/rich-samurais-son-ninja.html'
+  'apps/web/rich-samurais-son-ninja.html',
+  'apps/web/aura-shinobi-clash.html'
 ];
 
 const missing = [];
 for (const entry of implementedEntries) {
-  try {
-    await access(resolve(root, entry));
-  } catch {
-    missing.push(entry);
-  }
+  try { await access(resolve(root, entry)); }
+  catch { missing.push(entry); }
 }
 
 if (missing.length) {
