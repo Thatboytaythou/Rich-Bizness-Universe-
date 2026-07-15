@@ -1,0 +1,11 @@
+update public.games set game_type='strategy', updated_at=now() where slug in ('vault-unlock','portal-room-rush');
+update public.games set game_type='rpg', updated_at=now() where slug in ('avatar-free-roam','smoke-city-hustle','treehouse-ride','studio-showdown');
+update public.games set is_playable=true, runtime_status='production_ready', play_url='/games/aura-shinobi-clash/', runtime_key='aura-shinobi-clash', module_path='/games/aura-shinobi-clash/', updated_at=now() where slug='aura-shinobi-clash';
+
+insert into public.route_registry(route_key,route_path,page_type,section,auth_mode,canonical_file,rewrite_target,nav_label,is_home,is_enabled,metadata)
+values('aura_shinobi_clash','/games/aura-shinobi-clash/','game','gaming','public','aura-shinobi-clash.html','/aura-shinobi-clash','Aura Shinobi Clash',false,true,'{"game_slug":"aura-shinobi-clash","runtime_version":"1.0.0"}'::jsonb)
+on conflict (route_key) do update set route_path=excluded.route_path,page_type=excluded.page_type,section=excluded.section,auth_mode=excluded.auth_mode,canonical_file=excluded.canonical_file,rewrite_target=excluded.rewrite_target,nav_label=excluded.nav_label,is_enabled=true,metadata=excluded.metadata,updated_at=now();
+
+insert into public.game_runtime_manifests(game_id,version,engine_type,entry_module,asset_manifest,controls,gameplay_rules,scoring_rules,save_schema,network_schema,mobile_config,required_env,is_active)
+select id,'1.0.0','dom-canvas-hybrid','/src/pages/games/aura-shinobi-clash.page.ts','{"style":"high_definition_anime_arena","fighters":4,"boss_phases":true}'::jsonb,'{"keyboard":["A","S","D","F","J","K","L","I"],"touch":true,"local_two_player":true}'::jsonb,'{"campaign_stages":12,"boss_rush":true,"skill_tree":true,"techniques":true,"solo_ai":true,"offline":true,"local_multiplayer":true,"online_multiplayer":true}'::jsonb,'{"win":900,"stage_bonus":120,"combo_multiplier":true,"ranked":true}'::jsonb,'{"local_storage":true,"supabase_progress":true,"unlocks":true,"skill_points":true}'::jsonb,'{"rooms":"game_rooms","members":"game_room_members","moves":"game_moves","realtime":true}'::jsonb,'{"safe_area":true,"touch_controls":true,"responsive":true,"reduced_motion":true}'::jsonb,'{"supabase":true}'::jsonb,true from public.games where slug='aura-shinobi-clash'
+on conflict do nothing;
