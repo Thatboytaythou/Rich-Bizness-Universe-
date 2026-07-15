@@ -26,7 +26,8 @@ const implementedEntries = [
   'apps/web/gaming.html',
   'apps/web/meta.html',
   'apps/web/avatar.html',
-  'apps/web/rich-chess.html'
+  'apps/web/rich-chess.html',
+  'apps/web/smoke-room-cards.html'
 ];
 
 const missing = [];
