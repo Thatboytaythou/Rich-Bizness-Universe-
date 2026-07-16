@@ -11,6 +11,7 @@ export const ROUTES = Object.freeze({
   search: '/search.html',
   upload: '/upload.html',
   creator: '/creator.html',
+  creatorDimensions: '/creator-dimensions.html',
   admin: '/admin.html',
   feed: '/feed.html',
   gallery: '/gallery.html',
