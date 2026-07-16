@@ -28,7 +28,7 @@ export const ROUTES = Object.freeze({
 
 export type RouteKey = keyof typeof ROUTES;
 
-export function safeInternalRoute(value: string | null | undefined, fallback = ROUTES.home): string {
+export function safeInternalRoute(value: string | null | undefined, fallback = ROUTES.portal): string {
   if (!value || !value.startsWith('/') || value.startsWith('//')) return fallback;
   return value;
 }
