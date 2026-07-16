@@ -9,23 +9,24 @@ function revealDoor(): void {
   if (document.querySelector('#rbAdminSecretDoor')) return;
   const door = document.createElement('div');
   door.id = 'rbAdminSecretDoor';
-  door.innerHTML = '<div></div><section><small>FOUNDER AUTHORITY VERIFIED</small><strong>SECRET DOOR OPEN</strong><span>ENTERING ADMIN CORE</span></section>';
+  door.innerHTML = '<div class="rb-admin-core"></div><section><small>FOUNDER AUTHORITY VERIFIED</small><strong>SECRET DOOR OPEN</strong><span>ENTERING ADMIN CORE</span><nav><b>COMMAND</b><b>MODERATION</b><b>SYSTEMS</b><b>PLATFORM CONTROL</b></nav></section>';
   const style = document.createElement('style');
-  style.textContent = '#rbAdminSecretDoor{position:fixed;inset:0;z-index:2147483647;display:grid;place-items:center;overflow:hidden;background:radial-gradient(circle at 50% 48%,rgba(49,255,99,.2),transparent 30%),linear-gradient(150deg,#071109,#000 72%);color:#fff;font-family:inherit;animation:rbAdminIn .4s ease both}#rbAdminSecretDoor>div{position:absolute;width:min(76vw,420px);aspect-ratio:1;border-radius:50%;border:1px solid rgba(247,201,72,.56);box-shadow:0 0 60px rgba(49,255,99,.38),inset 0 0 80px rgba(49,255,99,.22);animation:rbAdminSpin 2s linear infinite}#rbAdminSecretDoor>div:before,#rbAdminSecretDoor>div:after{content:"";position:absolute;border-radius:50%;border:1px dashed rgba(49,255,99,.52)}#rbAdminSecretDoor>div:before{inset:12%}#rbAdminSecretDoor>div:after{inset:30%;border-style:solid;border-color:rgba(247,201,72,.62);background:radial-gradient(circle,rgba(49,255,99,.5),rgba(0,0,0,.9) 66%)}#rbAdminSecretDoor section{position:relative;z-index:2;display:grid;gap:8px;text-align:center;text-shadow:0 4px 24px #000}#rbAdminSecretDoor small{color:#f7c948;font-size:.58rem;font-weight:950;letter-spacing:.2em}#rbAdminSecretDoor strong{font-size:clamp(1.5rem,7vw,3rem);font-weight:1000;letter-spacing:.08em}#rbAdminSecretDoor span{color:#31ff63;font-size:.62rem;font-weight:950;letter-spacing:.16em}@keyframes rbAdminIn{from{opacity:0;filter:blur(10px)}to{opacity:1;filter:none}}@keyframes rbAdminSpin{to{transform:rotate(360deg)}}';
+  style.textContent = '#rbAdminSecretDoor{position:fixed;inset:0;z-index:2147483647;display:grid;place-items:center;overflow:hidden;background:radial-gradient(circle at 50% 48%,rgba(49,255,99,.2),transparent 30%),linear-gradient(150deg,#071109,#000 72%);color:#fff;font-family:inherit;animation:rbAdminIn .4s ease both}#rbAdminSecretDoor .rb-admin-core{position:absolute;width:min(80vw,440px);aspect-ratio:1;border-radius:50%;border:1px solid rgba(247,201,72,.56);box-shadow:0 0 70px rgba(49,255,99,.38),inset 0 0 90px rgba(49,255,99,.22);animation:rbAdminSpin 8s linear infinite}#rbAdminSecretDoor .rb-admin-core:before,#rbAdminSecretDoor .rb-admin-core:after{content:"";position:absolute;border-radius:50%;border:1px dashed rgba(49,255,99,.52)}#rbAdminSecretDoor .rb-admin-core:before{inset:12%}#rbAdminSecretDoor .rb-admin-core:after{inset:30%;border-style:solid;border-color:rgba(247,201,72,.62);background:radial-gradient(circle,rgba(49,255,99,.5),rgba(0,0,0,.9) 66%)}#rbAdminSecretDoor section{position:relative;z-index:2;display:grid;gap:8px;text-align:center;text-shadow:0 4px 24px #000}#rbAdminSecretDoor small{color:#f7c948;font-size:.58rem;font-weight:950;letter-spacing:.2em}#rbAdminSecretDoor strong{font-size:clamp(1.5rem,7vw,3rem);font-weight:1000;letter-spacing:.08em}#rbAdminSecretDoor span{color:#31ff63;font-size:.62rem;font-weight:950;letter-spacing:.16em}#rbAdminSecretDoor nav{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px;width:min(78vw,360px);margin:10px auto 0}#rbAdminSecretDoor nav b{padding:9px 7px;border:1px solid rgba(255,255,255,.12);border-radius:12px;background:rgba(0,0,0,.5);color:#fff;font-size:.48rem;letter-spacing:.1em;box-shadow:inset 0 0 16px rgba(49,255,99,.1)}@keyframes rbAdminIn{from{opacity:0;filter:blur(10px)}to{opacity:1;filter:none}}@keyframes rbAdminSpin{to{transform:rotate(360deg)}}';
   document.head.append(style);
   document.body.append(door);
   navigator.vibrate?.([35, 35, 80]);
-  window.setTimeout(() => location.assign('/admin.html'), 720);
+  window.setTimeout(() => location.assign('/admin.html'), 1050);
 }
 
 export async function mountAdminSecretDoor(): Promise<void> {
   if ((document.body.dataset.page ?? '') !== 'portal') return;
   if (!getAuthSnapshot().user) return;
   const trigger = document.querySelector<HTMLElement>('.portal-brand');
-  if (!trigger) return;
+  if (!trigger || trigger.dataset.adminDoorMounted === 'true') return;
 
   const { data: allowed, error } = await supabase.rpc('rb_is_admin', { p_min_permission: 1 });
   if (error || !allowed) return;
+  trigger.dataset.adminDoorMounted = 'true';
 
   let taps = 0;
   let tapReset: number | null = null;
