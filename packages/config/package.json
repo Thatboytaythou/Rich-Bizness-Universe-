@@ -8,6 +8,7 @@
     "./routes": "./src/routes.ts",
     "./tables": "./src/tables.ts",
     "./buckets": "./src/buckets.ts",
-    "./games": "./src/games.ts"
+    "./games": "./src/games.ts",
+    "./xp": "./src/xp.ts"
   }
 }
