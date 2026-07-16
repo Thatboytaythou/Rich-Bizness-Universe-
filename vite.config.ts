@@ -1,7 +1,10 @@
-import { resolve } from 'node:path';
+import { copyFileSync, mkdirSync } from 'node:fs';
+import { dirname, resolve } from 'node:path';
 import { defineConfig, loadEnv } from 'vite';
 
 const webRoot = resolve(__dirname, 'apps/web');
+const portalBackgroundSource = resolve(__dirname, 'images/0E886281-8F03-4288-B3CA-C45369B7B58E.png');
+const portalBackgroundOutput = resolve(__dirname, 'apps/web/dist/images/0E886281-8F03-4288-B3CA-C45369B7B58E.png');
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, __dirname, '');
@@ -19,6 +22,14 @@ export default defineConfig(({ mode }) => {
     publicDir: resolve(webRoot, 'public'),
     envDir: __dirname,
     define: { __RB_PUBLIC_ENV__: JSON.stringify(runtimeEnv) },
+    plugins: [{
+      name: 'rb-publish-portal-background',
+      apply: 'build' as const,
+      writeBundle() {
+        mkdirSync(dirname(portalBackgroundOutput), { recursive: true });
+        copyFileSync(portalBackgroundSource, portalBackgroundOutput);
+      }
+    }],
     build: {
       outDir: resolve(__dirname, 'apps/web/dist'), emptyOutDir: true, sourcemap: true, target: 'es2022',
       rollupOptions: { input: {
