@@ -1,0 +1,78 @@
+/* Canonical Portal final layer ownership.
+   This file removes decorative duplicates without changing routes or data. */
+body[data-page="portal"] .portal-stage--elite .portal-bg {
+  background:
+    linear-gradient(180deg, rgba(1,5,2,.08), rgba(0,0,0,.72)),
+    radial-gradient(circle at 50% 48%, rgba(49,255,99,.15), transparent 31%),
+    url('/images/0E886281-8F03-4288-B3CA-C45369B7B58E.png') center/cover no-repeat !important;
+}
+
+/* One exterior containment ring. The machine iris supplies the inner depth. */
+body[data-page="portal"] .portal-orbit-system {
+  animation: none !important;
+}
+body[data-page="portal"] .portal-orbit--middle,
+body[data-page="portal"] .portal-orbit--inner,
+body[data-page="portal"] .portal-orbit--ticks,
+body[data-page="portal"] .portal-orbit--signal,
+body[data-page="portal"] .portal-beam,
+body[data-page="portal"] .portal-scan,
+body[data-page="portal"] .portal-machine__locks,
+body[data-page="portal"] .portal-machine__depth,
+body[data-page="portal"] .portal-machine__chamber::before,
+body[data-page="portal"] .portal-machine__chamber::after,
+body[data-page="portal"] .portal-core__ring {
+  display: none !important;
+}
+body[data-page="portal"] .portal-orbit--outer {
+  inset: 3% !important;
+  border: 1px solid rgba(247,201,72,.28) !important;
+  box-shadow:
+    inset 0 0 52px rgba(49,255,99,.07),
+    0 0 42px rgba(49,255,99,.12) !important;
+}
+
+/* The ENTER chamber is a circular portal aperture, never a square card. */
+body[data-page="portal"] .portal-core {
+  border-radius: 50% !important;
+  overflow: hidden !important;
+  border-color: rgba(247,201,72,.58) !important;
+  background:
+    radial-gradient(circle at 50% 45%, rgba(247,201,72,.22), transparent 15%),
+    radial-gradient(circle, rgba(49,255,99,.34), rgba(2,8,3,.98) 68%) !important;
+  box-shadow:
+    inset 0 0 38px rgba(49,255,99,.38),
+    inset 0 0 0 6px rgba(0,0,0,.32),
+    0 0 38px rgba(49,255,99,.25),
+    0 0 84px rgba(49,255,99,.14) !important;
+}
+body[data-page="portal"] .portal-core__halo {
+  inset: -28% !important;
+  opacity: .66;
+}
+
+/* Media routes keep their counter-clockwise movement, but not a second visible ring. */
+body[data-page="portal"] .rb-portal-media-ring,
+body[data-page="portal"] .rb-portal-media-ring::before,
+body[data-page="portal"] .rb-portal-media-ring::after {
+  border: 0 !important;
+  outline: 0 !important;
+  box-shadow: none !important;
+  background: transparent !important;
+}
+
+/* Mechanical hardware stays behind every route and cannot steal touches. */
+body[data-page="portal"] .portal-machine,
+body[data-page="portal"] .portal-orbit-system,
+body[data-page="portal"] .portal-horizon {
+  pointer-events: none !important;
+}
+body[data-page="portal"] .portal-route-layer { z-index: 18 !important; }
+body[data-page="portal"] .rb-portal-media-ring { z-index: 22 !important; }
+body[data-page="portal"] .portal-core { z-index: 24 !important; }
+
+@media (max-width: 430px) {
+  body[data-page="portal"] .portal-world { width: min(82vw, 360px) !important; }
+  body[data-page="portal"] .portal-machine { inset: 5% !important; }
+  body[data-page="portal"] .portal-orbit--outer { inset: 4% !important; }
+}
