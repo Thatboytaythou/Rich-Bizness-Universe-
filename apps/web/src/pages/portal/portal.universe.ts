@@ -32,6 +32,8 @@ type Destination = {
   kicker: string;
 };
 
+const DEFAULT_PORTAL_BACKGROUND = '/images/0E886281-8F03-4288-B3CA-C45369B7B58E.png';
+
 const destinations: Destination[] = [
   { key: 'live', label: 'LIVE', icon: '◉', href: '/live.html', position: 'top', kicker: 'BROADCAST' },
   { key: 'gallery', label: 'GALLERY', icon: '▣', href: '/gallery.html', position: 'top-left', kicker: 'VISUALS' },
@@ -82,7 +84,7 @@ export async function mountPortalPage(): Promise<void> {
   const identityRoute = user ? ROUTES.profile : ROUTES.tapIn;
   const name = String(profile.display_name ?? profile.username ?? avatar.display_name ?? user?.email?.split('@')[0] ?? 'RICH BIZNESS');
   const avatarUrl = safeUrl(profile.avatar_url ?? avatar.avatar_url);
-  const backgroundUrl = safeUrl(theme.background_url ?? background.background_url);
+  const backgroundUrl = safeUrl(theme.background_url ?? background.background_url) || DEFAULT_PORTAL_BACKGROUND;
   const accent = String(settings.accent_color ?? '#31ff63');
   const richLevel = Number(level.level ?? profile.rich_level ?? avatar.level ?? 1);
   const xpCurrent = Number(level.xp_current ?? 0);
@@ -92,7 +94,7 @@ export async function mountPortalPage(): Promise<void> {
   const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches || motionLevel === 'reduced' || motionLevel === 'off';
 
   app.innerHTML = `
-    <main class="portal-stage portal-stage--elite" style="--portal-accent:${esc(accent)};${backgroundUrl ? `--portal-bg:url('${esc(backgroundUrl)}');` : ''}">
+    <main class="portal-stage portal-stage--elite" style="--portal-accent:${esc(accent)};--portal-bg:url('${esc(backgroundUrl)}');">
       <canvas id="portalMotionCanvas" class="portal-motion-canvas" aria-hidden="true"></canvas>
       <div class="portal-bg" aria-hidden="true"></div>
       <div class="portal-vignette" aria-hidden="true"></div>
