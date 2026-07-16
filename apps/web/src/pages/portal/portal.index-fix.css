@@ -1,3 +1,5 @@
+@import './portal.structure.css';
+
 body[data-page="portal"] {
   position: fixed;
   inset: 0;
