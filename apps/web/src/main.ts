@@ -5,6 +5,7 @@ import './styles/identity.css';
 import './styles/avatar-premium.css';
 import './styles/xp-runtime.css';
 import './styles/media-containment.css';
+import './pages/feed/feed-elite.css';
 import { bootstrap } from './bootstrap';
 import { mountAdminSecretDoor } from './core/admin/secret-door';
 import { mountUniverseBridge } from './core/navigation/universe-bridge';
