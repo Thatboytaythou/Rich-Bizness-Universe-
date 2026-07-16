@@ -11,8 +11,16 @@ type Avatar = { display_name: string | null; avatar_url: string | null; aura: st
 type Profile = { username: string | null; display_name: string | null };
 type Inventory = { id: string; equipped: boolean | null; meta_items: { title: string | null; item_type: string | null; rarity: string | null; image_url: string | null } | null };
 
+const portalRoutes: Record<string, string> = {
+  live: ROUTES.live,
+  game: ROUTES.gaming,
+  music: ROUTES.music,
+  store: ROUTES.store,
+  gallery: ROUTES.gallery,
+  world: ROUTES.meta
+};
 const esc = (value: string | null | undefined) => (value ?? '').replace(/[&<>'"]/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[character] ?? character));
-const routeFor = (portal: Portal) => portal.destination_url || ({ live: ROUTES.live, game: ROUTES.gaming, music: ROUTES.music, store: ROUTES.store, gallery: ROUTES.gallery, world: ROUTES.meta }[portal.destination_type] ?? ROUTES.portal);
+const routeFor = (portal: Portal): string => portal.destination_url || portalRoutes[portal.destination_type] || ROUTES.portal;
 
 export async function mount(): Promise<void> {
   const root = document.querySelector<HTMLElement>('#app');
@@ -54,8 +62,8 @@ export async function mount(): Promise<void> {
   let activeWorld = worlds[0] ?? null;
   let activeRoom: Room | null = null;
   let rooms: Room[] = [];
-  let chatChannel: ReturnType<typeof supabase.channel> | null = null;
-  let roomChannel: ReturnType<typeof supabase.channel> | null = null;
+  let chatChannel: any = null;
+  let roomChannel: any = null;
   let destroyed = false;
 
   root.innerHTML = `<main class="meta-shell"><div class="meta-wrap"><header class="meta-head"><a href="${ROUTES.portal}" aria-label="Back to Portal">←</a><div><p>RICH BIZNESS UNIVERSE</p><h1>Meta</h1></div><span class="meta-live">WORLD SYNC LIVE</span></header><div class="meta-layout"><section id="stage" class="meta-stage"><div class="meta-scene"><div class="meta-world-ring"></div><div class="meta-world-core"></div><div id="portalNodes" class="meta-portals"></div></div><div class="meta-stage-copy"><div><h2 id="worldTitle">Loading world…</h2><p id="worldDescription"></p><div id="worldBadges" class="meta-badges"></div><div class="meta-actions"><button id="enterWorld" class="meta-btn primary">ENTER WORLD</button><button id="likeWorld" class="meta-btn">♡ LIKE</button><a class="meta-btn" href="${ROUTES.avatar}">AVATAR SELECTOR</a><a class="meta-btn" href="${ROUTES.avatarCharacters}">CHARACTER LOBBY</a></div></div></div></section><aside class="meta-side"><section class="meta-panel"><h3>YOUR META IDENTITY</h3><div class="meta-avatar-chip"><img src="${esc(avatar.avatar_url || '/images/brand/Avatar-hero-Banner.png.jpeg')}" alt=""><div><strong>${esc(avatar.display_name || profile.display_name || profile.username || 'Rich Traveler')}</strong><span>${esc(avatar.rank || 'Traveler')} · Level ${avatar.level ?? 1} · ${esc(avatar.aura || 'Green Gold')}</span></div></div></section><section class="meta-panel"><h3>WORLDS</h3><div id="worldList" class="meta-list"></div></section><section class="meta-panel"><h3>ROOMS</h3><div id="roomList" class="meta-list"></div></section><section class="meta-panel chat-panel"><h3 id="chatTitle">ROOM CHAT</h3><div id="chat" class="meta-chat"><div class="meta-card"><p>Join a room to activate chat.</p></div></div><form id="chatForm" class="meta-chat-form"><input id="chatInput" maxlength="1000" placeholder="Send to the room…" disabled><button class="meta-btn primary" disabled>SEND</button></form></section><section class="meta-panel inventory-panel"><h3>INVENTORY</h3><div id="inventory" class="meta-inventory"></div></section><p id="status" class="meta-status"></p></aside></div></div></main>`;
@@ -104,8 +112,11 @@ export async function mount(): Promise<void> {
       return;
     }
     const rows = portals.filter((portal) => !portal.world_id || portal.world_id === activeWorld!.id);
-    const positions = [[8, 18], [72, 12], [4, 62], [76, 60], [38, 4], [39, 67]];
-    portalNodes.innerHTML = rows.slice(0, 6).map((portal, index) => `<button class="meta-portal-node" data-portal="${portal.id}" style="left:${positions[index][0]}%;top:${positions[index][1]}%"><div><strong>${esc(portal.icon || '◎')}</strong><span>${esc(portal.title)}</span></div></button>`).join('');
+    const positions: Array<[number, number]> = [[8, 18], [72, 12], [4, 62], [76, 60], [38, 4], [39, 67]];
+    portalNodes.innerHTML = rows.slice(0, 6).map((portal, index) => {
+      const position = positions[index] ?? [50, 50];
+      return `<button class="meta-portal-node" data-portal="${portal.id}" style="left:${position[0]}%;top:${position[1]}%"><div><strong>${esc(portal.icon || '◎')}</strong><span>${esc(portal.title)}</span></div></button>`;
+    }).join('');
     portalNodes.querySelectorAll<HTMLButtonElement>('[data-portal]').forEach((button) => {
       button.onclick = () => {
         const portal = rows.find((item) => item.id === button.dataset.portal);
