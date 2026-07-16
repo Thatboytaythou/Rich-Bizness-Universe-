@@ -1,5 +1,6 @@
 export const ROUTES = Object.freeze({
-  portal: '/',
+  home: '/',
+  portal: '/portal.html',
   portalPage: '/portal.html',
   tapIn: '/tap-in.html',
   profile: '/profile.html',
@@ -16,6 +17,8 @@ export const ROUTES = Object.freeze({
   live: '/live.html',
   watch: '/watch.html',
   music: '/music.html',
+  podcast: '/podcast.html',
+  radio: '/radio.html',
   sports: '/sports.html',
   store: '/store.html',
   gaming: '/gaming.html',
@@ -25,7 +28,7 @@ export const ROUTES = Object.freeze({
 
 export type RouteKey = keyof typeof ROUTES;
 
-export function safeInternalRoute(value: string | null | undefined, fallback = ROUTES.portal): string {
+export function safeInternalRoute(value: string | null | undefined, fallback = ROUTES.home): string {
   if (!value || !value.startsWith('/') || value.startsWith('//')) return fallback;
   return value;
 }
