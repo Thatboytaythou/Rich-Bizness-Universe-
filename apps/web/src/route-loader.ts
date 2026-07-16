@@ -6,41 +6,11 @@ export type PageRegistration = Readonly<{
 }>;
 
 const pageModules: Record<string, PageRegistration> = {
-  home: {
-    auth: 'public',
-    load: async () => {
-      const module = await import('./pages/home/home.page');
-      return { mount: module.mountHomePage };
-    }
-  },
-  'tap-in': {
-    auth: 'public',
-    load: async () => {
-      const module = await import('./pages/tap-in/tap-in.page');
-      return { mount: module.mountTapInPage };
-    }
-  },
-  profile: {
-    auth: 'optional',
-    load: async () => {
-      const module = await import('./pages/profile/profile.page');
-      return { mount: module.mountProfilePage };
-    }
-  },
-  portal: {
-    auth: 'required',
-    load: async () => {
-      const module = await import('./pages/portal/portal.page');
-      return { mount: module.mountPortalPage };
-    }
-  },
-  gaming: {
-    auth: 'optional',
-    load: async () => {
-      const module = await import('./pages/gaming/gaming.page');
-      return { mount: module.mountGamingPage };
-    }
-  },
+  home: { auth: 'public', load: async () => { const module = await import('./pages/home/home.page'); return { mount: module.mountHomePage }; } },
+  'tap-in': { auth: 'public', load: async () => { const module = await import('./pages/tap-in/tap-in.page'); return { mount: module.mountTapInPage }; } },
+  profile: { auth: 'optional', load: async () => { const module = await import('./pages/profile/profile.page'); return { mount: module.mountProfilePage }; } },
+  portal: { auth: 'required', load: async () => { const module = await import('./pages/portal/portal.page'); return { mount: module.mountPortalPage }; } },
+  gaming: { auth: 'optional', load: async () => { const module = await import('./pages/gaming/gaming.page'); return { mount: module.mountGamingPage }; } },
   feed: { auth: 'optional', load: () => import('./pages/feed/feed.page') },
   gallery: { auth: 'optional', load: () => import('./pages/gallery/gallery.page') },
   live: { auth: 'optional', load: () => import('./pages/live/live.page') },
@@ -59,7 +29,8 @@ const pageModules: Record<string, PageRegistration> = {
   upload: { auth: 'optional', load: () => import('./features/upload/upload.page') },
   search: { auth: 'optional', load: () => import('./features/search/search.page') },
   watch: { auth: 'optional', load: () => import('./features/watch/watch.page') },
-  avatar: { auth: 'optional', load: () => import('./features/avatar/avatar.entry') }
+  avatar: { auth: 'required', load: () => import('./features/avatar/avatar.entry') },
+  'avatar-characters': { auth: 'required', load: () => import('./features/avatar/avatar.characters.entry') }
 };
 
 export function getPageRegistration(page: string): PageRegistration | null {
