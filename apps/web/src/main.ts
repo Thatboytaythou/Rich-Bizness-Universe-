@@ -6,6 +6,13 @@ import './styles/avatar-premium.css';
 import './styles/xp-runtime.css';
 import './styles/media-containment.css';
 import { bootstrap } from './bootstrap';
+import { mountAdminSecretDoor } from './core/admin/secret-door';
+import { mountUniverseBridge } from './core/navigation/universe-bridge';
 import { mountXpRuntime } from './core/xp/xp-runtime';
 
-void bootstrap().then(() => mountXpRuntime());
+void bootstrap().then(async () => {
+  mountUniverseBridge();
+  const tasks: Promise<unknown>[] = [mountAdminSecretDoor()];
+  if ((document.body.dataset.page ?? '') !== 'home') tasks.push(mountXpRuntime());
+  await Promise.allSettled(tasks);
+});
