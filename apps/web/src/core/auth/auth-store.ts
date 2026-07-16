@@ -4,6 +4,8 @@ import { supabase } from '../supabase/client';
 type AuthSnapshot = Readonly<{ session: Session | null; user: User | null; ready: boolean }>;
 type Listener = (snapshot: AuthSnapshot) => void;
 
+const AUTH_TIMEOUT_MS = 4_000;
+
 let snapshot: AuthSnapshot = Object.freeze({ session: null, user: null, ready: false });
 let initializePromise: Promise<AuthSnapshot> | null = null;
 const listeners = new Set<Listener>();
@@ -12,6 +14,22 @@ function publish(next: AuthSnapshot): AuthSnapshot {
   snapshot = Object.freeze(next);
   for (const listener of listeners) listener(snapshot);
   return snapshot;
+}
+
+function withTimeout<T>(promise: Promise<T>, fallback: T): Promise<T> {
+  return new Promise((resolve) => {
+    const timer = window.setTimeout(() => resolve(fallback), AUTH_TIMEOUT_MS);
+    promise.then(
+      (value) => {
+        window.clearTimeout(timer);
+        resolve(value);
+      },
+      () => {
+        window.clearTimeout(timer);
+        resolve(fallback);
+      }
+    );
+  });
 }
 
 export function getAuthSnapshot(): AuthSnapshot {
@@ -25,23 +43,22 @@ export function subscribeAuth(listener: Listener): () => void {
 }
 
 async function resolveVerifiedSession(): Promise<AuthSnapshot> {
-  const current = await supabase.auth.getSession();
-  if (current.error) {
-    await supabase.auth.signOut({ scope: 'local' }).catch(() => undefined);
+  const current = await withTimeout(
+    supabase.auth.getSession(),
+    { data: { session: null }, error: null }
+  );
+
+  const session = current.data.session;
+  if (current.error || !session) {
     return publish({ session: null, user: null, ready: true });
   }
 
-  let session = current.data.session;
-  if (!session) {
-    const refreshed = await supabase.auth.refreshSession();
-    if (!refreshed.error) session = refreshed.data.session;
-  }
+  const verified = await withTimeout(
+    supabase.auth.getUser(session.access_token),
+    { data: { user: null }, error: null }
+  );
 
-  if (!session) return publish({ session: null, user: null, ready: true });
-
-  const verified = await supabase.auth.getUser(session.access_token);
-  if (verified.error || !verified.data.user) {
-    await supabase.auth.signOut({ scope: 'local' }).catch(() => undefined);
+  if (!verified.data.user) {
     return publish({ session: null, user: null, ready: true });
   }
 
