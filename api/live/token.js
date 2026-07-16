@@ -196,7 +196,7 @@ export default async function handler(req, res) {
     joined_at: new Date().toISOString(),
     left_at: null,
     metadata: { source: 'livekit_token', room_name: roomName }
-  }, { onConflict: 'stream_id,user_id' });
+  }, { onConflict: 'stream_id,user_id,role' });
 
   return json(res, 200, {
     ok: true,
