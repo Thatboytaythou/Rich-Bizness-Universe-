@@ -1,0 +1,213 @@
+body[data-page="portal"] {
+  margin: 0;
+  overflow: hidden;
+  background: #020402;
+}
+
+body[data-page="portal"] #app {
+  width: 100%;
+  height: 100%;
+  min-height: 100svh;
+  overflow: hidden;
+}
+
+.portal-stage--elite {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.portal-stage--elite .portal-topbar {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  min-width: 0;
+}
+
+.portal-stage--elite .portal-profile {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  border: 1px solid rgba(255,255,255,.13);
+  border-radius: 999px;
+  color: #fff;
+  text-decoration: none;
+  overflow: hidden;
+  isolation: isolate;
+}
+
+.portal-stage--elite .portal-profile__avatar {
+  position: relative;
+  flex: 0 0 42px;
+  width: 42px;
+  height: 42px;
+  min-width: 42px;
+  min-height: 42px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--portal-accent, #31ff63), var(--portal-gold, #f7c948));
+  color: #041006;
+  font-size: .72rem;
+  font-weight: 950;
+  line-height: 1;
+}
+
+.portal-stage--elite .portal-profile__avatar img {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 42px;
+  height: 42px;
+  max-width: 42px;
+  max-height: 42px;
+  border-radius: 50%;
+  object-fit: cover;
+  object-position: center;
+}
+
+.portal-stage--elite .portal-profile__copy {
+  min-width: 0;
+  display: grid;
+  line-height: 1.05;
+}
+
+.portal-stage--elite .portal-profile__copy small,
+.portal-stage--elite .portal-brand small,
+.portal-stage--elite .portal-stats small,
+.portal-stage--elite .portal-core__content small {
+  color: rgba(255,255,255,.56);
+  font-size: .52rem;
+  font-weight: 850;
+  letter-spacing: .13em;
+}
+
+.portal-stage--elite .portal-profile__copy strong {
+  display: block;
+  max-width: 132px;
+  margin-top: 3px;
+  overflow: hidden;
+  font-size: .72rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.portal-stage--elite .portal-profile__copy em {
+  margin-top: 4px;
+  color: var(--portal-accent, #31ff63);
+  font-size: .48rem;
+  font-style: normal;
+  font-weight: 950;
+  letter-spacing: .12em;
+}
+
+.portal-stage--elite .portal-brand {
+  display: grid;
+  justify-items: end;
+  align-content: center;
+  min-width: 0;
+  line-height: 1;
+}
+
+.portal-stage--elite .portal-brand small {
+  color: var(--portal-gold, #f7c948);
+}
+
+.portal-stage--elite .portal-brand strong {
+  margin-top: 4px;
+}
+
+.portal-stage--elite .portal-core {
+  display: grid;
+  place-items: center;
+  text-align: center;
+  color: #fff;
+  text-decoration: none;
+}
+
+.portal-stage--elite .portal-actions {
+  position: absolute;
+  top: 50%;
+  display: grid;
+  transform: translateY(-50%);
+  z-index: 32;
+}
+
+.portal-stage--elite .portal-actions a {
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(255,255,255,.12);
+  border-radius: 13px;
+  color: #fff;
+  text-decoration: none;
+  backdrop-filter: blur(14px);
+}
+
+.portal-stage--elite .portal-actions small {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+.portal-stage--elite .portal-stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  width: 100%;
+  min-width: 0;
+}
+
+.portal-stage--elite .portal-stats article {
+  min-width: 0;
+  border: 1px solid rgba(255,255,255,.1);
+  border-radius: 14px;
+  backdrop-filter: blur(14px);
+}
+
+.portal-stage--elite .portal-stats strong {
+  display: block;
+  margin-top: 4px;
+  overflow: hidden;
+  color: #fff;
+  font-size: clamp(.56rem, 2.2vw, .78rem);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.portal-stage--elite .portal-route-layer,
+.portal-stage--elite .rb-portal-media-ring,
+.portal-stage--elite .portal-core,
+.portal-stage--elite .portal-actions,
+.portal-stage--elite .portal-pulse,
+.portal-stage--elite .portal-stats,
+.portal-stage--elite .portal-topbar {
+  pointer-events: auto;
+}
+
+.portal-stage--elite .portal-bg,
+.portal-stage--elite .portal-vignette,
+.portal-stage--elite .portal-grid,
+.portal-stage--elite .portal-nebula,
+.portal-stage--elite .portal-stars,
+.portal-stage--elite .portal-horizon,
+.portal-stage--elite .portal-orbit-system,
+.portal-stage--elite .portal-motion-canvas {
+  pointer-events: none;
+}
+
+@media (max-width: 430px) {
+  .portal-stage--elite .portal-profile__avatar,
+  .portal-stage--elite .portal-profile__avatar img {
+    width: 40px;
+    height: 40px;
+    min-width: 40px;
+    min-height: 40px;
+  }
+
+  .portal-stage--elite .portal-profile__avatar {
+    flex-basis: 40px;
+  }
+}
