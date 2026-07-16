@@ -79,6 +79,8 @@ export async function mountPortalPage(): Promise<void> {
   const app = document.querySelector<HTMLDivElement>('#app');
   if (!app) throw new Error('Missing #app mount');
 
+  if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
+
   const user = getAuthSnapshot().user;
   let snapshot: PortalSnapshot = {};
   if (user) {
@@ -137,30 +139,16 @@ export async function mountPortalPage(): Promise<void> {
 
         <div class="portal-machine" aria-hidden="true">
           <div class="portal-machine__base"></div>
-          <div class="portal-machine__frame">
-            ${Array.from({ length: 12 }, (_, index) => `<i class="portal-machine__segment" style="--segment:${index}"></i>`).join('')}
-          </div>
+          <div class="portal-machine__iris"><i></i><i></i><i></i><i></i><i></i><i></i></div>
+          <div class="portal-machine__tunnel"></div>
+          <div class="portal-machine__membrane"></div>
+          <div class="portal-machine__frame"></div>
           <div class="portal-machine__coil portal-machine__coil--left"><i></i><i></i><i></i><i></i><i></i></div>
           <div class="portal-machine__coil portal-machine__coil--right"><i></i><i></i><i></i><i></i><i></i></div>
           <div class="portal-machine__clamp portal-machine__clamp--north"></div>
           <div class="portal-machine__clamp portal-machine__clamp--east"></div>
           <div class="portal-machine__clamp portal-machine__clamp--south"></div>
           <div class="portal-machine__clamp portal-machine__clamp--west"></div>
-          <div class="portal-machine__membrane"></div>
-          <div class="portal-machine__iris"><i></i><i></i><i></i><i></i><i></i><i></i></div>
-          <div class="portal-machine__tunnel"></div>
-        </div>
-
-        <div class="portal-route-layer">
-          ${destinations.map((destination, index) => {
-            const count = Number(pulse[destination.key] ?? 0);
-            return `<a class="portal-node portal-node--${destination.position}" href="${destination.href}" style="--node:${index};--delay:${index * 0.1}s" aria-label="Open ${destination.label}">
-              <span class="portal-node__aura" aria-hidden="true"></span>
-              <span class="portal-node__icon">${destination.icon}</span>
-              <span class="portal-node__copy"><small>${destination.kicker}</small><strong>${destination.label}</strong></span>
-              ${renderPulseBadge(count, destination.label)}
-            </a>`;
-          }).join('')}
         </div>
 
         <nav class="portal-media-system" aria-label="Rich Bizness media universe">
@@ -180,6 +168,18 @@ export async function mountPortalPage(): Promise<void> {
             <i><u style="width:${xpPercent}%"></u></i>
           </span>
         </a>
+
+        <div class="portal-route-layer">
+          ${destinations.map((destination, index) => {
+            const count = Number(pulse[destination.key] ?? 0);
+            return `<a class="portal-node portal-node--${destination.position}" href="${destination.href}" style="--node:${index};--delay:${index * 0.1}s" aria-label="Open ${destination.label}">
+              <span class="portal-node__aura" aria-hidden="true"></span>
+              <span class="portal-node__icon">${destination.icon}</span>
+              <span class="portal-node__copy"><small>${destination.kicker}</small><strong>${destination.label}</strong></span>
+              ${renderPulseBadge(count, destination.label)}
+            </a>`;
+          }).join('')}
+        </div>
       </section>
 
       ${recent.length ? `<section class="portal-pulse" aria-label="Universe activity"><span>LIVE PULSE</span><div>${recent.map((item) => `<a href="${esc(safeUrl(item.href) || '#')}"><small>${esc(String(item.kind ?? 'update').toUpperCase())}</small><strong>${esc(item.title ?? 'Rich Bizness update')}</strong></a>`).join('')}</div></section>` : ''}
