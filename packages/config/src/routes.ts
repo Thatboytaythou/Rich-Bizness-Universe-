@@ -23,7 +23,8 @@ export const ROUTES = Object.freeze({
   store: '/store.html',
   gaming: '/gaming.html',
   meta: '/meta.html',
-  avatar: '/avatar.html'
+  avatar: '/avatar.html',
+  avatarCharacters: '/avatar-characters.html'
 } as const);
 
 export type RouteKey = keyof typeof ROUTES;
