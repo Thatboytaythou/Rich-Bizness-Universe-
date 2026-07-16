@@ -4,6 +4,7 @@ import { supabase } from '../../core/supabase/client';
 import { mountPortalMotion } from './portal.motion';
 import './portal.motion.css';
 import './portal.overdrive.css';
+import './portal.machine.css';
 import './portal.index-fix.css';
 
 type JsonMap = Record<string, unknown>;
@@ -133,8 +134,23 @@ export async function mountPortalPage(): Promise<void> {
 
       ${announcement.title ? `<a class="portal-announcement" href="${esc(safeUrl(announcement.action_url ?? announcement.target_url) || '#')}"><span>${esc(announcement.emoji ?? '✦')}</span><div><small>${esc(announcement.priority ?? 'UPDATE')}</small><strong>${esc(announcement.title)}</strong></div><i>OPEN</i></a>` : ''}
 
-      <section class="portal-world" aria-label="Rich Bizness Universe portal">
+      <section class="portal-world" aria-label="Rich Bizness Universe dimensional portal machine">
         <div class="portal-horizon" aria-hidden="true"></div>
+        <div class="portal-machine" aria-hidden="true">
+          <div class="portal-machine__locks"></div>
+          <div class="portal-machine__chamber"></div>
+          <div class="portal-machine__iris"><i></i><i></i><i></i><i></i><i></i><i></i></div>
+          <div class="portal-machine__tunnel"></div>
+          <div class="portal-machine__depth"></div>
+          <i class="portal-machine__pylon portal-machine__pylon--north"></i>
+          <i class="portal-machine__pylon portal-machine__pylon--east"></i>
+          <i class="portal-machine__pylon portal-machine__pylon--south"></i>
+          <i class="portal-machine__pylon portal-machine__pylon--west"></i>
+          <i class="portal-machine__conduit portal-machine__conduit--n"></i>
+          <i class="portal-machine__conduit portal-machine__conduit--e"></i>
+          <i class="portal-machine__conduit portal-machine__conduit--s"></i>
+          <i class="portal-machine__conduit portal-machine__conduit--w"></i>
+        </div>
         <div class="portal-orbit-system" aria-hidden="true">
           <div class="portal-orbit portal-orbit--outer"></div>
           <div class="portal-orbit portal-orbit--middle"></div>
