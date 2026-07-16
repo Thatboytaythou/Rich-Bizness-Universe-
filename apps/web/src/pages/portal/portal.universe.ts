@@ -36,21 +36,21 @@ type Destination = {
 const DEFAULT_PORTAL_BACKGROUND = '/images/0E886281-8F03-4288-B3CA-C45369B7B58E.png';
 
 const destinations: Destination[] = [
-  { key: 'live', label: 'LIVE', icon: '◉', href: '/live.html', position: 'top', kicker: 'BROADCAST' },
-  { key: 'gallery', label: 'GALLERY', icon: '▣', href: '/gallery.html', position: 'top-left', kicker: 'VISUALS' },
-  { key: 'music', label: 'MUSIC', icon: '♪', href: '/music.html', position: 'top-right', kicker: 'AUDIO' },
-  { key: 'upload', label: 'UPLOAD', icon: '⬆', href: '/upload.html', position: 'left', kicker: 'CREATE' },
+  { key: 'live', label: 'LIVE', icon: '◉', href: ROUTES.live, position: 'top', kicker: 'BROADCAST' },
+  { key: 'gallery', label: 'GALLERY', icon: '▣', href: ROUTES.gallery, position: 'top-left', kicker: 'VISUALS' },
+  { key: 'music', label: 'MUSIC', icon: '♪', href: ROUTES.music, position: 'top-right', kicker: 'AUDIO' },
+  { key: 'upload', label: 'UPLOAD', icon: '⬆', href: ROUTES.upload, position: 'left', kicker: 'CREATE' },
   { key: 'gaming', label: 'GAMING', icon: '🎮', href: ROUTES.gaming, position: 'right', kicker: 'PLAY' },
-  { key: 'sports', label: 'SPORTS', icon: '🏆', href: '/sports.html', position: 'bottom-left', kicker: 'ARENA' },
-  { key: 'meta', label: 'META', icon: '◎', href: '/meta.html', position: 'bottom', kicker: 'WORLDS' },
-  { key: 'store', label: 'STORE', icon: '🛒', href: '/store.html', position: 'bottom-right', kicker: 'MARKET' }
+  { key: 'sports', label: 'SPORTS', icon: '🏆', href: ROUTES.sports, position: 'bottom-left', kicker: 'ARENA' },
+  { key: 'meta', label: 'META', icon: '◎', href: ROUTES.meta, position: 'bottom', kicker: 'WORLDS' },
+  { key: 'store', label: 'STORE', icon: '🛒', href: ROUTES.store, position: 'bottom-right', kicker: 'MARKET' }
 ];
 
 const mediaDestinations: Destination[] = [
-  { key: 'podcast', label: 'PODCAST', icon: '◉', href: '/podcast.html', position: 'media-top', kicker: 'TALK' },
-  { key: 'radio', label: 'RADIO', icon: '⌁', href: '/radio.html', position: 'media-right', kicker: 'LIVE AUDIO' },
-  { key: 'feed', label: 'FEED', icon: '✦', href: '/feed.html', position: 'media-bottom', kicker: 'SOCIAL' },
-  { key: 'watch', label: 'WATCH', icon: '▶', href: '/watch.html', position: 'media-left', kicker: 'VIDEO' }
+  { key: 'podcast', label: 'PODCAST', icon: '◉', href: ROUTES.podcast, position: 'media-top', kicker: 'TALK' },
+  { key: 'radio', label: 'RADIO', icon: '⌁', href: ROUTES.radio, position: 'media-right', kicker: 'LIVE AUDIO' },
+  { key: 'feed', label: 'FEED', icon: '✦', href: ROUTES.feed, position: 'media-bottom', kicker: 'SOCIAL' },
+  { key: 'watch', label: 'WATCH', icon: '▶', href: ROUTES.watch, position: 'media-left', kicker: 'VIDEO' }
 ];
 
 const esc = (value: unknown) => String(value ?? '').replace(/[&<>"']/g, (character) => ({
@@ -71,7 +71,8 @@ const safeUrl = (value: unknown): string => {
 const renderPulseBadge = (count: number, label: string): string => {
   if (count <= 0) return '';
   const display = count > 999 ? '999+' : count.toLocaleString();
-  return `<b data-count="${count}" title="${esc(`${display} new ${label} update${count === 1 ? '' : 's'}`)}" aria-label="${esc(`${display} new ${label} update${count === 1 ? '' : 's'}`)}">${display}</b>`;
+  const description = `${display} new ${label} update${count === 1 ? '' : 's'}`;
+  return `<b data-count="${count}" title="${esc(description)}" aria-label="${esc(description)}">${display}</b>`;
 };
 
 export async function mountPortalPage(): Promise<void> {
@@ -88,17 +89,14 @@ export async function mountPortalPage(): Promise<void> {
   const profile = snapshot.profile ?? {};
   const level = snapshot.level ?? {};
   const avatar = snapshot.avatar ?? {};
-  const theme = snapshot.theme ?? {};
   const settings = snapshot.settings ?? {};
   const announcement = snapshot.announcement ?? {};
-  const background = snapshot.background ?? {};
   const pulse = snapshot.section_pulse ?? {};
   const recent = Array.isArray(snapshot.recent_activity) ? snapshot.recent_activity.slice(0, 5) : [];
 
-  const identityRoute = user ? ROUTES.profile : ROUTES.tapIn;
+  const identityRoute = user ? ROUTES.profile : `${ROUTES.tapIn}?next=${encodeURIComponent(ROUTES.portal)}`;
   const name = String(profile.display_name ?? profile.username ?? avatar.display_name ?? user?.email?.split('@')[0] ?? 'RICH BIZNESS');
   const avatarUrl = safeUrl(profile.avatar_url ?? avatar.avatar_url);
-  const backgroundUrl = safeUrl(theme.background_url ?? background.background_url) || DEFAULT_PORTAL_BACKGROUND;
   const accent = String(settings.accent_color ?? '#31ff63');
   const richLevel = Number(level.level ?? profile.rich_level ?? avatar.level ?? 1);
   const xpCurrent = Number(level.xp_current ?? 0);
@@ -108,7 +106,7 @@ export async function mountPortalPage(): Promise<void> {
   const reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches || motionLevel === 'reduced' || motionLevel === 'off';
 
   app.innerHTML = `
-    <main class="portal-stage portal-stage--elite" style="--portal-accent:${esc(accent)};--portal-bg:url('${esc(backgroundUrl)}');">
+    <main class="portal-stage portal-stage--elite" style="--portal-accent:${esc(accent)};--portal-bg:url('${DEFAULT_PORTAL_BACKGROUND}');">
       <canvas id="portalMotionCanvas" class="portal-motion-canvas" aria-hidden="true"></canvas>
       <div class="portal-bg" aria-hidden="true"></div>
       <div class="portal-vignette" aria-hidden="true"></div>
@@ -137,29 +135,14 @@ export async function mountPortalPage(): Promise<void> {
       <section class="portal-world" aria-label="Rich Bizness Universe dimensional portal machine">
         <div class="portal-horizon" aria-hidden="true"></div>
         <div class="portal-machine" aria-hidden="true">
-          <div class="portal-machine__locks"></div>
+          <div class="portal-machine__frame"></div>
           <div class="portal-machine__chamber"></div>
           <div class="portal-machine__iris"><i></i><i></i><i></i><i></i><i></i><i></i></div>
           <div class="portal-machine__tunnel"></div>
-          <div class="portal-machine__depth"></div>
           <i class="portal-machine__pylon portal-machine__pylon--north"></i>
           <i class="portal-machine__pylon portal-machine__pylon--east"></i>
           <i class="portal-machine__pylon portal-machine__pylon--south"></i>
           <i class="portal-machine__pylon portal-machine__pylon--west"></i>
-          <i class="portal-machine__conduit portal-machine__conduit--n"></i>
-          <i class="portal-machine__conduit portal-machine__conduit--e"></i>
-          <i class="portal-machine__conduit portal-machine__conduit--s"></i>
-          <i class="portal-machine__conduit portal-machine__conduit--w"></i>
-        </div>
-        <div class="portal-orbit-system" aria-hidden="true">
-          <div class="portal-orbit portal-orbit--outer"></div>
-          <div class="portal-orbit portal-orbit--middle"></div>
-          <div class="portal-orbit portal-orbit--inner"></div>
-          <div class="portal-orbit portal-orbit--ticks"></div>
-          <div class="portal-orbit portal-orbit--signal"></div>
-          <div class="portal-beam portal-beam--green"></div>
-          <div class="portal-beam portal-beam--gold"></div>
-          <div class="portal-scan"></div>
         </div>
 
         <div class="portal-route-layer">
@@ -174,7 +157,7 @@ export async function mountPortalPage(): Promise<void> {
           }).join('')}
         </div>
 
-        <nav id="rbPortalMediaRing" class="rb-portal-media-ring" aria-label="Rich Bizness media universe">
+        <nav class="portal-media-system" aria-label="Rich Bizness media universe">
           ${mediaDestinations.map((destination) => `<a class="portal-media-node portal-media-node--${destination.position}" href="${destination.href}" aria-label="Open ${destination.label}">
             <span>${destination.icon}</span><small>${destination.kicker}</small><strong>${destination.label}</strong>
           </a>`).join('')}
@@ -182,8 +165,6 @@ export async function mountPortalPage(): Promise<void> {
 
         <a class="portal-core" href="${identityRoute}" aria-label="${user ? 'Enter your universe' : 'Create your Rich ID'}">
           <span class="portal-core__halo" aria-hidden="true"></span>
-          <span class="portal-core__ring portal-core__ring--one" aria-hidden="true"></span>
-          <span class="portal-core__ring portal-core__ring--two" aria-hidden="true"></span>
           <span class="portal-core__iris" aria-hidden="true"></span>
           <span class="portal-core__content">
             <small>RICH BIZNESS LLC</small>
@@ -198,9 +179,9 @@ export async function mountPortalPage(): Promise<void> {
       ${recent.length ? `<section class="portal-pulse" aria-label="Universe activity"><span>LIVE PULSE</span><div>${recent.map((item) => `<a href="${esc(safeUrl(item.href) || '#')}"><small>${esc(String(item.kind ?? 'update').toUpperCase())}</small><strong>${esc(item.title ?? 'Rich Bizness update')}</strong></a>`).join('')}</div></section>` : ''}
 
       <aside class="portal-actions" aria-label="Quick actions">
-        <a href="/search.html" aria-label="Search"><span>⌕</span><small>SEARCH</small></a>
-        <a href="/messages.html" aria-label="Messages"><span>✦</span><small>DM</small>${Number(snapshot.unread_threads ?? 0) ? `<b>${snapshot.unread_threads}</b>` : ''}</a>
-        <a href="/notifications.html" aria-label="Notifications"><span>◌</span><small>ALERTS</small>${Number(snapshot.unread_notifications ?? 0) ? `<b>${snapshot.unread_notifications}</b>` : ''}</a>
+        <a href="${ROUTES.search}" aria-label="Search"><span>⌕</span><small>SEARCH</small></a>
+        <a href="${ROUTES.messages}" aria-label="Messages"><span>✦</span><small>DM</small>${Number(snapshot.unread_threads ?? 0) ? `<b>${snapshot.unread_threads}</b>` : ''}</a>
+        <a href="${ROUTES.notifications}" aria-label="Notifications"><span>◌</span><small>ALERTS</small>${Number(snapshot.unread_notifications ?? 0) ? `<b>${snapshot.unread_notifications}</b>` : ''}</a>
         <a href="${identityRoute}" aria-label="${user ? 'Profile' : 'Tap In'}"><span>◎</span><small>${user ? 'PROFILE' : 'TAP IN'}</small></a>
       </aside>
 
@@ -222,6 +203,7 @@ export async function mountPortalPage(): Promise<void> {
       pulseTrack.style.transform = `translateY(-${pulseIndex * 100}%)`;
     }, 4200);
   }
+
   const cleanup = () => {
     cleanupMotion();
     if (pulseTimer !== null) window.clearInterval(pulseTimer);
