@@ -10,9 +10,8 @@ const requiredFiles = [
   'packages/config/src/buckets.ts',
   'packages/config/src/games.ts',
   'apps/web/src/main.ts',
-  'apps/web/core/supabase/client.ts',
-  'engines/avatar/src',
-  'engines/game-runtime/src'
+  'apps/web/src/core/supabase/client.ts',
+  'vite.config.ts'
 ];
 
 const missing = requiredFiles.filter((path) => !existsSync(resolve(root, path)));
@@ -38,4 +37,9 @@ for (const key of ['portal', 'tapIn', 'profile', 'avatar', 'avatarCharacters', '
   if (!new RegExp(`\\b${key}:`).test(routesSource)) throw new Error(`Missing canonical route key: ${key}`);
 }
 
-console.log(`Package validation passed: ${Object.keys(exportsMap).length} config exports, ${slugs.length} game contracts.`);
+const viteSource = readFileSync(resolve(root, 'vite.config.ts'), 'utf8');
+for (const alias of ['@web', '@rb/config', '@rb/database', '@rb/ui', '@rb/avatar', '@rb/game-runtime']) {
+  if (!viteSource.includes(`'${alias}'`)) throw new Error(`Missing Vite workspace alias: ${alias}`);
+}
+
+console.log(`Package validation passed: ${Object.keys(exportsMap).length} config exports, ${slugs.length} game contracts, 6 workspace aliases.`);
