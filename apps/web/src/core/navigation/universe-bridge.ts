@@ -13,19 +13,6 @@ function linkMarkup(link: Link): string {
   return `<a href="${link.href}" aria-label="Open ${link.label}"><span>${link.icon}</span><small>${link.kicker}</small><strong>${link.label}</strong></a>`;
 }
 
-function mountPortalBridge(): void {
-  if ((document.body.dataset.page ?? '') !== 'portal') return;
-  const world = document.querySelector<HTMLElement>('.portal-world');
-  if (!world || world.querySelector('#rbPortalMediaRing')) return;
-
-  const ring = document.createElement('nav');
-  ring.id = 'rbPortalMediaRing';
-  ring.className = 'rb-portal-media-ring';
-  ring.setAttribute('aria-label', 'Rich Bizness media universe');
-  ring.innerHTML = MEDIA_LINKS.map(linkMarkup).join('');
-  world.append(ring);
-}
-
 function mountLiveBridge(): void {
   if ((document.body.dataset.page ?? '') !== 'live') return;
   const header = document.querySelector<HTMLElement>('.media-ultimate__head');
@@ -40,6 +27,5 @@ function mountLiveBridge(): void {
 }
 
 export function mountUniverseBridge(): void {
-  mountPortalBridge();
   mountLiveBridge();
 }
