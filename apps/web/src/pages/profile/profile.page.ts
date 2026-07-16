@@ -1,3 +1,4 @@
+import { getAuthSnapshot, initializeAuth } from '../../core/auth/auth-store';
 import { supabase } from '../../core/supabase/client';
 import './profile-universe.css';
 import './profile-upgrade.css';
@@ -27,7 +28,9 @@ function stat(label:string,value:any,sub=''):string{return `<article><small>${la
 
 export async function mountProfilePage():Promise<void>{
  const root=document.querySelector<HTMLElement>('#app');if(!root)throw new Error('Missing #app mount');
- const {data:{session}}=await supabase.auth.getSession();const params=new URLSearchParams(location.search);const requested=params.get('id')||params.get('user')||params.get('u');
+ await initializeAuth();
+ const session=getAuthSnapshot().session;
+ const params=new URLSearchParams(location.search);const requested=params.get('id')||params.get('user')||params.get('u');
  if(!session&&!requested){location.replace(`/tap-in.html?next=${encodeURIComponent('/profile.html')}`);return;}
  const profileId=requested||session!.user.id;
  const {data,error}=await supabase.rpc('rb_profile_universe_snapshot',{p_profile_id:profileId});
