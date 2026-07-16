@@ -6,6 +6,12 @@ import './styles/avatar-premium.css';
 import './styles/xp-runtime.css';
 import './styles/media-containment.css';
 import { bootstrap } from './bootstrap';
+import { mountAdminSecretDoor } from './core/admin/secret-door';
 import { mountXpRuntime } from './core/xp/xp-runtime';
 
-void bootstrap().then(() => mountXpRuntime());
+void bootstrap().then(async () => {
+  await Promise.allSettled([
+    mountXpRuntime(),
+    mountAdminSecretDoor()
+  ]);
+});
