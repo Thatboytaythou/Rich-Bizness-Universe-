@@ -1,45 +1,23 @@
 import { initializeAuth } from './core/auth/auth-store';
-import { loadPageModule } from './route-loader';
-import { mountHomePage } from './pages/home/home.page';
-import { mountPortalPage } from './pages/portal/portal.page';
-import { mountTapInPage } from './pages/tap-in/tap-in.page';
-import { mountProfilePage } from './pages/profile/profile.page';
-import { mountGamingPage } from './pages/gaming/gaming.page';
-
-const PUBLIC_PAGES = new Set(['home', 'tap-in', 'profile']);
+import { getPageRegistration } from './route-loader';
 
 export async function bootstrap(): Promise<void> {
   const page = document.body.dataset.page ?? 'home';
+  const registration = getPageRegistration(page);
 
-  if (!PUBLIC_PAGES.has(page)) await initializeAuth();
+  if (!registration) {
+    throw new Error(`No page controller registered for ${page}`);
+  }
 
-  switch (page) {
-    case 'home':
-      await mountHomePage();
+  if (registration.auth !== 'public') {
+    const auth = await initializeAuth();
+    if (registration.auth === 'required' && !auth.user) {
+      const next = encodeURIComponent(`${location.pathname}${location.search}${location.hash}`);
+      location.replace(`/tap-in.html?next=${next}`);
       return;
-    case 'tap-in':
-      await mountTapInPage();
-      return;
-    case 'profile':
-      await initializeAuth();
-      await mountProfilePage();
-      return;
-    case 'gaming':
-      await mountGamingPage();
-      return;
-    case 'portal': {
-      const auth = await initializeAuth();
-      if (!auth.user) {
-        location.replace('/tap-in.html?next=%2Fportal.html');
-        return;
-      }
-      await mountPortalPage();
-      return;
-    }
-    default: {
-      const module = await loadPageModule(page);
-      if (!module) throw new Error(`No page controller registered for ${page}`);
-      await module.mount();
     }
   }
+
+  const module = await registration.load();
+  await module.mount();
 }
