@@ -5,7 +5,7 @@ import { mountTapInPage } from './pages/tap-in/tap-in.page';
 import { mountProfilePage } from './pages/profile/profile.page';
 import { mountGamingPage } from './pages/gaming/gaming.page';
 
-const PUBLIC_PAGES = new Set(['portal', 'tap-in']);
+const PUBLIC_PAGES = new Set(['portal', 'tap-in', 'profile']);
 
 export async function bootstrap(): Promise<void> {
   const page = document.body.dataset.page ?? 'portal';
@@ -17,6 +17,7 @@ export async function bootstrap(): Promise<void> {
       await mountTapInPage();
       return;
     case 'profile':
+      await initializeAuth();
       await mountProfilePage();
       return;
     case 'gaming':
