@@ -45,6 +45,13 @@ const destinations: Destination[] = [
   { key: 'store', label: 'STORE', icon: '🛒', href: '/store.html', position: 'bottom-right', kicker: 'MARKET' }
 ];
 
+const mediaDestinations: Destination[] = [
+  { key: 'podcast', label: 'PODCAST', icon: '◉', href: '/podcast.html', position: 'media-top', kicker: 'TALK' },
+  { key: 'radio', label: 'RADIO', icon: '⌁', href: '/radio.html', position: 'media-right', kicker: 'LIVE AUDIO' },
+  { key: 'feed', label: 'FEED', icon: '✦', href: '/feed.html', position: 'media-bottom', kicker: 'SOCIAL' },
+  { key: 'watch', label: 'WATCH', icon: '▶', href: '/watch.html', position: 'media-left', kicker: 'VIDEO' }
+];
+
 const esc = (value: unknown) => String(value ?? '').replace(/[&<>"']/g, (character) => ({
   '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
 }[character] ?? character));
@@ -58,6 +65,12 @@ const safeUrl = (value: unknown): string => {
   if (!raw) return '';
   if (raw.startsWith('/') || raw.startsWith('https://')) return raw;
   return '';
+};
+
+const renderPulseBadge = (count: number, label: string): string => {
+  if (count <= 0) return '';
+  const display = count > 999 ? '999+' : count.toLocaleString();
+  return `<b data-count="${count}" title="${esc(`${display} new ${label} update${count === 1 ? '' : 's'}`)}" aria-label="${esc(`${display} new ${label} update${count === 1 ? '' : 's'}`)}">${display}</b>`;
 };
 
 export async function mountPortalPage(): Promise<void> {
@@ -140,10 +153,16 @@ export async function mountPortalPage(): Promise<void> {
               <span class="portal-node__aura" aria-hidden="true"></span>
               <span class="portal-node__icon">${destination.icon}</span>
               <span class="portal-node__copy"><small>${destination.kicker}</small><strong>${destination.label}</strong></span>
-              <b data-count="${count}">${count > 999 ? '999+' : count}</b>
+              ${renderPulseBadge(count, destination.label)}
             </a>`;
           }).join('')}
         </div>
+
+        <nav id="rbPortalMediaRing" class="rb-portal-media-ring" aria-label="Rich Bizness media universe">
+          ${mediaDestinations.map((destination) => `<a class="portal-media-node portal-media-node--${destination.position}" href="${destination.href}" aria-label="Open ${destination.label}">
+            <span>${destination.icon}</span><small>${destination.kicker}</small><strong>${destination.label}</strong>
+          </a>`).join('')}
+        </nav>
 
         <a class="portal-core" href="${identityRoute}" aria-label="${user ? 'Enter your universe' : 'Create your Rich ID'}">
           <span class="portal-core__halo" aria-hidden="true"></span>
@@ -191,5 +210,6 @@ export async function mountPortalPage(): Promise<void> {
     cleanupMotion();
     if (pulseTimer !== null) window.clearInterval(pulseTimer);
   };
+  window.addEventListener('pagehide', cleanup, { once: true });
   window.addEventListener('beforeunload', cleanup, { once: true });
 }
