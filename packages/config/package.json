@@ -4,6 +4,7 @@
   "version": "0.1.0",
   "type": "module",
   "exports": {
+    ".": "./src/index.ts",
     "./routes": "./src/routes.ts",
     "./tables": "./src/tables.ts",
     "./buckets": "./src/buckets.ts",
