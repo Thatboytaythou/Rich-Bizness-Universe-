@@ -9,12 +9,42 @@ const esc=(v:unknown)=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&l
 const token=(v:unknown,fallback='custom')=>String(v??fallback).toLowerCase().replace(/[^a-z0-9_-]+/g,'-');
 
 const renderFigure=(preset:Preset)=>{
-  const body=token(preset.config?.body_type,'custom');
-  const build=token(preset.config?.build,'athletic');
+  const key=token(preset.preset_key,'rich-avatar');
+  const female=token(preset.config?.body_type,'custom')==='female';
+  const heroic=token(preset.config?.build,'athletic')==='heroic';
   const hair=token(preset.config?.hair,'energy');
-  const style=token(preset.config?.style,preset.preset_key);
-  return `<span class="preset-figure" data-body="${esc(body)}" data-build="${esc(build)}" data-hair="${esc(hair)}" data-style="${esc(style)}" aria-hidden="true">
-    <i class="preset-figure__portal"></i><i class="preset-figure__aura"></i><i class="preset-figure__head"></i><i class="preset-figure__hair"></i><i class="preset-figure__torso"></i><i class="preset-figure__arm preset-figure__arm--left"></i><i class="preset-figure__arm preset-figure__arm--right"></i><i class="preset-figure__leg preset-figure__leg--left"></i><i class="preset-figure__leg preset-figure__leg--right"></i><i class="preset-figure__signature"></i>
+  const primary=preset.aura==='Diamond Mist'?'#8fe8ff':preset.aura==='Neon Phantom'?'#8b5cff':'#31ff63';
+  const secondary=preset.aura==='Diamond Mist'?'#d99cff':'#f7c948';
+  const shoulder=heroic?54:female?42:48;
+  const waist=female?31:38;
+  const hairPath=hair==='long-wave'
+    ? '<path d="M70 42c2-21 38-29 53-9 8 11 8 41 2 55l-14-9-6-26-15-9-15 10-5 31-15 8c-5-17-5-39 0-51z" fill="#26150f"/>'
+    : hair==='locs'
+      ? '<g stroke="#17120f" stroke-width="7" stroke-linecap="round"><path d="M69 43l-8 39"/><path d="M80 35l-5 51"/><path d="M92 32v54"/><path d="M104 36l5 49"/><path d="M115 43l8 39"/></g>'
+      : `<path d="M66 50 72 29l11 10 8-20 9 19 12-13 8 27-13-9-16 4-14-5z" fill="url(#${key}-hair)"/>`;
+  return `<span class="preset-figure" aria-hidden="true">
+    <svg viewBox="0 0 190 235" role="presentation" focusable="false">
+      <defs>
+        <radialGradient id="${key}-portal"><stop offset="0" stop-color="${primary}" stop-opacity=".34"/><stop offset=".58" stop-color="${primary}" stop-opacity=".08"/><stop offset="1" stop-color="#020402" stop-opacity="0"/></radialGradient>
+        <linearGradient id="${key}-suit" x1="0" y1="0" x2="1" y2="1"><stop stop-color="${primary}"/><stop offset=".48" stop-color="#071108"/><stop offset="1" stop-color="${secondary}"/></linearGradient>
+        <linearGradient id="${key}-hair" x1="0" y1="0" x2="1" y2="1"><stop stop-color="${primary}"/><stop offset="1" stop-color="${secondary}"/></linearGradient>
+        <filter id="${key}-glow"><feGaussianBlur stdDeviation="5" result="b"/><feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+      </defs>
+      <ellipse cx="95" cy="118" rx="82" ry="101" fill="url(#${key}-portal)"/>
+      <g fill="none" stroke="${primary}" opacity=".42"><ellipse cx="95" cy="121" rx="72" ry="91"/><ellipse cx="95" cy="121" rx="59" ry="77" stroke-dasharray="4 7"/></g>
+      <g filter="url(#${key}-glow)">
+        ${hairPath}
+        <ellipse cx="95" cy="57" rx="23" ry="27" fill="#70442f"/>
+        <path d="M${95-shoulder} 102 Q95 78 ${95+shoulder} 102 L${95+waist} 174 Q95 188 ${95-waist} 174Z" fill="url(#${key}-suit)"/>
+        <path d="M${95-shoulder+7} 107 52 175 68 181 85 120Z" fill="url(#${key}-suit)"/>
+        <path d="M${95+shoulder-7} 107 138 175 122 181 105 120Z" fill="url(#${key}-suit)"/>
+        <path d="M75 171 65 224 86 224 95 178Z" fill="#111615"/>
+        <path d="M115 171 125 224 104 224 95 178Z" fill="#111615"/>
+        <circle cx="95" cy="126" r="17" fill="none" stroke="${secondary}" stroke-width="3"/>
+        <path d="M84 126h22M95 115v22" stroke="${secondary}" stroke-width="2" opacity=".8"/>
+      </g>
+      <g fill="${secondary}" font-family="system-ui,sans-serif" font-weight="900" font-size="8" letter-spacing="1.4"><text x="95" y="219" text-anchor="middle">${esc(preset.motion||'ELITE MOTION').toUpperCase()}</text></g>
+    </svg>
   </span>`;
 };
 
