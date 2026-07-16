@@ -134,15 +134,21 @@ export async function mountPortalPage(): Promise<void> {
 
       <section class="portal-world" aria-label="Rich Bizness Universe dimensional portal machine">
         <div class="portal-horizon" aria-hidden="true"></div>
+
         <div class="portal-machine" aria-hidden="true">
-          <div class="portal-machine__frame"></div>
-          <div class="portal-machine__chamber"></div>
+          <div class="portal-machine__base"></div>
+          <div class="portal-machine__frame">
+            ${Array.from({ length: 12 }, (_, index) => `<i class="portal-machine__segment" style="--segment:${index}"></i>`).join('')}
+          </div>
+          <div class="portal-machine__coil portal-machine__coil--left"><i></i><i></i><i></i><i></i><i></i></div>
+          <div class="portal-machine__coil portal-machine__coil--right"><i></i><i></i><i></i><i></i><i></i></div>
+          <div class="portal-machine__clamp portal-machine__clamp--north"></div>
+          <div class="portal-machine__clamp portal-machine__clamp--east"></div>
+          <div class="portal-machine__clamp portal-machine__clamp--south"></div>
+          <div class="portal-machine__clamp portal-machine__clamp--west"></div>
+          <div class="portal-machine__membrane"></div>
           <div class="portal-machine__iris"><i></i><i></i><i></i><i></i><i></i><i></i></div>
           <div class="portal-machine__tunnel"></div>
-          <i class="portal-machine__pylon portal-machine__pylon--north"></i>
-          <i class="portal-machine__pylon portal-machine__pylon--east"></i>
-          <i class="portal-machine__pylon portal-machine__pylon--south"></i>
-          <i class="portal-machine__pylon portal-machine__pylon--west"></i>
         </div>
 
         <div class="portal-route-layer">
