@@ -1,4 +1,5 @@
 import { safeInternalRoute } from '@rb/config/routes';
+import { initializeAuth } from '../../core/auth/auth-store';
 import { supabase } from '../../core/supabase/client';
 
 const esc = (value: string | null | undefined) => (value ?? '').replace(/[&<>"']/g, (char) => ({
@@ -13,9 +14,8 @@ export async function mountTapInPage(): Promise<void> {
   const next = safeInternalRoute(params.get('next'));
   const recoveryMode = params.get('mode') === 'recovery';
   const reason = params.get('reason');
-  let { data: { session } } = await supabase.auth.getSession();
-  if (!session) session = (await supabase.auth.refreshSession()).data.session;
-  if (session && !recoveryMode) {
+  const auth = await initializeAuth();
+  if (auth.session && !recoveryMode) {
     location.replace(next);
     return;
   }
@@ -23,10 +23,10 @@ export async function mountTapInPage(): Promise<void> {
   app.innerHTML = `
     <main class="auth-shell">
       <div class="auth-atmosphere" aria-hidden="true"><i></i><i></i><i></i></div>
-      <a class="auth-back" href="/" aria-label="Back to portal">←</a>
+      <a class="auth-back" href="/" aria-label="Back to Rich Bizness home">←</a>
       <section class="auth-visual">
         <div class="auth-mark"><span>RB</span></div>
-        <p>RICH BIZNESS LLC</p>
+        <p>RICH BIZNESS LLC • SECURE ACCESS</p>
         <h1>TAP INTO<br>YOUR EMPIRE.</h1>
         <div class="auth-route-strip"><span>PROFILE LOCK</span><span>AVATAR</span><span>WE LIT🔥</span><span>STORE</span><span>META</span></div>
       </section>
@@ -34,7 +34,7 @@ export async function mountTapInPage(): Promise<void> {
         <header>
           <p class="eyebrow">RICH ID • GLOBAL ACCESS</p>
           <h2>${recoveryMode ? 'GET YOUR ACCESS BACK' : 'TAP IN'}</h2>
-          <span>${recoveryMode ? 'Lock a new password to your Rich ID.' : 'One Rich ID controls your profile, avatar, XP, money, creator tools, rooms and the whole universe.'}</span>
+          <span>${recoveryMode ? 'Lock a new password to your Rich ID.' : 'One verified Rich ID controls your Portal, profile, avatar, XP, money, creator tools, rooms and the entire universe.'}</span>
         </header>
         ${recoveryMode ? `
           <form id="recoveryForm" class="auth-form">
@@ -54,8 +54,8 @@ export async function mountTapInPage(): Promise<void> {
             <button id="recoverButton" class="auth-link" type="button">I CAN’T GET IN</button>
           </form>
         `}
-        <p id="authStatus" class="auth-status" role="status">${reason === 'session' ? 'YOUR SESSION EXPIRED — TAP BACK IN' : 'TAP IN READY'}</p>
-        <footer><span>PROFILE LOCK</span><i></i><span>TAPPED IN</span><i></i><span>RICH LEVEL</span><i></i><span>EMPIRE</span></footer>
+        <p id="authStatus" class="auth-status" role="status">${reason === 'session' ? 'YOUR SESSION EXPIRED — TAP BACK IN' : 'SECURE GATEWAY READY'}</p>
+        <footer><span>PROFILE LOCK</span><i></i><span>VERIFIED SESSION</span><i></i><span>RICH LEVEL</span><i></i><span>EMPIRE</span></footer>
       </section>
     </main>`;
 
@@ -107,14 +107,14 @@ export async function mountTapInPage(): Promise<void> {
       displayName.required = mode === 'signup';
       password.autocomplete = mode === 'signup' ? 'new-password' : 'current-password';
       submitButton.textContent = mode === 'signup' ? 'BUILD MY RICH ID' : 'TAP IN';
-      setStatus(mode === 'signup' ? 'BUILD YOUR PROFILE LOCK' : 'TAP IN READY');
+      setStatus(mode === 'signup' ? 'BUILD YOUR VERIFIED PROFILE LOCK' : 'SECURE GATEWAY READY');
     });
   });
 
   form.addEventListener('submit', async (event) => {
     event.preventDefault();
     submitButton.disabled = true;
-    setStatus(mode === 'signup' ? 'BUILDIN’ YOUR RICH ID...' : 'CHECKIN’ YOUR RICH ID...');
+    setStatus(mode === 'signup' ? 'BUILDIN’ YOUR RICH ID...' : 'VERIFYIN’ YOUR RICH ID...');
     const credentials = { email: email.value.trim(), password: password.value };
     const username = displayName.value.trim().toLowerCase().replace(/[^a-z0-9_]+/g, '_');
     const result = mode === 'signup'
@@ -139,8 +139,8 @@ export async function mountTapInPage(): Promise<void> {
       if (profileError) return setStatus('YOU TAPPED IN, BUT PROFILE LOCK NEEDS A RETRY', true);
     }
 
-    setStatus(`WELCOME BACK ${esc(displayName.value.trim() || email.value.split('@')[0]).toUpperCase()} — TAPPED IN`);
-    window.setTimeout(() => location.assign(next), 450);
+    setStatus(`WELCOME BACK ${esc(displayName.value.trim() || email.value.split('@')[0]).toUpperCase()} — VERIFIED`);
+    window.setTimeout(() => location.replace(next), 350);
   });
 
   document.querySelector<HTMLButtonElement>('#recoverButton')?.addEventListener('click', async () => {
