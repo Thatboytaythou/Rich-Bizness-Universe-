@@ -1,4 +1,4 @@
-import { getAuthSnapshot, initializeAuth } from '../../core/auth/auth-store';
+import { getAuthSnapshot } from '../../core/auth/auth-store';
 import './home.css';
 
 const BACKGROUND = '/images/0E886281-8F03-4288-B3CA-C45369B7B58E.png';
@@ -7,10 +7,14 @@ export async function mountHomePage(): Promise<void> {
   const app = document.querySelector<HTMLDivElement>('#app');
   if (!app) throw new Error('Missing #app mount');
 
-  await initializeAuth();
   const signedIn = Boolean(getAuthSnapshot().user);
-  const primaryHref = signedIn ? '/portal.html' : '/tap-in.html?next=%2Fportal.html';
-  const primaryLabel = signedIn ? 'ENTER YOUR PORTAL' : 'TAP IN';
+  if (signedIn) {
+    location.replace('/portal.html');
+    return;
+  }
+
+  const primaryHref = '/tap-in.html?next=%2Fportal.html';
+  const primaryLabel = 'TAP IN';
 
   app.innerHTML = `
     <main class="rb-home" style="--rb-home-bg:url('${BACKGROUND}')">
