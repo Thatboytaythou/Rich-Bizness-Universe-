@@ -1,5 +1,5 @@
 import { safeInternalRoute } from '@rb/config/routes';
-import { initializeAuth } from '../../core/auth/auth-store';
+import { getAuthSnapshot } from '../../core/auth/auth-store';
 import { supabase } from '../../core/supabase/client';
 
 const esc = (value: string | null | undefined) => (value ?? '').replace(/[&<>"']/g, (char) => ({
@@ -14,7 +14,7 @@ export async function mountTapInPage(): Promise<void> {
   const next = safeInternalRoute(params.get('next'));
   const recoveryMode = params.get('mode') === 'recovery';
   const reason = params.get('reason');
-  const auth = await initializeAuth();
+  const auth = getAuthSnapshot();
   if (auth.session && !recoveryMode) {
     location.replace(next);
     return;
