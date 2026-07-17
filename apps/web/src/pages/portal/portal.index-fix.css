@@ -1,9 +1,9 @@
 @import './portal.structure.css';
 
 /* =========================================================
-   RICH BIZNESS PORTAL VIEWPORT CONTRACT
-   One viewport owner. One responsive diameter. No nested
-   percentage shrinking between world, machine and ENTER.
+   RICH BIZNESS PORTAL VIEWPORT + MOTION CONTRACT
+   One viewport owner. One responsive diameter. One machine.
+   Outer eight rotate clockwise. Inner four rotate counterclockwise.
 ========================================================= */
 
 body[data-page="portal"] {
@@ -42,6 +42,12 @@ body[data-page="portal"] #app {
   display: none;
 }
 
+/* The segmented metal is a true ring, never an opaque disk over the membrane. */
+.portal-stage--elite .portal-machine__frame {
+  -webkit-mask: radial-gradient(circle, transparent 0 65%, #000 66% 100%);
+  mask: radial-gradient(circle, transparent 0 65%, #000 66% 100%);
+}
+
 /* The machine and ENTER use one shared center. */
 .portal-stage--elite .portal-core--unified {
   inset: 31%;
@@ -70,6 +76,28 @@ body[data-page="portal"] #app {
 
 .portal-stage--elite .portal-core--unified .portal-core__content b {
   font-size: clamp(.42rem, 1.6vw, .54rem);
+}
+
+/* Eight primary destinations orbit clockwise as one system. */
+.portal-stage--elite .portal-route-layer {
+  transform-origin: 50% 50%;
+  animation: portalOuterRoutesClockwise 52s linear infinite;
+}
+
+/* Each card counter-rotates so icons and labels remain upright. */
+.portal-stage--elite .portal-route-layer .portal-node {
+  animation: portalOuterNodeUpright 52s linear infinite !important;
+  animation-delay: 0s !important;
+  transform-origin: 50% 50%;
+}
+
+@keyframes portalOuterRoutesClockwise {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes portalOuterNodeUpright {
+  from { transform: translate(-50%, -50%) rotate(0deg); }
+  to { transform: translate(-50%, -50%) rotate(-360deg); }
 }
 
 @media (max-width: 760px) {
@@ -128,5 +156,12 @@ body[data-page="portal"] #app {
 
   .portal-stage--elite .portal-core--unified .portal-core__content strong {
     font-size: 1.5rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .portal-stage--elite .portal-route-layer,
+  .portal-stage--elite .portal-route-layer .portal-node {
+    animation: none !important;
   }
 }
