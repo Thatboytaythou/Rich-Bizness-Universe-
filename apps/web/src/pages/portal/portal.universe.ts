@@ -82,11 +82,11 @@ export async function mountPortalPage(): Promise<void> {
   if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
 
   const user = getAuthSnapshot().user;
+  if (!user) return;
+
   let snapshot: PortalSnapshot = {};
-  if (user) {
-    const { data, error } = await supabase.rpc('rb_portal_elite_snapshot', {});
-    if (!error) snapshot = (data ?? {}) as PortalSnapshot;
-  }
+  const { data, error } = await supabase.rpc('rb_portal_elite_snapshot', {});
+  if (!error) snapshot = (data ?? {}) as PortalSnapshot;
 
   const profile = snapshot.profile ?? {};
   const level = snapshot.level ?? {};
@@ -96,8 +96,8 @@ export async function mountPortalPage(): Promise<void> {
   const pulse = snapshot.section_pulse ?? {};
   const recent = Array.isArray(snapshot.recent_activity) ? snapshot.recent_activity.slice(0, 5) : [];
 
-  const identityRoute = user ? ROUTES.profile : `${ROUTES.tapIn}?next=${encodeURIComponent(ROUTES.portal)}`;
-  const name = String(profile.display_name ?? profile.username ?? avatar.display_name ?? user?.email?.split('@')[0] ?? 'RICH BIZNESS');
+  const identityRoute = ROUTES.profile;
+  const name = String(profile.display_name ?? profile.username ?? avatar.display_name ?? user.email?.split('@')[0] ?? 'RICH BIZNESS');
   const avatarUrl = safeUrl(profile.avatar_url ?? avatar.avatar_url);
   const accent = String(settings.accent_color ?? '#31ff63');
   const richLevel = Number(level.level ?? profile.rich_level ?? avatar.level ?? 1);
@@ -117,12 +117,12 @@ export async function mountPortalPage(): Promise<void> {
       <div class="portal-stars" aria-hidden="true">${Array.from({ length: 28 }, (_, index) => `<i style="--star:${index}"></i>`).join('')}</div>
 
       <header class="portal-topbar">
-        <a class="portal-profile" href="${identityRoute}" aria-label="Open ${user ? 'profile' : 'Tap In'}">
+        <a class="portal-profile" href="${identityRoute}" aria-label="Open profile">
           <span class="portal-profile__avatar">${avatarUrl ? `<img src="${esc(avatarUrl)}" alt="">` : 'RB'}<i></i></span>
           <span class="portal-profile__copy">
-            <small>${user ? 'WELCOME BACK' : 'RICH ACCESS'}</small>
+            <small>WELCOME BACK</small>
             <strong>${esc(name)}</strong>
-            <em>${user ? `LEVEL ${richLevel}` : 'TAP IN TO SYNC'}</em>
+            <em>LEVEL ${richLevel}</em>
           </span>
         </a>
         <div class="portal-brand" aria-label="Rich Bizness Universe">
@@ -157,14 +157,12 @@ export async function mountPortalPage(): Promise<void> {
           </a>`).join('')}
         </nav>
 
-        <a class="portal-core" href="${identityRoute}" aria-label="${user ? 'Enter your universe' : 'Create your Rich ID'}">
-          <span class="portal-core__halo" aria-hidden="true"></span>
-          <span class="portal-core__iris" aria-hidden="true"></span>
+        <a class="portal-core portal-core--unified" href="${identityRoute}" aria-label="Enter your universe" style="border:0;background:transparent;box-shadow:none;overflow:visible;animation:none;">
           <span class="portal-core__content">
             <small>RICH BIZNESS LLC</small>
-            <strong>${user ? 'ENTER' : 'ACTIVATE'}</strong>
-            <span>${user ? 'OPEN YOUR UNIVERSE' : 'CREATE YOUR RICH ID'}</span>
-            <b>${user ? `${xpCurrent.toLocaleString()} / ${xpNext.toLocaleString()} XP` : 'TAP TO BEGIN'}</b>
+            <strong>ENTER</strong>
+            <span>OPEN YOUR UNIVERSE</span>
+            <b>${xpCurrent.toLocaleString()} / ${xpNext.toLocaleString()} XP</b>
             <i><u style="width:${xpPercent}%"></u></i>
           </span>
         </a>
@@ -188,14 +186,14 @@ export async function mountPortalPage(): Promise<void> {
         <a href="${ROUTES.search}" aria-label="Search"><span>⌕</span><small>SEARCH</small></a>
         <a href="${ROUTES.messages}" aria-label="Messages"><span>✦</span><small>DM</small>${Number(snapshot.unread_threads ?? 0) ? `<b>${snapshot.unread_threads}</b>` : ''}</a>
         <a href="${ROUTES.notifications}" aria-label="Notifications"><span>◌</span><small>ALERTS</small>${Number(snapshot.unread_notifications ?? 0) ? `<b>${snapshot.unread_notifications}</b>` : ''}</a>
-        <a href="${identityRoute}" aria-label="${user ? 'Profile' : 'Tap In'}"><span>◎</span><small>${user ? 'PROFILE' : 'TAP IN'}</small></a>
+        <a href="${identityRoute}" aria-label="Profile"><span>◎</span><small>PROFILE</small></a>
       </aside>
 
       <footer class="portal-stats">
         <article><small>BALANCE</small><strong>${money(profile.balance_cents)}</strong></article>
         <article><small>RICH POINTS</small><strong>${Number(level.rich_points ?? profile.rich_points ?? 0).toLocaleString()}</strong></article>
         <article><small>RANK</small><strong>${esc(level.rank_title ?? profile.rank_title ?? 'BIZ LEGEND')}</strong></article>
-        <article><small>ONLINE</small><strong>${esc(String(profile.online_status ?? (user ? 'LIVE' : 'GUEST')).toUpperCase())}</strong></article>
+        <article><small>ONLINE</small><strong>${esc(String(profile.online_status ?? 'LIVE').toUpperCase())}</strong></article>
       </footer>
     </main>`;
 
