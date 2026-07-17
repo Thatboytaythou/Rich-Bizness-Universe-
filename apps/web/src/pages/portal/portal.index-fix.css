@@ -1,5 +1,11 @@
 @import './portal.structure.css';
 
+/* =========================================================
+   RICH BIZNESS PORTAL VIEWPORT CONTRACT
+   One viewport owner. One responsive diameter. No nested
+   percentage shrinking between world, machine and ENTER.
+========================================================= */
+
 body[data-page="portal"] {
   position: fixed;
   inset: 0;
@@ -36,13 +42,91 @@ body[data-page="portal"] #app {
   display: none;
 }
 
-@media (max-width: 430px) {
+/* The machine and ENTER use one shared center. */
+.portal-stage--elite .portal-core--unified {
+  inset: 31%;
+  z-index: 30;
+  overflow: visible;
+  border: 0 !important;
+  border-radius: 50%;
+  background: transparent !important;
+  box-shadow: none !important;
+  animation: none !important;
+}
+
+.portal-stage--elite .portal-core--unified .portal-core__content {
+  width: 92%;
+  gap: 5px;
+}
+
+.portal-stage--elite .portal-core--unified .portal-core__content strong {
+  font-size: clamp(1.3rem, 6vw, 1.85rem);
+  letter-spacing: .13em;
+}
+
+.portal-stage--elite .portal-core--unified .portal-core__content span {
+  font-size: clamp(.5rem, 2vw, .66rem);
+}
+
+.portal-stage--elite .portal-core--unified .portal-core__content b {
+  font-size: clamp(.42rem, 1.6vw, .54rem);
+}
+
+@media (max-width: 760px) {
   .portal-stage--elite {
     min-height: 100dvh;
     height: 100dvh;
+    padding-inline: 8px;
   }
 
+  /* One locked mobile diameter. It does not shrink again inside itself. */
   .portal-stage--elite .portal-world {
-    max-height: calc(100dvh - 176px - env(safe-area-inset-top) - env(safe-area-inset-bottom));
+    width: min(94vw, 430px);
+    height: auto;
+    max-width: none;
+    max-height: none;
+    aspect-ratio: 1;
+  }
+
+  .portal-stage--elite .portal-machine {
+    inset: 14%;
+  }
+
+  .portal-stage--elite .portal-media-system {
+    --media-radius: 24%;
+    --media-size: clamp(40px, 10vw, 46px);
+  }
+
+  .portal-stage--elite .portal-core--unified {
+    inset: 30%;
+  }
+}
+
+@media (max-width: 430px) {
+  .portal-stage--elite .portal-world {
+    width: 94vw;
+    max-height: none;
+  }
+
+  .portal-stage--elite .portal-machine {
+    inset: 14%;
+  }
+
+  .portal-stage--elite .portal-machine__base {
+    width: 78%;
+    bottom: -16%;
+  }
+
+  .portal-stage--elite .portal-media-system {
+    --media-radius: 24%;
+    --media-size: 40px;
+  }
+
+  .portal-stage--elite .portal-core--unified {
+    inset: 29%;
+  }
+
+  .portal-stage--elite .portal-core--unified .portal-core__content strong {
+    font-size: 1.5rem;
   }
 }
