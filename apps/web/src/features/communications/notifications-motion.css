@@ -1,0 +1,23 @@
+body[data-page="notifications"] .notifications-shell{contain:layout paint;isolation:isolate}
+body[data-page="notifications"] .notifications-wrap{animation:rbNotificationsEnter .72s cubic-bezier(.2,.8,.2,1) both}
+body[data-page="notifications"] .notifications-head{overflow:hidden}
+body[data-page="notifications"] .notifications-head::after{content:"";position:absolute;inset:-140% -35%;pointer-events:none;background:linear-gradient(110deg,transparent 42%,rgba(255,255,255,.08) 50%,transparent 58%);transform:translateX(-45%);animation:rbNotificationsSweep 8s ease-in-out infinite}
+body[data-page="notifications"] .notifications-count{animation:rbNotificationsPulse 2.4s ease-in-out infinite}
+body[data-page="notifications"] .notifications-shortcuts a,body[data-page="notifications"] .notifications-filters button,body[data-page="notifications"] .notifications-actions button{position:relative;overflow:hidden;will-change:transform}
+body[data-page="notifications"] .notifications-shortcuts a::before,body[data-page="notifications"] .notifications-filters button::before,body[data-page="notifications"] .notifications-actions button::before{content:"";position:absolute;inset:0;pointer-events:none;background:linear-gradient(120deg,transparent,rgba(255,255,255,.08),transparent);transform:translateX(-120%);transition:transform .45s ease}
+body[data-page="notifications"] .notifications-shortcuts a:hover::before,body[data-page="notifications"] .notifications-filters button:hover::before,body[data-page="notifications"] .notifications-actions button:hover::before{transform:translateX(120%)}
+body[data-page="notifications"] .notification-card{content-visibility:auto;contain-intrinsic-size:90px;transform-origin:center top;animation:rbNotificationCardIn .46s cubic-bezier(.2,.78,.2,1) both}
+body[data-page="notifications"] .notification-card:nth-child(2){animation-delay:.035s}body[data-page="notifications"] .notification-card:nth-child(3){animation-delay:.07s}body[data-page="notifications"] .notification-card:nth-child(4){animation-delay:.105s}body[data-page="notifications"] .notification-card:nth-child(5){animation-delay:.14s}
+body[data-page="notifications"] .notification-card.unread{box-shadow:0 22px 70px rgba(0,0,0,.35),0 0 42px rgba(49,255,99,.065),inset 0 1px rgba(255,255,255,.045)}
+body[data-page="notifications"] .notification-card.unread .notification-icon{animation:rbNotificationIconGlow 2.6s ease-in-out infinite}
+body[data-page="notifications"] .notification-read{transition:transform .2s ease,box-shadow .2s ease,background .2s ease}
+body[data-page="notifications"] .notification-read:hover{transform:translateY(-50%) scale(1.08);background:rgba(49,255,99,.16);box-shadow:0 0 24px rgba(49,255,99,.2)}
+body[data-page="notifications"] .notifications-empty{animation:rbNotificationsFloat 4.5s ease-in-out infinite}
+@keyframes rbNotificationsEnter{from{opacity:0;transform:translateY(18px) scale(.992)}to{opacity:1;transform:none}}
+@keyframes rbNotificationsSweep{0%,70%{transform:translateX(-48%) rotate(4deg)}90%,100%{transform:translateX(48%) rotate(4deg)}}
+@keyframes rbNotificationsPulse{50%{box-shadow:0 0 42px rgba(49,255,99,.22);transform:translateY(-1px)}}
+@keyframes rbNotificationCardIn{from{opacity:0;transform:translateY(12px) scale(.992)}to{opacity:1;transform:none}}
+@keyframes rbNotificationIconGlow{50%{box-shadow:inset 0 0 28px rgba(255,255,255,.04),0 0 34px rgba(49,255,99,.14);transform:scale(1.025)}}
+@keyframes rbNotificationsFloat{50%{transform:translateY(-4px)}}
+@media(max-width:760px){body[data-page="notifications"] .notification-card{contain-intrinsic-size:118px}body[data-page="notifications"] .notifications-head::after{display:none}}
+@media(prefers-reduced-motion:reduce){body[data-page="notifications"] .notifications-wrap,body[data-page="notifications"] .notifications-count,body[data-page="notifications"] .notification-card,body[data-page="notifications"] .notification-card.unread .notification-icon,body[data-page="notifications"] .notifications-empty,body[data-page="notifications"] .notifications-head::after{animation:none!important}body[data-page="notifications"] .notifications-shortcuts a::before,body[data-page="notifications"] .notifications-filters button::before,body[data-page="notifications"] .notifications-actions button::before{display:none}}
