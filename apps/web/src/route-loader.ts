@@ -61,7 +61,22 @@ const pageModules: Record<string, PageRegistration> = {
   upload: { auth: 'required', load: () => import('./features/upload/upload.page') },
   search: { auth: 'optional', load: () => import('./features/search/search.page') },
   watch: { auth: 'optional', load: async () => { await import('./features/watch/watch-elite.css'); return import('./features/watch/watch.page'); } },
-  avatar: { auth: 'required', load: () => import('./features/avatar/avatar.entry') },
+  avatar: {
+    auth: 'required',
+    load: async () => {
+      const module = await import('./features/avatar/avatar.selector.page');
+      return {
+        mount: async () => {
+          const app = document.querySelector<HTMLElement>('#app');
+          if (!app) throw new Error('Missing #app mount');
+          if (app.dataset.pageOwner === 'rich-bizness-avatar-selector-v2') return;
+          app.dataset.pageOwner = 'rich-bizness-avatar-selector-v2';
+          app.replaceChildren();
+          await module.mount();
+        }
+      };
+    }
+  },
   'avatar-characters': { auth: 'required', load: () => import('./features/avatar/avatar.characters.entry') }
 };
 
