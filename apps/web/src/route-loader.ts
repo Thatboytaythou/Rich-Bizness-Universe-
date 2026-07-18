@@ -104,7 +104,23 @@ const pageModules: Record<string, PageRegistration> = {
       };
     }
   },
-  notifications: { auth: 'required', load: () => import('./features/communications/notifications.page') },
+  notifications: {
+    auth: 'required',
+    load: async () => {
+      await import('./features/communications/notifications-motion.css');
+      const module = await import('./features/communications/notifications.page');
+      return {
+        mount: async () => {
+          const app = document.querySelector<HTMLElement>('#app');
+          if (!app) throw new Error('Missing #app mount');
+          if (app.dataset.pageOwner === 'rich-bizness-notifications-v2') return;
+          app.dataset.pageOwner = 'rich-bizness-notifications-v2';
+          app.replaceChildren();
+          await module.mount();
+        }
+      };
+    }
+  },
   messages: { auth: 'required', load: () => import('./features/communications/messages.page') },
   upload: { auth: 'required', load: () => import('./features/upload/upload.page') },
   search: { auth: 'optional', load: () => import('./features/search/search.page') },
