@@ -77,7 +77,22 @@ const pageModules: Record<string, PageRegistration> = {
       };
     }
   },
-  'avatar-characters': { auth: 'required', load: () => import('./features/avatar/avatar.characters.entry') }
+  'avatar-characters': {
+    auth: 'required',
+    load: async () => {
+      const module = await import('./features/avatar/avatar.human.page');
+      return {
+        mount: async () => {
+          const app = document.querySelector<HTMLElement>('#app');
+          if (!app) throw new Error('Missing #app mount');
+          if (app.dataset.pageOwner === 'rich-bizness-avatar-lobby-v3') return;
+          app.dataset.pageOwner = 'rich-bizness-avatar-lobby-v3';
+          app.replaceChildren();
+          await module.mount();
+        }
+      };
+    }
+  }
 };
 
 export function getPageRegistration(page: string): PageRegistration | null {
