@@ -3,292 +3,40 @@ import { supabase } from '../../core/supabase/client';
 import '../../styles/deep-sections.css';
 import './gallery.css';
 
-type GalleryRow = {
-  id: string;
-  user_id: string;
-  display_name: string | null;
-  username: string | null;
-  title: string | null;
-  body: string | null;
-  media_url: string | null;
-  file_url: string | null;
-  thumbnail_url: string | null;
-  cover_url: string | null;
-  media_type: string | null;
-  post_type: string | null;
-  like_count: number | null;
-  comment_count: number | null;
-  view_count: number | null;
-  is_featured?: boolean | null;
-  created_at: string | null;
-};
+type Row=Record<string,any>;
+type Snapshot={rows?:Row[];comments?:Row[];liked?:boolean;saved?:boolean;metrics?:Row};
+type Channel=ReturnType<typeof supabase.channel>;
+const esc=(v:unknown)=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]??c));
+const safe=(v:unknown)=>{try{const u=new URL(String(v||''),location.origin);return['http:','https:'].includes(u.protocol)?u.href:'';}catch{return'';}};
+const media=(r:Row)=>safe(r.media_url||r.file_url||r.thumbnail_url||r.cover_url);
+const video=(r:Row)=>String(r.media_type||'').startsWith('video')||r.post_type==='video';
+const ago=(v:unknown)=>{const s=Math.max(1,Math.floor((Date.now()-new Date(String(v||0)).getTime())/1000));return s<60?`${s}s`:s<3600?`${Math.floor(s/60)}m`:s<86400?`${Math.floor(s/3600)}h`:`${Math.floor(s/86400)}d`;};
 
-type Channel = ReturnType<typeof supabase.channel>;
-
-const esc = (value: unknown) => String(value ?? '').replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char] ?? char));
-const media = (row: GalleryRow) => row.media_url || row.file_url || row.thumbnail_url || row.cover_url || '';
-const isVideo = (row: GalleryRow) => Boolean(row.media_type?.startsWith('video') || row.post_type === 'video');
-const relativeTime = (value: string | null) => {
-  if (!value) return '';
-  const seconds = Math.max(1, Math.floor((Date.now() - new Date(value).getTime()) / 1000));
-  if (seconds < 60) return `${seconds}s`;
-  const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return `${minutes}m`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h`;
-  return `${Math.floor(hours / 24)}d`;
-};
-
-export async function mount(): Promise<void> {
-  const root = document.querySelector<HTMLElement>('#app');
-  if (!root) throw new Error('Missing #app');
-  if (root.dataset.mounted === 'gallery') return;
-  root.dataset.mounted = 'gallery';
-
-  const auth = getAuthSnapshot();
-  const userId = auth.user?.id ?? null;
-  const profileResult = userId
-    ? await supabase.from('profiles').select('username,display_name').eq('id', userId).maybeSingle()
-    : { data: null, error: null };
-  const profile = profileResult.data;
-
-  root.innerHTML = `<main class="deep-shell gallery-universe"><div class="gallery-gridlines" aria-hidden="true"></div><div class="deep-wrap"><header class="deep-top"><a href="/portal.html">←</a><div><p>RICH BIZNESS VISUAL DISTRICT</p><h1>Gallery</h1></div><span class="deep-live">REALTIME</span></header><section class="deep-hero gallery-hero" style="--hero-image:url('/images/brand/IMG_5997.png')"><div class="gallery-hero-copy"><small>ART • PHOTOS • MOTION • CREATOR DROPS</small><h2>THE VISUAL UNIVERSE</h2><p>Discover original creator visuals, cinematic uploads, photography, artwork, and motion drops connected to every Rich Bizness identity.</p><div class="gallery-hero-badges"><span>LIVE CREATOR DROPS</span><span>PHOTO + MOTION</span><span>PROFILE CONNECTED</span><span>REALTIME INTERACTIONS</span></div><div class="deep-actions"><a class="deep-btn primary" href="/upload.html?route=gallery">DROP VISUAL</a><a class="deep-btn" href="/search.html?category=gallery">DISCOVER CREATORS</a><a class="deep-btn" href="/feed.html?section=gallery">OPEN FEED</a><a class="deep-btn" href="/watch.html?source=gallery">WATCH</a></div></div></section><nav id="tabs" class="deep-tabs"></nav><section class="deep-stats" id="stats"></section><section id="grid" class="deep-grid gallery-grid"></section><p id="status" class="deep-status" role="status"></p></div><div id="galleryLightbox" class="gallery-lightbox" hidden><article class="gallery-lightbox-card"><button id="galleryLightboxClose" class="gallery-lightbox-close" aria-label="Close visual">×</button><div class="gallery-lightbox-layout"><div id="galleryLightboxMedia" class="gallery-lightbox-media"></div><aside class="gallery-lightbox-side"><div class="gallery-lightbox-copy"><h2 id="galleryLightboxTitle"></h2><p id="galleryLightboxCreator"></p><div id="galleryLightboxMeta" class="gallery-lightbox-meta"></div></div><div id="galleryComments" class="gallery-comments"></div><form id="galleryCommentForm" class="gallery-comment-form"><input id="galleryCommentInput" maxlength="2000" placeholder="Add to the visual conversation..."><button class="deep-btn primary" type="submit">POST</button></form></aside></div></article></div></main>`;
-
-  const grid = document.querySelector<HTMLElement>('#grid')!;
-  const tabs = document.querySelector<HTMLElement>('#tabs')!;
-  const stats = document.querySelector<HTMLElement>('#stats')!;
-  const status = document.querySelector<HTMLElement>('#status')!;
-  const lightbox = document.querySelector<HTMLElement>('#galleryLightbox')!;
-  const lightboxMedia = document.querySelector<HTMLElement>('#galleryLightboxMedia')!;
-  const lightboxTitle = document.querySelector<HTMLElement>('#galleryLightboxTitle')!;
-  const lightboxCreator = document.querySelector<HTMLElement>('#galleryLightboxCreator')!;
-  const lightboxMeta = document.querySelector<HTMLElement>('#galleryLightboxMeta')!;
-  const comments = document.querySelector<HTMLElement>('#galleryComments')!;
-  const commentForm = document.querySelector<HTMLFormElement>('#galleryCommentForm')!;
-  const commentInput = document.querySelector<HTMLInputElement>('#galleryCommentInput')!;
-
-  let rows: GalleryRow[] = [];
-  let lane = 'all';
-  let active: GalleryRow | null = null;
-  let catalogChannel: Channel | null = null;
-  let interactionChannel: Channel | null = null;
-  let loadingCatalog: Promise<void> | null = null;
-  let catalogQueued = false;
-  let loadingComments: Promise<void> | null = null;
-  let commentsQueued = false;
-  let destroyed = false;
-  let statusTimer = 0;
-
-  const setStatus = (value: string) => {
-    status.textContent = value;
-    window.clearTimeout(statusTimer);
-    statusTimer = window.setTimeout(() => { if (status.textContent === value) status.textContent = ''; }, 2600);
-  };
-
-  const requireAuth = () => {
-    if (userId) return true;
-    location.assign(`/tap-in.html?next=${encodeURIComponent(`${location.pathname}${location.search}`)}`);
-    return false;
-  };
-
-  const lanes = [['all', 'ALL VISUALS'], ['image', 'PHOTOS + ART'], ['video', 'MOTION'], ['featured', 'FEATURED'], ['mine', 'MY DROPS']];
-  const visible = () => rows.filter((row) => lane === 'all'
-    || (lane === 'image' && (!isVideo(row)))
-    || (lane === 'video' && isVideo(row))
-    || (lane === 'featured' && Boolean(row.is_featured))
-    || (lane === 'mine' && row.user_id === userId));
-
-  const renderTabs = () => {
-    tabs.innerHTML = lanes.map(([key, label]) => `<button class="deep-tab ${lane === key ? 'active' : ''}" data-lane="${key}">${label}</button>`).join('');
-    tabs.querySelectorAll<HTMLButtonElement>('[data-lane]').forEach((button) => {
-      button.onclick = () => {
-        if (button.dataset.lane === 'mine' && !requireAuth()) return;
-        lane = button.dataset.lane!;
-        renderTabs();
-        render();
-      };
-    });
-  };
-
-  const loadComments = async () => {
-    if (!active) {
-      comments.innerHTML = '<div class="deep-empty">Select a visual.</div>';
-      return;
-    }
-    if (loadingComments) {
-      commentsQueued = true;
-      return loadingComments;
-    }
-    loadingComments = (async () => {
-      const selectedId = active?.id;
-      const { data, error } = await supabase.from('feed_comments').select('id,user_id,username,display_name,body,created_at').eq('post_id', selectedId).order('created_at', { ascending: true }).limit(120);
-      if (destroyed || selectedId !== active?.id) return;
-      if (error) {
-        comments.innerHTML = `<div class="deep-empty">${esc(error.message)}</div>`;
-        return;
-      }
-      comments.innerHTML = (data ?? []).map((comment) => `<article class="gallery-comment"><div><strong>${esc(comment.display_name || comment.username || 'Rich Member')}</strong><span>${relativeTime(comment.created_at)}</span></div><p>${esc(comment.body)}</p></article>`).join('') || '<div class="deep-empty">Start the visual conversation.</div>';
-      comments.scrollTop = comments.scrollHeight;
-    })().finally(async () => {
-      loadingComments = null;
-      if (commentsQueued && !destroyed) {
-        commentsQueued = false;
-        await loadComments();
-      }
-    });
-    return loadingComments;
-  };
-
-  const replaceInteractionChannel = async () => {
-    if (interactionChannel) await supabase.removeChannel(interactionChannel);
-    interactionChannel = null;
-    if (!active || destroyed) return;
-    interactionChannel = supabase.channel(`gallery-interactions:${active.id}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'feed_comments', filter: `post_id=eq.${active.id}` }, () => void loadComments())
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'feed_post_likes', filter: `post_id=eq.${active.id}` }, () => void loadCatalog())
-      .subscribe();
-  };
-
-  const trackView = async (row: GalleryRow) => {
-    const key = `rb_gallery_session_${row.id}`;
-    let sessionId = sessionStorage.getItem(key);
-    if (!sessionId) {
-      sessionId = crypto.randomUUID();
-      sessionStorage.setItem(key, sessionId);
-    }
-    await supabase.from('feed_post_views').upsert({ post_id: row.id, user_id: userId, session_id: sessionId }, { onConflict: 'post_id,session_id', ignoreDuplicates: true });
-  };
-
-  const openVisual = async (row: GalleryRow) => {
-    const url = media(row);
-    if (!url) return;
-    active = row;
-    lightboxMedia.innerHTML = isVideo(row)
-      ? `<video src="${esc(url)}" poster="${esc(row.thumbnail_url || row.cover_url)}" controls autoplay playsinline></video>`
-      : `<img src="${esc(url)}" alt="${esc(row.title || 'Gallery visual')}">`;
-    lightboxTitle.textContent = row.title || row.body || 'Rich Visual';
-    lightboxCreator.textContent = row.display_name || row.username || 'Rich Creator';
-    lightboxMeta.innerHTML = `<span>♥ ${row.like_count ?? 0}</span><span>◌ ${row.comment_count ?? 0}</span><span>◉ ${row.view_count ?? 0}</span><a href="/profile.html?id=${encodeURIComponent(row.user_id)}">CREATOR PROFILE</a>`;
-    lightbox.hidden = false;
-    document.body.style.overflow = 'hidden';
-    history.replaceState({}, '', `/gallery.html?id=${encodeURIComponent(row.id)}`);
-    await Promise.allSettled([loadComments(), replaceInteractionChannel(), trackView(row)]);
-  };
-
-  const closeVisual = async () => {
-    lightbox.hidden = true;
-    const video = lightboxMedia.querySelector<HTMLVideoElement>('video');
-    if (video) {
-      video.pause();
-      video.removeAttribute('src');
-      video.load();
-    }
-    lightboxMedia.innerHTML = '';
-    document.body.style.overflow = '';
-    active = null;
-    if (interactionChannel) await supabase.removeChannel(interactionChannel);
-    interactionChannel = null;
-    history.replaceState({}, '', '/gallery.html');
-  };
-
-  const toggleLike = async (postId: string) => {
-    if (!requireAuth()) return;
-    const { error } = await supabase.rpc('rb_feed_toggle_like', { p_post_id: postId });
-    if (error) setStatus(error.message);
-    else await loadCatalog();
-  };
-
-  const render = () => {
-    const list = visible();
-    stats.innerHTML = `<article><small>VISUAL DROPS</small><strong>${rows.length}</strong></article><article><small>CREATORS</small><strong>${new Set(rows.map((row) => row.user_id)).size}</strong></article><article><small>LIKES</small><strong>${rows.reduce((total, row) => total + (row.like_count ?? 0), 0).toLocaleString()}</strong></article><article><small>VIEWS</small><strong>${rows.reduce((total, row) => total + (row.view_count ?? 0), 0).toLocaleString()}</strong></article>`;
-    grid.innerHTML = list.length ? list.map((row) => {
-      const url = media(row);
-      return `<article class="deep-card gallery-card"><div class="deep-card-media">${url ? (isVideo(row) ? `<video src="${esc(url)}" poster="${esc(row.thumbnail_url || row.cover_url)}" muted playsinline preload="metadata"></video>` : `<img src="${esc(url)}" alt="${esc(row.title || 'Gallery visual')}" loading="lazy">`) : ''}<span>${esc((row.post_type || row.media_type || 'VISUAL').toUpperCase())}</span>${url ? `<button class="gallery-open" data-open="${row.id}" aria-label="Open visual">↗</button>` : ''}</div><div class="deep-card-body"><h3>${esc(row.title || row.body || 'Rich Visual')}</h3><p>${esc(row.display_name || row.username || 'Rich Creator')}</p><div class="deep-card-meta"><span>♥ ${row.like_count ?? 0} · ◌ ${row.comment_count ?? 0}</span><span>◉ ${row.view_count ?? 0}</span></div><div class="deep-card-actions"><a href="/profile.html?id=${encodeURIComponent(row.user_id)}">CREATOR</a><button data-like="${row.id}">LIKE</button><button data-open="${row.id}">COMMENT</button></div></div></article>`;
-    }).join('') : '<div class="deep-empty">No visuals in this lane yet.</div>';
-    grid.querySelectorAll<HTMLButtonElement>('[data-open]').forEach((button) => {
-      button.onclick = () => {
-        const row = rows.find((item) => item.id === button.dataset.open);
-        if (row) void openVisual(row);
-      };
-    });
-    grid.querySelectorAll<HTMLButtonElement>('[data-like]').forEach((button) => {
-      button.onclick = () => void toggleLike(button.dataset.like!);
-    });
-  };
-
-  const loadCatalog = async () => {
-    if (loadingCatalog) {
-      catalogQueued = true;
-      return loadingCatalog;
-    }
-    loadingCatalog = (async () => {
-      const { data, error } = await supabase.from('feed_posts').select('id,user_id,display_name,username,title,body,media_url,file_url,thumbnail_url,cover_url,media_type,post_type,like_count,comment_count,view_count,is_featured,created_at').eq('section', 'gallery').neq('moderation_state', 'blocked').order('is_featured', { ascending: false }).order('created_at', { ascending: false }).limit(120);
-      if (destroyed) return;
-      if (error) {
-        setStatus(error.message);
-        return;
-      }
-      rows = (data ?? []) as GalleryRow[];
-      if (active) active = rows.find((row) => row.id === active?.id) ?? active;
-      render();
-    })().finally(async () => {
-      loadingCatalog = null;
-      if (catalogQueued && !destroyed) {
-        catalogQueued = false;
-        await loadCatalog();
-      }
-    });
-    return loadingCatalog;
-  };
-
-  const onKeyDown = (event: KeyboardEvent) => {
-    if (event.key === 'Escape' && !lightbox.hidden) void closeVisual();
-  };
-  const onBackdropClick = (event: MouseEvent) => {
-    if (event.target === lightbox) void closeVisual();
-  };
-
-  document.querySelector<HTMLButtonElement>('#galleryLightboxClose')!.onclick = () => void closeVisual();
-  lightbox.addEventListener('click', onBackdropClick);
-  window.addEventListener('keydown', onKeyDown);
-  commentForm.onsubmit = async (event) => {
-    event.preventDefault();
-    if (!active || !requireAuth()) return;
-    const body = commentInput.value.trim();
-    if (!body) return;
-    const submit = commentForm.querySelector<HTMLButtonElement>('button')!;
-    submit.disabled = true;
-    const { error } = await supabase.from('feed_comments').insert({ post_id: active.id, user_id: userId, username: profile?.username ?? 'member', display_name: profile?.display_name ?? 'Rich Bizness Member', body, metadata: { source: 'gallery-lightbox' } });
-    submit.disabled = false;
-    if (error) setStatus(error.message);
-    else {
-      commentInput.value = '';
-      await Promise.all([loadComments(), loadCatalog()]);
-    }
-  };
-
-  renderTabs();
-  await loadCatalog();
-  catalogChannel = supabase.channel('gallery-universe')
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'feed_posts', filter: 'section=eq.gallery' }, () => void loadCatalog())
-    .subscribe();
-
-  const requested = new URLSearchParams(location.search).get('id');
-  const initial = requested ? rows.find((row) => row.id === requested) : null;
-  if (initial) await openVisual(initial);
-
-  const cleanup = () => {
-    if (destroyed) return;
-    destroyed = true;
-    window.clearTimeout(statusTimer);
-    window.removeEventListener('keydown', onKeyDown);
-    lightbox.removeEventListener('click', onBackdropClick);
-    document.body.style.overflow = '';
-    const video = lightboxMedia.querySelector<HTMLVideoElement>('video');
-    if (video) video.pause();
-    if (catalogChannel) void supabase.removeChannel(catalogChannel);
-    if (interactionChannel) void supabase.removeChannel(interactionChannel);
-  };
-  window.addEventListener('pagehide', cleanup, { once: true });
-  window.addEventListener('beforeunload', cleanup, { once: true });
+export async function mount():Promise<void>{
+ const root=document.querySelector<HTMLElement>('#app');if(!root)throw new Error('Missing #app');if(root.dataset.galleryOwner==='mounted')return;root.dataset.galleryOwner='mounted';
+ const userId=getAuthSnapshot().user?.id??null;
+ root.innerHTML=`<main class="deep-shell gallery-universe"><div class="gallery-gridlines" aria-hidden="true"></div><div class="deep-wrap"><header class="deep-top"><a href="/portal.html">←</a><div><p>RICH BIZNESS VISUAL DISTRICT</p><h1>Gallery</h1></div><span class="deep-live">REALTIME</span></header><section class="deep-hero gallery-hero" style="--hero-image:url('/images/brand/IMG_5997.png')"><div class="gallery-hero-copy"><small>ART • PHOTOS • MOTION • CREATOR DROPS</small><h2>THE VISUAL UNIVERSE</h2><p>A cinematic global district for original photography, artwork, motion, collections, creator drops, and visual conversation connected to every Rich ID.</p><div class="gallery-hero-badges"><span>HD VISUALS</span><span>PHOTO + MOTION</span><span>PRIVATE COLLECTIONS</span><span>REALTIME CONVERSATION</span></div><div class="deep-actions"><a class="deep-btn primary" href="/upload.html?route=gallery">DROP VISUAL</a><a class="deep-btn" href="/search.html?category=gallery">DISCOVER</a><a class="deep-btn" href="/feed.html?section=gallery">OPEN FEED</a><a class="deep-btn" href="/watch.html?source=gallery">WATCH</a></div></div></section><nav id="tabs" class="deep-tabs"></nav><section id="stats" class="deep-stats"></section><section id="grid" class="deep-grid gallery-grid"></section><p id="status" class="deep-status" role="status"></p></div><div id="viewer" class="gallery-lightbox" hidden><article class="gallery-lightbox-card"><button id="closeViewer" class="gallery-lightbox-close" aria-label="Close visual">×</button><div class="gallery-lightbox-layout"><div id="viewerMedia" class="gallery-lightbox-media"></div><aside class="gallery-lightbox-side"><div class="gallery-lightbox-copy"><span id="viewerType" class="gallery-viewer-type"></span><h2 id="viewerTitle"></h2><p id="viewerCreator"></p><div id="viewerMeta" class="gallery-lightbox-meta"></div><div class="gallery-viewer-actions"><button id="viewerLike" class="deep-btn"></button><button id="viewerSave" class="deep-btn"></button><a id="viewerProfile" class="deep-btn">CREATOR</a></div></div><div id="comments" class="gallery-comments"></div><form id="commentForm" class="gallery-comment-form"><input id="commentInput" maxlength="2000" placeholder="Add to the visual conversation..."><button class="deep-btn primary">POST</button></form></aside></div></article></div></main>`;
+ const q=<T extends Element>(s:string)=>root.querySelector<T>(s)!;
+ const tabs=q<HTMLElement>('#tabs'),stats=q<HTMLElement>('#stats'),grid=q<HTMLElement>('#grid'),status=q<HTMLElement>('#status'),viewer=q<HTMLElement>('#viewer'),viewerMedia=q<HTMLElement>('#viewerMedia'),viewerTitle=q<HTMLElement>('#viewerTitle'),viewerCreator=q<HTMLElement>('#viewerCreator'),viewerType=q<HTMLElement>('#viewerType'),viewerMeta=q<HTMLElement>('#viewerMeta'),comments=q<HTMLElement>('#comments'),form=q<HTMLFormElement>('#commentForm'),input=q<HTMLInputElement>('#commentInput');
+ let snapshot:Snapshot={},rows:Row[]=[],active:Row|null=null,lane='all',channel:Channel|null=null,commentChannel:Channel|null=null,loading=false,queued=false,destroyed=false,timer=0;
+ const lanes=[['all','ALL VISUALS'],['image','PHOTOS + ART'],['video','MOTION'],['featured','FEATURED'],['mine','MY DROPS']];
+ const setStatus=(m:string,e=false)=>{status.textContent=m;status.dataset.error=String(e);window.setTimeout(()=>{if(status.textContent===m)status.textContent='';},3000);};
+ const auth=()=>{if(userId)return true;location.assign(`/tap-in.html?next=${encodeURIComponent(location.pathname+location.search)}`);return false;};
+ const action=async(name:string,payload:Row)=>{const{data,error}=await supabase.rpc('rb_gallery_action',{p_action:name,p_payload:payload});if(error)throw error;return(data??{}) as Row;};
+ const visible=()=>rows.filter(r=>lane==='all'||lane==='image'&&!video(r)||lane==='video'&&video(r)||lane==='featured'&&r.is_featured||lane==='mine'&&r.user_id===userId);
+ const renderTabs=()=>{tabs.innerHTML=lanes.map(([k,l])=>`<button class="deep-tab ${lane===k?'active':''}" data-lane="${k}">${l}</button>`).join('');tabs.querySelectorAll<HTMLButtonElement>('[data-lane]').forEach(b=>b.onclick=()=>{if(b.dataset.lane==='mine'&&!auth())return;lane=b.dataset.lane||'all';renderTabs();render();});};
+ const renderComments=()=>{const list=snapshot.comments??[];comments.innerHTML=list.map(c=>`<article class="gallery-comment"><div><strong>${esc(c.display_name||c.username||'Rich Member')}</strong><span>${ago(c.created_at)}</span></div><p>${esc(c.body)}</p></article>`).join('')||'<div class="deep-empty">Start the visual conversation.</div>';comments.scrollTop=comments.scrollHeight;};
+ const renderViewer=()=>{if(!active)return;const url=media(active),isVideo=video(active);viewerMedia.innerHTML=isVideo?`<video src="${esc(url)}" poster="${esc(safe(active.thumbnail_url||active.cover_url))}" controls autoplay playsinline></video>`:`<img src="${esc(url)}" alt="${esc(active.title||'Gallery visual')}">`;viewerTitle.textContent=active.title||active.body||'Rich Visual';viewerCreator.textContent=active.display_name||active.username||'Rich Creator';viewerType.textContent=isVideo?'MOTION DROP':'VISUAL DROP';viewerMeta.innerHTML=`<span>♥ ${active.like_count??0}</span><span>◌ ${active.comment_count??0}</span><span>◉ ${active.view_count??0}</span>`;q<HTMLButtonElement>('#viewerLike').textContent=snapshot.liked?'♥ LIKED':'♡ LIKE';q<HTMLButtonElement>('#viewerSave').textContent=snapshot.saved?'✓ SAVED':'+ SAVE';q<HTMLAnchorElement>('#viewerProfile').href=`/profile.html?id=${encodeURIComponent(active.user_id)}`;renderComments();};
+ const render=()=>{const m=snapshot.metrics??{};stats.innerHTML=`<article><small>VISUAL DROPS</small><strong>${Number(m.visuals??rows.length).toLocaleString()}</strong></article><article><small>CREATORS</small><strong>${Number(m.creators??0).toLocaleString()}</strong></article><article><small>LIKES</small><strong>${Number(m.likes??0).toLocaleString()}</strong></article><article><small>VIEWS</small><strong>${Number(m.views??0).toLocaleString()}</strong></article>`;const list=visible();grid.innerHTML=list.map(r=>{const url=media(r);return`<article class="deep-card gallery-card"><div class="deep-card-media">${url?(video(r)?`<video src="${esc(url)}" poster="${esc(safe(r.thumbnail_url||r.cover_url))}" muted playsinline preload="metadata"></video>`:`<img src="${esc(url)}" alt="${esc(r.title||'Gallery visual')}" loading="lazy">`):'<div class="gallery-media-empty">RICH VISUAL</div>'}<span>${esc((r.post_type||r.media_type||'VISUAL').toUpperCase())}</span>${url?`<button class="gallery-open" data-open="${r.id}" aria-label="Open visual">↗</button>`:''}</div><div class="deep-card-body"><h3>${esc(r.title||r.body||'Rich Visual')}</h3><p>${esc(r.display_name||r.username||'Rich Creator')}</p><div class="deep-card-meta"><span>♥ ${r.like_count??0} · ◌ ${r.comment_count??0}</span><span>◉ ${r.view_count??0}</span></div><div class="deep-card-actions"><a href="/profile.html?id=${encodeURIComponent(r.user_id)}">CREATOR</a><button data-like="${r.id}">LIKE</button><button data-open="${r.id}">VIEW</button></div></div></article>`;}).join('')||'<div class="deep-empty">No visuals in this lane yet.</div>';grid.querySelectorAll<HTMLButtonElement>('[data-open]').forEach(b=>b.onclick=()=>{const r=rows.find(x=>x.id===b.dataset.open);if(r)void open(r);});grid.querySelectorAll<HTMLButtonElement>('[data-like]').forEach(b=>b.onclick=async()=>{if(!auth())return;try{await action('toggle_like',{post_id:b.dataset.like});await load(active?.id??null);}catch(e){setStatus(e instanceof Error?e.message:'Like failed',true);}});};
+ const load=async(activeId:string|null=active?.id??null)=>{if(loading){queued=true;return;}loading=true;try{const{data,error}=await supabase.rpc('rb_gallery_snapshot',{p_active_id:activeId,p_limit:160});if(error)throw error;snapshot=(data??{}) as Snapshot;rows=snapshot.rows??[];if(activeId)active=rows.find(r=>r.id===activeId)??active;if(!destroyed){render();if(active)renderViewer();}}catch(e){setStatus(e instanceof Error?e.message:'Gallery sync failed',true);}finally{loading=false;if(queued&&!destroyed){queued=false;void load();}}};
+ const schedule=()=>{window.clearTimeout(timer);timer=window.setTimeout(()=>void load(),180);};
+ const replaceComments=async()=>{if(commentChannel)await supabase.removeChannel(commentChannel);commentChannel=null;if(!active)return;commentChannel=supabase.channel(`gallery-conversation:${active.id}`).on('postgres_changes',{event:'*',schema:'public',table:'feed_comments',filter:`post_id=eq.${active.id}`},()=>void load(active?.id??null)).subscribe();};
+ const open=async(r:Row)=>{if(!media(r))return;active=r;viewer.hidden=false;document.body.style.overflow='hidden';history.replaceState({},'',`/gallery.html?id=${encodeURIComponent(r.id)}`);try{const key=`rb_gallery_session_${r.id}`;let sid=sessionStorage.getItem(key);if(!sid){sid=crypto.randomUUID();sessionStorage.setItem(key,sid);}await Promise.allSettled([action('view',{post_id:r.id,session_id:sid}),replaceComments()]);await load(r.id);}catch(e){setStatus(e instanceof Error?e.message:'Viewer failed',true);}};
+ const close=async()=>{viewer.hidden=true;const v=viewerMedia.querySelector<HTMLVideoElement>('video');if(v){v.pause();v.removeAttribute('src');v.load();}viewerMedia.innerHTML='';document.body.style.overflow='';active=null;snapshot.comments=[];if(commentChannel)await supabase.removeChannel(commentChannel);commentChannel=null;history.replaceState({},'','/gallery.html');};
+ q<HTMLButtonElement>('#closeViewer').onclick=()=>void close();viewer.onclick=e=>{if(e.target===viewer)void close();};window.addEventListener('keydown',e=>{if(e.key==='Escape'&&!viewer.hidden)void close();});
+ q<HTMLButtonElement>('#viewerLike').onclick=async()=>{if(!active||!auth())return;try{await action('toggle_like',{post_id:active.id});await load(active.id);}catch(e){setStatus(e instanceof Error?e.message:'Like failed',true);}};
+ q<HTMLButtonElement>('#viewerSave').onclick=async()=>{if(!active||!auth())return;try{const r=await action('toggle_save',{post_id:active.id,collection_name:'Saved Visuals'});setStatus(r.saved?'SAVED TO COLLECTION':'REMOVED FROM COLLECTION');await load(active.id);}catch(e){setStatus(e instanceof Error?e.message:'Save failed',true);}};
+ form.onsubmit=async e=>{e.preventDefault();if(!active||!auth())return;const body=input.value.trim();if(!body)return;const b=form.querySelector<HTMLButtonElement>('button')!;b.disabled=true;try{await action('comment',{post_id:active.id,body});input.value='';await load(active.id);}catch(err){setStatus(err instanceof Error?err.message:'Comment failed',true);}finally{b.disabled=false;}};
+ renderTabs();await load();const requested=new URLSearchParams(location.search).get('id'),initial=rows.find(r=>r.id===requested);if(initial)await open(initial);channel=supabase.channel('gallery-visual-catalog').on('postgres_changes',{event:'*',schema:'public',table:'feed_posts',filter:'section=eq.gallery'},schedule).subscribe();
+ const cleanup=()=>{if(destroyed)return;destroyed=true;window.clearTimeout(timer);document.body.style.overflow='';const v=viewerMedia.querySelector<HTMLVideoElement>('video');if(v)v.pause();if(channel)void supabase.removeChannel(channel);if(commentChannel)void supabase.removeChannel(commentChannel);};window.addEventListener('pagehide',cleanup,{once:true});window.addEventListener('beforeunload',cleanup,{once:true});
 }
