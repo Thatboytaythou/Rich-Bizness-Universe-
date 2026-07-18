@@ -2,16 +2,21 @@ import { getAuthSnapshot } from '../../core/auth/auth-store';
 import './home.css';
 
 const BACKGROUND = '/images/0E886281-8F03-4288-B3CA-C45369B7B58E.png';
+const HOME_OWNER = 'rich-bizness-home-v1';
 
 export async function mountHomePage(): Promise<void> {
   const app = document.querySelector<HTMLDivElement>('#app');
   if (!app) throw new Error('Missing #app mount');
+  if (app.dataset.pageOwner === HOME_OWNER) return;
 
   const signedIn = Boolean(getAuthSnapshot().user);
   if (signedIn) {
     location.replace('/portal.html');
     return;
   }
+
+  app.dataset.pageOwner = HOME_OWNER;
+  app.replaceChildren();
 
   const primaryHref = '/tap-in.html?next=%2Fportal.html';
   const primaryLabel = 'TAP IN';
