@@ -121,7 +121,23 @@ const pageModules: Record<string, PageRegistration> = {
       };
     }
   },
-  messages: { auth: 'required', load: () => import('./features/communications/messages.page') },
+  messages: {
+    auth: 'required',
+    load: async () => {
+      await import('./features/communications/messages-motion.css');
+      const module = await import('./features/communications/messages.page');
+      return {
+        mount: async () => {
+          const app = document.querySelector<HTMLElement>('#app');
+          if (!app) throw new Error('Missing #app mount');
+          if (app.dataset.pageOwner === 'rich-bizness-messages-v3') return;
+          app.dataset.pageOwner = 'rich-bizness-messages-v3';
+          app.replaceChildren();
+          await module.mount();
+        }
+      };
+    }
+  },
   upload: { auth: 'required', load: () => import('./features/upload/upload.page') },
   search: { auth: 'optional', load: () => import('./features/search/search.page') },
   watch: { auth: 'optional', load: async () => { await import('./features/watch/watch-elite.css'); return import('./features/watch/watch.page'); } },
