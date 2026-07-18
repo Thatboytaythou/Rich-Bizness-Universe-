@@ -3,38 +3,161 @@ import { ROUTES } from '../../core/config/routes';
 import { supabase } from '../../core/supabase/client';
 import './admin.css';
 
-type Row=Record<string,any>;
-type AdminRole={role_key:string|null;role_label:string|null;permission_level:number|null;can_moderate:boolean|null;can_manage_users:boolean|null;can_manage_money:boolean|null;can_manage_platform:boolean|null;is_active:boolean|null};
-const esc=(v:unknown)=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]??c));
-const when=(v:unknown)=>v?new Intl.DateTimeFormat('en-US',{month:'short',day:'numeric',hour:'numeric',minute:'2-digit'}).format(new Date(String(v))):'';
-const cash=(v:unknown)=>new Intl.NumberFormat('en-US',{style:'currency',currency:'USD'}).format(Number(v??0)/100);
+type Row = Record<string, any>;
+type Snapshot = {
+  role: Row;
+  permissions: { moderate: boolean; users: boolean; platform: boolean; money: boolean };
+  reviews: Row[]; reports: Row[]; health: Row[]; jobs: Row[]; requests: Row[]; webhooks: Row[];
+  flags: Row[]; announcements: Row[]; audits: Row[]; trust: Row[]; analytics: Row[]; roles: Row[];
+  counts: { pending_reviews: number; open_reports: number; failed_jobs: number; failed_webhooks: number; failed_requests: number; tracked_value_cents: number | null };
+  generated_at: string;
+};
 
-export async function mount():Promise<void>{
- const root=document.querySelector<HTMLElement>('#app');if(!root)throw new Error('Missing #app');if(root.dataset.adminMounted==='true')return;root.dataset.adminMounted='true';
- const session=getAuthSnapshot().session;if(!session){location.replace(`${ROUTES.tapIn}?next=${encodeURIComponent(ROUTES.admin)}`);return;}
- const [{data:isAdmin,error:adminError},{data:roleData,error:roleError}]=await Promise.all([supabase.rpc('rb_is_admin',{p_min_permission:1}),supabase.from('admin_roles').select('role_key,role_label,permission_level,can_moderate,can_manage_users,can_manage_money,can_manage_platform,is_active').eq('user_id',session.user.id).maybeSingle()]);
- const role=(roleData??null) as AdminRole|null;if(adminError||roleError||!isAdmin||!role?.is_active){root.innerHTML=`<main class="deep-shell"><div class="deep-wrap"><header class="deep-top"><a href="${ROUTES.portal}">←</a><div><p>RICH BIZNESS SECURITY</p><h1>Restricted</h1></div></header><section class="deep-hero"><div><small>ADMIN ACCESS REQUIRED</small><h2>FOUNDER GATE</h2><p>This command center is protected by Supabase roles and permission levels.</p></div></section></div></main>`;return;}
- const permissions={moderate:Boolean(role.can_moderate||Number(role.permission_level)>=3),platform:Boolean(role.can_manage_platform||Number(role.permission_level)>=7),money:Boolean(role.can_manage_money||Number(role.permission_level)>=8)};
- root.innerHTML=`<main class="deep-shell"><div class="deep-wrap"><header class="deep-top"><a href="${ROUTES.portal}">←</a><div><p>RICH BIZNESS PLATFORM OPERATIONS</p><h1>Admin Core</h1></div><span class="deep-live">${esc(role.role_label||role.role_key||'SECURE')}</span></header><section class="deep-hero"><div><small>MODERATION • HEALTH • WEBHOOKS • MONEY • TRUST</small><h2>CONTROL THE UNIVERSE</h2><p>One secured operations center connected to moderation, roles, audit, API jobs, webhooks, platform health, analytics, feature control, and trust.</p><div class="deep-actions"><button id="refresh" class="deep-btn primary">REFRESH SYSTEM</button><a class="deep-btn" href="${ROUTES.notifications}">ADMIN ALERTS</a><a class="deep-btn" href="${ROUTES.creator}">CREATOR CORE</a></div></div></section><section id="stats" class="deep-stats"></section><nav id="tabs" class="deep-tabs"></nav><section id="content"></section><p id="status" class="deep-status" role="status"></p></div></main>`;
- const stats=document.querySelector<HTMLElement>('#stats')!,tabs=document.querySelector<HTMLElement>('#tabs')!,content=document.querySelector<HTMLElement>('#content')!,status=document.querySelector<HTMLElement>('#status')!,refresh=document.querySelector<HTMLButtonElement>('#refresh')!;
- let lane='overview',destroyed=false,loading=false,queued=false,statusTimer:number|undefined,channel:ReturnType<typeof supabase.channel>|null=null;
- let reviews:Row[]=[],reports:Row[]=[],health:Row[]=[],jobs:Row[]=[],requests:Row[]=[],webhooks:Row[]=[],flags:Row[]=[],announcements:Row[]=[],audits:Row[]=[],trust:Row[]=[],analytics:Row[]=[],roles:Row[]=[];
- const setStatus=(v:string)=>{status.textContent=v;clearTimeout(statusTimer);statusTimer=window.setTimeout(()=>{if(status.textContent===v)status.textContent='';},3200)};
- const badge=(v:string)=>`<span class="deep-badge ${['failed','critical','rejected','escalated','open','error'].includes(v)?'danger':['pending','queued','warning','received','processing'].includes(v)?'warn':''}">${esc(v.toUpperCase())}</span>`;
- const audit=async(action:string,table:string,id:string|null,severity='normal',metadata:Row={})=>{await supabase.from('admin_audit_logs').insert({admin_id:session.user.id,action,target_table:table,target_id:id,severity,metadata});};
- const lanes=[['overview','OVERVIEW'],['moderation','MODERATION'],['systems','SYSTEMS'],['platform','PLATFORM'],['analytics','ANALYTICS + MONEY'],['audit','AUDIT + TRUST'],['roles','ROLES']];
- const renderTabs=()=>{tabs.innerHTML=lanes.map(([key,label])=>`<button class="deep-tab ${lane===key?'active':''}" data-lane="${key}">${label}</button>`).join('');tabs.querySelectorAll<HTMLButtonElement>('[data-lane]').forEach(button=>button.onclick=()=>{lane=button.dataset.lane!;renderTabs();render();});};
- const render=()=>{if(destroyed)return;const failedRequests=requests.filter(r=>Number(r.status_code)>=400);const value=analytics.reduce((sum,r)=>sum+Number(r.value_cents??0),0);stats.innerHTML=`<article><small>PENDING REVIEW</small><strong>${reviews.filter(r=>r.status==='pending').length}</strong></article><article><small>OPEN REPORTS</small><strong>${reports.filter(r=>!['resolved','dismissed'].includes(r.status)).length}</strong></article><article><small>FAILED OPS</small><strong>${jobs.filter(r=>r.status==='failed').length+webhooks.filter(r=>r.status==='failed').length+failedRequests.length}</strong></article><article><small>TRACKED VALUE</small><strong>${cash(value)}</strong></article>`;
- if(lane==='overview')content.innerHTML=`<section class="deep-grid">${[['Review Queue',reviews.length,'content_review_queue'],['Moderation Reports',reports.length,'moderation_reports'],['System Checks',health.length,'system_health_checks'],['API Jobs',jobs.length,'api_jobs'],['Webhook Events',webhooks.length,'api_webhook_events'],['API Requests',requests.length,'api_request_logs'],['Analytics Events',analytics.length,'platform_analytics_events'],['Feature Flags',flags.length,'feature_flags'],['Audit Logs',audits.length,'admin_audit_logs'],['Admin Roles',roles.length,'admin_roles']].map(([title,count,source])=>`<article class="deep-card"><div class="deep-card-body"><span class="deep-badge">${esc(source)}</span><h3>${esc(title)}</h3><p>${Number(count).toLocaleString()} loaded records</p></div></article>`).join('')}</section>`;
- else if(lane==='moderation')content.innerHTML=`<section class="deep-section"><header><div><small>CONTENT REVIEW</small><h2>Moderation queue</h2></div></header><div class="deep-list">${reviews.length?reviews.map(r=>`<article><div><h3>${esc(r.review_type||r.target_table||'Content review')}</h3><p>${esc(r.flagged_reason||r.admin_note||r.target_id)} · ${when(r.created_at)}</p></div><div class="deep-actions">${badge(r.status||'pending')}${permissions.moderate?`<button class="deep-btn" data-review="approved" data-id="${r.id}">APPROVE</button><button class="deep-btn deep-danger" data-review="rejected" data-id="${r.id}">REJECT</button>`:''}</div></article>`).join(''):'<div class="deep-empty">Review queue clear.</div>'}</div></section><section class="deep-section"><header><div><small>USER REPORTS</small><h2>Moderation reports</h2></div></header><div class="deep-list">${reports.length?reports.map(r=>`<article><div><h3>${esc(r.reason||'Report')}</h3><p>${esc(r.details||r.target_table||'')} · priority ${esc(r.priority||'normal')} · ${when(r.created_at)}</p></div>${badge(r.status||'open')}</article>`).join(''):'<div class="deep-empty">No active reports.</div>'}</div></section>`;
- else if(lane==='systems')content.innerHTML=`<section class="deep-section"><header><div><small>SERVICE HEALTH</small><h2>System checks</h2></div></header><div class="deep-list">${health.map(r=>`<article><div><h3>${esc(r.service)}</h3><p>${esc(r.message||'No message')} · ${r.latency_ms??0}ms · ${when(r.checked_at)}</p></div>${badge(r.status||'unknown')}</article>`).join('')||'<div class="deep-empty">No health data.</div>'}</div></section><section class="deep-section"><header><div><small>PROCESSING</small><h2>Jobs + webhooks</h2></div></header><div class="deep-list">${[...jobs.map(r=>({title:r.job_type,sub:`${r.error_message||r.target_table||''} · attempts ${r.attempts??0}/${r.max_attempts??0}`,state:r.status,time:r.created_at})),...webhooks.map(r=>({title:`${r.provider}: ${r.event_type}`,sub:r.error_message||r.event_id,state:r.status,time:r.created_at}))].map(r=>`<article><div><h3>${esc(r.title)}</h3><p>${esc(r.sub)} · ${when(r.time)}</p></div>${badge(r.state||'unknown')}</article>`).join('')||'<div class="deep-empty">No jobs or webhook events.</div>'}</div></section>`;
- else if(lane==='platform')content.innerHTML=`<section class="deep-section"><header><div><small>FEATURE CONTROL</small><h2>Flags</h2></div></header><div class="deep-list">${flags.map(r=>`<article><div><h3>${esc(r.title||r.flag_key)}</h3><p>${esc(r.description||r.section||'global')} · rollout ${r.rollout_percent??100}%</p></div>${permissions.platform?`<button class="deep-btn ${r.is_enabled?'primary':''}" data-flag="${r.id}" data-enabled="${String(!r.is_enabled)}">${r.is_enabled?'ENABLED':'DISABLED'}</button>`:badge(r.is_enabled?'enabled':'disabled')}</article>`).join('')||'<div class="deep-empty">No feature flags.</div>'}</div></section><section class="deep-section"><header><div><small>ANNOUNCEMENTS</small><h2>Platform broadcasts</h2></div></header><div class="deep-list">${announcements.map(r=>`<article><div><h3>${esc(r.emoji||'')} ${esc(r.title)}</h3><p>${esc(r.body||'')} · ${esc(r.target_section||'global')}</p></div>${badge(r.is_active?'active':'inactive')}</article>`).join('')||'<div class="deep-empty">No announcements.</div>'}</div></section>`;
- else if(lane==='analytics'){const avg=requests.length?Math.round(requests.reduce((sum,r)=>sum+Number(r.latency_ms??0),0)/requests.length):0;content.innerHTML=`<section class="deep-stats"><article><small>EVENTS</small><strong>${analytics.length}</strong></article><article><small>VALUE SIGNAL</small><strong>${permissions.money?cash(value):'PROTECTED'}</strong></article><article><small>API ERRORS</small><strong>${failedRequests.length}</strong></article><article><small>AVG LATENCY</small><strong>${avg}ms</strong></article></section><section class="deep-section"><header><div><small>PLATFORM ANALYTICS</small><h2>Recent events</h2></div></header><div class="deep-list">${analytics.map(r=>`<article><div><h3>${esc(r.event_name)}</h3><p>${esc(r.section||r.route||'platform')} · ${esc(r.device_type||r.platform||'unknown')} · ${when(r.created_at)}</p></div><strong>${permissions.money&&r.value_cents?cash(r.value_cents):esc(r.target_table||'')}</strong></article>`).join('')||'<div class="deep-empty">No analytics events.</div>'}</div></section><section class="deep-section"><header><div><small>API OBSERVABILITY</small><h2>Request logs</h2></div></header><div class="deep-list">${requests.map(r=>`<article><div><h3>${esc(r.method)} ${esc(r.route)}</h3><p>${r.latency_ms??0}ms · ${when(r.created_at)}</p></div>${badge(String(r.status_code??'unknown'))}</article>`).join('')||'<div class="deep-empty">No request logs.</div>'}</div></section>`;}
- else if(lane==='audit')content.innerHTML=`<section class="deep-section"><header><div><small>ADMIN AUDIT</small><h2>Recent actions</h2></div></header><div class="deep-list">${audits.map(r=>`<article><div><h3>${esc(r.action)}</h3><p>${esc(r.target_table||'platform')} · ${when(r.created_at)}</p></div>${badge(r.severity||'normal')}</article>`).join('')||'<div class="deep-empty">No audit records.</div>'}</div></section><section class="deep-section"><header><div><small>TRUST NETWORK</small><h2>Trust events</h2></div></header><div class="deep-list">${trust.map(r=>`<article><div><h3>${esc(r.event_type)}</h3><p>${esc(r.reason||r.target_table||'')} · ${when(r.created_at)}</p></div><strong class="${Number(r.score_delta)<0?'deep-danger':''}">${Number(r.score_delta)>0?'+':''}${r.score_delta??0}</strong></article>`).join('')||'<div class="deep-empty">No trust events.</div>'}</div></section>`;
- else content.innerHTML=`<section class="deep-section"><header><div><small>ADMIN RBAC</small><h2>Roles and permissions</h2></div></header><div class="deep-list">${roles.map(r=>`<article><div><h3>${esc(r.role_label||r.role_key)}</h3><p>Level ${r.permission_level??0} · moderate ${r.can_moderate?'yes':'no'} · users ${r.can_manage_users?'yes':'no'} · money ${r.can_manage_money?'yes':'no'} · platform ${r.can_manage_platform?'yes':'no'}</p></div>${badge(r.is_active?'active':'inactive')}</article>`).join('')||'<div class="deep-empty">No admin roles.</div>'}</div></section>`;
- content.querySelectorAll<HTMLButtonElement>('[data-review]').forEach(button=>button.onclick=async()=>{if(!permissions.moderate||!confirm(`${button.dataset.review?.toUpperCase()} THIS REVIEW?`))return;const next=button.dataset.review!,id=button.dataset.id!;const{error}=await supabase.from('content_review_queue').update({status:next,reviewed_by:session.user.id,reviewed_at:new Date().toISOString(),updated_at:new Date().toISOString()}).eq('id',id);if(error)setStatus(error.message);else{await audit(`review_${next}`,'content_review_queue',id,next==='rejected'?'high':'normal');setStatus(`REVIEW ${next.toUpperCase()}`);await load();}});
- content.querySelectorAll<HTMLButtonElement>('[data-flag]').forEach(button=>button.onclick=async()=>{if(!permissions.platform)return;const enabled=button.dataset.enabled==='true',id=button.dataset.flag!;if(!confirm(`${enabled?'ENABLE':'DISABLE'} THIS FEATURE FLAG?`))return;const{error}=await supabase.from('feature_flags').update({is_enabled:enabled,updated_at:new Date().toISOString()}).eq('id',id);if(error)setStatus(error.message);else{await audit(enabled?'feature_flag_enabled':'feature_flag_disabled','feature_flags',id,'high',{enabled});setStatus(`FEATURE FLAG ${enabled?'ENABLED':'DISABLED'}`);await load();}});};
- const load=async():Promise<void>=>{if(destroyed)return;if(loading){queued=true;return;}loading=true;refresh.disabled=true;setStatus('SYNCING ADMIN CORE…');const q=await Promise.all([supabase.from('content_review_queue').select('*').order('created_at',{ascending:false}).limit(100),supabase.from('moderation_reports').select('*').order('created_at',{ascending:false}).limit(100),supabase.from('system_health_checks').select('*').order('checked_at',{ascending:false}).limit(50),supabase.from('api_jobs').select('*').order('created_at',{ascending:false}).limit(80),supabase.from('api_request_logs').select('*').order('created_at',{ascending:false}).limit(100),supabase.from('api_webhook_events').select('*').order('created_at',{ascending:false}).limit(80),supabase.from('feature_flags').select('*').order('flag_key'),supabase.from('platform_announcements').select('*').order('created_at',{ascending:false}).limit(40),supabase.from('admin_audit_logs').select('*').order('created_at',{ascending:false}).limit(100),supabase.from('trust_events').select('*').order('created_at',{ascending:false}).limit(100),supabase.from('platform_analytics_events').select('*').order('created_at',{ascending:false}).limit(100),supabase.from('admin_roles').select('*').order('permission_level',{ascending:false})]);loading=false;refresh.disabled=false;if(destroyed)return;const first=q.find(x=>x.error)?.error;if(first)setStatus(first.message);else{[reviews,reports,health,jobs,requests,webhooks,flags,announcements,audits,trust,analytics,roles]=q.map(x=>x.data??[]);render();setStatus('ADMIN CORE LIVE');}if(queued){queued=false;await load();}};
- refresh.onclick=()=>void load();renderTabs();await load();channel=supabase.channel(`admin-core-live:${session.user.id}`);['content_review_queue','moderation_reports','system_health_checks','api_jobs','api_request_logs','api_webhook_events','feature_flags','platform_announcements','admin_audit_logs','trust_events','platform_analytics_events','admin_roles'].forEach(table=>channel!.on('postgres_changes',{event:'*',schema:'public',table},()=>void load()));channel.subscribe();
- const cleanup=()=>{if(destroyed)return;destroyed=true;clearTimeout(statusTimer);if(channel)void supabase.removeChannel(channel);};window.addEventListener('pagehide',cleanup,{once:true});window.addEventListener('beforeunload',cleanup,{once:true});
+const esc = (value: unknown) => String(value ?? '').replace(/[&<>"']/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[character] ?? character);
+const when = (value: unknown) => value ? new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }).format(new Date(String(value))) : '';
+const cash = (value: unknown) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(Number(value ?? 0) / 100);
+const dangerStates = new Set(['failed', 'critical', 'rejected', 'escalated', 'open', 'error', 'hidden']);
+const warningStates = new Set(['pending', 'queued', 'warning', 'received', 'processing']);
+const badge = (value: unknown) => { const text = String(value ?? 'unknown').toLowerCase(); return `<span class="deep-badge ${dangerStates.has(text) ? 'danger' : warningStates.has(text) ? 'warn' : ''}">${esc(text.toUpperCase())}</span>`; };
+
+export async function mount(): Promise<void> {
+  const root = document.querySelector<HTMLElement>('#app');
+  if (!root) throw new Error('Missing #app');
+  if (root.dataset.adminOwner === 'mounted') return;
+  root.dataset.adminOwner = 'mounted';
+
+  const user = getAuthSnapshot().user;
+  if (!user) { location.replace(`${ROUTES.tapIn}?next=${encodeURIComponent(ROUTES.admin)}`); return; }
+
+  root.innerHTML = `<main class="deep-shell"><div class="deep-wrap">
+    <header class="deep-top"><a href="${ROUTES.portal}" aria-label="Back to Portal">←</a><div><p>RICH BIZNESS PLATFORM OPERATIONS</p><h1>Admin Core</h1></div><span id="adminRole" class="deep-live">SECURE</span></header>
+    <section class="deep-hero"><div><small>MODERATION • HEALTH • WEBHOOKS • MONEY • TRUST</small><h2>CONTROL THE UNIVERSE</h2><p>One protected command center for platform health, moderation, jobs, webhooks, feature control, analytics, money signals, audit history, roles, and trust.</p><div class="deep-actions"><button id="refresh" class="deep-btn primary" type="button">REFRESH SYSTEM</button><a class="deep-btn" href="${ROUTES.notifications}">ADMIN ALERTS</a><a class="deep-btn" href="${ROUTES.creator}">CREATOR CORE</a></div></div></section>
+    <section id="stats" class="deep-stats"></section><nav id="tabs" class="deep-tabs" aria-label="Admin sections"></nav><section id="content"></section><p id="status" class="deep-status" role="status"></p>
+  </div></main>`;
+
+  const roleNode = root.querySelector<HTMLElement>('#adminRole')!;
+  const stats = root.querySelector<HTMLElement>('#stats')!;
+  const tabs = root.querySelector<HTMLElement>('#tabs')!;
+  const content = root.querySelector<HTMLElement>('#content')!;
+  const status = root.querySelector<HTMLElement>('#status')!;
+  const refresh = root.querySelector<HTMLButtonElement>('#refresh')!;
+
+  let snapshot: Snapshot | null = null;
+  let lane = 'overview';
+  let loading = false;
+  let queued = false;
+  let destroyed = false;
+  let statusTimer: number | undefined;
+  let realtimeTimer: number | undefined;
+  let channel: ReturnType<typeof supabase.channel> | null = null;
+
+  const setStatus = (message: string) => {
+    if (destroyed) return;
+    status.textContent = message;
+    if (statusTimer) clearTimeout(statusTimer);
+    statusTimer = window.setTimeout(() => { if (!destroyed && status.textContent === message) status.textContent = ''; }, 3500);
+  };
+
+  const lanes = [['overview','OVERVIEW'],['moderation','MODERATION'],['systems','SYSTEMS'],['platform','PLATFORM'],['analytics','ANALYTICS + MONEY'],['audit','AUDIT + TRUST'],['roles','ROLES']];
+  const renderTabs = () => {
+    tabs.innerHTML = lanes.map(([key,label]) => `<button class="deep-tab ${lane === key ? 'active' : ''}" data-lane="${key}" type="button">${label}</button>`).join('');
+    tabs.querySelectorAll<HTMLButtonElement>('[data-lane]').forEach((button) => button.onclick = () => { lane = button.dataset.lane!; renderTabs(); render(); });
+  };
+
+  const render = () => {
+    if (!snapshot || destroyed) return;
+    const s = snapshot;
+    roleNode.textContent = String(s.role.role_label || s.role.role_key || 'SECURE').toUpperCase();
+    const failedOps = Number(s.counts.failed_jobs ?? 0) + Number(s.counts.failed_webhooks ?? 0) + Number(s.counts.failed_requests ?? 0);
+    stats.innerHTML = `<article><small>PENDING REVIEW</small><strong>${Number(s.counts.pending_reviews ?? 0).toLocaleString()}</strong></article><article><small>OPEN REPORTS</small><strong>${Number(s.counts.open_reports ?? 0).toLocaleString()}</strong></article><article><small>FAILED OPS</small><strong>${failedOps.toLocaleString()}</strong></article><article><small>TRACKED VALUE</small><strong>${s.permissions.money ? cash(s.counts.tracked_value_cents) : 'PROTECTED'}</strong></article>`;
+
+    if (lane === 'overview') {
+      const cards = [['Review Queue',s.reviews.length,'content_review_queue'],['Moderation Reports',s.reports.length,'moderation_reports'],['System Checks',s.health.length,'system_health_checks'],['API Jobs',s.jobs.length,'api_jobs'],['Webhook Events',s.webhooks.length,'api_webhook_events'],['API Requests',s.requests.length,'api_request_logs'],['Analytics Events',s.analytics.length,'platform_analytics_events'],['Feature Flags',s.flags.length,'feature_flags'],['Audit Logs',s.audits.length,'admin_audit_logs'],['Admin Roles',s.roles.length,'admin_roles']];
+      content.innerHTML = `<section class="deep-grid">${cards.map(([title,count,source]) => `<article class="deep-card"><div class="deep-card-body"><span class="deep-badge">${esc(source)}</span><h3>${esc(title)}</h3><p>${Number(count).toLocaleString()} secured records loaded</p></div></article>`).join('')}</section>`;
+    } else if (lane === 'moderation') {
+      content.innerHTML = `<section class="deep-section"><header><div><small>CONTENT REVIEW</small><h2>Moderation queue</h2></div></header><div class="deep-list">${s.reviews.length ? s.reviews.map((row) => `<article><div><h3>${esc(row.review_type || row.target_table || 'Content review')}</h3><p>${esc(row.flagged_reason || row.admin_note || row.target_id)} · ${when(row.created_at)}</p></div><div class="deep-actions">${badge(row.status || 'pending')}${s.permissions.moderate ? `<button class="deep-btn" data-review="approved" data-id="${row.id}" type="button">APPROVE</button><button class="deep-btn deep-danger" data-review="rejected" data-id="${row.id}" type="button">REJECT</button>` : ''}</div></article>`).join('') : '<div class="deep-empty">Review queue clear.</div>'}</div></section><section class="deep-section"><header><div><small>USER REPORTS</small><h2>Moderation reports</h2></div></header><div class="deep-list">${s.reports.length ? s.reports.map((row) => `<article><div><h3>${esc(row.reason || 'Report')}</h3><p>${esc(row.details || row.target_table || '')} · priority ${esc(row.priority || 'normal')} · ${when(row.created_at)}</p></div>${badge(row.status || 'open')}</article>`).join('') : '<div class="deep-empty">No active reports.</div>'}</div></section>`;
+    } else if (lane === 'systems') {
+      const operations = [...s.jobs.map((row) => ({ title: row.job_type, subtitle: `${row.error_message || row.target_table || ''} · attempts ${row.attempts ?? 0}/${row.max_attempts ?? 0}`, state: row.status, time: row.created_at })), ...s.webhooks.map((row) => ({ title: `${row.provider}: ${row.event_type}`, subtitle: row.error_message || row.event_id, state: row.status, time: row.created_at }))];
+      content.innerHTML = `<section class="deep-section"><header><div><small>SERVICE HEALTH</small><h2>System checks</h2></div></header><div class="deep-list">${s.health.map((row) => `<article><div><h3>${esc(row.service)}</h3><p>${esc(row.message || 'No message')} · ${row.latency_ms ?? 0}ms · ${when(row.checked_at)}</p></div>${badge(row.status)}</article>`).join('') || '<div class="deep-empty">No health data.</div>'}</div></section><section class="deep-section"><header><div><small>PROCESSING</small><h2>Jobs + webhooks</h2></div></header><div class="deep-list">${operations.map((row) => `<article><div><h3>${esc(row.title)}</h3><p>${esc(row.subtitle)} · ${when(row.time)}</p></div>${badge(row.state)}</article>`).join('') || '<div class="deep-empty">No jobs or webhook events.</div>'}</div></section>`;
+    } else if (lane === 'platform') {
+      content.innerHTML = `<section class="deep-section"><header><div><small>FEATURE CONTROL</small><h2>Flags</h2></div></header><div class="deep-list">${s.flags.map((row) => `<article><div><h3>${esc(row.title || row.flag_key)}</h3><p>${esc(row.description || row.section || 'global')} · rollout ${row.rollout_percent ?? 100}%</p></div>${s.permissions.platform ? `<button class="deep-btn ${row.is_enabled ? 'primary' : ''}" data-flag="${row.id}" data-enabled="${String(!row.is_enabled)}" type="button">${row.is_enabled ? 'ENABLED' : 'DISABLED'}</button>` : badge(row.is_enabled ? 'enabled' : 'disabled')}</article>`).join('') || '<div class="deep-empty">No feature flags.</div>'}</div></section><section class="deep-section"><header><div><small>ANNOUNCEMENTS</small><h2>Platform broadcasts</h2></div></header><div class="deep-list">${s.announcements.map((row) => `<article><div><h3>${esc(row.emoji || '')} ${esc(row.title)}</h3><p>${esc(row.body || '')} · ${esc(row.target_section || 'global')}</p></div>${badge(row.is_active ? 'active' : 'inactive')}</article>`).join('') || '<div class="deep-empty">No announcements.</div>'}</div></section>`;
+    } else if (lane === 'analytics') {
+      const average = s.requests.length ? Math.round(s.requests.reduce((sum,row) => sum + Number(row.latency_ms ?? 0), 0) / s.requests.length) : 0;
+      content.innerHTML = `<section class="deep-stats"><article><small>EVENTS</small><strong>${s.analytics.length}</strong></article><article><small>VALUE SIGNAL</small><strong>${s.permissions.money ? cash(s.counts.tracked_value_cents) : 'PROTECTED'}</strong></article><article><small>API ERRORS</small><strong>${Number(s.counts.failed_requests ?? 0)}</strong></article><article><small>AVG LATENCY</small><strong>${average}ms</strong></article></section><section class="deep-section"><header><div><small>PLATFORM ANALYTICS</small><h2>Recent events</h2></div></header><div class="deep-list">${s.analytics.map((row) => `<article><div><h3>${esc(row.event_name)}</h3><p>${esc(row.section || row.route || 'platform')} · ${esc(row.device_type || row.platform || 'unknown')} · ${when(row.created_at)}</p></div><strong>${s.permissions.money && row.value_cents ? cash(row.value_cents) : esc(row.target_table || '')}</strong></article>`).join('') || '<div class="deep-empty">No analytics events.</div>'}</div></section>`;
+    } else if (lane === 'audit') {
+      content.innerHTML = `<section class="deep-section"><header><div><small>ADMIN AUDIT</small><h2>Recent actions</h2></div></header><div class="deep-list">${s.audits.map((row) => `<article><div><h3>${esc(row.action)}</h3><p>${esc(row.target_table || 'platform')} · ${when(row.created_at)}</p></div>${badge(row.severity || 'normal')}</article>`).join('') || '<div class="deep-empty">No audit records.</div>'}</div></section><section class="deep-section"><header><div><small>TRUST NETWORK</small><h2>Trust events</h2></div></header><div class="deep-list">${s.trust.map((row) => `<article><div><h3>${esc(row.event_type)}</h3><p>${esc(row.reason || row.target_table || '')} · ${when(row.created_at)}</p></div><strong class="${Number(row.score_delta) < 0 ? 'deep-danger' : ''}">${Number(row.score_delta) > 0 ? '+' : ''}${row.score_delta ?? 0}</strong></article>`).join('') || '<div class="deep-empty">No trust events.</div>'}</div></section>`;
+    } else {
+      content.innerHTML = `<section class="deep-section"><header><div><small>ADMIN RBAC</small><h2>Roles and permissions</h2></div></header><div class="deep-list">${s.roles.map((row) => `<article><div><h3>${esc(row.role_label || row.role_key)}</h3><p>Level ${row.permission_level ?? 0} · moderate ${row.can_moderate ? 'yes' : 'no'} · users ${row.can_manage_users ? 'yes' : 'no'} · money ${row.can_manage_money ? 'yes' : 'no'} · platform ${row.can_manage_platform ? 'yes' : 'no'}</p></div>${badge(row.is_active ? 'active' : 'inactive')}</article>`).join('') || '<div class="deep-empty">No admin roles.</div>'}</div></section>`;
+    }
+
+    content.querySelectorAll<HTMLButtonElement>('[data-review]').forEach((button) => button.onclick = async () => {
+      if (!snapshot?.permissions.moderate) return;
+      const decision = button.dataset.review!;
+      if (!confirm(`${decision.toUpperCase()} THIS REVIEW?`)) return;
+      button.disabled = true;
+      const { error } = await supabase.rpc('rb_admin_action', { p_action: 'review_decision', p_target_id: button.dataset.id, p_value: { status: decision } });
+      if (error) setStatus(error.message); else { setStatus(`REVIEW ${decision.toUpperCase()}`); await load(); }
+      button.disabled = false;
+    });
+
+    content.querySelectorAll<HTMLButtonElement>('[data-flag]').forEach((button) => button.onclick = async () => {
+      if (!snapshot?.permissions.platform) return;
+      const enabled = button.dataset.enabled === 'true';
+      if (!confirm(`${enabled ? 'ENABLE' : 'DISABLE'} THIS FEATURE FLAG?`)) return;
+      button.disabled = true;
+      const { error } = await supabase.rpc('rb_admin_action', { p_action: 'feature_flag', p_target_id: button.dataset.flag, p_value: { enabled } });
+      if (error) setStatus(error.message); else { setStatus(`FEATURE FLAG ${enabled ? 'ENABLED' : 'DISABLED'}`); await load(); }
+      button.disabled = false;
+    });
+  };
+
+  const load = async (): Promise<void> => {
+    if (destroyed) return;
+    if (loading) { queued = true; return; }
+    loading = true;
+    refresh.disabled = true;
+    setStatus('SYNCING ADMIN CORE…');
+    try {
+      const { data, error } = await supabase.rpc('rb_admin_snapshot', { p_limit: 100 });
+      if (error) throw error;
+      snapshot = data as Snapshot;
+      renderTabs();
+      render();
+      setStatus(`SYSTEM VERIFIED · ${when(snapshot.generated_at)}`);
+    } catch (caught) {
+      root.innerHTML = `<main class="deep-shell"><div class="deep-wrap"><header class="deep-top"><a href="${ROUTES.portal}">←</a><div><p>RICH BIZNESS SECURITY</p><h1>Restricted</h1></div></header><section class="deep-hero"><div><small>ADMIN ACCESS REQUIRED</small><h2>FOUNDER GATE</h2><p>${esc(caught instanceof Error ? caught.message : 'This command center is protected by server-owned roles and permission levels.')}</p></div></section></div></main>`;
+    } finally {
+      loading = false;
+      refresh.disabled = false;
+      if (queued && !destroyed) { queued = false; await load(); }
+    }
+  };
+
+  refresh.onclick = () => void load();
+  await load();
+
+  const scheduleReload = () => {
+    if (destroyed) return;
+    if (realtimeTimer) clearTimeout(realtimeTimer);
+    realtimeTimer = window.setTimeout(() => void load(), 350);
+  };
+
+  channel = supabase.channel(`admin-core:${user.id}`)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'content_review_queue' }, scheduleReload)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'moderation_reports' }, scheduleReload)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'feature_flags' }, scheduleReload)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'api_jobs' }, scheduleReload)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'api_webhook_events' }, scheduleReload)
+    .subscribe();
+
+  const cleanup = () => {
+    if (destroyed) return;
+    destroyed = true;
+    if (statusTimer) clearTimeout(statusTimer);
+    if (realtimeTimer) clearTimeout(realtimeTimer);
+    if (channel) void supabase.removeChannel(channel);
+    delete root.dataset.adminOwner;
+  };
+  window.addEventListener('pagehide', cleanup, { once: true });
+  window.addEventListener('beforeunload', cleanup, { once: true });
 }
