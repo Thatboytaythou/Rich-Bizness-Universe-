@@ -10,7 +10,7 @@ const pageModules: Record<string, PageRegistration> = {
   'tap-in': { auth: 'optional', load: async () => { const module = await import('./pages/tap-in/tap-in.page'); return { mount: module.mountTapInPage }; } },
   profile: { auth: 'optional', load: async () => { const module = await import('./pages/profile/profile.page'); return { mount: module.mountProfilePage }; } },
   portal: { auth: 'required', load: async () => { const module = await import('./pages/portal/portal.page'); return { mount: module.mountPortalPage }; } },
-  gaming: { auth: 'optional', load: async () => { const module = await import('./pages/gaming/gaming.page'); return { mount: module.mountGamingPage }; } },
+  gaming: { auth: 'optional', load: async () => { const module = await import('./pages/gaming/gaming.v4.page'); return { mount: module.mountGamingPage }; } },
   feed: { auth: 'optional', load: () => import('./pages/feed/feed.page') },
   gallery: { auth: 'optional', load: () => import('./pages/gallery/gallery.page') },
   live: { auth: 'optional', load: () => import('./pages/live/live.page') },
