@@ -7,7 +7,7 @@ export type PageRegistration = Readonly<{
 
 const pageModules: Record<string, PageRegistration> = {
   home: { auth: 'optional', load: async () => { const module = await import('./pages/home/home.page'); return { mount: module.mountHomePage }; } },
-  'tap-in': { auth: 'optional', load: async () => { await import('./pages/tap-in/tap-in.elite.css'); const module = await import('./pages/tap-in/tap-in.page'); return { mount: module.mountTapInPage }; } },
+  'tap-in': { auth: 'optional', load: async () => { const module = await import('./pages/tap-in/tap-in.page'); return { mount: module.mountTapInPage }; } },
   profile: { auth: 'optional', load: async () => { const module = await import('./pages/profile/profile.page'); return { mount: module.mountProfilePage }; } },
   portal: { auth: 'required', load: async () => { const module = await import('./pages/portal/portal.page'); return { mount: module.mountPortalPage }; } },
   gaming: { auth: 'optional', load: async () => { const module = await import('./pages/gaming/gaming.v4.page'); return { mount: module.mountGamingPage }; } },
