@@ -50,7 +50,23 @@ const pageModules: Record<string, PageRegistration> = {
   radio: { auth: 'optional', load: () => import('./pages/radio/radio.page') },
   sports: { auth: 'optional', load: () => import('./pages/sports/sports.page') },
   store: { auth: 'optional', load: () => import('./pages/store/store.page') },
-  meta: { auth: 'required', load: () => import('./pages/meta/meta.page') },
+  meta: {
+    auth: 'required',
+    load: async () => {
+      await import('./pages/meta/meta-premium.css');
+      const module = await import('./pages/meta/meta.page');
+      return {
+        mount: async () => {
+          const app = document.querySelector<HTMLElement>('#app');
+          if (!app) throw new Error('Missing #app mount');
+          if (app.dataset.pageOwner === 'rich-bizness-meta-v3') return;
+          app.dataset.pageOwner = 'rich-bizness-meta-v3';
+          app.replaceChildren();
+          await module.mount();
+        }
+      };
+    }
+  },
   creator: { auth: 'required', load: () => import('./pages/creator/creator.page') },
   'creator-dimensions': { auth: 'required', load: () => import('./pages/creator/creator-dimensions.page') },
   admin: { auth: 'required', load: () => import('./pages/admin/admin.page') },
