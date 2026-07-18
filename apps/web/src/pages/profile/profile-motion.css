@@ -1,0 +1,23 @@
+body[data-page="profile"] .profile-universe{perspective:1600px;contain:layout paint style;background-attachment:fixed}
+body[data-page="profile"] .pu-hero{transform-style:preserve-3d;will-change:transform,box-shadow;animation:puHeroArrival .9s cubic-bezier(.2,.8,.2,1) both}
+body[data-page="profile"] .pu-banner{transform:scale(1.035);animation:puBannerDrift 18s ease-in-out infinite alternate;will-change:transform}
+body[data-page="profile"] .pu-avatar{animation:puAvatarFloat 5.8s ease-in-out infinite;transform-style:preserve-3d}
+body[data-page="profile"] .pu-avatar::before{content:"";position:absolute;inset:-14px;border-radius:46px;border:1px solid rgba(49,255,99,.22);box-shadow:0 0 42px rgba(49,255,99,.13);pointer-events:none;animation:puAvatarPulse 3.4s ease-in-out infinite}
+body[data-page="profile"] .pu-level{position:relative;overflow:hidden}
+body[data-page="profile"] .pu-level::before{content:"";position:absolute;inset:-60% -20%;background:linear-gradient(110deg,transparent 35%,rgba(255,255,255,.13) 50%,transparent 65%);transform:translateX(-80%) rotate(8deg);animation:puLevelScan 4.8s ease-in-out infinite;pointer-events:none}
+body[data-page="profile"] .pu-metrics article,body[data-page="profile"] .pu-command>article,body[data-page="profile"] .pu-badges,body[data-page="profile"] .pu-library,body[data-page="profile"] .pu-activity{transition:transform .28s ease,border-color .28s ease,box-shadow .28s ease}
+body[data-page="profile"] .pu-metrics article:hover,body[data-page="profile"] .pu-command>article:hover{transform:translateY(-4px);border-color:rgba(49,255,99,.34);box-shadow:0 26px 70px rgba(0,0,0,.42),0 0 28px rgba(49,255,99,.08)}
+body[data-page="profile"] .pu-card::before{content:"";position:absolute;inset:0;z-index:2;pointer-events:none;background:linear-gradient(115deg,transparent 25%,rgba(255,255,255,.09) 45%,transparent 65%);transform:translateX(-120%);transition:transform .65s ease}
+body[data-page="profile"] .pu-card:hover::before,body[data-page="profile"] .pu-card:focus-visible::before{transform:translateX(120%)}
+body[data-page="profile"] .pu-card:hover,body[data-page="profile"] .pu-card:focus-visible{border-color:rgba(247,201,72,.42);box-shadow:0 20px 54px rgba(0,0,0,.48),0 0 26px rgba(49,255,99,.09)}
+body[data-page="profile"] .pu-actions{box-shadow:0 18px 55px rgba(0,0,0,.36),inset 0 1px rgba(255,255,255,.04)}
+body[data-page="profile"] .pu-actions .primary{position:relative;overflow:hidden}
+body[data-page="profile"] .pu-actions .primary::after{content:"";position:absolute;inset:-2px;background:linear-gradient(110deg,transparent 30%,rgba(255,255,255,.48) 50%,transparent 70%);transform:translateX(-120%);animation:puActionSweep 3.8s ease-in-out infinite;pointer-events:none}
+@keyframes puHeroArrival{from{opacity:0;transform:translateY(26px) scale(.985)}to{opacity:1;transform:none}}
+@keyframes puBannerDrift{from{transform:scale(1.035) translate3d(-.7%,0,0)}to{transform:scale(1.075) translate3d(.7%,-.5%,0)}}
+@keyframes puAvatarFloat{0%,100%{transform:translateY(0) rotateX(0)}50%{transform:translateY(-7px) rotateX(1.5deg)}}
+@keyframes puAvatarPulse{0%,100%{opacity:.34;transform:scale(.98)}50%{opacity:.9;transform:scale(1.025)}}
+@keyframes puLevelScan{0%,55%{transform:translateX(-90%) rotate(8deg)}85%,100%{transform:translateX(90%) rotate(8deg)}}
+@keyframes puActionSweep{0%,55%{transform:translateX(-120%)}85%,100%{transform:translateX(120%)}}
+@media(max-width:760px){body[data-page="profile"] .profile-universe{background-attachment:scroll}body[data-page="profile"] .pu-banner{animation-duration:24s}body[data-page="profile"] .pu-metrics article:hover,body[data-page="profile"] .pu-command>article:hover{transform:none}}
+@media(prefers-reduced-motion:reduce){body[data-page="profile"] .pu-hero,body[data-page="profile"] .pu-banner,body[data-page="profile"] .pu-avatar,body[data-page="profile"] .pu-avatar::before,body[data-page="profile"] .pu-level::before,body[data-page="profile"] .pu-actions .primary::after{animation:none!important}body[data-page="profile"] *{scroll-behavior:auto!important}}
