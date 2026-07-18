@@ -4,6 +4,7 @@ import './styles/cinematic.css';
 import './styles/identity.css';
 import './styles/xp-runtime.css';
 import './styles/media-containment.css';
+import './styles/live-command-v4.css';
 import './pages/feed/feed-elite.css';
 import './pages/tap-in/tap-in.elite.css';
 import { bootstrap } from './bootstrap';
