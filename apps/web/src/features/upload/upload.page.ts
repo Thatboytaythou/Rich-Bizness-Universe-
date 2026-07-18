@@ -2,42 +2,230 @@ import { getAuthSnapshot } from '../../core/auth/auth-store';
 import { supabase } from '../../core/supabase/client';
 import './upload.css';
 
-type RouteRow={route_key:string;section:string;bucket:string;target_table:string|null;target_column:string|null;media_type:string|null;max_file_size_mb:number|null;is_public:boolean|null;processing_type:string|null};
-type UploadRow={id:string;title:string|null;section:string|null;bucket:string;public_url:string;media_type:string|null;processing_status:string|null;created_at:string|null};
-type ProfileRow={username:string|null;display_name:string|null;avatar_url:string|null;rank_title:string|null;rich_level:number|null;rich_points:number|null};
-type Channel=ReturnType<typeof supabase.channel>;
+type Row = Record<string, any>;
+type Channel = ReturnType<typeof supabase.channel>;
 
-const esc=(v:string|null|undefined)=>(v??'').replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[c]??c));
-const size=(n:number)=>n>1024*1024?`${(n/1024/1024).toFixed(1)} MB`:`${Math.ceil(n/1024)} KB`;
-const media=(type:string)=>type.startsWith('image/')?'image':type.startsWith('video/')?'video':type.startsWith('audio/')?'audio':'file';
-const acceptFor=(type:string|null)=>type==='image'?'image/*':type==='video'?'video/*':type==='audio'?'audio/*':type==='model'?'.glb,.gltf,model/gltf-binary,model/gltf+json,application/octet-stream':'*/*';
-const matchesRoute=(file:File,route:RouteRow)=>{const kind=media(file.type);if(!route.media_type||route.media_type==='mixed')return true;if(route.media_type==='model')return /\.(glb|gltf)$/i.test(file.name)||['model/gltf-binary','model/gltf+json','application/octet-stream','application/json'].includes(file.type);return kind===route.media_type;};
-const icon=(section:string)=>({feed:'◫',gallery:'▣',gaming:'🎮',live:'◉',meta:'◎',music:'♪',podcast:'◌',profile:'◍',radio:'◉',sports:'🏆',store:'◆'} as Record<string,string>)[section]??'⬆';
+const esc = (value: unknown) => String(value ?? '').replace(/[&<>'"]/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[char] ?? char));
+const formatSize = (bytes: number) => bytes >= 1024 ** 3 ? `${(bytes / 1024 ** 3).toFixed(2)} GB` : bytes >= 1024 ** 2 ? `${(bytes / 1024 ** 2).toFixed(1)} MB` : `${Math.ceil(bytes / 1024)} KB`;
+const kindFor = (mime: string) => mime.startsWith('image/') ? 'image' : mime.startsWith('video/') ? 'video' : mime.startsWith('audio/') ? 'audio' : 'file';
+const routeIcon = (section: string) => ({ feed: '◫', gallery: '▣', gaming: '🎮', live: '◉', meta: '◎', music: '♪', podcast: '◌', profile: '◍', radio: '◉', sports: '🏆', store: '◆' } as Record<string, string>)[section] ?? '⬆';
 
-export async function mount():Promise<void>{
- const root=document.querySelector<HTMLElement>('#app');if(!root)throw new Error('Missing #app mount');
- if(root.dataset.uploadMounted==='true')return;root.dataset.uploadMounted='true';
- const auth=getAuthSnapshot();const user=auth.user;if(!user){location.replace('/tap-in.html?next=%2Fupload.html');return;}
- const [{data:routes,error},{data:profileData},{count:uploadCount}]=await Promise.all([
-  supabase.from('storage_bucket_routes').select('route_key,section,bucket,target_table,target_column,media_type,max_file_size_mb,is_public,processing_type').order('section').order('route_key'),
-  supabase.from('profiles').select('username,display_name,avatar_url,rank_title,rich_level,rich_points').eq('id',user.id).maybeSingle(),
-  supabase.from('uploads').select('id',{count:'exact',head:true}).eq('user_id',user.id)
- ]);
- if(error)throw error;
- const routeRows=(routes??[]) as RouteRow[];if(!routeRows.length)throw new Error('No upload routes are configured.');
- const profile=(profileData??{}) as ProfileRow;const sections=[...new Set(routeRows.map(r=>r.section))];
- root.innerHTML=`<main class="upload-shell"><div class="upload-atmosphere"></div><div class="upload-wrap"><header class="upload-head"><a href="/portal.html" aria-label="Back to portal">←</a><div class="upload-brand"><p>RICH BIZNESS CREATOR NETWORK</p><h1>UPLOAD COMMAND</h1><small>Secure media routing • realtime processing • universal publishing</small></div><div class="creator-chip"><img src="${esc(profile.avatar_url||'/brand/icons/profile-placeholder.svg')}" alt=""><div><strong>${esc(profile.display_name||profile.username||'Rich Creator')}</strong><span>${esc(profile.rank_title||'CREATOR')} · LVL ${profile.rich_level??1}</span></div></div><span id="uploadState" class="upload-state">SYSTEM READY</span></header><section class="upload-hero"><div><span class="hero-kicker">ELITE CREATOR PIPELINE</span><h2>DROP IT.<br><em>OWN THE UNIVERSE.</em></h2><p>One verified studio routes every image, video, track, episode, game asset, avatar model, product and live recording into its correct world.</p></div><div class="hero-stats"><article><small>DESTINATIONS</small><strong>${routeRows.length}</strong><span>${sections.length} connected sections</span></article><article><small>MY UPLOADS</small><strong id="uploadCount">${uploadCount??0}</strong><span>Realtime creator library</span></article><article><small>RICH POINTS</small><strong>${Number(profile.rich_points??0).toLocaleString()}</strong><span>Creator progression synced</span></article></div></section><section class="route-rail"><div class="route-rail-head"><div><small>QUICK DESTINATIONS</small><h3>Choose a universe</h3></div><span>${routeRows.length} secure routes</span></div><div class="route-chips">${sections.map(s=>`<button type="button" class="route-chip" data-section="${esc(s)}"><b>${icon(s)}</b><span>${esc(s.toUpperCase())}</span><small>${routeRows.filter(r=>r.section===s).length}</small></button>`).join('')}</div></section><section class="upload-grid"><form id="uploadForm" class="upload-card upload-console"><header class="console-head"><div><small>CREATOR CONSOLE</small><h2>Prepare your drop</h2></div><div id="securityBadge">SECURE ROUTE</div></header><div class="field-grid"><label><span>DESTINATION</span><select id="routeKey" required>${routeRows.map(r=>`<option value="${esc(r.route_key)}">${esc(r.section.toUpperCase())} · ${esc(r.route_key)}</option>`).join('')}</select></label><label><span>VISIBILITY</span><select id="visibility"><option value="public">PUBLIC</option><option value="followers">FOLLOWERS</option><option value="unlisted">UNLISTED</option><option value="private">PRIVATE</option></select></label><label class="wide"><span>TITLE</span><input id="title" maxlength="120" placeholder="Name this Rich Bizness drop"></label><label class="wide"><span>DESCRIPTION</span><textarea id="description" maxlength="1000" rows="4" placeholder="Tell the universe what makes this release elite"></textarea></label></div><section id="routeBlueprint" class="route-blueprint"></section><label id="dropZone" class="drop-zone"><input id="fileInput" type="file" hidden><div class="drop-orbit"><i></i><b>⬆</b></div><strong>DROP MEDIA INTO THE PORTAL</strong><small id="routeHint">Choose a route and add media</small><button type="button" id="pickFile">BROWSE DEVICE</button></label><div id="preview" class="upload-preview"><div class="preview-empty"><b>4K</b><span>Preview chamber ready</span></div></div><div class="meter"><i id="meterBar"></i></div><div class="upload-status-row"><p id="uploadMessage" class="upload-message">Encrypted creator pipeline standing by.</p><span id="fileMeta">NO FILE</span></div><button id="uploadButton" class="upload-button" type="submit"><span>UPLOAD TO RICH BIZNESS</span><b>→</b></button></form><aside class="upload-sidebar"><section class="upload-card route-intel"><header class="panel-title"><div><p>ROUTE INTELLIGENCE</p><h2>Pipeline Details</h2></div><span>LIVE</span></header><div id="routeIntel"></div></section><section class="upload-card recent-panel"><div class="panel-title"><div><p>YOUR PIPELINE</p><h2>Recent Uploads</h2></div><button id="refreshUploads" aria-label="Refresh uploads">↻</button></div><div id="recentUploads" class="recent-list"></div></section></aside></section></div></main>`;
- const form=document.querySelector<HTMLFormElement>('#uploadForm')!,routeKey=document.querySelector<HTMLSelectElement>('#routeKey')!,fileInput=document.querySelector<HTMLInputElement>('#fileInput')!,dropZone=document.querySelector<HTMLElement>('#dropZone')!,preview=document.querySelector<HTMLElement>('#preview')!,hint=document.querySelector<HTMLElement>('#routeHint')!,message=document.querySelector<HTMLElement>('#uploadMessage')!,state=document.querySelector<HTMLElement>('#uploadState')!,bar=document.querySelector<HTMLElement>('#meterBar')!,button=document.querySelector<HTMLButtonElement>('#uploadButton')!,fileMeta=document.querySelector<HTMLElement>('#fileMeta')!,routeIntel=document.querySelector<HTMLElement>('#routeIntel')!,routeBlueprint=document.querySelector<HTMLElement>('#routeBlueprint')!,recent=document.querySelector<HTMLElement>('#recentUploads')!;
- let selected:File|null=null,previewUrl:string|null=null,disposed=false,uploading=false,recentBusy=false,recentQueued=false,channel:Channel|null=null;
- const activeRoute=()=>routeRows.find(r=>r.route_key===routeKey.value)??routeRows[0];
- const clearPreview=()=>{if(previewUrl){URL.revokeObjectURL(previewUrl);previewUrl=null;}preview.querySelectorAll('video,audio').forEach(node=>{const el=node as HTMLMediaElement;el.pause();el.removeAttribute('src');el.load();});};
- const setFile=(file:File|null)=>{clearPreview();selected=file;if(!file){preview.innerHTML='<div class="preview-empty"><b>4K</b><span>Preview chamber ready</span></div>';fileMeta.textContent='NO FILE';return;}const r=activeRoute();if(!matchesRoute(file,r)){selected=null;message.textContent=`This destination accepts ${r.media_type??'mixed'} files.`;fileMeta.textContent='REJECTED';return;}const max=(r.max_file_size_mb??300)*1024*1024;if(file.size>max){selected=null;message.textContent=`File is too large. Limit is ${r.max_file_size_mb??300} MB.`;fileMeta.textContent='REJECTED';return;}previewUrl=URL.createObjectURL(file);const kind=media(file.type);preview.innerHTML=kind==='image'?`<img src="${previewUrl}" alt="Upload preview">`:kind==='video'?`<video src="${previewUrl}" controls playsinline></video>`:kind==='audio'?`<div class="audio-preview"><b>♪</b><strong>${esc(file.name)}</strong><audio src="${previewUrl}" controls></audio></div>`:`<div class="file-preview"><b>⬆</b><strong>${esc(file.name)}</strong><small>${size(file.size)}</small></div>`;fileMeta.textContent=`${kind.toUpperCase()} · ${size(file.size)}`;message.textContent='Media verified. Ready for secure upload.';};
- const renderRoute=()=>{const r=activeRoute();fileInput.accept=acceptFor(r.media_type);hint.textContent=`${r.media_type??'mixed'} • max ${r.max_file_size_mb??300} MB • ${r.processing_type??'metadata'} processing`;routeBlueprint.innerHTML=`<article><small>SECTION</small><strong>${esc(r.section.toUpperCase())}</strong></article><article><small>BUCKET</small><strong>${esc(r.bucket)}</strong></article><article><small>MEDIA</small><strong>${esc((r.media_type??'mixed').toUpperCase())}</strong></article><article><small>ACCESS</small><strong>${r.is_public===false?'PRIVATE':'PUBLIC CDN'}</strong></article>`;routeIntel.innerHTML=`<div class="intel-world"><b>${icon(r.section)}</b><div><small>ACTIVE WORLD</small><h3>${esc(r.section.toUpperCase())}</h3><p>${esc(r.route_key)}</p></div></div><dl><div><dt>Storage bucket</dt><dd>${esc(r.bucket)}</dd></div><div><dt>Database target</dt><dd>${esc(r.target_table||'uploads')}</dd></div><div><dt>Target field</dt><dd>${esc(r.target_column||'public_url')}</dd></div><div><dt>Processing</dt><dd>${esc(r.processing_type||'metadata')}</dd></div><div><dt>Maximum size</dt><dd>${r.max_file_size_mb??300} MB</dd></div></dl>`;document.querySelectorAll<HTMLElement>('.route-chip').forEach(x=>x.classList.toggle('active',x.dataset.section===r.section));if(selected&&!matchesRoute(selected,r))setFile(null);};
- const loadRecent=async()=>{if(disposed)return;if(recentBusy){recentQueued=true;return;}recentBusy=true;do{recentQueued=false;const {data,error:recentError}=await supabase.from('uploads').select('id,title,section,bucket,public_url,media_type,processing_status,created_at').eq('user_id',user.id).order('created_at',{ascending:false}).limit(20);if(!recentError&&!disposed){const rows=(data??[]) as UploadRow[];document.querySelector<HTMLElement>('#uploadCount')!.textContent=String(rows.length);recent.innerHTML=rows.length?rows.map(r=>`<article><span>${r.media_type==='image'?'▣':r.media_type==='video'?'▶':r.media_type==='audio'?'♪':'⬆'}</span><div><strong>${esc(r.title||'Untitled upload')}</strong><small>${esc(r.section||r.bucket)} · ${esc(r.processing_status||'completed')}</small></div><time>${r.created_at?new Date(r.created_at).toLocaleDateString():''}</time></article>`).join(''):'<div class="empty"><b>⬆</b><strong>No uploads yet</strong><span>Your first elite drop will appear here.</span></div>';}}while(recentQueued&&!disposed);recentBusy=false;};
- const requested=new URLSearchParams(location.search).get('route');const requestedRoute=routeRows.find(r=>r.route_key===requested)||routeRows.find(r=>r.section===requested);if(requestedRoute)routeKey.value=requestedRoute.route_key;
- routeKey.addEventListener('change',renderRoute);document.querySelector('#pickFile')?.addEventListener('click',()=>fileInput.click());fileInput.addEventListener('change',()=>setFile(fileInput.files?.[0]??null));document.querySelectorAll<HTMLButtonElement>('.route-chip').forEach(chip=>chip.addEventListener('click',()=>{const first=routeRows.find(r=>r.section===chip.dataset.section);if(first){routeKey.value=first.route_key;renderRoute();document.querySelector('.upload-console')?.scrollIntoView({behavior:'smooth',block:'start'});}}));
- const drag=(e:DragEvent)=>{e.preventDefault();dropZone.classList.toggle('active',e.type==='dragenter'||e.type==='dragover');if(e.type==='drop')setFile(e.dataTransfer?.files?.[0]??null);};['dragenter','dragover','dragleave','drop'].forEach(name=>dropZone.addEventListener(name,drag as EventListener));document.querySelector('#refreshUploads')?.addEventListener('click',()=>void loadRecent());
- form.addEventListener('submit',async e=>{e.preventDefault();if(uploading)return;if(!selected){message.textContent='Choose a file first.';return;}const r=activeRoute();if(!matchesRoute(selected,r)){message.textContent=`This destination accepts ${r.media_type??'mixed'} files.`;return;}uploading=true;button.disabled=true;state.textContent='UPLOADING';state.classList.add('working');message.textContent='Preparing secure creator upload…';bar.style.width='12%';const file=selected;let path='';try{const ext=file.name.split('.').pop()?.replace(/[^a-z0-9]/gi,'').toLowerCase()||'bin';path=`${user.id}/${r.route_key}/${new Date().toISOString().slice(0,10)}/${crypto.randomUUID()}.${ext}`;bar.style.width='35%';const {error:uploadError}=await supabase.storage.from(r.bucket).upload(path,file,{cacheControl:'31536000',contentType:file.type||'application/octet-stream',upsert:false});if(uploadError)throw uploadError;bar.style.width='72%';const publicUrl=r.is_public===false?`private://${r.bucket}/${path}`:supabase.storage.from(r.bucket).getPublicUrl(path).data.publicUrl;const {error:registerError}=await supabase.rpc('rb_register_upload',{p_route_key:r.route_key,p_title:(document.querySelector<HTMLInputElement>('#title')!.value||'').trim(),p_description:(document.querySelector<HTMLTextAreaElement>('#description')!.value||'').trim(),p_file_path:path,p_public_url:publicUrl,p_mime_type:file.type||'application/octet-stream',p_file_size:file.size,p_visibility:document.querySelector<HTMLSelectElement>('#visibility')!.value,p_metadata:{original_name:file.name,source:'upload_command',target_table:r.target_table,target_column:r.target_column,identity:{username:profile.username,display_name:profile.display_name,avatar_url:profile.avatar_url,rank_title:profile.rank_title,rich_level:profile.rich_level}}});if(registerError){await supabase.storage.from(r.bucket).remove([path]);throw registerError;}bar.style.width='100%';state.textContent='COMPLETE';message.textContent=`Uploaded to ${r.section}. ${r.processing_type&&r.processing_type!=='metadata'?'Advanced processing queued.':'Published and ready.'}`;form.reset();routeKey.value=r.route_key;setFile(null);renderRoute();await loadRecent();}catch(err){state.textContent='ERROR';message.textContent=err instanceof Error?err.message:'Upload failed.';bar.style.width='0%';}finally{uploading=false;button.disabled=false;state.classList.remove('working');}});
- renderRoute();await loadRecent();channel=supabase.channel(`uploads:${user.id}`).on('postgres_changes',{event:'*',schema:'public',table:'uploads',filter:`user_id=eq.${user.id}`},()=>void loadRecent()).subscribe();
- const cleanup=()=>{if(disposed)return;disposed=true;clearPreview();if(channel)void supabase.removeChannel(channel);channel=null;};window.addEventListener('pagehide',cleanup,{once:true});window.addEventListener('beforeunload',cleanup,{once:true});
+export async function mount(): Promise<void> {
+  const root = document.querySelector<HTMLElement>('#app');
+  if (!root) throw new Error('Missing #app mount');
+  if (root.dataset.uploadOwner === 'active') return;
+  root.dataset.uploadOwner = 'active';
+
+  const auth = getAuthSnapshot();
+  const user = auth.user;
+  if (!user) {
+    location.replace(`/tap-in.html?next=${encodeURIComponent(location.pathname + location.search)}`);
+    return;
+  }
+
+  root.innerHTML = `<main class="upload-shell"><div class="upload-atmosphere" aria-hidden="true"></div><div class="upload-wrap">
+    <header class="upload-head"><a href="/portal.html" aria-label="Back to portal">←</a><div class="upload-brand"><p>RICH BIZNESS CREATOR NETWORK</p><h1>UPLOAD COMMAND</h1><small>Validated routing · secure ownership · universal publishing</small></div><div id="creatorChip" class="creator-chip"></div><span id="uploadState" class="upload-state">SYNCING</span></header>
+    <section class="upload-hero"><div><span class="hero-kicker">GLOBAL MEDIA INGESTION</span><h2>DROP IT.<br><em>OWN THE UNIVERSE.</em></h2><p>One verified command deck routes every image, video, track, episode, game asset, product file, avatar model and live recording into its canonical destination.</p></div><div id="heroStats" class="hero-stats"></div></section>
+    <section class="route-rail"><div class="route-rail-head"><div><small>QUICK DESTINATIONS</small><h3>Choose a universe</h3></div><span id="routeCount">0 secure routes</span></div><div id="routeChips" class="route-chips"></div></section>
+    <section class="upload-grid"><form id="uploadForm" class="upload-card upload-console"><header class="console-head"><div><small>CREATOR CONSOLE</small><h2>Prepare your drop</h2></div><div id="securityBadge">SERVER VERIFIED</div></header>
+      <div class="field-grid"><label><span>DESTINATION</span><select id="routeKey" required></select></label><label><span>VISIBILITY</span><select id="visibility"><option value="public">PUBLIC</option><option value="followers">FOLLOWERS</option><option value="unlisted">UNLISTED</option><option value="private">PRIVATE</option></select></label><label class="wide"><span>TITLE</span><input id="title" maxlength="120" placeholder="Name this Rich Bizness drop"></label><label class="wide"><span>DESCRIPTION</span><textarea id="description" maxlength="1000" rows="4" placeholder="Tell the universe what makes this release elite"></textarea></label></div>
+      <section id="routeBlueprint" class="route-blueprint"></section><label id="dropZone" class="drop-zone"><input id="fileInput" type="file" hidden><div class="drop-orbit"><i></i><b>⬆</b></div><strong>DROP MEDIA INTO THE PORTAL</strong><small id="routeHint">Choose a destination</small><button type="button" id="pickFile">BROWSE DEVICE</button></label><div id="preview" class="upload-preview"><div class="preview-empty"><b>4K</b><span>Preview chamber ready</span></div></div><div class="meter"><i id="meterBar"></i></div><div class="upload-status-row"><p id="uploadMessage" class="upload-message">Creator pipeline standing by.</p><span id="fileMeta">NO FILE</span></div><button id="uploadButton" class="upload-button" type="submit"><span>UPLOAD TO RICH BIZNESS</span><b>→</b></button>
+    </form><aside class="upload-sidebar"><section class="upload-card route-intel"><header class="panel-title"><div><p>ROUTE INTELLIGENCE</p><h2>Pipeline Details</h2></div><span>LIVE</span></header><div id="routeIntel"></div></section><section class="upload-card recent-panel"><div class="panel-title"><div><p>YOUR PIPELINE</p><h2>Recent Uploads</h2></div><button id="refreshUploads" type="button" aria-label="Refresh uploads">↻</button></div><div id="recentUploads" class="recent-list"></div></section></aside></section>
+  </div></main>`;
+
+  const form = document.querySelector<HTMLFormElement>('#uploadForm')!;
+  const routeKey = document.querySelector<HTMLSelectElement>('#routeKey')!;
+  const fileInput = document.querySelector<HTMLInputElement>('#fileInput')!;
+  const dropZone = document.querySelector<HTMLElement>('#dropZone')!;
+  const preview = document.querySelector<HTMLElement>('#preview')!;
+  const message = document.querySelector<HTMLElement>('#uploadMessage')!;
+  const state = document.querySelector<HTMLElement>('#uploadState')!;
+  const bar = document.querySelector<HTMLElement>('#meterBar')!;
+  const button = document.querySelector<HTMLButtonElement>('#uploadButton')!;
+  const fileMeta = document.querySelector<HTMLElement>('#fileMeta')!;
+
+  let routes: Row[] = [];
+  let recentUploads: Row[] = [];
+  let profile: Row = {};
+  let selected: File | null = null;
+  let previewUrl = '';
+  let uploading = false;
+  let disposed = false;
+  let channel: Channel | null = null;
+
+  const activeRoute = () => routes.find((route) => route.route_key === routeKey.value) ?? routes[0];
+  const setMessage = (value: string) => { message.textContent = value; };
+  const clearPreview = () => {
+    if (previewUrl) URL.revokeObjectURL(previewUrl);
+    previewUrl = '';
+    preview.querySelectorAll<HTMLMediaElement>('video,audio').forEach((media) => { media.pause(); media.removeAttribute('src'); media.load(); });
+  };
+  const accepted = (file: File, route: Row) => {
+    const mime = String(file.type || 'application/octet-stream').toLowerCase();
+    const extension = file.name.split('.').pop()?.toLowerCase() ?? '';
+    const mimes = Array.isArray(route.allowed_mime_types) ? route.allowed_mime_types : [];
+    const extensions = Array.isArray(route.accepted_extensions) ? route.accepted_extensions : [];
+    return (!mimes.length || mimes.includes(mime)) && (!extensions.length || extensions.includes(extension));
+  };
+  const acceptValue = (route: Row) => {
+    const mimes = Array.isArray(route.allowed_mime_types) ? route.allowed_mime_types : [];
+    const extensions = Array.isArray(route.accepted_extensions) ? route.accepted_extensions.map((value: string) => `.${value}`) : [];
+    return [...mimes, ...extensions].join(',') || '*/*';
+  };
+
+  const renderRecent = () => {
+    const recent = document.querySelector<HTMLElement>('#recentUploads')!;
+    recent.innerHTML = recentUploads.length ? recentUploads.map((upload) => `<article class="status-${esc(upload.processing_status || 'completed')}"><span>${upload.media_type === 'image' ? '▣' : upload.media_type === 'video' ? '▶' : upload.media_type === 'audio' ? '♪' : '⬆'}</span><div><strong>${esc(upload.title || 'Untitled upload')}</strong><small>${esc(upload.section || upload.bucket)} · ${esc(upload.processing_status || 'completed')} ${Number.isFinite(Number(upload.processing_progress)) ? `· ${Number(upload.processing_progress)}%` : ''}</small>${upload.failure_reason ? `<em>${esc(upload.failure_reason)}</em>` : ''}</div><time>${upload.created_at ? new Date(upload.created_at).toLocaleDateString() : ''}</time></article>`).join('') : '<div class="empty"><b>⬆</b><strong>No uploads yet</strong><span>Your first elite drop will appear here.</span></div>';
+  };
+
+  const renderSnapshot = (snapshot: Row) => {
+    routes = (snapshot.routes ?? []) as Row[];
+    recentUploads = (snapshot.recent_uploads ?? []) as Row[];
+    profile = (snapshot.profile ?? {}) as Row;
+    if (!routes.length) throw new Error('No active upload routes are configured.');
+    const sections = [...new Set(routes.map((route) => String(route.section)))];
+    document.querySelector<HTMLElement>('#creatorChip')!.innerHTML = `<img src="${esc(profile.avatar_url || '/brand/icons/profile-placeholder.svg')}" alt=""><div><strong>${esc(profile.display_name || profile.username || 'Rich Creator')}</strong><span>${esc(profile.rank_title || 'CREATOR')} · LVL ${Number(profile.rich_level ?? 1)}</span></div>`;
+    document.querySelector<HTMLElement>('#heroStats')!.innerHTML = `<article><small>DESTINATIONS</small><strong>${routes.length}</strong><span>${sections.length} connected sections</span></article><article><small>MY UPLOADS</small><strong>${Number(snapshot.total_uploads ?? 0)}</strong><span>${Number(snapshot.queued_uploads ?? 0)} processing</span></article><article><small>PIPELINE HEALTH</small><strong>${Number(snapshot.failed_uploads ?? 0) === 0 ? '100%' : 'CHECK'}</strong><span>${Number(snapshot.failed_uploads ?? 0)} failed uploads</span></article>`;
+    document.querySelector<HTMLElement>('#routeCount')!.textContent = `${routes.length} secure routes`;
+    routeKey.innerHTML = routes.map((route) => `<option value="${esc(route.route_key)}">${esc(String(route.section).toUpperCase())} · ${esc(route.route_key)}</option>`).join('');
+    document.querySelector<HTMLElement>('#routeChips')!.innerHTML = sections.map((section) => `<button type="button" class="route-chip" data-section="${esc(section)}"><b>${routeIcon(section)}</b><span>${esc(section.toUpperCase())}</span><small>${routes.filter((route) => route.section === section).length}</small></button>`).join('');
+    const requested = new URLSearchParams(location.search).get('route');
+    const requestedRoute = routes.find((route) => route.route_key === requested) ?? routes.find((route) => route.section === requested);
+    if (requestedRoute) routeKey.value = requestedRoute.route_key;
+    document.querySelectorAll<HTMLButtonElement>('.route-chip').forEach((chip) => chip.onclick = () => {
+      const first = routes.find((route) => route.section === chip.dataset.section);
+      if (!first) return;
+      routeKey.value = first.route_key;
+      renderRoute();
+      document.querySelector('.upload-console')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+    renderRecent();
+    renderRoute();
+    state.textContent = 'SYSTEM READY';
+  };
+
+  const renderRoute = () => {
+    const route = activeRoute();
+    if (!route) return;
+    fileInput.accept = acceptValue(route);
+    document.querySelector<HTMLElement>('#routeHint')!.textContent = `${String(route.media_type ?? 'mixed').toUpperCase()} · max ${Number(route.max_file_size_mb ?? 300)} MB · ${route.processing_type ?? 'metadata'} processing`;
+    document.querySelector<HTMLElement>('#routeBlueprint')!.innerHTML = `<article><small>SECTION</small><strong>${esc(String(route.section).toUpperCase())}</strong></article><article><small>BUCKET</small><strong>${esc(route.bucket)}</strong></article><article><small>MEDIA</small><strong>${esc(String(route.media_type ?? 'mixed').toUpperCase())}</strong></article><article><small>ACCESS</small><strong>${route.is_public === false ? 'PRIVATE VAULT' : 'PUBLIC CDN'}</strong></article>`;
+    document.querySelector<HTMLElement>('#routeIntel')!.innerHTML = `<div class="intel-world"><b>${routeIcon(route.section)}</b><div><small>ACTIVE WORLD</small><h3>${esc(String(route.section).toUpperCase())}</h3><p>${esc(route.route_key)}</p></div></div><dl><div><dt>Storage bucket</dt><dd>${esc(route.bucket)}</dd></div><div><dt>Database target</dt><dd>${esc(route.target_table || 'uploads')}</dd></div><div><dt>Target field</dt><dd>${esc(route.target_column || 'public_url')}</dd></div><div><dt>Processing</dt><dd>${esc(route.processing_type || 'metadata')}</dd></div><div><dt>Maximum size</dt><dd>${Number(route.max_file_size_mb ?? 300)} MB</dd></div></dl>`;
+    document.querySelectorAll<HTMLElement>('.route-chip').forEach((chip) => chip.classList.toggle('active', chip.dataset.section === route.section));
+    if (selected && !accepted(selected, route)) setFile(null);
+  };
+
+  const setFile = (file: File | null) => {
+    clearPreview();
+    selected = file;
+    if (!file) {
+      preview.innerHTML = '<div class="preview-empty"><b>4K</b><span>Preview chamber ready</span></div>';
+      fileMeta.textContent = 'NO FILE';
+      fileInput.value = '';
+      return;
+    }
+    const route = activeRoute();
+    const max = Number(route.max_file_size_mb ?? 300) * 1024 * 1024;
+    if (!accepted(file, route)) {
+      selected = null;
+      fileMeta.textContent = 'REJECTED';
+      setMessage('This file type is not accepted by the selected destination.');
+      return;
+    }
+    if (file.size > max) {
+      selected = null;
+      fileMeta.textContent = 'REJECTED';
+      setMessage(`File exceeds the ${Number(route.max_file_size_mb ?? 300)} MB route limit.`);
+      return;
+    }
+    previewUrl = URL.createObjectURL(file);
+    const kind = kindFor(file.type);
+    preview.innerHTML = kind === 'image' ? `<img src="${previewUrl}" alt="Upload preview">` : kind === 'video' ? `<video src="${previewUrl}" controls playsinline preload="metadata"></video>` : kind === 'audio' ? `<div class="audio-preview"><b>♪</b><strong>${esc(file.name)}</strong><audio src="${previewUrl}" controls preload="metadata"></audio></div>` : `<div class="file-preview"><b>⬆</b><strong>${esc(file.name)}</strong><small>${formatSize(file.size)}</small></div>`;
+    fileMeta.textContent = `${kind.toUpperCase()} · ${formatSize(file.size)}`;
+    setMessage('Media verified locally. Server validation will run on registration.');
+  };
+
+  const loadSnapshot = async () => {
+    const { data, error } = await supabase.rpc('rb_upload_snapshot', { p_limit: 20 });
+    if (error) throw error;
+    if (!disposed) renderSnapshot((data ?? {}) as Row);
+  };
+
+  routeKey.onchange = renderRoute;
+  document.querySelector<HTMLButtonElement>('#pickFile')!.onclick = () => fileInput.click();
+  document.querySelector<HTMLButtonElement>('#refreshUploads')!.onclick = () => void loadSnapshot().catch((error) => setMessage(error.message));
+  fileInput.onchange = () => setFile(fileInput.files?.[0] ?? null);
+  const dragHandler = (event: DragEvent) => {
+    event.preventDefault();
+    dropZone.classList.toggle('active', event.type === 'dragenter' || event.type === 'dragover');
+    if (event.type === 'drop') setFile(event.dataTransfer?.files?.[0] ?? null);
+  };
+  ['dragenter', 'dragover', 'dragleave', 'drop'].forEach((name) => dropZone.addEventListener(name, dragHandler as EventListener));
+
+  form.onsubmit = async (event) => {
+    event.preventDefault();
+    if (uploading || !selected) { if (!selected) setMessage('Choose a file first.'); return; }
+    const route = activeRoute();
+    if (!accepted(selected, route)) { setMessage('File validation no longer matches the selected route.'); return; }
+    uploading = true;
+    button.disabled = true;
+    state.textContent = 'UPLOADING';
+    state.classList.add('working');
+    bar.style.width = '12%';
+    const file = selected;
+    let path = '';
+    try {
+      const extension = file.name.split('.').pop()?.replace(/[^a-z0-9]/gi, '').toLowerCase() || 'bin';
+      path = `${user.id}/${route.route_key}/${new Date().toISOString().slice(0, 10)}/${crypto.randomUUID()}.${extension}`;
+      bar.style.width = '35%';
+      const { error: storageError } = await supabase.storage.from(route.bucket).upload(path, file, { cacheControl: '31536000', contentType: file.type || 'application/octet-stream', upsert: false });
+      if (storageError) throw storageError;
+      bar.style.width = '72%';
+      const publicUrl = route.is_public === false ? `private://${route.bucket}/${path}` : supabase.storage.from(route.bucket).getPublicUrl(path).data.publicUrl;
+      const { error: registerError } = await supabase.rpc('rb_register_upload', {
+        p_route_key: route.route_key,
+        p_title: (document.querySelector<HTMLInputElement>('#title')!.value || '').trim(),
+        p_description: (document.querySelector<HTMLTextAreaElement>('#description')!.value || '').trim(),
+        p_file_path: path,
+        p_public_url: publicUrl,
+        p_mime_type: file.type || 'application/octet-stream',
+        p_file_size: file.size,
+        p_visibility: document.querySelector<HTMLSelectElement>('#visibility')!.value,
+        p_metadata: { original_name: file.name, source: 'upload_command', client_kind: kindFor(file.type) }
+      });
+      if (registerError) {
+        await supabase.storage.from(route.bucket).remove([path]);
+        throw registerError;
+      }
+      bar.style.width = '100%';
+      state.textContent = route.processing_type === 'metadata' ? 'PUBLISHED' : 'PROCESSING';
+      setMessage(route.processing_type === 'metadata' ? 'Upload published successfully.' : 'Upload secured and queued for processing.');
+      setFile(null);
+      form.reset();
+      routeKey.value = route.route_key;
+      renderRoute();
+      await loadSnapshot();
+    } catch (error) {
+      state.textContent = 'UPLOAD FAILED';
+      setMessage(error instanceof Error ? error.message : 'Upload failed.');
+      bar.style.width = '0%';
+    } finally {
+      uploading = false;
+      button.disabled = false;
+      state.classList.remove('working');
+    }
+  };
+
+  channel = supabase.channel(`upload-owner:${user.id}`).on('postgres_changes', { event: '*', schema: 'public', table: 'uploads', filter: `user_id=eq.${user.id}` }, () => void loadSnapshot()).subscribe();
+
+  const cleanup = () => {
+    if (disposed) return;
+    disposed = true;
+    clearPreview();
+    if (channel) void supabase.removeChannel(channel);
+  };
+  window.addEventListener('pagehide', cleanup, { once: true });
+  window.addEventListener('beforeunload', cleanup, { once: true });
+
+  await loadSnapshot();
 }
