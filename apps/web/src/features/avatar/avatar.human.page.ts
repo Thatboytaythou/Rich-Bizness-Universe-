@@ -18,6 +18,8 @@ export async function mount():Promise<void>{
   const root=document.querySelector<HTMLElement>('#app');
   if(!root||root.dataset.humanAvatarOwner==='mounted')return;
   root.dataset.humanAvatarOwner='mounted';
+  const lifecycle=new AbortController();
+  const signal=lifecycle.signal;
   const user=getAuthSnapshot().user;
   if(!user){location.replace('/tap-in.html?next=%2Favatar-characters.html');return;}
 
@@ -41,7 +43,7 @@ export async function mount():Promise<void>{
   });
 
   const renderer=new THREE.WebGLRenderer({canvas:ui.canvas,antialias:true,alpha:true,powerPreference:'high-performance'});
-  renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+  renderer.setPixelRatio(Math.min(devicePixelRatio||1,2));
   renderer.outputColorSpace=THREE.SRGBColorSpace;
   renderer.shadowMap.enabled=true;
   renderer.shadowMap.type=THREE.PCFSoftShadowMap;
@@ -78,16 +80,19 @@ export async function mount():Promise<void>{
   const keys=new Set<string>();
   const clock=new THREE.Clock();
   const velocity=new THREE.Vector3();
+  const targetVelocity=new THREE.Vector3();
   const trigger=(next:string)=>{action=next;until=performance.now()+1500;ui.state.textContent=next.toUpperCase();};
   const resize=()=>{const width=Math.max(1,ui.canvas.clientWidth),height=Math.max(1,ui.canvas.clientHeight);renderer.setSize(width,height,false);camera.aspect=width/height;camera.updateProjectionMatrix();};
   const ro=new ResizeObserver(resize);ro.observe(ui.canvas);resize();
-  const kd=(event:KeyboardEvent)=>{keys.add(event.code);if(event.code==='Space'&&grounded){jump=6.7;grounded=false;}};
+  const kd=(event:KeyboardEvent)=>{keys.add(event.code);if(event.code==='Space'&&grounded){event.preventDefault();jump=6.7;grounded=false;}};
   const ku=(event:KeyboardEvent)=>keys.delete(event.code);
-  window.addEventListener('keydown',kd);window.addEventListener('keyup',ku);
-  ui.canvas.onpointerdown=event=>{drag=true;lastX=event.clientX;lastY=event.clientY;ui.canvas.setPointerCapture(event.pointerId);};
-  ui.canvas.onpointermove=event=>{if(!drag)return;yaw-=(event.clientX-lastX)*.008;pitch=Math.max(-.12,Math.min(.28,pitch+(event.clientY-lastY)*.004));lastX=event.clientX;lastY=event.clientY;};
-  ui.canvas.onpointerup=()=>{drag=false;};
-  ui.canvas.onpointercancel=()=>{drag=false;};
+  window.addEventListener('keydown',kd,{signal});
+  window.addEventListener('keyup',ku,{signal});
+  ui.canvas.addEventListener('pointerdown',event=>{drag=true;lastX=event.clientX;lastY=event.clientY;ui.canvas.setPointerCapture(event.pointerId);},{signal});
+  ui.canvas.addEventListener('pointermove',event=>{if(!drag)return;yaw-=(event.clientX-lastX)*.008;pitch=Math.max(-.12,Math.min(.28,pitch+(event.clientY-lastY)*.004));lastX=event.clientX;lastY=event.clientY;},{signal});
+  const stopDrag=()=>{drag=false;};
+  ui.canvas.addEventListener('pointerup',stopDrag,{signal});
+  ui.canvas.addEventListener('pointercancel',stopDrag,{signal});
 
   ui.onCamera=mode=>{zoom=mode==='portrait'?5.6:mode==='street'?10.2:8.8;pitch=mode==='portrait'?.02:.035;};
   ui.onMotion=trigger;
@@ -96,17 +101,19 @@ export async function mount():Promise<void>{
   ui.onJoystick=value=>{touch=value;};
   ui.onAura=value=>{aura=value;rebuild();ui.refresh(preset,aura);};
   ui.onPreset=value=>{preset=presets.find(x=>x.preset_key===value)??preset;aura=preset?.aura??aura;rebuild();ui.refresh(preset,aura);history.replaceState(null,'',`/avatar-characters.html?preset=${encodeURIComponent(preset?.preset_key??'')}`);};
-  ui.onReset=()=>{yaw=0;pitch=.035;zoom=matchMedia('(max-width: 640px)').matches?9.8:8.8;actor.position.set(0,0,0);};
-  ui.onSave=async()=>{ui.status.textContent='Synchronizing GTA-style human character…';const{error:saveError}=await supabase.rpc('rb_save_avatar_studio',{p_display_name:ui.nameInput.value.trim(),p_preset_key:preset?.preset_key??'boss',p_aura:aura,p_outfit:{preset:preset?.outfit??'Rich Street',character:preset?.config??{},rig:'human-v3-proportioned'},p_accessories:{signature:preset?.config?.signature??null},p_smoke:{mode:preset?.config?.smoke??'cinematic',intensity:'elite'},p_emotes:{idle:true,power_up:true,combat_pose:true},p_character_type:preset?.preset_key??'custom'});ui.status.textContent=saveError?saveError.message:'Character synced across Profile, Portal, Meta and the avatar universe.';};
+  ui.onReset=()=>{yaw=0;pitch=.035;zoom=matchMedia('(max-width: 640px)').matches?9.8:8.8;actor.position.set(0,0,0);velocity.set(0,0,0);};
+  ui.onSave=async()=>{ui.status.textContent='Synchronizing cinematic human character…';const{error:saveError}=await supabase.rpc('rb_save_avatar_studio',{p_display_name:ui.nameInput.value.trim(),p_preset_key:preset?.preset_key??'boss',p_aura:aura,p_outfit:{preset:preset?.outfit??'Rich Street',character:preset?.config??{},rig:'human-v3-proportioned'},p_accessories:{signature:preset?.config?.signature??null},p_smoke:{mode:preset?.config?.smoke??'cinematic',intensity:'elite'},p_emotes:{idle:true,power_up:true,combat_pose:true},p_character_type:preset?.preset_key??'custom'});ui.status.textContent=saveError?saveError.message:'Character synced across Profile, Portal, Meta and the avatar universe.';};
 
   const loop=()=>{
     raf=requestAnimationFrame(loop);
+    if(document.hidden)return;
     const dt=Math.min(clock.getDelta(),.033),time=clock.elapsedTime;
     const ix=(keys.has('KeyD')?1:0)-(keys.has('KeyA')?1:0)+touch.x;
     const iz=(keys.has('KeyS')?1:0)-(keys.has('KeyW')?1:0)+touch.y;
     const moving=Math.abs(ix)+Math.abs(iz)>.08,sprint=keys.has('ShiftLeft'),locomotion=!grounded?'jump':moving?(sprint?'run':'walk'):'idle';
     if(performance.now()>until)action='none';
-    velocity.lerp(new THREE.Vector3(ix*(sprint?5.5:3.1),0,iz*(sprint?5.5:3.1)),Math.min(1,dt*8));
+    targetVelocity.set(ix*(sprint?5.5:3.1),0,iz*(sprint?5.5:3.1));
+    velocity.lerp(targetVelocity,Math.min(1,dt*8));
     actor.position.addScaledVector(velocity,dt);
     jump-=18*dt;actor.position.y=Math.max(0,actor.position.y+jump*dt);
     if(actor.position.y<=0){actor.position.y=0;jump=0;grounded=true;}
@@ -119,7 +126,7 @@ export async function mount():Promise<void>{
   };
   loop();
 
-  const cleanup=()=>{if(cleaned)return;cleaned=true;cancelAnimationFrame(raf);ro.disconnect();window.removeEventListener('keydown',kd);window.removeEventListener('keyup',ku);disposeActor();floor.geometry.dispose();(floor.material as THREE.Material).dispose();portalRing.geometry.dispose();portalRing.material.dispose();renderer.dispose();ui.cleanup();};
-  window.addEventListener('pagehide',cleanup,{once:true});
-  window.addEventListener('beforeunload',cleanup,{once:true});
+  const cleanup=()=>{if(cleaned)return;cleaned=true;lifecycle.abort();cancelAnimationFrame(raf);ro.disconnect();disposeActor();floor.geometry.dispose();(floor.material as THREE.Material).dispose();portalRing.geometry.dispose();portalRing.material.dispose();renderer.dispose();ui.cleanup();document.documentElement.style.removeProperty('--avatar-accent');};
+  window.addEventListener('pagehide',cleanup,{once:true,signal});
+  window.addEventListener('beforeunload',cleanup,{once:true,signal});
 }
