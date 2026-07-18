@@ -7,13 +7,13 @@ export type PageRegistration = Readonly<{
 
 const pageModules: Record<string, PageRegistration> = {
   home: { auth: 'optional', load: async () => { const module = await import('./pages/home/home.page'); return { mount: module.mountHomePage }; } },
-  'tap-in': { auth: 'optional', load: async () => { const module = await import('./pages/tap-in/tap-in.page'); return { mount: module.mountTapInPage }; } },
+  'tap-in': { auth: 'optional', load: async () => { await import('./pages/tap-in/tap-in.elite.css'); const module = await import('./pages/tap-in/tap-in.page'); return { mount: module.mountTapInPage }; } },
   profile: { auth: 'optional', load: async () => { const module = await import('./pages/profile/profile.page'); return { mount: module.mountProfilePage }; } },
   portal: { auth: 'required', load: async () => { const module = await import('./pages/portal/portal.page'); return { mount: module.mountPortalPage }; } },
   gaming: { auth: 'optional', load: async () => { const module = await import('./pages/gaming/gaming.v4.page'); return { mount: module.mountGamingPage }; } },
-  feed: { auth: 'optional', load: () => import('./pages/feed/feed.page') },
+  feed: { auth: 'optional', load: async () => { await import('./pages/feed/feed-elite.css'); return import('./pages/feed/feed.page'); } },
   gallery: { auth: 'optional', load: () => import('./pages/gallery/gallery.page') },
-  live: { auth: 'optional', load: () => import('./pages/live/live.page') },
+  live: { auth: 'optional', load: async () => { await import('./styles/live-command-v4.css'); return import('./pages/live/live.page'); } },
   music: { auth: 'optional', load: () => import('./pages/music/music.page') },
   podcast: { auth: 'optional', load: () => import('./pages/podcast/podcast.page') },
   radio: { auth: 'optional', load: () => import('./pages/radio/radio.page') },
@@ -29,7 +29,7 @@ const pageModules: Record<string, PageRegistration> = {
   messages: { auth: 'required', load: () => import('./features/communications/messages.page') },
   upload: { auth: 'required', load: () => import('./features/upload/upload.page') },
   search: { auth: 'optional', load: () => import('./features/search/search.page') },
-  watch: { auth: 'optional', load: () => import('./features/watch/watch.page') },
+  watch: { auth: 'optional', load: async () => { await import('./features/watch/watch-elite.css'); return import('./features/watch/watch.page'); } },
   avatar: { auth: 'required', load: () => import('./features/avatar/avatar.entry') },
   'avatar-characters': { auth: 'required', load: () => import('./features/avatar/avatar.characters.entry') }
 };
