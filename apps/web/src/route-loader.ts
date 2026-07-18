@@ -8,7 +8,23 @@ export type PageRegistration = Readonly<{
 const pageModules: Record<string, PageRegistration> = {
   home: { auth: 'optional', load: async () => { const module = await import('./pages/home/home.page'); return { mount: module.mountHomePage }; } },
   'tap-in': { auth: 'optional', load: async () => { const module = await import('./pages/tap-in/tap-in.page'); return { mount: module.mountTapInPage }; } },
-  profile: { auth: 'optional', load: async () => { const module = await import('./pages/profile/profile.page'); return { mount: module.mountProfilePage }; } },
+  profile: {
+    auth: 'optional',
+    load: async () => {
+      await import('./pages/profile/profile-motion.css');
+      const module = await import('./pages/profile/profile.page');
+      return {
+        mount: async () => {
+          const app = document.querySelector<HTMLElement>('#app');
+          if (!app) throw new Error('Missing #app mount');
+          if (app.dataset.pageOwner === 'rich-bizness-profile-v2') return;
+          app.dataset.pageOwner = 'rich-bizness-profile-v2';
+          app.replaceChildren();
+          await module.mountProfilePage();
+        }
+      };
+    }
+  },
   portal: {
     auth: 'required',
     load: async () => {
