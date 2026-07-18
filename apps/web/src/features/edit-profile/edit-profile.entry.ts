@@ -1,1 +1,0 @@
-export { mount } from './edit-profile.page';
