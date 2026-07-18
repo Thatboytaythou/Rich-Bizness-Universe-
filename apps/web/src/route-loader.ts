@@ -70,7 +70,23 @@ const pageModules: Record<string, PageRegistration> = {
   creator: { auth: 'required', load: () => import('./pages/creator/creator.page') },
   'creator-dimensions': { auth: 'required', load: () => import('./pages/creator/creator-dimensions.page') },
   admin: { auth: 'required', load: () => import('./pages/admin/admin.page') },
-  'edit-profile': { auth: 'required', load: () => import('./features/edit-profile/edit-profile.entry') },
+  'edit-profile': {
+    auth: 'required',
+    load: async () => {
+      await import('./features/edit-profile/edit-profile-motion.css');
+      const module = await import('./features/edit-profile/edit-profile.page');
+      return {
+        mount: async () => {
+          const app = document.querySelector<HTMLElement>('#app');
+          if (!app) throw new Error('Missing #app mount');
+          if (app.dataset.pageOwner === 'rich-bizness-edit-profile-v2') return;
+          app.dataset.pageOwner = 'rich-bizness-edit-profile-v2';
+          app.replaceChildren();
+          await module.mount();
+        }
+      };
+    }
+  },
   settings: { auth: 'required', load: () => import('./features/communications/settings.page') },
   notifications: { auth: 'required', load: () => import('./features/communications/notifications.page') },
   messages: { auth: 'required', load: () => import('./features/communications/messages.page') },
