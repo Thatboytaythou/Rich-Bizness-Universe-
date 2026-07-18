@@ -69,7 +69,31 @@ const pageModules: Record<string, PageRegistration> = {
   },
   creator: { auth: 'required', load: () => import('./pages/creator/creator.page') },
   'creator-dimensions': { auth: 'required', load: () => import('./pages/creator/creator-dimensions.page') },
-  admin: { auth: 'required', load: () => import('./pages/admin/admin.page') },
+  admin: {
+    auth: 'required',
+    load: async () => {
+      await import('./pages/admin/admin-secret-motion.css');
+      const [module, doors] = await Promise.all([
+        import('./pages/admin/admin.page'),
+        import('./pages/admin/admin-secret-doors')
+      ]);
+      return {
+        mount: async () => {
+          const app = document.querySelector<HTMLElement>('#app');
+          if (!app) throw new Error('Missing #app mount');
+          if (app.dataset.pageOwner === 'rich-bizness-admin-v3') return;
+          app.dataset.pageOwner = 'rich-bizness-admin-v3';
+          app.replaceChildren();
+          await module.mount();
+          doors.mountAdminSecretDoors(app);
+        }
+      };
+    }
+  },
+  'secret-on-the-go-day': { auth: 'required', load: () => import('./pages/admin/admin-secret.page') },
+  'secret-businesses': { auth: 'required', load: () => import('./pages/admin/admin-secret.page') },
+  'secret-movies': { auth: 'required', load: () => import('./pages/admin/admin-secret.page') },
+  'secret-private-world': { auth: 'required', load: () => import('./pages/admin/admin-secret.page') },
   'edit-profile': {
     auth: 'required',
     load: async () => {
