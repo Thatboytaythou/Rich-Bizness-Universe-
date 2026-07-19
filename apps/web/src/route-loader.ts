@@ -14,7 +14,7 @@ const pageModules: Record<string, PageRegistration> = {
   music: { auth: 'optional', load: () => import('./pages/music/music.page') },
   podcast: { auth: 'optional', load: () => import('./pages/podcast/podcast.page') },
   radio: { auth: 'optional', load: () => import('./pages/radio/radio.page') },
-  sports: { auth: 'optional', load: () => import('./pages/sports/sports.page') },
+  sports: { auth: 'optional', load: async () => { const module=await import('./pages/sports/sports.page'); return { mount: async () => { const app=document.querySelector<HTMLElement>('#app'); if(!app) throw new Error('Missing #app mount'); if(app.dataset.pageOwner==='rich-bizness-sports-v3') return; app.dataset.pageOwner='rich-bizness-sports-v3'; app.replaceChildren(); await module.mount(); } }; } },
   store: { auth: 'optional', load: () => import('./pages/store/store.page') },
   meta: { auth: 'required', load: async () => { await import('./pages/meta/meta-premium.css'); const module=await import('./pages/meta/meta.page'); return { mount: async () => { const app=document.querySelector<HTMLElement>('#app'); if(!app) throw new Error('Missing #app mount'); if(app.dataset.pageOwner==='rich-bizness-meta-v3') return; app.dataset.pageOwner='rich-bizness-meta-v3'; app.replaceChildren(); await module.mount(); } }; } },
   creator: { auth: 'required', load: async () => { const module=await import('./pages/creator/creator.page'); return { mount: async () => { const app=document.querySelector<HTMLElement>('#app'); if(!app) throw new Error('Missing #app mount'); if(app.dataset.pageOwner==='rich-bizness-creator-v4') return; app.dataset.pageOwner='rich-bizness-creator-v4'; app.replaceChildren(); await module.mount(); } }; } },
