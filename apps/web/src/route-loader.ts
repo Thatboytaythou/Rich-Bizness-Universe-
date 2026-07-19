@@ -11,7 +11,7 @@ const pageModules: Record<string, PageRegistration> = {
   feed: { auth: 'optional', load: async () => { await import('./pages/feed/feed-elite.css'); return import('./pages/feed/feed.page'); } },
   gallery: { auth: 'optional', load: () => import('./pages/gallery/gallery.page') },
   live: { auth: 'optional', load: async () => { await import('./styles/live-command-v4.css'); return import('./pages/live/live.page'); } },
-  music: { auth: 'optional', load: () => import('./pages/music/music.page') },
+  music: { auth: 'optional', load: async () => { const module=await import('./pages/music/music.page'); return { mount: async () => { const app=document.querySelector<HTMLElement>('#app'); if(!app) throw new Error('Missing #app mount'); if(app.dataset.pageOwner==='rich-bizness-music-v3') return; app.dataset.pageOwner='rich-bizness-music-v3'; app.replaceChildren(); await module.mount(); } }; } },
   podcast: { auth: 'optional', load: () => import('./pages/podcast/podcast.page') },
   radio: { auth: 'optional', load: () => import('./pages/radio/radio.page') },
   sports: { auth: 'optional', load: async () => { const module=await import('./pages/sports/sports.page'); return { mount: async () => { const app=document.querySelector<HTMLElement>('#app'); if(!app) throw new Error('Missing #app mount'); if(app.dataset.pageOwner==='rich-bizness-sports-v3') return; app.dataset.pageOwner='rich-bizness-sports-v3'; app.replaceChildren(); await module.mount(); } }; } },
