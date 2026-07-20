@@ -1,6 +1,6 @@
 import { getAuthSnapshot } from '../../core/auth/auth-store';
 import { supabase } from '../../core/supabase/client';
-import './feed.css';
+import './feed-universe.css';
 
 type Row=Record<string,any>;
 type Channel=ReturnType<typeof supabase.channel>;
@@ -24,10 +24,11 @@ export async function mount():Promise<void>{
  const act=async(action:string,id:string,payload:Row={})=>{if(action!=='view'&&!authRequired())return;const {error}=await supabase.rpc('rb_feed_action',{p_action:action,p_payload:{...payload,post_id:id,session_id:session}});if(error)return msg(error.message);await load();};
  const open=async(p:Row)=>{active=p;modal.hidden=false;document.body.style.overflow='hidden';await load();if(commentChannel)await supabase.removeChannel(commentChannel);commentChannel=supabase.channel(`feed-comments:${p.id}`).on('postgres_changes',{event:'*',schema:'public',table:'feed_comments',filter:`post_id=eq.${p.id}`},()=>void load()).subscribe();};
  const close=async()=>{modal.hidden=true;document.body.style.overflow='';active=null;if(commentChannel){await supabase.removeChannel(commentChannel);commentChannel=null;}};
- root.querySelector<HTMLButtonElement>('#feedModalClose')!.onclick=()=>void close();modal.onclick=e=>{if(e.target===modal)void close();};window.onkeydown=e=>{if(e.key==='Escape'&&!modal.hidden)void close();};
+ const onKeydown=(e:KeyboardEvent)=>{if(e.key==='Escape'&&!modal.hidden)void close();};
+ root.querySelector<HTMLButtonElement>('#feedModalClose')!.onclick=()=>void close();modal.onclick=e=>{if(e.target===modal)void close();};window.addEventListener('keydown',onKeydown);
  modalForm.onsubmit=async e=>{e.preventDefault();if(!active||!authRequired())return;const input=modalForm.querySelector<HTMLInputElement>('input')!,body=input.value.trim();if(!body)return;await act('comment',active.id,{body});input.value='';};
  root.querySelector<HTMLFormElement>('#composer')!.onsubmit=async e=>{e.preventDefault();if(!authRequired())return;const body=root.querySelector<HTMLTextAreaElement>('#postBody')!.value.trim(),section=root.querySelector<HTMLSelectElement>('#postSection')!.value;if(!body)return msg('WRITE SOMETHING FIRST');const {error}=await supabase.rpc('rb_feed_action',{p_action:'create_post',p_payload:{body,section}});if(error)return msg(error.message);root.querySelector<HTMLTextAreaElement>('#postBody')!.value='';msg('POST LIVE');await load();};
  const observer=new IntersectionObserver(es=>{for(const e of es){if(e.isIntersecting&&e.intersectionRatio>.55){const id=(e.target as HTMLElement).dataset.post;if(id){void act('view',id);observer.unobserve(e.target);}}}},{threshold:[.55]});
  renderTabs();await load();postsEl.querySelectorAll<HTMLElement>('[data-post]').forEach(n=>observer.observe(n));channel=supabase.channel('rich-feed-owner').on('postgres_changes',{event:'*',schema:'public',table:'feed_posts'},()=>{clearTimeout(refreshTimer);refreshTimer=window.setTimeout(()=>void load(),180);}).subscribe();
- const cleanup=()=>{if(disposed)return;disposed=true;observer.disconnect();clearTimeout(refreshTimer);document.body.style.overflow='';root.querySelectorAll('video,audio').forEach(m=>{const x=m as HTMLMediaElement;x.pause();x.removeAttribute('src');x.load();});if(channel)void supabase.removeChannel(channel);if(commentChannel)void supabase.removeChannel(commentChannel);};window.addEventListener('pagehide',cleanup,{once:true});window.addEventListener('beforeunload',cleanup,{once:true});
+ const cleanup=()=>{if(disposed)return;disposed=true;observer.disconnect();clearTimeout(refreshTimer);document.body.style.overflow='';window.removeEventListener('keydown',onKeydown);root.querySelectorAll('video,audio').forEach(m=>{const x=m as HTMLMediaElement;x.pause();x.removeAttribute('src');x.load();});if(channel)void supabase.removeChannel(channel);if(commentChannel)void supabase.removeChannel(commentChannel);delete root.dataset.mounted;};window.addEventListener('pagehide',cleanup,{once:true});window.addEventListener('beforeunload',cleanup,{once:true});
 }
