@@ -1,0 +1,17 @@
+@import './feed.css';
+
+/* Canonical Feed-only enhancement layer. This file is the single visual entry imported by feed.page.ts. */
+.feed-command{background:linear-gradient(110deg,rgba(0,0,0,.91),rgba(0,0,0,.28)),radial-gradient(circle at 80% 20%,rgba(247,201,72,.16),transparent 24%),radial-gradient(circle at 20% 30%,rgba(49,255,99,.22),transparent 34%),url('/images/0E886281-8F03-4288-B3CA-C45369B7B58E.png') center/cover,#061008;position:relative}
+.feed-command:after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,rgba(0,0,0,.38),transparent 72%);pointer-events:none}
+.feed-command>div{position:relative;z-index:1}
+.feed-command h2{font-family:Georgia,"Times New Roman",serif}
+.feed-command-links{position:relative;z-index:1;display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end}
+.feed-card.pinned{border-color:rgba(247,201,72,.38);box-shadow:0 28px 90px rgba(0,0,0,.48),0 0 42px rgba(247,201,72,.075)}
+.feed-card.featured{border-color:rgba(49,255,99,.3);box-shadow:0 28px 90px rgba(0,0,0,.45),0 0 38px rgba(49,255,99,.06)}
+.feed-card-actions button:disabled,.feed-button:disabled{opacity:.5;cursor:not-allowed}
+.feed-modal-card{width:min(920px,100%);background:linear-gradient(160deg,#08130a,#020402 72%)}
+.feed-modal-card .feed-comments{display:block;padding:18px}
+.feed-modal-card .feed-comment-list{max-height:42svh}
+.feed-modal-card .feed-comment-form{position:sticky;bottom:0;padding-top:12px;background:linear-gradient(180deg,transparent,#030704 28%)}
+@media(max-width:760px){.feed-command-links{justify-content:flex-start}.feed-modal-card .feed-comment-list{max-height:44svh}}
+@media(prefers-reduced-motion:reduce){.feed-command,.feed-modal{scroll-behavior:auto}}
