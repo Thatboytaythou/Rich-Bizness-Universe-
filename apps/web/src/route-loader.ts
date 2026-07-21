@@ -2,33 +2,69 @@ export type PageModule = Readonly<{ mount: () => void | Promise<void> }>;
 export type AuthPolicy = 'public' | 'optional' | 'required';
 export type PageRegistration = Readonly<{ auth: AuthPolicy; load: () => Promise<PageModule> }>;
 
+type MountModule = Readonly<Record<string, unknown>>;
+type RegistrationOptions = Readonly<{
+  auth: AuthPolicy;
+  owner: string;
+  loadModule: () => Promise<MountModule>;
+  exportName?: string;
+  preload?: readonly (() => Promise<unknown>)[];
+}>;
+
+function guardedRegistration({ auth, owner, loadModule, exportName = 'mount', preload = [] }: RegistrationOptions): PageRegistration {
+  return {
+    auth,
+    load: async () => {
+      if (preload.length) await Promise.all(preload.map((load) => load()));
+      const module = await loadModule();
+      const mount = module[exportName];
+      if (typeof mount !== 'function') throw new Error(`Missing ${exportName}() for ${owner}`);
+
+      return {
+        mount: async () => {
+          const app = document.querySelector<HTMLElement>('#app');
+          if (!app) throw new Error('Missing #app mount');
+          if (app.dataset.pageOwner === owner) return;
+
+          app.dataset.pageOwner = owner;
+          app.replaceChildren();
+          await (mount as () => void | Promise<void>)();
+        }
+      };
+    }
+  };
+}
+
 const pageModules: Record<string, PageRegistration> = {
   home: { auth: 'optional', load: async () => { const module = await import('./pages/home/home.page'); return { mount: module.mountHomePage }; } },
   'tap-in': { auth: 'optional', load: async () => { const module = await import('./pages/tap-in/tap-in.page'); return { mount: module.mountTapInPage }; } },
-  profile: { auth: 'optional', load: async () => { await import('./pages/profile/profile-motion.css'); const module = await import('./pages/profile/profile.page'); return { mount: async () => { const app=document.querySelector<HTMLElement>('#app'); if(!app) throw new Error('Missing #app mount'); if(app.dataset.pageOwner==='rich-bizness-profile-v2') return; app.dataset.pageOwner='rich-bizness-profile-v2'; app.replaceChildren(); await module.mountProfilePage(); } }; } },
-  portal: { auth: 'required', load: async () => { const module=await import('./pages/portal/portal.universe'); return { mount: async () => { const app=document.querySelector<HTMLElement>('#app'); if(!app) throw new Error('Missing #app mount'); if(app.dataset.pageOwner==='rich-bizness-portal-v3') return; app.dataset.pageOwner='rich-bizness-portal-v3'; app.replaceChildren(); await module.mountPortalPage(); } }; } },
-  gaming: { auth: 'optional', load: async () => { const module=await import('./pages/gaming/gaming.v4.page'); return { mount: async () => { const app=document.querySelector<HTMLElement>('#app'); if(!app) throw new Error('Missing #app mount'); if(app.dataset.pageOwner==='rich-bizness-gaming-v4') return; app.dataset.pageOwner='rich-bizness-gaming-v4'; app.replaceChildren(); await module.mountGamingPage(); } }; } },
-  feed: { auth: 'optional', load: async () => { const module=await import('./pages/feed/feed.page'); return { mount: async () => { const app=document.querySelector<HTMLElement>('#app'); if(!app) throw new Error('Missing #app mount'); if(app.dataset.pageOwner==='rich-bizness-feed-v3') return; app.dataset.pageOwner='rich-bizness-feed-v3'; app.replaceChildren(); await module.mount(); } }; } },
-  gallery: { auth: 'optional', load: async () => { const module=await import('./pages/gallery/gallery.page'); return { mount: async () => { const app=document.querySelector<HTMLElement>('#app'); if(!app) throw new Error('Missing #app mount'); if(app.dataset.pageOwner==='rich-bizness-gallery-v3') return; app.dataset.pageOwner='rich-bizness-gallery-v3'; app.replaceChildren(); await module.mount(); } }; } },
-  live: { auth: 'optional', load: async () => { await import('./pages/live/live-universe.css'); await import('./styles/live-command-v4.css'); const module=await import('./pages/live/live.page'); return { mount: async () => { const app=document.querySelector<HTMLElement>('#app'); if(!app) throw new Error('Missing #app mount'); if(app.dataset.pageOwner==='rich-bizness-live-v4') return; app.dataset.pageOwner='rich-bizness-live-v4'; app.replaceChildren(); await module.mount(); } }; } },
-  music: { auth: 'optional', load: async () => { const module=await import('./pages/music/music.page'); return { mount: async () => { const app=document.querySelector<HTMLElement>('#app'); if(!app) throw new Error('Missing #app mount'); if(app.dataset.pageOwner==='rich-bizness-music-v3') return; app.dataset.pageOwner='rich-bizness-music-v3'; app.replaceChildren(); await module.mount(); } }; } },
-  podcast: { auth: 'optional', load: async () => { const module=await import('./pages/podcast/podcast.page'); return { mount: async () => { const app=document.querySelector<HTMLElement>('#app'); if(!app) throw new Error('Missing #app mount'); if(app.dataset.pageOwner==='rich-bizness-podcast-v3') return; app.dataset.pageOwner='rich-bizness-podcast-v3'; app.replaceChildren(); await module.mount(); } }; } },
-  radio: { auth: 'optional', load: async () => { const module=await import('./pages/radio/radio.page'); return { mount: async () => { const app=document.querySelector<HTMLElement>('#app'); if(!app) throw new Error('Missing #app mount'); if(app.dataset.pageOwner==='rich-bizness-radio-v3') return; app.dataset.pageOwner='rich-bizness-radio-v3'; app.replaceChildren(); await module.mount(); } }; } },
-  sports: { auth: 'optional', load: async () => { const module=await import('./pages/sports/sports.page'); return { mount: async () => { const app=document.querySelector<HTMLElement>('#app'); if(!app) throw new Error('Missing #app mount'); if(app.dataset.pageOwner==='rich-bizness-sports-v3') return; app.dataset.pageOwner='rich-bizness-sports-v3'; app.replaceChildren(); await module.mount(); } }; } },
-  store: { auth: 'optional', load: () => import('./pages/store/store.page') },
-  meta: { auth: 'required', load: async () => { await import('./pages/meta/meta-premium.css'); const module=await import('./pages/meta/meta.page'); return { mount: async () => { const app=document.querySelector<HTMLElement>('#app'); if(!app) throw new Error('Missing #app mount'); if(app.dataset.pageOwner==='rich-bizness-meta-v3') return; app.dataset.pageOwner='rich-bizness-meta-v3'; app.replaceChildren(); await module.mount(); } }; } },
-  creator: { auth: 'required', load: async () => { const module=await import('./pages/creator/creator.page'); return { mount: async () => { const app=document.querySelector<HTMLElement>('#app'); if(!app) throw new Error('Missing #app mount'); if(app.dataset.pageOwner==='rich-bizness-creator-v4') return; app.dataset.pageOwner='rich-bizness-creator-v4'; app.replaceChildren(); await module.mount(); } }; } },
-  'creator-dimensions': { auth: 'required', load: async () => { const module=await import('./pages/creator/creator-dimensions.page'); return { mount: async () => { const app=document.querySelector<HTMLElement>('#app'); if(!app) throw new Error('Missing #app mount'); if(app.dataset.pageOwner==='rich-bizness-creator-dimensions-v3') return; app.dataset.pageOwner='rich-bizness-creator-dimensions-v3'; app.replaceChildren(); await module.mount(); } }; } },
-  admin: { auth: 'required', load: async () => { await import('./pages/admin/admin-secret-motion.css'); const module=await import('./pages/admin/admin.page'); return { mount: async () => { const app=document.querySelector<HTMLElement>('#app'); if(!app) throw new Error('Missing #app mount'); if(app.dataset.pageOwner==='rich-bizness-admin-v3') return; app.dataset.pageOwner='rich-bizness-admin-v3'; app.replaceChildren(); await module.mount(); } }; } },
-  'edit-profile': { auth: 'required', load: async () => { await import('./features/edit-profile/edit-profile-motion.css'); const module=await import('./features/edit-profile/edit-profile.page'); return { mount: async () => { const app=document.querySelector<HTMLElement>('#app'); if(!app) throw new Error('Missing #app mount'); if(app.dataset.pageOwner==='rich-bizness-edit-profile-v2') return; app.dataset.pageOwner='rich-bizness-edit-profile-v2'; app.replaceChildren(); await module.mount(); } }; } },
-  settings: { auth: 'required', load: async () => { await import('./features/communications/settings-motion.css'); const module=await import('./features/communications/settings.page'); return { mount: async () => { const app=document.querySelector<HTMLElement>('#app'); if(!app) throw new Error('Missing #app mount'); if(app.dataset.pageOwner==='rich-bizness-settings-v2') return; app.dataset.pageOwner='rich-bizness-settings-v2'; app.replaceChildren(); await module.mount(); } }; } },
-  notifications: { auth: 'required', load: async () => { await import('./features/communications/notifications-motion.css'); const module=await import('./features/communications/notifications.page'); return { mount: async () => { const app=document.querySelector<HTMLElement>('#app'); if(!app) throw new Error('Missing #app mount'); if(app.dataset.pageOwner==='rich-bizness-notifications-v2') return; app.dataset.pageOwner='rich-bizness-notifications-v2'; app.replaceChildren(); await module.mount(); } }; } },
-  messages: { auth: 'required', load: async () => { await import('./features/communications/messages-motion.css'); const module=await import('./features/communications/messages.page'); return { mount: async () => { const app=document.querySelector<HTMLElement>('#app'); if(!app) throw new Error('Missing #app mount'); if(app.dataset.pageOwner==='rich-bizness-messages-v3') return; app.dataset.pageOwner='rich-bizness-messages-v3'; app.replaceChildren(); await module.mount(); } }; } },
-  upload: { auth: 'required', load: async () => { const module=await import('./features/upload/upload.page'); return { mount: async () => { const app=document.querySelector<HTMLElement>('#app'); if(!app) throw new Error('Missing #app mount'); if(app.dataset.pageOwner==='rich-bizness-upload-v3') return; app.dataset.pageOwner='rich-bizness-upload-v3'; app.replaceChildren(); await module.mount(); } }; } },
-  search: { auth: 'optional', load: async () => { const module=await import('./features/search/search.page'); return { mount: async () => { const app=document.querySelector<HTMLElement>('#app'); if(!app) throw new Error('Missing #app mount'); if(app.dataset.pageOwner==='rich-bizness-search-v3') return; app.dataset.pageOwner='rich-bizness-search-v3'; app.replaceChildren(); await module.mount(); } }; } },
-  watch: { auth: 'optional', load: async () => { const module=await import('./features/watch/watch.page'); return { mount: async () => { const app=document.querySelector<HTMLElement>('#app'); if(!app) throw new Error('Missing #app mount'); if(app.dataset.pageOwner==='rich-bizness-watch-v3') return; app.dataset.pageOwner='rich-bizness-watch-v3'; app.replaceChildren(); await module.mount(); } }; } },
-  avatar: { auth: 'required', load: async () => { const module=await import('./features/avatar/avatar.selector.page'); return { mount: async () => { const app=document.querySelector<HTMLElement>('#app'); if(!app) throw new Error('Missing #app mount'); if(app.dataset.pageOwner==='rich-bizness-avatar-selector-v2') return; app.dataset.pageOwner='rich-bizness-avatar-selector-v2'; app.replaceChildren(); await module.mount(); } }; } },
-  'avatar-characters': { auth: 'required', load: async () => { const module=await import('./features/avatar/avatar.human.page'); return { mount: async () => { const app=document.querySelector<HTMLElement>('#app'); if(!app) throw new Error('Missing #app mount'); if(app.dataset.pageOwner==='rich-bizness-avatar-lobby-v3') return; app.dataset.pageOwner='rich-bizness-avatar-lobby-v3'; app.replaceChildren(); await module.mount(); } }; } }
+
+  profile: guardedRegistration({ auth: 'optional', owner: 'rich-bizness-profile-v2', exportName: 'mountProfilePage', preload: [() => import('./pages/profile/profile-motion.css')], loadModule: () => import('./pages/profile/profile.page') }),
+  portal: guardedRegistration({ auth: 'required', owner: 'rich-bizness-portal-v3', exportName: 'mountPortalPage', loadModule: () => import('./pages/portal/portal.universe') }),
+  gaming: guardedRegistration({ auth: 'optional', owner: 'rich-bizness-gaming-v4', exportName: 'mountGamingPage', loadModule: () => import('./pages/gaming/gaming.v4.page') }),
+  feed: guardedRegistration({ auth: 'optional', owner: 'rich-bizness-feed-v3', loadModule: () => import('./pages/feed/feed.page') }),
+  gallery: guardedRegistration({ auth: 'optional', owner: 'rich-bizness-gallery-v3', loadModule: () => import('./pages/gallery/gallery.page') }),
+  live: guardedRegistration({ auth: 'optional', owner: 'rich-bizness-live-v4', preload: [() => import('./pages/live/live-universe.css'), () => import('./styles/live-command-v4.css')], loadModule: () => import('./pages/live/live.page') }),
+  music: guardedRegistration({ auth: 'optional', owner: 'rich-bizness-music-v3', loadModule: () => import('./pages/music/music.page') }),
+  podcast: guardedRegistration({ auth: 'optional', owner: 'rich-bizness-podcast-v3', loadModule: () => import('./pages/podcast/podcast.page') }),
+  radio: guardedRegistration({ auth: 'optional', owner: 'rich-bizness-radio-v3', loadModule: () => import('./pages/radio/radio.page') }),
+  sports: guardedRegistration({ auth: 'optional', owner: 'rich-bizness-sports-v3', loadModule: () => import('./pages/sports/sports.page') }),
+  store: guardedRegistration({ auth: 'optional', owner: 'rich-bizness-store-v2', loadModule: () => import('./pages/store/store.page') }),
+  meta: guardedRegistration({ auth: 'required', owner: 'rich-bizness-meta-v3', preload: [() => import('./pages/meta/meta-premium.css')], loadModule: () => import('./pages/meta/meta.page') }),
+  creator: guardedRegistration({ auth: 'required', owner: 'rich-bizness-creator-v4', loadModule: () => import('./pages/creator/creator.page') }),
+  'creator-dimensions': guardedRegistration({ auth: 'required', owner: 'rich-bizness-creator-dimensions-v3', loadModule: () => import('./pages/creator/creator-dimensions.page') }),
+  admin: guardedRegistration({ auth: 'required', owner: 'rich-bizness-admin-v3', preload: [() => import('./pages/admin/admin-secret-motion.css')], loadModule: () => import('./pages/admin/admin.page') }),
+  'edit-profile': guardedRegistration({ auth: 'required', owner: 'rich-bizness-edit-profile-v2', preload: [() => import('./features/edit-profile/edit-profile-motion.css')], loadModule: () => import('./features/edit-profile/edit-profile.page') }),
+  settings: guardedRegistration({ auth: 'required', owner: 'rich-bizness-settings-v2', preload: [() => import('./features/communications/settings-motion.css')], loadModule: () => import('./features/communications/settings.page') }),
+  notifications: guardedRegistration({ auth: 'required', owner: 'rich-bizness-notifications-v2', preload: [() => import('./features/communications/notifications-motion.css')], loadModule: () => import('./features/communications/notifications.page') }),
+  messages: guardedRegistration({ auth: 'required', owner: 'rich-bizness-messages-v3', preload: [() => import('./features/communications/messages-motion.css')], loadModule: () => import('./features/communications/messages.page') }),
+  upload: guardedRegistration({ auth: 'required', owner: 'rich-bizness-upload-v3', loadModule: () => import('./features/upload/upload.page') }),
+  search: guardedRegistration({ auth: 'optional', owner: 'rich-bizness-search-v3', loadModule: () => import('./features/search/search.page') }),
+  watch: guardedRegistration({ auth: 'optional', owner: 'rich-bizness-watch-v3', loadModule: () => import('./features/watch/watch.page') }),
+  avatar: guardedRegistration({ auth: 'required', owner: 'rich-bizness-avatar-selector-v2', loadModule: () => import('./features/avatar/avatar.selector.page') }),
+  'avatar-characters': guardedRegistration({ auth: 'required', owner: 'rich-bizness-avatar-lobby-v3', loadModule: () => import('./features/avatar/avatar.human.page') })
 };
 
-export function getPageRegistration(page: string): PageRegistration | null { return pageModules[page] ?? null; }
+export function getPageRegistration(page: string): PageRegistration | null {
+  return pageModules[page] ?? null;
+}
