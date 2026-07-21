@@ -5,9 +5,6 @@ import { defineConfig, loadEnv } from 'vite';
 const webRoot = resolve(__dirname, 'apps/web');
 const portalBackgroundSource = resolve(__dirname, 'images/0E886281-8F03-4288-B3CA-C45369B7B58E.png');
 const portalBackgroundOutput = resolve(__dirname, 'apps/web/dist/images/0E886281-8F03-4288-B3CA-C45369B7B58E.png');
-const gamePages = new Set([
-  'rich-chess','smoke-room-cards','dj-radio-run','money-road-runner','rich-samurais-son-ninja','aura-shinobi-clash','boss-walk-battle','smoke-burst-arena','hero-villain-showdown','empire-builder','market-flip','vault-unlock','portal-room-rush','avatar-free-roam','smoke-city-hustle','treehouse-ride','studio-showdown','rich-court-king','diamond-bat-flip','golf-green-gold','gym-grind-reps','cash-rain-catcher','portal-dash','bizness-party-room','rich-color-clash','rich-spades-royale','rich-checkers-elite','crown-connect-four'
-]);
 
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, __dirname, '');
@@ -32,20 +29,6 @@ export default defineConfig(({ mode }) => {
         writeBundle() {
           mkdirSync(dirname(portalBackgroundOutput), { recursive: true });
           copyFileSync(portalBackgroundSource, portalBackgroundOutput);
-        }
-      },
-      {
-        name: 'rb-canonical-game-universe-bridge',
-        transformIndexHtml: {
-          order: 'pre' as const,
-          handler(html: string, context: { filename: string }) {
-            const name = context.filename.split(/[\\/]/).pop()?.replace(/\.html$/i, '') ?? '';
-            if (!gamePages.has(name)) return html;
-            return {
-              html,
-              tags: [{ tag: 'script', attrs: { type: 'module', src: '/src/pages/games/game-universe-bridge.ts' }, injectTo: 'body-prepend' as const }]
-            };
-          }
         }
       }
     ],
