@@ -6,6 +6,36 @@
   "outputDirectory": "apps/web/dist",
   "cleanUrls": true,
   "trailingSlash": false,
+  "redirects": [
+    { "source": "/rich-chess", "destination": "/games/rich-chess", "permanent": true },
+    { "source": "/smoke-room-cards", "destination": "/games/smoke-room-cards", "permanent": true },
+    { "source": "/dj-radio-run", "destination": "/games/dj-radio-run", "permanent": true },
+    { "source": "/money-road-runner", "destination": "/games/money-road-runner", "permanent": true },
+    { "source": "/rich-samurais-son-ninja", "destination": "/games/rich-samurais-son-ninja", "permanent": true },
+    { "source": "/aura-shinobi-clash", "destination": "/games/aura-shinobi-clash", "permanent": true },
+    { "source": "/boss-walk-battle", "destination": "/games/boss-walk-battle", "permanent": true },
+    { "source": "/smoke-burst-arena", "destination": "/games/smoke-burst-arena", "permanent": true },
+    { "source": "/hero-villain-showdown", "destination": "/games/hero-villain-showdown", "permanent": true },
+    { "source": "/empire-builder", "destination": "/games/empire-builder", "permanent": true },
+    { "source": "/market-flip", "destination": "/games/market-flip", "permanent": true },
+    { "source": "/vault-unlock", "destination": "/games/vault-unlock", "permanent": true },
+    { "source": "/portal-room-rush", "destination": "/games/portal-room-rush", "permanent": true },
+    { "source": "/avatar-free-roam", "destination": "/games/avatar-free-roam", "permanent": true },
+    { "source": "/smoke-city-hustle", "destination": "/games/smoke-city-hustle", "permanent": true },
+    { "source": "/treehouse-ride", "destination": "/games/treehouse-ride", "permanent": true },
+    { "source": "/studio-showdown", "destination": "/games/studio-showdown", "permanent": true },
+    { "source": "/rich-court-king", "destination": "/games/rich-court-king", "permanent": true },
+    { "source": "/diamond-bat-flip", "destination": "/games/diamond-bat-flip", "permanent": true },
+    { "source": "/golf-green-gold", "destination": "/games/golf-green-gold", "permanent": true },
+    { "source": "/gym-grind-reps", "destination": "/games/gym-grind-reps", "permanent": true },
+    { "source": "/cash-rain-catcher", "destination": "/games/cash-rain-catcher", "permanent": true },
+    { "source": "/portal-dash", "destination": "/games/portal-dash", "permanent": true },
+    { "source": "/bizness-party-room", "destination": "/games/bizness-party-room", "permanent": true },
+    { "source": "/rich-color-clash", "destination": "/games/rich-color-clash", "permanent": true },
+    { "source": "/rich-spades-royale", "destination": "/games/rich-spades-royale", "permanent": true },
+    { "source": "/rich-checkers-elite", "destination": "/games/rich-checkers-elite", "permanent": true },
+    { "source": "/crown-connect-four", "destination": "/games/crown-connect-four", "permanent": true }
+  ],
   "rewrites": [
     { "source": "/portal", "destination": "/portal.html" },
     { "source": "/tap-in", "destination": "/tap-in.html" },
@@ -32,77 +62,41 @@
     { "source": "/meta", "destination": "/meta.html" },
     { "source": "/avatar", "destination": "/avatar.html" },
     { "source": "/avatar-characters", "destination": "/avatar-characters.html" },
-    { "source": "/games/rich-chess", "destination": "/rich-chess" },
-    { "source": "/games/smoke-room-cards", "destination": "/smoke-room-cards" },
-    { "source": "/games/dj-radio-run", "destination": "/dj-radio-run" },
-    { "source": "/games/money-road-runner", "destination": "/money-road-runner" },
-    { "source": "/games/rich-samurais-son-ninja", "destination": "/rich-samurais-son-ninja" },
-    { "source": "/games/aura-shinobi-clash", "destination": "/aura-shinobi-clash" },
-    { "source": "/games/boss-walk-battle", "destination": "/boss-walk-battle" },
-    { "source": "/games/smoke-burst-arena", "destination": "/smoke-burst-arena" },
-    { "source": "/games/hero-villain-showdown", "destination": "/hero-villain-showdown" },
-    { "source": "/games/empire-builder", "destination": "/empire-builder" },
-    { "source": "/games/market-flip", "destination": "/market-flip" },
-    { "source": "/games/vault-unlock", "destination": "/vault-unlock" },
-    { "source": "/games/portal-room-rush", "destination": "/portal-room-rush" },
-    { "source": "/games/avatar-free-roam", "destination": "/avatar-free-roam" },
-    { "source": "/games/smoke-city-hustle", "destination": "/smoke-city-hustle" },
-    { "source": "/games/treehouse-ride", "destination": "/treehouse-ride" },
-    { "source": "/games/studio-showdown", "destination": "/studio-showdown" },
-    { "source": "/games/rich-court-king", "destination": "/rich-court-king" },
-    { "source": "/games/diamond-bat-flip", "destination": "/diamond-bat-flip" },
-    { "source": "/games/golf-green-gold", "destination": "/golf-green-gold" },
-    { "source": "/games/gym-grind-reps", "destination": "/gym-grind-reps" },
-    { "source": "/games/cash-rain-catcher", "destination": "/cash-rain-catcher" },
-    { "source": "/games/portal-dash", "destination": "/portal-dash" },
-    { "source": "/games/bizness-party-room", "destination": "/bizness-party-room" },
-    { "source": "/games/rich-color-clash", "destination": "/rich-color-clash" },
-    { "source": "/games/rich-spades-royale", "destination": "/rich-spades-royale" },
-    { "source": "/games/rich-checkers-elite", "destination": "/rich-checkers-elite" },
-    { "source": "/games/crown-connect-four", "destination": "/crown-connect-four" }
+    { "source": "/games/rich-chess", "destination": "/rich-chess.html" },
+    { "source": "/games/smoke-room-cards", "destination": "/smoke-room-cards.html" },
+    { "source": "/games/dj-radio-run", "destination": "/dj-radio-run.html" },
+    { "source": "/games/money-road-runner", "destination": "/money-road-runner.html" },
+    { "source": "/games/rich-samurais-son-ninja", "destination": "/rich-samurais-son-ninja.html" },
+    { "source": "/games/aura-shinobi-clash", "destination": "/aura-shinobi-clash.html" },
+    { "source": "/games/boss-walk-battle", "destination": "/boss-walk-battle.html" },
+    { "source": "/games/smoke-burst-arena", "destination": "/smoke-burst-arena.html" },
+    { "source": "/games/hero-villain-showdown", "destination": "/hero-villain-showdown.html" },
+    { "source": "/games/empire-builder", "destination": "/empire-builder.html" },
+    { "source": "/games/market-flip", "destination": "/market-flip.html" },
+    { "source": "/games/vault-unlock", "destination": "/vault-unlock.html" },
+    { "source": "/games/portal-room-rush", "destination": "/portal-room-rush.html" },
+    { "source": "/games/avatar-free-roam", "destination": "/avatar-free-roam.html" },
+    { "source": "/games/smoke-city-hustle", "destination": "/smoke-city-hustle.html" },
+    { "source": "/games/treehouse-ride", "destination": "/treehouse-ride.html" },
+    { "source": "/games/studio-showdown", "destination": "/studio-showdown.html" },
+    { "source": "/games/rich-court-king", "destination": "/rich-court-king.html" },
+    { "source": "/games/diamond-bat-flip", "destination": "/diamond-bat-flip.html" },
+    { "source": "/games/golf-green-gold", "destination": "/golf-green-gold.html" },
+    { "source": "/games/gym-grind-reps", "destination": "/gym-grind-reps.html" },
+    { "source": "/games/cash-rain-catcher", "destination": "/cash-rain-catcher.html" },
+    { "source": "/games/portal-dash", "destination": "/portal-dash.html" },
+    { "source": "/games/bizness-party-room", "destination": "/bizness-party-room.html" },
+    { "source": "/games/rich-color-clash", "destination": "/rich-color-clash.html" },
+    { "source": "/games/rich-spades-royale", "destination": "/rich-spades-royale.html" },
+    { "source": "/games/rich-checkers-elite", "destination": "/rich-checkers-elite.html" },
+    { "source": "/games/crown-connect-four", "destination": "/crown-connect-four.html" }
   ],
   "headers": [
-    {
-      "source": "/api/(.*)",
-      "headers": [
-        { "key": "Cache-Control", "value": "no-store, max-age=0" },
-        { "key": "X-Content-Type-Options", "value": "nosniff" }
-      ]
-    },
-    {
-      "source": "/assets/(.*)",
-      "headers": [
-        { "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }
-      ]
-    },
-    {
-      "source": "/images/(.*)",
-      "headers": [
-        { "key": "Cache-Control", "value": "public, max-age=86400, stale-while-revalidate=604800" }
-      ]
-    },
-    {
-      "source": "/brand/(.*)",
-      "headers": [
-        { "key": "Cache-Control", "value": "public, max-age=86400, stale-while-revalidate=604800" }
-      ]
-    },
-    {
-      "source": "/(.*).html",
-      "headers": [
-        { "key": "Cache-Control", "value": "public, max-age=0, must-revalidate" }
-      ]
-    },
-    {
-      "source": "/(.*)",
-      "headers": [
-        { "key": "X-Content-Type-Options", "value": "nosniff" },
-        { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" },
-        { "key": "Permissions-Policy", "value": "camera=(self), microphone=(self), geolocation=(self)" },
-        { "key": "Cross-Origin-Opener-Policy", "value": "same-origin" },
-        { "key": "X-Frame-Options", "value": "SAMEORIGIN" },
-        { "key": "Strict-Transport-Security", "value": "max-age=63072000; includeSubDomains; preload" }
-      ]
-    }
+    { "source": "/api/(.*)", "headers": [{ "key": "Cache-Control", "value": "no-store, max-age=0" }, { "key": "X-Content-Type-Options", "value": "nosniff" }] },
+    { "source": "/assets/(.*)", "headers": [{ "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }] },
+    { "source": "/images/(.*)", "headers": [{ "key": "Cache-Control", "value": "public, max-age=86400, stale-while-revalidate=604800" }] },
+    { "source": "/brand/(.*)", "headers": [{ "key": "Cache-Control", "value": "public, max-age=86400, stale-while-revalidate=604800" }] },
+    { "source": "/(.*).html", "headers": [{ "key": "Cache-Control", "value": "public, max-age=0, must-revalidate" }] },
+    { "source": "/(.*)", "headers": [{ "key": "X-Content-Type-Options", "value": "nosniff" }, { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" }, { "key": "Permissions-Policy", "value": "camera=(self), microphone=(self), geolocation=(self)" }, { "key": "Cross-Origin-Opener-Policy", "value": "same-origin" }, { "key": "X-Frame-Options", "value": "SAMEORIGIN" }, { "key": "Strict-Transport-Security", "value": "max-age=63072000; includeSubDomains; preload" }] }
   ]
 }
