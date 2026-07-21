@@ -1,3 +1,5 @@
+import './game-runtime-client';
+
 const GAME_SLUGS = new Set([
   'diamond-bat-flip','portal-dash','studio-showdown','smoke-burst-arena','vault-unlock','treehouse-ride','empire-builder','cash-rain-catcher','market-flip','smoke-city-hustle','aura-shinobi-clash','bizness-party-room','rich-samurais-son-ninja','money-road-runner','smoke-room-cards','portal-room-rush','rich-chess','rich-court-king','dj-radio-run','hero-villain-showdown','boss-walk-battle','gym-grind-reps','avatar-free-roam','golf-green-gold','crown-connect-four','rich-spades-royale','rich-color-clash','rich-checkers-elite'
 ]);
@@ -18,7 +20,8 @@ function canonicalizeLocation(): void {
   const canonical = `/games/${slug}`;
   if (location.pathname !== canonical) history.replaceState(history.state, '', `${canonical}${location.search}${location.hash}`);
   document.body.dataset.gameSlug = slug;
-  document.body.dataset.gameOwner = 'rich-bizness-game-runtime-v1';
+  document.body.dataset.gameOwner = 'rich-bizness-game-runtime-v2';
+  document.body.dataset.gameSessionContract = 'rb-game-action-v2';
 }
 
 function canonicalHref(anchor: HTMLAnchorElement): string | null {
