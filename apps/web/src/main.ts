@@ -5,9 +5,17 @@ import './styles/identity.css';
 import './styles/xp-runtime.css';
 import './styles/media-containment.css';
 import { bootstrap } from './bootstrap';
-import { mountAdminSecretDoor } from './core/admin/secret-door';
-import { mountUniverseBridge } from './core/navigation/universe-bridge';
 import { mountXpRuntime } from './core/xp/xp-runtime';
+
+const ADMIN_SECRET_DOOR_PAGES = new Set([
+  'portal',
+  'profile',
+  'settings',
+  'notifications',
+  'messages',
+  'creator',
+  'admin'
+]);
 
 void bootstrap().then(async () => {
   const page = document.body.dataset.page ?? '';
@@ -22,8 +30,16 @@ void bootstrap().then(async () => {
     if (active instanceof HTMLInputElement || active instanceof HTMLTextAreaElement) active.blur();
   }
 
-  mountUniverseBridge();
-  const tasks: Promise<unknown>[] = [mountAdminSecretDoor()];
+  const tasks: Promise<unknown>[] = [];
+
+  if (page === 'live') {
+    tasks.push(import('./core/navigation/universe-bridge').then(({ mountUniverseBridge }) => mountUniverseBridge()));
+  }
+
+  if (ADMIN_SECRET_DOOR_PAGES.has(page)) {
+    tasks.push(import('./core/admin/secret-door').then(({ mountAdminSecretDoor }) => mountAdminSecretDoor()));
+  }
+
   if (page !== 'home') tasks.push(mountXpRuntime());
   await Promise.allSettled(tasks);
 });
