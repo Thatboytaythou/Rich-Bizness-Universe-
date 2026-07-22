@@ -12,6 +12,7 @@ type Channel = ReturnType<typeof supabase.channel>;
 
 const esc = (value: string | null | undefined) => (value ?? '').replace(/[&<>'"]/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' })[character] ?? character);
 const stamp = (value: string | null) => value ? new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }).format(new Date(value)) : '';
+const isUuid = (value: string | null) => Boolean(value && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value));
 
 export async function mount(): Promise<void> {
   const root = document.querySelector<HTMLElement>('#app');
@@ -20,7 +21,7 @@ export async function mount(): Promise<void> {
 
   const user = getAuthSnapshot().user;
   if (!user) {
-    location.replace(`/tap-in.html?next=${encodeURIComponent(ROUTES.messages)}`);
+    location.replace(`/tap-in.html?next=${encodeURIComponent(location.pathname + location.search)}`);
     return;
   }
 
@@ -35,7 +36,9 @@ export async function mount(): Promise<void> {
   const search = root.querySelector<HTMLInputElement>('#threadSearch')!;
   const status = root.querySelector<HTMLElement>('#messageStatus')!;
 
-  let activeThread = new URLSearchParams(location.search).get('thread');
+  const params = new URLSearchParams(location.search);
+  let activeThread = params.get('thread');
+  const requestedUser = params.get('to');
   let threadChannel: Channel | null = null;
   let listChannel: Channel | null = null;
   let typingTimer: number | undefined;
@@ -198,6 +201,27 @@ export async function mount(): Promise<void> {
     await refreshThread(threadId);
   };
 
+  const openDirectFor = async (profileId: string) => {
+    if (!isUuid(profileId) || profileId === user.id) {
+      setStatus('Invalid message recipient.');
+      return;
+    }
+    const { data: threadId, error } = await supabase.rpc('rb_create_direct_thread', { p_other_user: profileId });
+    if (error) {
+      setStatus(error.message);
+      return;
+    }
+    const id = String(threadId || '');
+    if (!isUuid(id)) {
+      setStatus('Unable to open conversation.');
+      return;
+    }
+    activeThread = id;
+    history.replaceState({}, '', `${ROUTES.messages}?thread=${encodeURIComponent(id)}`);
+    await loadThreads();
+    await openThread(id);
+  };
+
   const openNewThread = () => {
     if (document.querySelector('.new-thread-modal')) return;
     const modal = document.createElement('div');
@@ -212,14 +236,10 @@ export async function mount(): Promise<void> {
       if (query.length < 2) { results.innerHTML = ''; return; }
       const { data, error } = await supabase.rpc('rb_dm_search_profiles', { p_query: query, p_limit: 20 });
       if (error) { results.innerHTML = `<div class="comm-empty">${esc(error.message)}</div>`; return; }
-      results.innerHTML = ((data ?? []) as Profile[]).map((profile) => `<article class="profile-result"><img src="${esc(profile.avatar_url || '/brand/icons/profile-placeholder.svg')}" alt=""><div><strong>${esc(profile.display_name || profile.username || 'Rich Member')}</strong><p>@${esc(profile.username || 'member')} · ${esc(profile.online_status || 'offline')}</p></div><button class="comm-button primary" data-user="${profile.id}">MESSAGE</button></article>`).join('') || '<div class="comm-empty">No message-ready members found.</div>';
+      results.innerHTML = ((data ?? []) as Profile[]).map((profile) => `<article class="profile-result"><a href="/profile.html?id=${encodeURIComponent(profile.id)}"><img src="${esc(profile.avatar_url || '/brand/icons/profile-placeholder.svg')}" alt=""><div><strong>${esc(profile.display_name || profile.username || 'Rich Member')}</strong><p>@${esc(profile.username || 'member')} · ${esc(profile.online_status || 'offline')}</p></div></a><button class="comm-button primary" data-user="${profile.id}">MESSAGE</button></article>`).join('') || '<div class="comm-empty">No message-ready members found.</div>';
       results.querySelectorAll<HTMLButtonElement>('[data-user]').forEach((button) => button.onclick = async () => {
-        const { data: threadId, error: createError } = await supabase.rpc('rb_create_direct_thread', { p_other_user: button.dataset.user });
-        if (createError) { setStatus(createError.message); return; }
         modal.remove();
-        activeThread = String(threadId);
-        await loadThreads();
-        await openThread(activeThread);
+        await openDirectFor(String(button.dataset.user || ''));
       });
     };
   };
@@ -227,6 +247,7 @@ export async function mount(): Promise<void> {
   search.oninput = drawThreads;
   root.querySelector<HTMLButtonElement>('#newThread')!.onclick = openNewThread;
   await loadThreads();
+  if (requestedUser) await openDirectFor(requestedUser);
 
   listChannel = supabase.channel(`rich-dm-list:${user.id}`)
     .on('postgres_changes', { event: '*', schema: 'public', table: 'dm_thread_members', filter: `user_id=eq.${user.id}` }, scheduleThreads)
