@@ -6,6 +6,26 @@ const pageSection=()=>document.body.dataset.page||location.pathname.replace(/^\/
 const esc=(v:string)=>v.replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]??c));
 const immersivePages=new Set(['live','watch','music','gaming','meta','avatar']);
 
+function placeDock(dock:HTMLElement,section:string):void{
+  if(section!=='profile'){
+    document.body.append(dock);
+    return;
+  }
+
+  dock.classList.add('rb-xp-dock--inline');
+  const achievementHeading=[...document.querySelectorAll<HTMLElement>('h1,h2,h3')]
+    .find(node=>/BADGES\s*\+\s*STATUS/i.test(node.textContent??''));
+  const achievementCard=achievementHeading?.closest<HTMLElement>('section,article,div');
+  const anchor=achievementCard?.parentElement;
+
+  if(anchor&&achievementCard){
+    anchor.insertBefore(dock,achievementCard);
+    return;
+  }
+
+  (document.querySelector<HTMLElement>('#app')??document.body).append(dock);
+}
+
 export async function mountXpRuntime():Promise<void>{
   const section=pageSection();
   if(immersivePages.has(section))return;
@@ -16,7 +36,7 @@ export async function mountXpRuntime():Promise<void>{
   dock.id='rbXpDock';
   dock.className='rb-xp-dock';
   dock.innerHTML='<button id="rbXpToggle" type="button" aria-expanded="false"><span>LVL</span><strong>1</strong><i><b></b></i></button><section id="rbXpPanel" hidden><header><div><small>RICH LEVEL</small><h3>SYNCING</h3></div><button id="rbXpClose" type="button">×</button></header><div class="rb-xp-grid"><article><small>TOTAL XP</small><strong id="rbXpTotal">0</strong></article><article><small>RICH POINTS</small><strong id="rbXpPoints">0</strong></article><article><small>COINS</small><strong id="rbXpCoins">0</strong></article></div><div class="rb-xp-progress"><span><b id="rbXpBar"></b></span><small id="rbXpProgress">0 / 1000 XP</small></div><div id="rbXpRecent" class="rb-xp-recent"></div></section>';
-  document.body.append(dock);
+  placeDock(dock,section);
 
   const toggle=dock.querySelector<HTMLButtonElement>('#rbXpToggle')!;
   const panel=dock.querySelector<HTMLElement>('#rbXpPanel')!;
