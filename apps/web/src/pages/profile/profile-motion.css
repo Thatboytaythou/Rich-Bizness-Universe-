@@ -19,5 +19,11 @@ body[data-page="profile"] .pu-actions .primary::after{content:"";position:absolu
 @keyframes puAvatarPulse{0%,100%{opacity:.34;transform:scale(.98)}50%{opacity:.9;transform:scale(1.025)}}
 @keyframes puLevelScan{0%,55%{transform:translateX(-90%) rotate(8deg)}85%,100%{transform:translateX(90%) rotate(8deg)}}
 @keyframes puActionSweep{0%,55%{transform:translateX(-120%)}85%,100%{transform:translateX(120%)}}
-@media(max-width:760px){body[data-page="profile"] .profile-universe{background-attachment:scroll}body[data-page="profile"] .pu-banner{animation-duration:24s}body[data-page="profile"] .pu-metrics article:hover,body[data-page="profile"] .pu-command>article:hover{transform:none}}
+@media(max-width:760px){
+  body[data-page="profile"] .profile-universe{background-attachment:scroll}
+  body[data-page="profile"] .pu-banner{animation-duration:24s}
+  body[data-page="profile"] .pu-metrics article:hover,body[data-page="profile"] .pu-command>article:hover{transform:none}
+  body[data-page="profile"] .pu-actions{position:relative!important;top:auto!important;z-index:3!important;margin-top:16px!important;margin-bottom:18px!important;transform:none!important}
+  body[data-page="profile"] .pu-command{position:relative;z-index:2;margin-top:0!important}
+}
 @media(prefers-reduced-motion:reduce){body[data-page="profile"] .pu-hero,body[data-page="profile"] .pu-banner,body[data-page="profile"] .pu-avatar,body[data-page="profile"] .pu-avatar::before,body[data-page="profile"] .pu-level::before,body[data-page="profile"] .pu-actions .primary::after{animation:none!important}body[data-page="profile"] *{scroll-behavior:auto!important}}
