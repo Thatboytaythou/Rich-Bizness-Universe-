@@ -39,6 +39,8 @@ export async function mount(): Promise<void> {
   const params = new URLSearchParams(location.search);
   let activeThread = params.get('thread');
   const requestedUser = params.get('to');
+  const sharedPostId = isUuid(params.get('share')) ? params.get('share') : null;
+  let sharedPostPending = sharedPostId;
   let threadChannel: Channel | null = null;
   let listChannel: Channel | null = null;
   let typingTimer: number | undefined;
@@ -84,6 +86,24 @@ export async function mount(): Promise<void> {
     } finally {
       loadingThreads = false;
     }
+  };
+
+  const sendSharedPost = async (threadId: string) => {
+    if (!sharedPostPending) return;
+    const postId = sharedPostPending;
+    const { data, error } = await supabase.rpc('rb_feed_snapshot', { p_section: 'all', p_limit: 1, p_post_id: postId });
+    if (error) throw error;
+    const post = (((data as any)?.posts ?? []) as Array<Record<string, unknown>>).find((row) => String(row.id) === postId);
+    if (!post) throw new Error('Shared post is unavailable.');
+    const title = String(post.title || post.body || 'Rich Bizness post').trim().slice(0, 180);
+    const body = `Shared from Rich Feed: ${title}\n${location.origin}/feed.html?post=${encodeURIComponent(postId)}`;
+    const { error: sendError } = await supabase.rpc('rb_dm_send_message', { p_thread_id: threadId, p_body: body, p_reply_to: null });
+    if (sendError) throw sendError;
+    sharedPostPending = null;
+    params.delete('share');
+    params.set('thread', threadId);
+    history.replaceState({}, '', `${ROUTES.messages}?${params.toString()}`);
+    setStatus('Post shared to Rich-DM.');
   };
 
   const drawThread = async (threadId: string, snapshot: ThreadSnapshot) => {
@@ -192,13 +212,22 @@ export async function mount(): Promise<void> {
     if (activeThread && activeThread !== threadId) await setTyping(activeThread, false);
     activeThread = threadId;
     drawThreads();
-    history.replaceState({}, '', `${ROUTES.messages}?thread=${encodeURIComponent(threadId)}`);
+    params.set('thread', threadId);
+    history.replaceState({}, '', `${ROUTES.messages}?${params.toString()}`);
     if (threadChannel) await supabase.removeChannel(threadChannel);
     threadChannel = supabase.channel(`rich-dm:${threadId}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'dm_messages', filter: `thread_id=eq.${threadId}` }, () => void refreshThread(threadId))
       .on('postgres_changes', { event: '*', schema: 'public', table: 'dm_typing_status', filter: `thread_id=eq.${threadId}` }, () => void refreshThread(threadId))
       .subscribe();
     await refreshThread(threadId);
+    if (sharedPostPending) {
+      try {
+        await sendSharedPost(threadId);
+        await refreshThread(threadId);
+      } catch (caught) {
+        setStatus(caught instanceof Error ? caught.message : 'Unable to share post.');
+      }
+    }
   };
 
   const openDirectFor = async (profileId: string) => {
@@ -217,7 +246,8 @@ export async function mount(): Promise<void> {
       return;
     }
     activeThread = id;
-    history.replaceState({}, '', `${ROUTES.messages}?thread=${encodeURIComponent(id)}`);
+    params.set('thread', id);
+    history.replaceState({}, '', `${ROUTES.messages}?${params.toString()}`);
     await loadThreads();
     await openThread(id);
   };
@@ -226,7 +256,7 @@ export async function mount(): Promise<void> {
     if (document.querySelector('.new-thread-modal')) return;
     const modal = document.createElement('div');
     modal.className = 'new-thread-modal';
-    modal.innerHTML = `<section class="comm-card new-thread-card"><header class="thread-title"><div><strong>New Rich-DM</strong><p>Search people by name or username.</p></div><button id="closeNew" class="comm-button">✕</button></header><input id="profileSearch" placeholder="Search Rich Bizness members" autocomplete="off"/><div id="profileResults" class="profile-results"></div></section>`;
+    modal.innerHTML = `<section class="comm-card new-thread-card"><header class="thread-title"><div><strong>${sharedPostPending ? 'Share Rich Feed post' : 'New Rich-DM'}</strong><p>${sharedPostPending ? 'Choose who receives this post.' : 'Search people by name or username.'}</p></div><button id="closeNew" class="comm-button">✕</button></header><input id="profileSearch" placeholder="Search Rich Bizness members" autocomplete="off"/><div id="profileResults" class="profile-results"></div></section>`;
     document.body.append(modal);
     const box = modal.querySelector<HTMLInputElement>('#profileSearch')!;
     const results = modal.querySelector<HTMLElement>('#profileResults')!;
@@ -236,18 +266,20 @@ export async function mount(): Promise<void> {
       if (query.length < 2) { results.innerHTML = ''; return; }
       const { data, error } = await supabase.rpc('rb_dm_search_profiles', { p_query: query, p_limit: 20 });
       if (error) { results.innerHTML = `<div class="comm-empty">${esc(error.message)}</div>`; return; }
-      results.innerHTML = ((data ?? []) as Profile[]).map((profile) => `<article class="profile-result"><a href="/profile.html?id=${encodeURIComponent(profile.id)}"><img src="${esc(profile.avatar_url || '/brand/icons/profile-placeholder.svg')}" alt=""><div><strong>${esc(profile.display_name || profile.username || 'Rich Member')}</strong><p>@${esc(profile.username || 'member')} · ${esc(profile.online_status || 'offline')}</p></div></a><button class="comm-button primary" data-user="${profile.id}">MESSAGE</button></article>`).join('') || '<div class="comm-empty">No message-ready members found.</div>';
+      results.innerHTML = ((data ?? []) as Profile[]).map((profile) => `<article class="profile-result"><a href="/profile.html?id=${encodeURIComponent(profile.id)}"><img src="${esc(profile.avatar_url || '/brand/icons/profile-placeholder.svg')}" alt=""><div><strong>${esc(profile.display_name || profile.username || 'Rich Member')}</strong><p>@${esc(profile.username || 'member')} · ${esc(profile.online_status || 'offline')}</p></div></a><button class="comm-button primary" data-user="${profile.id}">${sharedPostPending ? 'SHARE' : 'MESSAGE'}</button></article>`).join('') || '<div class="comm-empty">No message-ready members found.</div>';
       results.querySelectorAll<HTMLButtonElement>('[data-user]').forEach((button) => button.onclick = async () => {
         modal.remove();
         await openDirectFor(String(button.dataset.user || ''));
       });
     };
+    box.focus();
   };
 
   search.oninput = drawThreads;
   root.querySelector<HTMLButtonElement>('#newThread')!.onclick = openNewThread;
   await loadThreads();
   if (requestedUser) await openDirectFor(requestedUser);
+  else if (sharedPostPending) openNewThread();
 
   listChannel = supabase.channel(`rich-dm-list:${user.id}`)
     .on('postgres_changes', { event: '*', schema: 'public', table: 'dm_thread_members', filter: `user_id=eq.${user.id}` }, scheduleThreads)
