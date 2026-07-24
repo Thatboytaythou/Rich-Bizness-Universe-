@@ -118,7 +118,10 @@ export async function mountProfilePage(): Promise<void> {
   }
 
   const profileId = requested || session!.user.id;
-  const { data, error } = await supabase.rpc('rb_profile_universe_snapshot', { p_profile_id: profileId });
+  const [{ data, error }, { data: adminData }] = await Promise.all([
+    supabase.rpc('rb_profile_universe_snapshot', { p_profile_id: profileId }),
+    session ? supabase.rpc('rb_is_admin', {}) : Promise.resolve({ data: false } as any),
+  ]);
 
   if (error) {
     root.innerHTML = `<main class="pu-fail"><a href="/portal.html">← PORTAL</a><h1>PROFILE ENGINE OFFLINE</h1><p>${esc(error.message)}</p></main>`;
@@ -132,6 +135,7 @@ export async function mountProfilePage(): Promise<void> {
   const level = snap.level ?? {};
   const avatar = snap.avatar ?? {};
   const isOwner = Boolean(viewer.is_owner);
+  const isAdmin = Boolean(adminData);
   const display = profile.display_name ?? profile.username ?? avatar.display_name ?? 'Rich Member';
   const avatarUrl = profile.avatar_url ?? avatar.avatar_url ?? '/brand/icons/profile-placeholder.svg';
   const banner = profile.banner_url ?? '/images/brand/Avatar-hero-Banner.png.jpeg';
@@ -167,7 +171,18 @@ export async function mountProfilePage(): Promise<void> {
     profile.is_seller && 'SELLER',
     snap.gamer && 'GAMER',
     snap.sports && 'SPORTS',
+    isAdmin && 'ADMIN',
   ].filter(Boolean);
+
+  const ownerActions = [
+    '<a class="primary" href="/edit-profile.html"><span>EDIT</span><small>IDENTITY</small></a>',
+    '<a href="/settings.html"><span>SETTINGS</span><small>CONTROL CENTER</small></a>',
+    '<a href="/avatar.html"><span>AVATAR</span><small>SELECT CHARACTER</small></a>',
+    '<a href="/avatar-characters.html"><span>3D LOBBY</span><small>ENTER CHARACTER</small></a>',
+    '<a href="/creator.html"><span>CREATOR</span><small>SECRET DOOR</small></a>',
+    '<a href="/upload.html"><span>UPLOAD</span><small>DROP CONTENT</small></a>',
+    isAdmin ? '<a class="admin" href="/admin.html"><span>ADMIN</span><small>COMMAND ACCESS</small></a>' : '',
+  ].filter(Boolean).join('');
 
   root.innerHTML = `<main class="profile-universe ${isOwner ? 'is-owner' : 'is-public'}" style="--profile-bg:url('${esc(snap.theme?.background_url ?? banner)}')">
     <div class="pu-atmosphere" aria-hidden="true"><i></i><i></i><i></i></div>
@@ -192,8 +207,8 @@ export async function mountProfilePage(): Promise<void> {
 
     <section class="pu-metrics">${stat('FOLLOWERS', compact(counts.followers))}${stat('FOLLOWING', compact(counts.following))}${stat('TOTAL DROPS', compact(counts.posts))}${stat('PROFILE VIEWS', compact(counts.views))}${stat('RICH POINTS', compact(level.rich_points ?? profile.rich_points))}${stat('TRUST', `${level.trust_score ?? profile.trust_score ?? 100}%`)}</section>
 
-    <nav class="pu-actions" aria-label="Profile actions">${isOwner
-      ? '<a class="primary" href="/edit-profile.html">EDIT IDENTITY</a><a href="/avatar.html">CHOOSE AVATAR</a><a href="/avatar-characters.html">3D LOBBY</a><a href="/upload.html">DROP CONTENT</a><a href="/settings.html">PRIVACY</a>'
+    <nav class="pu-actions ${isOwner ? 'pu-actions--owner' : ''}" aria-label="Profile actions">${isOwner
+      ? ownerActions
       : `<button type="button" id="followButton" class="primary">${viewer.following ? 'FOLLOWING' : 'FOLLOW'}</button><a href="/messages.html?to=${profileId}">MESSAGE</a><a href="/creator.html?id=${profileId}">CREATOR PAGE</a><a href="/store.html?seller=${profileId}">STORE</a><button type="button" id="shareButton">SHARE</button>`}
     </nav>
 
