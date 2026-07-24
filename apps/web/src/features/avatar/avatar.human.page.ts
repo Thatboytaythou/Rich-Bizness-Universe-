@@ -28,15 +28,16 @@ export async function mount():Promise<void>{
   const s=(data??{}) as Row;
   const p=s.profile??{};
   const a=s.avatar??{};
+  const level=s.level??{};
   const presets=(s.presets??[]) as Preset[];
   const requested=new URLSearchParams(location.search).get('preset');
   let preset=presets.find(x=>x.preset_key===requested)??presets.find(x=>x.preset_key===a.metadata?.preset_key)??presets[0];
   let aura=String(preset?.aura??a.aura??'Emerald Gold');
   const ui=mountHumanUi(root,{
     name:String(a.display_name??p.display_name??p.username??'Rich Avatar'),
-    level:Number(a.level??p.rich_level??1),
-    xp:Number(a.xp??0),
-    rank:String(a.rank??p.rank_title??'Rookie Rich'),
+    level:Number(level.level??a.level??p.rich_level??1),
+    xp:Number(level.xp_total??a.xp??0),
+    rank:String(level.rank_title??a.rank??p.rank_title??'Rookie Rich'),
     presets,
     aura,
     selectedPresetKey:preset?.preset_key??''
@@ -102,7 +103,12 @@ export async function mount():Promise<void>{
   ui.onAura=value=>{aura=value;rebuild();ui.refresh(preset,aura);};
   ui.onPreset=value=>{preset=presets.find(x=>x.preset_key===value)??preset;aura=preset?.aura??aura;rebuild();ui.refresh(preset,aura);history.replaceState(null,'',`/avatar-characters.html?preset=${encodeURIComponent(preset?.preset_key??'')}`);};
   ui.onReset=()=>{yaw=0;pitch=.035;zoom=matchMedia('(max-width: 640px)').matches?9.8:8.8;actor.position.set(0,0,0);velocity.set(0,0,0);};
-  ui.onSave=async()=>{ui.status.textContent='Synchronizing cinematic human character…';const{error:saveError}=await supabase.rpc('rb_save_avatar_studio',{p_display_name:ui.nameInput.value.trim(),p_preset_key:preset?.preset_key??'boss',p_aura:aura,p_outfit:{preset:preset?.outfit??'Rich Street',character:preset?.config??{},rig:'human-v3-proportioned'},p_accessories:{signature:preset?.config?.signature??null},p_smoke:{mode:preset?.config?.smoke??'cinematic',intensity:'elite'},p_emotes:{idle:true,power_up:true,combat_pose:true},p_character_type:preset?.preset_key??'custom'});ui.status.textContent=saveError?saveError.message:'Character synced across Profile, Portal, Meta and the avatar universe.';};
+  ui.onSave=async()=>{
+    ui.status.textContent='Synchronizing cinematic human character…';
+    const{error:saveError}=await supabase.rpc('rb_save_avatar_studio',{p_display_name:ui.nameInput.value.trim(),p_preset_key:preset?.preset_key??'boss',p_aura:aura,p_outfit:{preset:preset?.outfit??'Rich Street',character:preset?.config??{},rig:'human-v3-proportioned'},p_accessories:{signature:preset?.config?.signature??null},p_smoke:{mode:preset?.config?.smoke??'cinematic',intensity:'elite'},p_emotes:{idle:true,power_up:true,combat_pose:true},p_character_type:preset?.preset_key??'custom'});
+    if(!saveError)void supabase.rpc('rb_award_xp',{p_event_key:'avatar_saved',p_section:'avatar',p_source_table:'meta_avatars'});
+    ui.status.textContent=saveError?saveError.message:'Character synced across Profile, Portal, Meta, XP and the avatar universe.';
+  };
 
   const loop=()=>{
     raf=requestAnimationFrame(loop);
