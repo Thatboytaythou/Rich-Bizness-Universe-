@@ -27,14 +27,15 @@ body[data-page="portal"] #app {
 
 .portal-stage--elite .portal-bg {
   background:
-    linear-gradient(180deg, rgba(2, 6, 3, .22), rgba(0, 0, 0, .82)),
+    linear-gradient(180deg, rgba(2, 6, 3, .16), rgba(0, 0, 0, .8)),
     var(--portal-bg, url('/images/brand/portal-universe-bg.svg')),
-    radial-gradient(circle at 50% 42%, rgba(49, 255, 99, .18), transparent 27%),
-    radial-gradient(circle at 18% 18%, rgba(247, 201, 72, .08), transparent 22%),
+    radial-gradient(circle at 50% 42%, rgba(49, 255, 99, .22), transparent 28%),
+    radial-gradient(circle at 18% 18%, rgba(247, 201, 72, .1), transparent 22%),
     linear-gradient(160deg, #071108, #020402 56%, #000);
   background-size: cover;
   background-position: center center;
   background-repeat: no-repeat;
+  filter: saturate(1.08) contrast(1.02);
 }
 
 .portal-stage--elite .portal-node > b:empty,
@@ -42,13 +43,11 @@ body[data-page="portal"] #app {
   display: none;
 }
 
-/* The segmented metal is a true ring, never an opaque disk over the membrane. */
 .portal-stage--elite .portal-machine__frame {
   -webkit-mask: radial-gradient(circle, transparent 0 65%, #000 66% 100%);
   mask: radial-gradient(circle, transparent 0 65%, #000 66% 100%);
 }
 
-/* The machine and ENTER use one shared center. */
 .portal-stage--elite .portal-core--unified {
   inset: 31%;
   z-index: 30;
@@ -60,9 +59,21 @@ body[data-page="portal"] #app {
   animation: none !important;
 }
 
+.portal-stage--elite .portal-core--unified::before {
+  content: "";
+  position: absolute;
+  inset: -15%;
+  border-radius: 50%;
+  border: 1px solid rgba(255,255,255,.12);
+  background: radial-gradient(circle, rgba(255,255,255,.12), rgba(49,255,99,.05) 42%, transparent 70%);
+  box-shadow: inset 0 0 32px rgba(255,255,255,.08), 0 0 42px rgba(49,255,99,.18);
+  pointer-events: none;
+}
+
 .portal-stage--elite .portal-core--unified .portal-core__content {
   width: 92%;
   gap: 5px;
+  text-shadow: 0 2px 12px rgba(0,0,0,.95), 0 0 18px rgba(49,255,99,.22);
 }
 
 .portal-stage--elite .portal-core--unified .portal-core__content strong {
@@ -78,17 +89,50 @@ body[data-page="portal"] #app {
   font-size: clamp(.42rem, 1.6vw, .54rem);
 }
 
-/* Eight primary destinations orbit clockwise as one system. */
 .portal-stage--elite .portal-route-layer {
   transform-origin: 50% 50%;
   animation: portalOuterRoutesClockwise 52s linear infinite;
 }
 
-/* Each card counter-rotates so icons and labels remain upright. */
 .portal-stage--elite .portal-route-layer .portal-node {
   animation: portalOuterNodeUpright 52s linear infinite !important;
   animation-delay: 0s !important;
   transform-origin: 50% 50%;
+}
+
+.portal-stage--elite .portal-node,
+.portal-stage--elite .portal-media-node,
+.portal-stage--elite .portal-actions a,
+.portal-stage--elite .portal-profile,
+.portal-stage--elite .portal-stats article {
+  transition: transform .28s ease, border-color .28s ease, box-shadow .28s ease, background .28s ease;
+}
+
+.portal-stage--elite .portal-node:hover,
+.portal-stage--elite .portal-node:focus-visible,
+.portal-stage--elite .portal-media-node:hover,
+.portal-stage--elite .portal-media-node:focus-visible,
+.portal-stage--elite .portal-actions a:hover,
+.portal-stage--elite .portal-actions a:focus-visible {
+  border-color: rgba(247,201,72,.52);
+  box-shadow: 0 18px 38px rgba(0,0,0,.48), 0 0 28px rgba(49,255,99,.24), inset 0 0 20px rgba(49,255,99,.12);
+}
+
+.portal-stage--elite .portal-node:hover,
+.portal-stage--elite .portal-node:focus-visible,
+.portal-stage--elite .portal-media-node:hover,
+.portal-stage--elite .portal-media-node:focus-visible {
+  scale: 1.055;
+}
+
+.portal-stage--elite .portal-stats {
+  gap: 8px;
+}
+
+.portal-stage--elite .portal-stats article {
+  padding: 10px 12px;
+  background: linear-gradient(145deg, rgba(255,255,255,.06), rgba(1,7,3,.74));
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.06), 0 12px 24px rgba(0,0,0,.24);
 }
 
 @keyframes portalOuterRoutesClockwise {
@@ -104,16 +148,36 @@ body[data-page="portal"] #app {
   .portal-stage--elite {
     min-height: 100dvh;
     height: 100dvh;
-    padding-inline: 8px;
+    padding: max(10px, env(safe-area-inset-top)) 8px max(10px, env(safe-area-inset-bottom));
+    grid-template-rows: auto minmax(0,1fr) auto;
   }
 
-  /* One locked mobile diameter. It does not shrink again inside itself. */
+  .portal-stage--elite .portal-topbar {
+    min-height: 48px;
+    align-items: flex-start;
+  }
+
+  .portal-stage--elite .portal-profile {
+    max-width: 63vw;
+    padding: 5px 9px 5px 5px;
+  }
+
+  .portal-stage--elite .portal-brand span {
+    display: none;
+  }
+
+  .portal-stage--elite .portal-announcement {
+    top: max(64px, calc(env(safe-area-inset-top) + 52px));
+    width: min(82vw, 360px);
+  }
+
   .portal-stage--elite .portal-world {
-    width: min(94vw, 430px);
+    width: min(92vw, 430px);
     height: auto;
     max-width: none;
     max-height: none;
     aspect-ratio: 1;
+    margin-top: 8px;
   }
 
   .portal-stage--elite .portal-machine {
@@ -128,11 +192,37 @@ body[data-page="portal"] #app {
   .portal-stage--elite .portal-core--unified {
     inset: 30%;
   }
+
+  .portal-stage--elite .portal-actions {
+    right: 8px;
+    gap: 7px;
+  }
+
+  .portal-stage--elite .portal-actions a {
+    width: 42px;
+    height: 42px;
+    border-radius: 14px;
+    background: linear-gradient(145deg, rgba(8,22,10,.94), rgba(1,6,2,.96));
+    box-shadow: 0 12px 26px rgba(0,0,0,.42), inset 0 1px 0 rgba(255,255,255,.06);
+  }
+
+  .portal-stage--elite .portal-stats {
+    gap: 6px;
+  }
+
+  .portal-stage--elite .portal-stats article {
+    padding: 8px 7px;
+    border-radius: 12px;
+  }
+
+  .portal-stage--elite .portal-stats small {
+    font-size: .44rem;
+  }
 }
 
 @media (max-width: 430px) {
   .portal-stage--elite .portal-world {
-    width: 94vw;
+    width: 92vw;
     max-height: none;
   }
 
@@ -156,6 +246,24 @@ body[data-page="portal"] #app {
 
   .portal-stage--elite .portal-core--unified .portal-core__content strong {
     font-size: 1.5rem;
+  }
+
+  .portal-stage--elite .portal-profile__copy small,
+  .portal-stage--elite .portal-profile__copy em {
+    display: none;
+  }
+
+  .portal-stage--elite .portal-profile__copy strong {
+    max-width: 116px;
+    font-size: .68rem;
+  }
+
+  .portal-stage--elite .portal-brand strong {
+    font-size: .68rem;
+  }
+
+  .portal-stage--elite .portal-stats strong {
+    font-size: .54rem;
   }
 }
 
