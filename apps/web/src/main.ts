@@ -40,6 +40,6 @@ void bootstrap().then(async () => {
     tasks.push(import('./core/admin/secret-door').then(({ mountAdminSecretDoor }) => mountAdminSecretDoor()));
   }
 
-  if (page !== 'home') tasks.push(mountXpRuntime());
+  tasks.push(mountXpRuntime());
   await Promise.allSettled(tasks);
 });
