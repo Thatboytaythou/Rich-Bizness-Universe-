@@ -1,6 +1,7 @@
 import { getAuthSnapshot } from '../../core/auth/auth-store';
 import { supabase } from '../../core/supabase/client';
 import './profile-universe.css';
+import './profile-command-upgrade.css';
 
 type JsonRow = Record<string, any>;
 type Snapshot = {
