@@ -23,6 +23,7 @@ type SearchSnapshot = {
 };
 
 type CategoryKey = 'all' | 'people' | 'creator' | 'feed' | 'gallery' | 'watch' | 'music' | 'podcast' | 'radio' | 'live' | 'sports' | 'gaming' | 'store' | 'meta';
+type Channel = ReturnType<typeof supabase.channel>;
 
 const categories: ReadonlyArray<readonly [CategoryKey, string]> = [
   ['all', 'ALL'], ['people', 'PEOPLE'], ['creator', 'CREATORS'], ['feed', 'FEED'], ['gallery', 'GALLERY'],
@@ -36,6 +37,11 @@ const categoryAliases: Record<string, CategoryKey> = {
   podcast: 'podcast', episode: 'podcast', radio: 'radio', station: 'radio', live: 'live', stream: 'live',
   sports: 'sports', gaming: 'gaming', game: 'gaming', store: 'store', product: 'store', meta: 'meta', world: 'meta'
 };
+
+const indexedTables = [
+  'profiles', 'creator_page_settings', 'feed_posts', 'music_tracks', 'podcast_episodes', 'radio_stations',
+  'live_streams', 'sports_posts', 'games', 'products', 'meta_worlds'
+] as const;
 
 const esc = (value: unknown) => String(value ?? '').replace(/[&<>'"]/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[char] ?? char));
 const safeMedia = (value: unknown) => {
@@ -78,9 +84,9 @@ export async function mount(): Promise<void> {
     <section class="search-command">
       <div class="search-command-copy"><span>ONE COMMAND • EVERY WORLD</span><h2>Find the people, drops, sounds, broadcasts, games, products and worlds moving Rich Bizness.</h2></div>
       <form id="searchForm" class="search-box"><span class="search-icon">⌕</span><input id="searchInput" autocomplete="off" inputmode="search" enterkeyhint="search" maxlength="100" aria-label="Search Rich Bizness" placeholder="Search creators, visuals, music, live, games, store..."/><kbd>⌘ K</kbd><button id="clearSearch" type="button" aria-label="Clear search">×</button></form>
-      <div class="search-hints"><span>↑↓ MOVE</span><span>ENTER OPEN</span><span>ESC CLEAR</span></div>
+      <div class="search-hints"><span>↑↓ MOVE</span><span>ENTER OPEN</span><span>ESC CLEAR</span><span>REALTIME INDEX</span></div>
     </section>
-    <section class="search-intelligence"><article><small>INDEX</small><strong>14</strong><span>connected worlds</span></article><article><small>MODE</small><strong>LIVE</strong><span>ranked discovery</span></article><article><small>ACCESS</small><strong>${userId ? 'RICH ID' : 'PUBLIC'}</strong><span>${userId ? 'history synced' : 'private session'}</span></article></section>
+    <section class="search-intelligence"><article><small>INDEX</small><strong>${indexedTables.length}</strong><span>live data owners</span></article><article><small>MODE</small><strong>LIVE</strong><span>server ranked</span></article><article><small>ACCESS</small><strong>${userId ? 'RICH ID' : 'PUBLIC'}</strong><span>${userId ? 'history synced' : 'private session'}</span></article></section>
     <section class="search-discovery-rows"><div id="trendingRow" class="discovery-row"></div><div id="recentRow" class="discovery-row"></div></section>
     <div class="search-meta"><div id="filters" class="search-filters"></div><small id="resultCount">DISCOVERY READY</small></div>
     <section id="results" class="search-grid"><div class="search-state"><strong>THE WHOLE UNIVERSE IS CONNECTED.</strong><span>Start typing or choose a trending search.</span></div></section>
@@ -88,15 +94,15 @@ export async function mount(): Promise<void> {
     <p id="searchStatus" class="search-status" role="status"></p>
   </div></main>`;
 
-  const input = document.querySelector<HTMLInputElement>('#searchInput')!;
-  const results = document.querySelector<HTMLElement>('#results')!;
-  const count = document.querySelector<HTMLElement>('#resultCount')!;
-  const filters = document.querySelector<HTMLElement>('#filters')!;
-  const recentRow = document.querySelector<HTMLElement>('#recentRow')!;
-  const trendingRow = document.querySelector<HTMLElement>('#trendingRow')!;
-  const form = document.querySelector<HTMLFormElement>('#searchForm')!;
-  const clearButton = document.querySelector<HTMLButtonElement>('#clearSearch')!;
-  const status = document.querySelector<HTMLElement>('#searchStatus')!;
+  const input = root.querySelector<HTMLInputElement>('#searchInput')!;
+  const results = root.querySelector<HTMLElement>('#results')!;
+  const count = root.querySelector<HTMLElement>('#resultCount')!;
+  const filters = root.querySelector<HTMLElement>('#filters')!;
+  const recentRow = root.querySelector<HTMLElement>('#recentRow')!;
+  const trendingRow = root.querySelector<HTMLElement>('#trendingRow')!;
+  const form = root.querySelector<HTMLFormElement>('#searchForm')!;
+  const clearButton = root.querySelector<HTMLButtonElement>('#clearSearch')!;
+  const status = root.querySelector<HTMLElement>('#searchStatus')!;
 
   let rows: SearchResult[] = [];
   let counts: Record<string, number> = {};
@@ -105,10 +111,12 @@ export async function mount(): Promise<void> {
   let active: CategoryKey = 'all';
   let timer = 0;
   let statusTimer = 0;
+  let refreshTimer = 0;
   let requestId = 0;
   let focusedIndex = -1;
   let disposed = false;
   let lastExecutedQuery = '';
+  let catalogChannel: Channel | null = null;
 
   const setStatus = (message = '', error = false) => {
     status.textContent = message;
@@ -148,7 +156,7 @@ export async function mount(): Promise<void> {
       : '<div class="discovery-label"><small>RECENT SEARCHES</small><span>NONE YET</span></div>';
     trendingRow.querySelectorAll<HTMLButtonElement>('[data-trending]').forEach((button) => { button.onclick = () => chooseQuery(button.dataset.trending || ''); });
     recentRow.querySelectorAll<HTMLButtonElement>('[data-recent]').forEach((button) => { button.onclick = () => chooseQuery(button.dataset.recent || ''); });
-    const clearHistory = document.querySelector<HTMLButtonElement>('#clearHistory');
+    const clearHistory = root.querySelector<HTMLButtonElement>('#clearHistory');
     if (clearHistory) clearHistory.onclick = async () => {
       clearHistory.disabled = true;
       const { error } = await supabase.rpc('rb_search_action', { p_action: 'clear_history', p_payload: {} });
@@ -168,10 +176,12 @@ export async function mount(): Promise<void> {
     }).join('');
     filters.querySelectorAll<HTMLButtonElement>('[data-filter]').forEach((button) => {
       button.onclick = () => {
-        active = (button.dataset.filter as CategoryKey) || 'all';
+        const next = (button.dataset.filter as CategoryKey) || 'all';
+        if (active === next) return;
+        active = next;
         focusedIndex = -1;
-        drawFilters();
-        drawResults();
+        if (lastExecutedQuery) void runSearch(true, false);
+        else { drawFilters(); drawResults(); }
       };
     });
   };
@@ -200,7 +210,8 @@ export async function mount(): Promise<void> {
       ? visible.map((row, index) => {
           const category = normalizeCategory(row.category);
           const image = safeMedia(row.image_url);
-          return `<a class="search-card ${focusedIndex === index ? 'keyboard-focus' : ''}" href="${esc(safeTarget(row.target_url))}" data-result-index="${index}" style="--rank:${Math.max(0, Math.min(100, Number(row.score || 0) * 10))}%"><div class="search-media">${image ? `<img src="${esc(image)}" alt="" loading="lazy">` : `<div class="search-media-fallback"><span>${esc(row.title.slice(0, 1).toUpperCase())}</span></div>`}<div class="search-rank"><b>${String(index + 1).padStart(2, '0')}</b><i></i></div></div><div class="search-body"><span class="search-type">${esc(category)}</span><h2>${esc(row.title)}</h2><p>${esc(row.subtitle || 'Rich Bizness Universe')}</p><footer><small>${Math.max(0, Number(row.score || 0)).toFixed(2)} relevance</small><strong>OPEN ↗</strong></footer></div></a>`;
+          const score = Math.max(0, Number(row.score || 0));
+          return `<a class="search-card search-card--${category} ${focusedIndex === index ? 'keyboard-focus' : ''}" href="${esc(safeTarget(row.target_url))}" data-result-index="${index}" style="--rank:${Math.max(0, Math.min(100, score * 10))}%"><div class="search-media">${image ? `<img src="${esc(image)}" alt="" loading="lazy" onerror="this.remove()">` : `<div class="search-media-fallback"><span>${esc(row.title.slice(0, 1).toUpperCase())}</span></div>`}<div class="search-rank"><b>${String(index + 1).padStart(2, '0')}</b><i></i></div></div><div class="search-body"><span class="search-type">${esc(category)}</span><h2>${esc(row.title)}</h2><p>${esc(row.subtitle || 'Rich Bizness Universe')}</p><footer><small>${score.toFixed(2)} relevance</small><strong>OPEN ↗</strong></footer></div></a>`;
         }).join('')
       : lastExecutedQuery
         ? '<div class="search-state"><strong>NO MATCHES IN THIS WORLD.</strong><span>Try another lane or broaden the search.</span></div>'
@@ -220,17 +231,17 @@ export async function mount(): Promise<void> {
     });
   };
 
-  const loadSnapshot = async (query: string) => {
-    const { data, error } = await supabase.rpc('rb_search_snapshot', { p_query: query, p_category: 'all', p_limit: 100 });
+  const loadSnapshot = async (query: string, category: CategoryKey = active) => {
+    const { data, error } = await supabase.rpc('rb_search_snapshot', { p_query: query, p_category: category, p_limit: 120 });
     if (error) throw error;
     return (data ?? {}) as SearchSnapshot;
   };
 
-  const runSearch = async (immediate = false) => {
+  const runSearch = async (immediate = false, record = true) => {
     window.clearTimeout(timer);
     const query = compactQuery(input.value);
     if (!immediate) {
-      timer = window.setTimeout(() => void runSearch(true), 280);
+      timer = window.setTimeout(() => void runSearch(true), 260);
       return;
     }
     const current = ++requestId;
@@ -249,21 +260,21 @@ export async function mount(): Promise<void> {
     count.textContent = 'SCANNING THE UNIVERSE...';
     results.innerHTML = '<div class="search-state scanning"><strong>GLOBAL INDEX ACTIVE</strong><span>Ranking every connected world...</span></div>';
     try {
-      const snapshot = await loadSnapshot(query);
+      const snapshot = await loadSnapshot(query, active);
       if (disposed || current !== requestId) return;
       rows = (snapshot.results ?? []).sort((a, b) => Number(b.score ?? 0) - Number(a.score ?? 0));
-      counts = snapshot.counts ?? {};
+      counts = snapshot.counts ?? counts;
       recent = [...new Set([...(snapshot.recent ?? []).map((item) => item.query), ...localRecent()])].slice(0, 8);
       trending = (snapshot.trending ?? []).map((item) => ({ query: item.query, searches: Number(item.searches ?? 0) }));
       lastExecutedQuery = query;
-      active = 'all';
       focusedIndex = -1;
-      saveLocalRecent(query);
+      if (record) saveLocalRecent(query);
       drawDiscoveryRows();
       drawFilters();
       drawResults();
-      history.replaceState({}, '', `/search.html?q=${encodeURIComponent(query)}`);
-      void recordQuery(query, rows.length);
+      const categoryQuery = active === 'all' ? '' : `&category=${encodeURIComponent(active)}`;
+      history.replaceState({}, '', `/search.html?q=${encodeURIComponent(query)}${categoryQuery}`);
+      if (record) void recordQuery(query, rows.length);
     } catch (error) {
       if (disposed || current !== requestId) return;
       count.textContent = 'SEARCH ERROR';
@@ -271,8 +282,15 @@ export async function mount(): Promise<void> {
     }
   };
 
+  const scheduleRefresh = () => {
+    if (!lastExecutedQuery || disposed) return;
+    window.clearTimeout(refreshTimer);
+    refreshTimer = window.setTimeout(() => void runSearch(true, false), 220);
+  };
+
   const resetSearch = (focus = true) => {
     window.clearTimeout(timer);
+    window.clearTimeout(refreshTimer);
     requestId += 1;
     input.value = '';
     rows = [];
@@ -325,23 +343,31 @@ export async function mount(): Promise<void> {
   clearButton.addEventListener('click', onClear);
   window.addEventListener('keydown', onKeyDown);
 
+  catalogChannel = supabase.channel(`rich-search-catalog:${sessionId}`);
+  indexedTables.forEach((table) => {
+    catalogChannel = catalogChannel!.on('postgres_changes', { event: '*', schema: 'public', table }, scheduleRefresh);
+  });
+  catalogChannel.subscribe();
+
   const cleanup = () => {
     if (disposed) return;
     disposed = true;
     requestId += 1;
     window.clearTimeout(timer);
     window.clearTimeout(statusTimer);
+    window.clearTimeout(refreshTimer);
     form.removeEventListener('submit', onSubmit);
     input.removeEventListener('input', onInput);
     clearButton.removeEventListener('click', onClear);
     window.removeEventListener('keydown', onKeyDown);
+    if (catalogChannel) void supabase.removeChannel(catalogChannel);
     delete root.dataset.searchOwner;
   };
   window.addEventListener('pagehide', cleanup, { once: true });
   window.addEventListener('beforeunload', cleanup, { once: true });
 
   try {
-    const snapshot = await loadSnapshot('');
+    const snapshot = await loadSnapshot('', 'all');
     recent = [...new Set([...(snapshot.recent ?? []).map((item) => item.query), ...localRecent()])].slice(0, 8);
     trending = (snapshot.trending ?? []).map((item) => ({ query: item.query, searches: Number(item.searches ?? 0) }));
   } catch (error) {
@@ -352,10 +378,13 @@ export async function mount(): Promise<void> {
   drawFilters();
   drawResults();
 
-  const initial = compactQuery(new URLSearchParams(location.search).get('q') || '');
+  const params = new URLSearchParams(location.search);
+  const initialCategory = categoryAliases[String(params.get('category') || '').toLowerCase()] ?? 'all';
+  const initial = compactQuery(params.get('q') || '');
+  active = initialCategory;
   if (initial) {
     input.value = initial;
-    await runSearch(true);
+    await runSearch(true, false);
   } else if (!matchMedia('(max-width: 760px)').matches) {
     input.focus({ preventScroll: true });
   }
