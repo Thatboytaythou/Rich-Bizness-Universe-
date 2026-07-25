@@ -32,10 +32,12 @@ export async function mount(): Promise<void> {
   root.innerHTML = `<main class="deep-shell"><div class="deep-wrap">
     <header class="deep-top"><a href="${ROUTES.portal}" aria-label="Back to Portal">←</a><div><p>RICH BIZNESS PLATFORM OPERATIONS</p><h1>Admin Core</h1></div><span id="adminRole" class="deep-live">SECURE</span></header>
     <section class="deep-hero"><div><small>MODERATION • HEALTH • WEBHOOKS • MONEY • TRUST</small><h2>CONTROL THE UNIVERSE</h2><p>One protected command center for platform health, moderation, jobs, webhooks, feature control, analytics, money signals, audit history, roles, and trust.</p><div class="deep-actions"><button id="refresh" class="deep-btn primary" type="button">REFRESH SYSTEM</button><a class="deep-btn" href="${ROUTES.notifications}">ADMIN ALERTS</a><a class="deep-btn" href="${ROUTES.creator}">CREATOR CORE</a></div></div></section>
+    <section id="operatorDeck" class="admin-operator-deck" aria-live="polite"></section>
     <section id="stats" class="deep-stats"></section><nav id="tabs" class="deep-tabs" aria-label="Admin sections"></nav><section id="content"></section><p id="status" class="deep-status" role="status"></p>
   </div></main>`;
 
   const roleNode = root.querySelector<HTMLElement>('#adminRole')!;
+  const operatorDeck = root.querySelector<HTMLElement>('#operatorDeck')!;
   const stats = root.querySelector<HTMLElement>('#stats')!;
   const tabs = root.querySelector<HTMLElement>('#tabs')!;
   const content = root.querySelector<HTMLElement>('#content')!;
@@ -69,6 +71,13 @@ export async function mount(): Promise<void> {
     const s = snapshot;
     roleNode.textContent = String(s.role.role_label || s.role.role_key || 'SECURE').toUpperCase();
     const failedOps = Number(s.counts.failed_jobs ?? 0) + Number(s.counts.failed_webhooks ?? 0) + Number(s.counts.failed_requests ?? 0);
+    const permissions = [
+      ['MODERATION', s.permissions.moderate],
+      ['USERS', s.permissions.users],
+      ['PLATFORM', s.permissions.platform],
+      ['MONEY', s.permissions.money]
+    ];
+    operatorDeck.innerHTML = `<article class="admin-operator-primary"><small>OPERATOR ACCESS</small><strong>${esc(s.role.role_label || s.role.role_key || 'Protected role')}</strong><p>Snapshot verified ${when(s.generated_at)} · ${failedOps ? `${failedOps} failed operation${failedOps === 1 ? '' : 's'} need review` : 'all monitored operations clear'}</p></article><article class="admin-operator-health ${failedOps ? 'danger' : ''}"><small>OPERATIONS HEALTH</small><strong>${failedOps ? 'ATTENTION' : 'NOMINAL'}</strong><div><span>JOBS ${Number(s.counts.failed_jobs ?? 0)}</span><span>WEBHOOKS ${Number(s.counts.failed_webhooks ?? 0)}</span><span>REQUESTS ${Number(s.counts.failed_requests ?? 0)}</span></div></article><article class="admin-operator-permissions"><small>PERMISSION MATRIX</small><div>${permissions.map(([label,enabled]) => `<span class="${enabled ? 'enabled' : ''}">${label} ${enabled ? 'ON' : 'LOCKED'}</span>`).join('')}</div></article>`;
     stats.innerHTML = `<article><small>PENDING REVIEW</small><strong>${Number(s.counts.pending_reviews ?? 0).toLocaleString()}</strong></article><article><small>OPEN REPORTS</small><strong>${Number(s.counts.open_reports ?? 0).toLocaleString()}</strong></article><article><small>FAILED OPS</small><strong>${failedOps.toLocaleString()}</strong></article><article><small>TRACKED VALUE</small><strong>${s.permissions.money ? cash(s.counts.tracked_value_cents) : 'PROTECTED'}</strong></article>`;
 
     if (lane === 'overview') {
@@ -95,6 +104,7 @@ export async function mount(): Promise<void> {
       const decision = button.dataset.review!;
       if (!confirm(`${decision.toUpperCase()} THIS REVIEW?`)) return;
       button.disabled = true;
+      setStatus(`APPLYING ${decision.toUpperCase()} DECISION…`);
       const { error } = await supabase.rpc('rb_admin_action', { p_action: 'review_decision', p_target_id: button.dataset.id, p_value: { status: decision } });
       if (error) setStatus(error.message); else { setStatus(`REVIEW ${decision.toUpperCase()}`); await load(); }
       button.disabled = false;
@@ -105,6 +115,7 @@ export async function mount(): Promise<void> {
       const enabled = button.dataset.enabled === 'true';
       if (!confirm(`${enabled ? 'ENABLE' : 'DISABLE'} THIS FEATURE FLAG?`)) return;
       button.disabled = true;
+      setStatus(`${enabled ? 'ENABLING' : 'DISABLING'} FEATURE FLAG…`);
       const { error } = await supabase.rpc('rb_admin_action', { p_action: 'feature_flag', p_target_id: button.dataset.flag, p_value: { enabled } });
       if (error) setStatus(error.message); else { setStatus(`FEATURE FLAG ${enabled ? 'ENABLED' : 'DISABLED'}`); await load(); }
       button.disabled = false;
@@ -116,6 +127,8 @@ export async function mount(): Promise<void> {
     if (loading) { queued = true; return; }
     loading = true;
     refresh.disabled = true;
+    refresh.textContent = 'SYNCING…';
+    root.classList.add('admin-loading');
     setStatus('SYNCING ADMIN CORE…');
     try {
       const { data, error } = await supabase.rpc('rb_admin_snapshot', { p_limit: 100 });
@@ -129,6 +142,8 @@ export async function mount(): Promise<void> {
     } finally {
       loading = false;
       refresh.disabled = false;
+      refresh.textContent = 'REFRESH SYSTEM';
+      root.classList.remove('admin-loading');
       if (queued && !destroyed) { queued = false; await load(); }
     }
   };
@@ -148,6 +163,9 @@ export async function mount(): Promise<void> {
     .on('postgres_changes', { event: '*', schema: 'public', table: 'feature_flags' }, scheduleReload)
     .on('postgres_changes', { event: '*', schema: 'public', table: 'api_jobs' }, scheduleReload)
     .on('postgres_changes', { event: '*', schema: 'public', table: 'api_webhook_events' }, scheduleReload)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'api_request_logs' }, scheduleReload)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'admin_audit_logs' }, scheduleReload)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'system_health_checks' }, scheduleReload)
     .subscribe();
 
   const cleanup = () => {
