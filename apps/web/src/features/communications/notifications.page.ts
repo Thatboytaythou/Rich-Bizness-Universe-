@@ -26,7 +26,7 @@ function safeTarget(value:string|null|undefined):string{
   if(raw.startsWith('/')&&!raw.startsWith('//'))return raw;
   try{const url=new URL(raw,location.origin);return url.origin===location.origin?`${url.pathname}${url.search}${url.hash}`:ROUTES.notifications;}catch{return ROUTES.notifications;}
 }
-function categoryFor(notice:Notice):Exclude<FilterKey,'all'|'unread'>{
+function categoryFor(notice:Notice):Exclude<FilterKey,'all'|'unread'> {
   const source=`${notice.type} ${notice.target_type??''} ${notice.target_table??''}`.toLowerCase();
   if(/(live|stream|broadcast|room|call)/.test(source))return'live';
   if(/(music|track|podcast|radio|watch|video|gallery)/.test(source))return'media';
@@ -44,6 +44,10 @@ export async function mount():Promise<void>{
 
   root.innerHTML=`<main class="notifications-shell"><div class="notifications-wrap">
     <header class="notifications-head"><a href="${ROUTES.portal}" aria-label="Back to Portal">←</a><div><p>SMOKE CLOUD RICH ALERTS</p><h1>Notifications</h1></div><span id="noticeCount" class="notifications-count">0 NEW</span></header>
+    <section class="notifications-hero" aria-label="Notification command summary">
+      <div><small>RICH ALERT COMMAND</small><h2>Everything moving in your universe, organized in one place.</h2><p>Messages, live rooms, media drops, store activity, sports, gaming and account events stay synchronized in realtime.</p></div>
+      <div class="notifications-metrics"><article><span>UNREAD</span><strong id="metricUnread">0</strong></article><article><span>LIVE</span><strong id="metricLive">0</strong></article><article><span>MONEY</span><strong id="metricMoney">0</strong></article><article><span>SYSTEM</span><strong id="metricSystem">0</strong></article></div>
+    </section>
     <nav class="notifications-shortcuts" aria-label="Notification shortcuts"><a href="${ROUTES.messages}">RICH-DM</a><a href="${ROUTES.live}">LIVE</a><a href="${ROUTES.watch}">WATCH</a><a href="${ROUTES.settings}">SETTINGS</a></nav>
     <section class="notifications-command"><div class="notifications-filters" role="tablist">${(['all','unread','social','media','live','money','system'] as FilterKey[]).map((filter)=>`<button type="button" data-filter="${filter}" class="${filter==='all'?'active':''}">${filter.toUpperCase()} <span data-filter-count="${filter}">0</span></button>`).join('')}</div><div class="notifications-actions"><button id="markAll" type="button">MARK ALL READ</button><button id="refresh" type="button">REFRESH</button></div></section>
     <p id="noticeStatus" class="notifications-status" role="status"></p><section id="noticeList" class="notifications-list" aria-live="polite"></section>
@@ -55,13 +59,22 @@ export async function mount():Promise<void>{
   const refreshButton=root.querySelector<HTMLButtonElement>('#refresh')!;
   const markAllButton=root.querySelector<HTMLButtonElement>('#markAll')!;
   const filterButtons=Array.from(root.querySelectorAll<HTMLButtonElement>('[data-filter]'));
+  const metricUnread=root.querySelector<HTMLElement>('#metricUnread')!;
+  const metricLive=root.querySelector<HTMLElement>('#metricLive')!;
+  const metricMoney=root.querySelector<HTMLElement>('#metricMoney')!;
+  const metricSystem=root.querySelector<HTMLElement>('#metricSystem')!;
   let notices:Notice[]=[]; let authoritativeAll=0; let authoritativeUnread=0; let activeFilter:FilterKey='all';
   let destroyed=false; let loading=false; let refreshQueued=false; let refreshTimer=0; let channel:ReturnType<typeof supabase.channel>|null=null;
 
   const setStatus=(message:string)=>{if(!destroyed)status.textContent=message;};
   const filteredNotices=()=>notices.filter((notice)=>activeFilter==='all'||(activeFilter==='unread'?!notice.is_read:categoryFor(notice)===activeFilter));
+  const categoryCount=(category:Exclude<FilterKey,'all'|'unread'>)=>notices.filter((notice)=>categoryFor(notice)===category).length;
   const updateCounts=()=>{
     count.textContent=`${authoritativeUnread} NEW`;
+    metricUnread.textContent=String(authoritativeUnread);
+    metricLive.textContent=String(categoryCount('live'));
+    metricMoney.textContent=String(categoryCount('money'));
+    metricSystem.textContent=String(categoryCount('system'));
     root.querySelectorAll<HTMLElement>('[data-filter-count]').forEach((node)=>{
       const key=node.dataset.filterCount as FilterKey;
       const value=key==='all'?authoritativeAll:key==='unread'?authoritativeUnread:notices.filter((notice)=>categoryFor(notice)===key).length;
@@ -73,8 +86,9 @@ export async function mount():Promise<void>{
     const rows=filteredNotices(); updateCounts();
     list.innerHTML=rows.length?rows.map((notice)=>{
       const category=categoryFor(notice); const target=safeTarget(notice.action_url||notice.target_url); const action=notice.action_label||'OPEN';
-      return `<article class="notification-card ${notice.is_read?'':'unread'} priority-${esc(notice.priority||'normal')} ${notice.is_silent?'silent':''}" data-category="${category}"><button class="notification-main" type="button" data-open="${notice.id}" data-target="${esc(target)}"><span class="notification-icon">${esc(notice.emoji||'💨')}</span><span class="notification-copy"><span class="notification-meta"><b>${esc(category.toUpperCase())}</b><time>${relativeTime(notice.created_at)}</time></span><strong>${esc(notice.title||notice.type||'Rich Bizness update')}</strong><span>${esc(notice.body||'Something new happened in your universe.')}</span></span><span class="notification-action">${esc(action)}</span></button>${notice.is_read?'':`<button type="button" class="notification-read" data-read="${notice.id}" aria-label="Mark notification read">✓</button>`}</article>`;
-    }).join(''):`<div class="notifications-empty"><span>💨</span><h2>${activeFilter==='all'?'No alerts yet':`No ${activeFilter} alerts`}</h2><p>Your Rich Bizness universe is clear right now.</p></div>`;
+      const priority=esc(notice.priority||'normal');
+      return `<article class="notification-card ${notice.is_read?'':'unread'} priority-${priority} ${notice.is_silent?'silent':''}" data-category="${category}"><button class="notification-main" type="button" data-open="${notice.id}" data-target="${esc(target)}"><span class="notification-icon">${esc(notice.emoji||'💨')}</span><span class="notification-copy"><span class="notification-meta"><b>${esc(category.toUpperCase())}</b><time>${relativeTime(notice.created_at)}</time>${priority!=='normal'?`<em>${priority.toUpperCase()}</em>`:''}</span><strong>${esc(notice.title||notice.type||'Rich Bizness update')}</strong><span>${esc(notice.body||'Something new happened in your universe.')}</span></span><span class="notification-action">${esc(action)}</span></button>${notice.is_read?'':`<button type="button" class="notification-read" data-read="${notice.id}" aria-label="Mark notification read">✓</button>`}</article>`;
+    }).join(''):`<div class="notifications-empty"><span>💨</span><small>${activeFilter.toUpperCase()} CHANNEL</small><h2>${activeFilter==='all'?'No alerts yet':`No ${activeFilter} alerts`}</h2><p>Your Rich Bizness universe is clear right now.</p><a href="${ROUTES.portal}">RETURN TO PORTAL</a></div>`;
   };
   const markRead=async(id:string)=>{
     const{data,error}=await supabase.rpc('rb_notifications_mark_read',{p_notification_id:id,p_all:false}); if(error)throw error;
