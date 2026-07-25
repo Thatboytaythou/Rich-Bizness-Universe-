@@ -179,7 +179,7 @@ export async function mount(): Promise<void> {
   if (active) commentChannel = supabase.channel(`radio-comments:${active.id}`).on('postgres_changes', { event: '*', schema: 'public', table: 'radio_comments', filter: `station_id=eq.${active.id}` }, () => scheduleLoad(active?.id)).subscribe();
   listenerChannel = supabase.channel(`rich-radio-listeners:${userId || anonymousId}`)
     .on('postgres_changes', { event: '*', schema: 'public', table: 'radio_likes' }, () => scheduleLoad())
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'radio_listening_sessions' }, () => scheduleLoad())
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'radio_sessions' }, () => scheduleLoad())
     .subscribe();
 
   const cleanup = () => {
