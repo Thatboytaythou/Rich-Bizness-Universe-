@@ -125,6 +125,7 @@ export async function mount(): Promise<void> {
     if (autoplayAfterOpen) { autoplayAfterOpen = false; await playActive(); }
   };
 
+  const writeHistory = async (completed: boolean) => { if (!userId || !active) return; try { await action('history', { track_id: active.id, progress_seconds: Math.floor(completed ? audio.duration || 0 : audio.currentTime), completed, count_play: false, title: active.title }); } catch { /* passive history must not interrupt playback */ } };
   const moveQueue = async (direction: number) => {
     const catalog = tracks();
     if (!catalog.length) return;
@@ -147,7 +148,6 @@ export async function mount(): Promise<void> {
     finally { button.disabled = false; }
   };
 
-  const writeHistory = async (completed: boolean) => { if (!userId || !active) return; try { await action('history', { track_id: active.id, progress_seconds: Math.floor(completed ? audio.duration || 0 : audio.currentTime), completed, count_play: false, title: active.title }); } catch { /* passive history must not interrupt playback */ } };
   const onTimeUpdate = () => { if (!userId || !active || !Number.isFinite(audio.duration)) return; const now = Date.now(); if (now - lastHistoryWrite < 15000) return; lastHistoryWrite = now; void writeHistory(false); };
   const onEnded = async () => { await writeHistory(true); await moveQueue(1); };
   const scheduleLoad = () => { window.clearTimeout(refreshTimer); refreshTimer = window.setTimeout(() => void load(), 180); };
@@ -167,9 +167,9 @@ export async function mount(): Promise<void> {
   catalogChannel = supabase.channel('music-catalog').on('postgres_changes', { event: '*', schema: 'public', table: 'music_tracks' }, scheduleLoad).subscribe();
   listenerChannel = supabase.channel(`music-listener:${userId || 'public'}`)
     .on('postgres_changes', { event: '*', schema: 'public', table: 'music_likes' }, scheduleLoad)
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'music_playlist_tracks' }, scheduleLoad)
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'music_playlists' }, scheduleLoad)
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'music_play_history' }, scheduleLoad)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'playlist_tracks' }, scheduleLoad)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'playlists' }, scheduleLoad)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'audio_listening_history' }, scheduleLoad)
     .subscribe();
   const cleanup = () => { if (destroyed) return; destroyed = true; window.clearTimeout(refreshTimer); audio.pause(); audio.removeEventListener('timeupdate', onTimeUpdate); audio.removeEventListener('ended', onEnded); audio.removeAttribute('src'); audio.load(); if (catalogChannel) void supabase.removeChannel(catalogChannel); if (commentChannel) void supabase.removeChannel(commentChannel); if (listenerChannel) void supabase.removeChannel(listenerChannel); };
   window.addEventListener('pagehide', cleanup, { once: true });
