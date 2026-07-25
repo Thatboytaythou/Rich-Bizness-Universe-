@@ -9,42 +9,10 @@ type Snapshot = { rules?:Rule[]; access?:Access[]; profile?:Record<string,unknow
 type WorkspaceCard = { eyebrow:string; title:string; body:string; href:string; stat:string; icon:string };
 
 const DETAILS: Record<DimensionKey,{label:string;eyebrow:string;description:string;icon:string;cards:WorkspaceCard[]}> = {
-  on_the_go:{
-    label:'On The Go',eyebrow:'MOBILE EARNINGS DIMENSION',description:'Local rides, pickups, deliveries, driver sessions, dispatch and creator mobility tools.',icon:'⚡',
-    cards:[
-      {eyebrow:'DRIVER MODE',title:'Open Driver Sessions',body:'Start or manage mobile earning sessions, availability and service status.',href:'/profile.html?tab=creator',stat:'LIVE AVAILABILITY',icon:'🚘'},
-      {eyebrow:'DISPATCH',title:'Pickup + Delivery Board',body:'Connect local delivery, pickup and creator service opportunities.',href:'/notifications.html',stat:'REALTIME ALERTS',icon:'📍'},
-      {eyebrow:'EARNINGS',title:'Mobility Revenue',body:'Review available, pending and paid creator earnings from one place.',href:'/creator.html?lane=money',stat:'WALLET CONNECTED',icon:'💵'},
-      {eyebrow:'IDENTITY',title:'Driver Profile',body:'Keep the public profile, avatar and Rich identity connected to every job.',href:'/edit-profile.html',stat:'RICH ID',icon:'🪪'}
-    ]
-  },
-  dash_businesses:{
-    label:'Dash Businesses',eyebrow:'BUSINESS NETWORK DIMENSION',description:'Private seller operations, local business dashboards, service drops, orders and paid growth tools.',icon:'🏙️',
-    cards:[
-      {eyebrow:'OPERATIONS',title:'Business Command',body:'Control seller identity, service listings and private business operations.',href:'/store.html',stat:'SELLER CORE',icon:'🏢'},
-      {eyebrow:'ORDERS',title:'Order Center',body:'Track active product and service demand from connected store systems.',href:'/store.html?lane=orders',stat:'ORDER FLOW',icon:'📦'},
-      {eyebrow:'PUBLISH',title:'Create Business Drop',body:'Launch a new product, service, promotion or seller media package.',href:'/upload.html?route=store-product',stat:'UPLOAD READY',icon:'⬆️'},
-      {eyebrow:'ALERTS',title:'Business Notifications',body:'See seller, order, payout and customer activity alerts.',href:'/notifications.html',stat:'REALTIME',icon:'🔔'}
-    ]
-  },
-  private_world:{
-    label:'Private World',eyebrow:'MEMBERS-ONLY WORLD',description:'A protected social and Meta layer for approved members, private rooms, events and premium experiences.',icon:'◎',
-    cards:[
-      {eyebrow:'WORLD',title:'Enter Meta Universe',body:'Open the connected Meta command center and private world inventory.',href:'/meta.html',stat:'WORLD LINK',icon:'🪐'},
-      {eyebrow:'COMMUNITY',title:'Private Rich-DM',body:'Message members, create direct conversations and launch calls.',href:'/messages.html',stat:'ENCRYPTED ROOM',icon:'💨'},
-      {eyebrow:'EVENTS',title:'Private Live Events',body:'Launch members-only broadcasts and protected watch experiences.',href:'/live.html',stat:'LIVEKIT READY',icon:'◉'},
-      {eyebrow:'IDENTITY',title:'Avatar Lobby',body:'Enter the 3D avatar lobby connected to the private world identity.',href:'/avatar-characters.html',stat:'3D AVATAR',icon:'🧍'}
-    ]
-  },
-  movies:{
-    label:'Movies',eyebrow:'CINEMA DIMENSION',description:'Premium screenings, creator premieres, watch rooms, releases and protected movie experiences.',icon:'🎬',
-    cards:[
-      {eyebrow:'SCREEN',title:'Watch Universe',body:'Open the connected cinema, replay and synchronized viewing surface.',href:'/watch.html',stat:'WATCH READY',icon:'📺'},
-      {eyebrow:'PREMIERE',title:'Launch Premiere',body:'Prepare a protected live premiere with chat, reactions and VIP access.',href:'/live.html',stat:'PREMIERE MODE',icon:'🔥'},
-      {eyebrow:'RELEASE',title:'Upload Movie Drop',body:'Register a new video, cover, trailer or protected creator release.',href:'/upload.html?route=general',stat:'MEDIA PIPELINE',icon:'🎞️'},
-      {eyebrow:'AUDIENCE',title:'Cinema Alerts',body:'Review viewer, member, reaction and premiere notifications.',href:'/notifications.html',stat:'AUDIENCE LIVE',icon:'🍿'}
-    ]
-  }
+  on_the_go:{label:'On The Go',eyebrow:'MOBILE EARNINGS DIMENSION',description:'Local rides, pickups, deliveries, driver sessions, dispatch and creator mobility tools.',icon:'⚡',cards:[{eyebrow:'DRIVER MODE',title:'Open Driver Sessions',body:'Start or manage mobile earning sessions, availability and service status.',href:'/profile.html?tab=creator',stat:'LIVE AVAILABILITY',icon:'🚘'},{eyebrow:'DISPATCH',title:'Pickup + Delivery Board',body:'Connect local delivery, pickup and creator service opportunities.',href:'/notifications.html',stat:'REALTIME ALERTS',icon:'📍'},{eyebrow:'EARNINGS',title:'Mobility Revenue',body:'Review available, pending and paid creator earnings from one place.',href:'/creator.html?lane=money',stat:'WALLET CONNECTED',icon:'💵'},{eyebrow:'IDENTITY',title:'Driver Profile',body:'Keep the public profile, avatar and Rich identity connected to every job.',href:'/edit-profile.html',stat:'RICH ID',icon:'🪪'}]},
+  dash_businesses:{label:'Dash Businesses',eyebrow:'BUSINESS NETWORK DIMENSION',description:'Private seller operations, local business dashboards, service drops, orders and paid growth tools.',icon:'🏙️',cards:[{eyebrow:'OPERATIONS',title:'Business Command',body:'Control seller identity, service listings and private business operations.',href:'/store.html',stat:'SELLER CORE',icon:'🏢'},{eyebrow:'ORDERS',title:'Order Center',body:'Track active product and service demand from connected store systems.',href:'/store.html?lane=orders',stat:'ORDER FLOW',icon:'📦'},{eyebrow:'PUBLISH',title:'Create Business Drop',body:'Launch a new product, service, promotion or seller media package.',href:'/upload.html?route=store-product',stat:'UPLOAD READY',icon:'⬆️'},{eyebrow:'ALERTS',title:'Business Notifications',body:'See seller, order, payout and customer activity alerts.',href:'/notifications.html',stat:'REALTIME',icon:'🔔'}]},
+  private_world:{label:'Private World',eyebrow:'MEMBERS-ONLY WORLD',description:'A protected social and Meta layer for approved members, private rooms, events and premium experiences.',icon:'◎',cards:[{eyebrow:'WORLD',title:'Enter Meta Universe',body:'Open the connected Meta command center and private world inventory.',href:'/meta.html',stat:'WORLD LINK',icon:'🪐'},{eyebrow:'COMMUNITY',title:'Private Rich-DM',body:'Message members, create direct conversations and launch calls.',href:'/messages.html',stat:'ENCRYPTED ROOM',icon:'💨'},{eyebrow:'EVENTS',title:'Private Live Events',body:'Launch members-only broadcasts and protected watch experiences.',href:'/live.html',stat:'LIVEKIT READY',icon:'◉'},{eyebrow:'IDENTITY',title:'Avatar Lobby',body:'Enter the 3D avatar lobby connected to the private world identity.',href:'/avatar-characters.html',stat:'3D AVATAR',icon:'🧍'}]},
+  movies:{label:'Movies',eyebrow:'CINEMA DIMENSION',description:'Premium screenings, creator premieres, watch rooms, releases and protected movie experiences.',icon:'🎬',cards:[{eyebrow:'SCREEN',title:'Watch Universe',body:'Open the connected cinema, replay and synchronized viewing surface.',href:'/watch.html',stat:'WATCH READY',icon:'📺'},{eyebrow:'PREMIERE',title:'Launch Premiere',body:'Prepare a protected live premiere with chat, reactions and VIP access.',href:'/live.html',stat:'PREMIERE MODE',icon:'🔥'},{eyebrow:'RELEASE',title:'Upload Movie Drop',body:'Register a new video, cover, trailer or protected creator release.',href:'/upload.html?route=general',stat:'MEDIA PIPELINE',icon:'🎞️'},{eyebrow:'AUDIENCE',title:'Cinema Alerts',body:'Review viewer, member, reaction and premiere notifications.',href:'/notifications.html',stat:'AUDIENCE LIVE',icon:'🍿'}]}
 };
 
 const money=(cents:number|null|undefined,currency='usd')=>new Intl.NumberFormat('en-US',{style:'currency',currency:currency.toUpperCase()}).format(Number(cents??0)/100);
@@ -56,53 +24,19 @@ export async function mount():Promise<void>{
   if(root.dataset.creatorDimensionsOwner==='mounted') return; root.dataset.creatorDimensionsOwner='mounted';
   const user=getAuthSnapshot().user;
   if(!user){location.replace('/tap-in.html?next=%2Fcreator-dimensions.html');return;}
-
   const params=new URLSearchParams(location.search);
   const requested=isDimension(params.get('dimension'))?params.get('dimension') as DimensionKey:null;
   const mode=params.get('mode');
   root.innerHTML=`<main class="dimension-shell"><div class="dimension-wrap"><header class="dimension-head"><a href="/creator.html">←</a><div><p>RICH BIZNESS SECRET CREATOR GATE</p><h1>Creator Dimensions</h1></div><span id="dimensionState" class="dimension-live">SECURE</span></header><section id="dimensionHero" class="dimension-hero"><div><span>ADMIN APPROVAL · PAID ACCESS · PRIVATE ROUTES</span><h2 id="dimensionHeroTitle">ENTER ANOTHER DIMENSION</h2><p id="dimensionHeroCopy">Four protected creator systems. Pricing comes from secured route rules; payment state and approval remain server controlled.</p></div></section><section id="dimensionSummary" class="dimension-summary"></section><section id="dimensionGrid" class="dimension-grid"></section><p id="dimensionStatus" class="dimension-status" role="status"></p></div></main>`;
-  const grid=root.querySelector<HTMLElement>('#dimensionGrid')!;
-  const summary=root.querySelector<HTMLElement>('#dimensionSummary')!;
-  const status=root.querySelector<HTMLElement>('#dimensionStatus')!;
-  const state=root.querySelector<HTMLElement>('#dimensionState')!;
-  const hero=root.querySelector<HTMLElement>('#dimensionHero')!;
-  const heroTitle=root.querySelector<HTMLElement>('#dimensionHeroTitle')!;
-  const heroCopy=root.querySelector<HTMLElement>('#dimensionHeroCopy')!;
-  let loading=false,queued=false,destroyed=false,refreshTimer:number|undefined;
+  const grid=root.querySelector<HTMLElement>('#dimensionGrid')!,summary=root.querySelector<HTMLElement>('#dimensionSummary')!,status=root.querySelector<HTMLElement>('#dimensionStatus')!,state=root.querySelector<HTMLElement>('#dimensionState')!,hero=root.querySelector<HTMLElement>('#dimensionHero')!,heroTitle=root.querySelector<HTMLElement>('#dimensionHeroTitle')!,heroCopy=root.querySelector<HTMLElement>('#dimensionHeroCopy')!;
+  let loading=false,queued=false,destroyed=false,refreshTimer:number|undefined,entryAwarded=false;
   let channel:ReturnType<typeof supabase.channel>|null=null;
-
   const setStatus=(message:string,error=false)=>{if(destroyed)return;status.textContent=message;status.dataset.error=String(error);};
-  const requestAccess=async(key:DimensionKey)=>{setStatus('CREATING SECURE ACCESS REQUEST…');const{error}=await supabase.rpc('rb_creator_request_dimension',{p_dimension_key:key});if(error){setStatus(error.message,true);return;}setStatus('REQUEST SENT — ADMIN APPROVAL AND PAYMENT CONFIRMATION REQUIRED');await load();};
-
-  const renderWorkspace=(key:DimensionKey,access:Access,profile:Record<string,unknown>)=>{
-    const detail=DETAILS[key];
-    hero.dataset.dimension=key;
-    heroTitle.textContent=detail.label.toUpperCase();
-    heroCopy.textContent=detail.description;
-    state.textContent='ACCESS ACTIVE';
-    summary.innerHTML=`<article><small>DIMENSION</small><strong>${esc(detail.label)}</strong></article><article><small>STATUS</small><strong>${esc(access.status.toUpperCase())}</strong></article><article><small>ACCESS FEE</small><strong>${money(access.fee_cents,access.currency)}</strong></article><article><small>RICH ID</small><strong>${esc(profile.display_name||profile.username||'CREATOR')}</strong></article>`;
-    grid.className='dimension-grid workspace-grid';
-    grid.innerHTML=detail.cards.map(card=>`<article class="dimension-card workspace-card active"><div class="dimension-icon">${card.icon}</div><span>${esc(card.eyebrow)}</span><h3>${esc(card.title)}</h3><p>${esc(card.body)}</p><div class="dimension-meta"><strong>${esc(card.stat)}</strong><em>CONNECTED</em></div><a class="dimension-btn primary" href="${esc(card.href)}">OPEN SYSTEM</a></article>`).join('');
-    setStatus(`${detail.label.toUpperCase()} DIMENSION ONLINE`);
-  };
-
-  const renderGate=(rules:Rule[],accessRows:Access[],profile:Record<string,unknown>)=>{
-    const accessMap=new Map(accessRows.map(row=>[row.dimension_key,row]));
-    hero.dataset.dimension='gate';
-    heroTitle.textContent='ENTER ANOTHER DIMENSION';
-    heroCopy.textContent='Four protected creator systems. Pricing comes from secured route rules; payment state and approval remain server controlled.';
-    summary.innerHTML=`<article><small>DIMENSIONS</small><strong>4</strong></article><article><small>ACTIVE</small><strong>${accessRows.filter(row=>row.status==='active').length}</strong></article><article><small>PENDING</small><strong>${accessRows.filter(row=>row.status==='pending').length}</strong></article><article><small>VAULT</small><strong>${profile.vault_unlocked?'UNLOCKED':'SECURE'}</strong></article>`;
-    grid.className='dimension-grid';
-    grid.innerHTML=(Object.keys(DETAILS) as DimensionKey[]).map(key=>{const detail=DETAILS[key];const rule=rules.find(row=>row.route_key===`dimension_${key}`);const access=accessMap.get(key);const fee=Number(rule?.entry_cost_cents??0);const active=access?.status==='active'&&(!access.expires_at||new Date(access.expires_at)>new Date());const pending=access?.status==='pending';const badge=active?'ACCESS ACTIVE':pending?'APPROVAL PENDING':access?.status?access.status.toUpperCase():'LOCKED';return `<article class="dimension-card ${active?'active':''}"><div class="dimension-icon">${detail.icon}</div><span>${esc(detail.eyebrow)}</span><h3>${esc(detail.label)}</h3><p>${esc(detail.description)}</p><div class="dimension-meta"><strong>${money(fee)}</strong><em>${esc(badge)}</em></div>${active?`<button class="dimension-btn primary" data-enter="${key}">ENTER DIMENSION</button>`:`<button class="dimension-btn" data-request="${key}" ${pending?'disabled':''}>${pending?'REQUEST PENDING':'REQUEST ACCESS'}</button>`}</article>`;}).join('');
-    state.textContent=profile.vault_unlocked?'VAULT UNLOCKED':'SECURE';
-    grid.querySelectorAll<HTMLButtonElement>('[data-request]').forEach(button=>button.onclick=()=>void requestAccess(button.dataset.request as DimensionKey));
-    grid.querySelectorAll<HTMLButtonElement>('[data-enter]').forEach(button=>location.assign(`/creator-dimensions.html?dimension=${encodeURIComponent(button.dataset.enter||'')}&mode=enter`));
-  };
-
-  const load=async()=>{if(destroyed)return;if(loading){queued=true;return;}loading=true;setStatus('VERIFYING DIMENSION ACCESS…');const{data,error}=await supabase.rpc('rb_creator_dimension_snapshot');loading=false;if(destroyed)return;if(error){setStatus(error.message,true);return;}const snapshot=(data??{}) as Snapshot;const rules=snapshot.rules??[];const accessRows=snapshot.access??[];const profile=snapshot.profile??{};if(requested&&mode==='enter'){const access=accessRows.find(row=>row.dimension_key===requested);const active=access?.status==='active'&&(!access.expires_at||new Date(access.expires_at)>new Date());if(active&&access)renderWorkspace(requested,access,profile);else{renderGate(rules,accessRows,profile);setStatus('ACTIVE ACCESS REQUIRED FOR THIS DIMENSION',true);}}else renderGate(rules,accessRows,profile);if(queued){queued=false;void load();}};
-
+  const requestAccess=async(key:DimensionKey)=>{setStatus('CREATING SECURE ACCESS REQUEST…');const{error}=await supabase.rpc('rb_creator_request_dimension',{p_dimension_key:key});if(error){setStatus(error.message,true);return;}await supabase.rpc('rb_award_xp',{p_event_key:'creator_dimension_requested',p_section:'creator',p_source_table:'creator_dimension_access',p_source_id:user.id,p_amount:15});setStatus('REQUEST SENT — ADMIN APPROVAL AND PAYMENT CONFIRMATION REQUIRED');await load();};
+  const renderWorkspace=async(key:DimensionKey,access:Access,profile:Record<string,unknown>)=>{const detail=DETAILS[key];hero.dataset.dimension=key;heroTitle.textContent=detail.label.toUpperCase();heroCopy.textContent=detail.description;state.textContent='ACCESS ACTIVE';summary.innerHTML=`<article><small>DIMENSION</small><strong>${esc(detail.label)}</strong></article><article><small>STATUS</small><strong>${esc(access.status.toUpperCase())}</strong></article><article><small>ACCESS FEE</small><strong>${money(access.fee_cents,access.currency)}</strong></article><article><small>RICH ID</small><strong>${esc(profile.display_name||profile.username||'CREATOR')}</strong></article>`;grid.className='dimension-grid workspace-grid';grid.innerHTML=detail.cards.map(card=>`<article class="dimension-card workspace-card active"><div class="dimension-icon">${card.icon}</div><span>${esc(card.eyebrow)}</span><h3>${esc(card.title)}</h3><p>${esc(card.body)}</p><div class="dimension-meta"><strong>${esc(card.stat)}</strong><em>CONNECTED</em></div><a class="dimension-btn primary" href="${esc(card.href)}">OPEN SYSTEM</a></article>`).join('');if(!entryAwarded){entryAwarded=true;await supabase.rpc('rb_award_xp',{p_event_key:'creator_dimension_entered',p_section:'creator',p_source_table:'creator_dimension_access',p_source_id:access.id,p_amount:10});}setStatus(`${detail.label.toUpperCase()} DIMENSION ONLINE`);};
+  const renderGate=(rules:Rule[],accessRows:Access[],profile:Record<string,unknown>)=>{const accessMap=new Map(accessRows.map(row=>[row.dimension_key,row]));hero.dataset.dimension='gate';heroTitle.textContent='ENTER ANOTHER DIMENSION';heroCopy.textContent='Four protected creator systems. Pricing comes from secured route rules; payment state and approval remain server controlled.';summary.innerHTML=`<article><small>DIMENSIONS</small><strong>4</strong></article><article><small>ACTIVE</small><strong>${accessRows.filter(row=>row.status==='active').length}</strong></article><article><small>PENDING</small><strong>${accessRows.filter(row=>row.status==='pending').length}</strong></article><article><small>VAULT</small><strong>${profile.vault_unlocked?'UNLOCKED':'SECURE'}</strong></article>`;grid.className='dimension-grid';grid.innerHTML=(Object.keys(DETAILS) as DimensionKey[]).map(key=>{const detail=DETAILS[key];const rule=rules.find(row=>row.route_key===`dimension_${key}`);const access=accessMap.get(key);const fee=Number(rule?.entry_cost_cents??0);const active=access?.status==='active'&&(!access.expires_at||new Date(access.expires_at)>new Date());const pending=access?.status==='pending';const badge=active?'ACCESS ACTIVE':pending?'APPROVAL PENDING':access?.status?access.status.toUpperCase():'LOCKED';return `<article class="dimension-card ${active?'active':''}"><div class="dimension-icon">${detail.icon}</div><span>${esc(detail.eyebrow)}</span><h3>${esc(detail.label)}</h3><p>${esc(detail.description)}</p><div class="dimension-meta"><strong>${money(fee)}</strong><em>${esc(badge)}</em></div>${active?`<button class="dimension-btn primary" data-enter="${key}">ENTER DIMENSION</button>`:`<button class="dimension-btn" data-request="${key}" ${pending?'disabled':''}>${pending?'REQUEST PENDING':'REQUEST ACCESS'}</button>`}</article>`;}).join('');state.textContent=profile.vault_unlocked?'VAULT UNLOCKED':'SECURE';grid.querySelectorAll<HTMLButtonElement>('[data-request]').forEach(button=>button.onclick=()=>void requestAccess(button.dataset.request as DimensionKey));grid.querySelectorAll<HTMLButtonElement>('[data-enter]').forEach(button=>button.onclick=()=>location.assign(`/creator-dimensions.html?dimension=${encodeURIComponent(button.dataset.enter||'')}&mode=enter`));};
+  const load=async()=>{if(destroyed)return;if(loading){queued=true;return;}loading=true;setStatus('VERIFYING DIMENSION ACCESS…');const{data,error}=await supabase.rpc('rb_creator_dimension_snapshot');loading=false;if(destroyed)return;if(error){setStatus(error.message,true);return;}const snapshot=(data??{}) as Snapshot;const rules=snapshot.rules??[],accessRows=snapshot.access??[],profile=snapshot.profile??{};if(requested&&mode==='enter'){const access=accessRows.find(row=>row.dimension_key===requested);const active=access?.status==='active'&&(!access.expires_at||new Date(access.expires_at)>new Date());if(active&&access)await renderWorkspace(requested,access,profile);else{renderGate(rules,accessRows,profile);setStatus('ACTIVE ACCESS REQUIRED FOR THIS DIMENSION',true);}}else renderGate(rules,accessRows,profile);if(queued){queued=false;void load();}};
   await load();
   channel=supabase.channel(`creator-dimensions:${user.id}`).on('postgres_changes',{event:'*',schema:'public',table:'creator_dimension_access',filter:`user_id=eq.${user.id}`},()=>{clearTimeout(refreshTimer);refreshTimer=window.setTimeout(()=>void load(),180);}).subscribe();
-  const cleanup=()=>{if(destroyed)return;destroyed=true;clearTimeout(refreshTimer);if(channel)void supabase.removeChannel(channel);delete root.dataset.creatorDimensionsOwner;};
-  window.addEventListener('pagehide',cleanup,{once:true});window.addEventListener('beforeunload',cleanup,{once:true});
+  const cleanup=()=>{if(destroyed)return;destroyed=true;clearTimeout(refreshTimer);if(channel)void supabase.removeChannel(channel);delete root.dataset.creatorDimensionsOwner;};window.addEventListener('pagehide',cleanup,{once:true});window.addEventListener('beforeunload',cleanup,{once:true});
 }
