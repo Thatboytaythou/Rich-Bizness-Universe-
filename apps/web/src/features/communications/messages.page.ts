@@ -6,13 +6,30 @@ import './messages-universe.css';
 
 type Thread = { id: string; title: string | null; thread_type: string | null; last_message: string | null; last_message_at: string | null; typing_label: string | null; default_reaction?: string | null; bubble_theme?: string | null; is_pinned?: boolean | null; is_muted?: boolean | null; unread_count?: number | null };
 type Message = { id: string; thread_id: string; sender_id: string | null; display_name: string | null; username: string | null; body: string | null; message_type: string | null; media_url: string | null; media_type?: string | null; created_at: string | null; reply_to_message_id?: string | null; is_edited?: boolean | null };
+type Attachment = { id?: string; message_id: string; file_url?: string | null; media_url?: string | null; file_name?: string | null; mime_type?: string | null; file_size?: number | null };
+type CallSession = { id: string; call_type?: string | null; call_status?: string | null; started_at?: string | null; ended_at?: string | null; started_by?: string | null };
 type Profile = { id: string; username: string | null; display_name: string | null; avatar_url: string | null; online_status: string | null };
-type ThreadSnapshot = { thread?: Record<string, unknown> | null; members?: Array<Record<string, unknown>>; messages?: Message[]; reactions?: Array<{ message_id: string; emoji: string; user_id: string }>; typing?: Array<{ user_id: string; typing_label: string }> };
+type ThreadSnapshot = { thread?: Record<string, unknown> | null; members?: Array<Record<string, unknown>>; messages?: Message[]; attachments?: Attachment[]; reactions?: Array<{ message_id: string; emoji: string; user_id: string }>; typing?: Array<{ user_id: string; typing_label: string }>; calls?: CallSession[]; call_sessions?: CallSession[] };
 type Channel = ReturnType<typeof supabase.channel>;
 
 const esc = (value: string | null | undefined) => (value ?? '').replace(/[&<>'"]/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' })[character] ?? character);
 const stamp = (value: string | null) => value ? new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }).format(new Date(value)) : '';
 const isUuid = (value: string | null) => Boolean(value && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value));
+const bytes = (value: number | null | undefined) => {
+  const amount = Number(value ?? 0);
+  if (!amount) return '';
+  if (amount < 1024) return `${amount} B`;
+  if (amount < 1024 * 1024) return `${(amount / 1024).toFixed(1)} KB`;
+  return `${(amount / 1024 / 1024).toFixed(1)} MB`;
+};
+const safeHref = (value: string | null | undefined) => {
+  try {
+    const url = new URL(value ?? '', location.origin);
+    return ['http:', 'https:'].includes(url.protocol) ? url.href : '';
+  } catch {
+    return '';
+  }
+};
 
 export async function mount(): Promise<void> {
   const root = document.querySelector<HTMLElement>('#app');
@@ -27,14 +44,19 @@ export async function mount(): Promise<void> {
 
   root.innerHTML = `<main class="comm-shell messages-shell"><div class="comm-wrap">
     <header class="comm-head"><a href="${ROUTES.portal}" aria-label="Back to Portal">←</a><div><p>RICH-DM’S • PRIVATE REALTIME</p><h1>Messages</h1></div><div class="message-head-actions"><a href="${ROUTES.notifications}" class="comm-button">ALERTS</a><a href="${ROUTES.settings}" class="comm-button">SETTINGS</a><span class="comm-pill">LIVE</span></div></header>
+    <section class="dm-command-summary"><article><small>CONVERSATIONS</small><strong id="threadCount">0</strong><span>Synced private rooms</span></article><article><small>UNREAD</small><strong id="unreadCount">0</strong><span>Messages waiting</span></article><article><small>ACTIVE THREAD</small><strong id="activeState">NONE</strong><span>Realtime room state</span></article><article><small>ATTACHMENTS</small><strong id="attachmentState">READY</strong><span>Images, video, audio, files</span></article></section>
     <p id="messageStatus" class="status-line" role="status"></p>
-    <section class="message-layout"><aside class="comm-card thread-list-shell"><div class="thread-toolbar"><input id="threadSearch" placeholder="Search conversations" autocomplete="off"/><button id="newThread" class="comm-button primary" type="button" aria-label="New conversation">＋</button></div><div id="threadList" class="comm-list thread-list"></div></aside><section id="threadPanel" class="comm-card thread-panel"><div class="comm-empty">Choose a conversation or start a new one.</div></section></section>
+    <section class="message-layout"><aside class="comm-card thread-list-shell"><div class="thread-toolbar"><input id="threadSearch" placeholder="Search conversations" autocomplete="off"/><button id="newThread" class="comm-button primary" type="button" aria-label="New conversation">＋</button></div><div id="threadList" class="comm-list thread-list"></div></aside><section id="threadPanel" class="comm-card thread-panel"><div class="comm-empty rich-dm-empty"><span>💨</span><h2>Choose a Rich-DM</h2><p>Open a private realtime room or start a new conversation.</p></div></section></section>
   </div></main>`;
 
   const threadList = root.querySelector<HTMLElement>('#threadList')!;
   const panel = root.querySelector<HTMLElement>('#threadPanel')!;
   const search = root.querySelector<HTMLInputElement>('#threadSearch')!;
   const status = root.querySelector<HTMLElement>('#messageStatus')!;
+  const threadCount = root.querySelector<HTMLElement>('#threadCount')!;
+  const unreadCount = root.querySelector<HTMLElement>('#unreadCount')!;
+  const activeState = root.querySelector<HTMLElement>('#activeState')!;
+  const attachmentState = root.querySelector<HTMLElement>('#attachmentState')!;
 
   const params = new URLSearchParams(location.search);
   let activeThread = params.get('thread');
@@ -56,6 +78,12 @@ export async function mount(): Promise<void> {
     window.setTimeout(() => { if (!destroyed && status.textContent === message) status.textContent = ''; }, 3200);
   };
 
+  const updateSummary = () => {
+    threadCount.textContent = String(threads.length);
+    unreadCount.textContent = String(threads.reduce((total, thread) => total + Number(thread.unread_count ?? 0), 0));
+    activeState.textContent = activeThread ? 'OPEN' : 'NONE';
+  };
+
   const scheduleThreads = () => {
     if (refreshTimer) window.clearTimeout(refreshTimer);
     refreshTimer = window.setTimeout(() => void loadThreads(), 180);
@@ -70,6 +98,7 @@ export async function mount(): Promise<void> {
     const rows = threads.filter((thread) => !query || `${thread.title ?? ''} ${thread.last_message ?? ''}`.toLowerCase().includes(query));
     threadList.innerHTML = rows.length ? rows.map((thread) => `<button class="comm-item ${activeThread === thread.id ? 'active' : ''}" data-thread="${thread.id}"><span class="comm-icon">${thread.thread_type === 'group' ? '👥' : '💨'}</span><div><h3>${esc(thread.title || 'Rich Conversation')}</h3><p>${esc(thread.last_message || thread.typing_label || 'Start the smoke...')}</p></div><span class="thread-side"><time>${stamp(thread.last_message_at)}</time>${Number(thread.unread_count ?? 0) > 0 ? `<b>${Number(thread.unread_count)}</b>` : ''}${thread.is_pinned ? '<i>PIN</i>' : ''}</span></button>`).join('') : '<div class="comm-empty">No conversations found.</div>';
     threadList.querySelectorAll<HTMLButtonElement>('[data-thread]').forEach((button) => button.onclick = () => void openThread(button.dataset.thread!));
+    updateSummary();
   };
 
   const loadThreads = async () => {
@@ -110,18 +139,34 @@ export async function mount(): Promise<void> {
     if (destroyed || activeThread !== threadId) return;
     const thread = snapshot.thread ?? {};
     const messages = snapshot.messages ?? [];
+    const attachments = snapshot.attachments ?? [];
     const reactions = snapshot.reactions ?? [];
     const typing = snapshot.typing ?? [];
+    const calls = snapshot.calls ?? snapshot.call_sessions ?? [];
+    const activeCall = calls.find((call) => ['ringing', 'active'].includes(String(call.call_status ?? '').toLowerCase())) ?? null;
     const defaultReaction = String((thread as any).default_reaction || '💨');
+    attachmentState.textContent = attachments.length ? String(attachments.length) : 'READY';
 
-    panel.innerHTML = `<header class="thread-title"><div><strong>${esc(String((thread as any).title || 'Rich Conversation'))}</strong><p>${esc(String((thread as any).typing_label || 'encrypted realtime room'))}</p></div><div class="thread-actions"><button id="audioCall" title="Audio call">☎</button><button id="videoCall" title="Video call">◉</button><button id="threadInfo" title="Thread info">⋯</button></div></header><div id="messageFeed" class="message-feed"></div><div id="typingRow" class="typing-row">${esc(typing[0]?.typing_label || '')}</div><form id="composer" class="composer"><button id="attachButton" class="icon-button" type="button">＋</button><input id="messageInput" maxlength="2000" autocomplete="off" placeholder="Send a Rich-DM..."/><button class="comm-button primary">SEND</button><input id="attachmentInput" type="file" hidden accept="image/*,video/*,audio/*,.pdf,.doc,.docx"/></form>`;
+    panel.innerHTML = `<header class="thread-title"><div><strong>${esc(String((thread as any).title || 'Rich Conversation'))}</strong><p>${esc(String((thread as any).typing_label || 'encrypted realtime room'))}</p></div><div class="thread-actions"><button id="audioCall" title="Audio call">☎</button><button id="videoCall" title="Video call">◉</button><button id="threadInfo" title="Thread info">⋯</button></div></header>${activeCall ? `<section class="active-call-strip"><div><small>${esc(String(activeCall.call_type || 'rich call').toUpperCase())}</small><strong>${esc(String(activeCall.call_status || 'ACTIVE').toUpperCase())}</strong></div><a href="${ROUTES.messages}?thread=${encodeURIComponent(threadId)}&call=${encodeURIComponent(activeCall.id)}">REJOIN CALL</a></section>` : ''}<div id="messageFeed" class="message-feed"></div><div id="typingRow" class="typing-row">${esc(typing[0]?.typing_label || '')}</div><form id="composer" class="composer"><button id="attachButton" class="icon-button" type="button" aria-label="Attach a file">＋</button><input id="messageInput" maxlength="2000" autocomplete="off" placeholder="Send a Rich-DM..."/><button class="comm-button primary">SEND</button><input id="attachmentInput" type="file" hidden accept="image/*,video/*,audio/*,.pdf,.doc,.docx"/></form>`;
 
     const feed = panel.querySelector<HTMLElement>('#messageFeed')!;
     feed.innerHTML = messages.length ? messages.map((message) => {
       const counts = reactions.filter((reaction) => reaction.message_id === message.id).reduce((all: Record<string, number>, reaction) => { all[reaction.emoji] = (all[reaction.emoji] || 0) + 1; return all; }, {});
-      const media = message.media_url ? `<a class="message-attachment" href="${esc(message.media_url)}" target="_blank" rel="noopener">OPEN ${esc((message.message_type || 'attachment').toUpperCase())}</a>` : '';
+      const linkedAttachments = attachments.filter((item) => item.message_id === message.id);
+      const legacyMedia = message.media_url ? [{ message_id: message.id, file_url: message.media_url, file_name: message.message_type || 'attachment', mime_type: message.media_type || message.message_type || '' }] : [];
+      const mediaRows = linkedAttachments.length ? linkedAttachments : legacyMedia;
+      const media = mediaRows.map((item) => {
+        const href = safeHref(item.file_url || item.media_url);
+        if (!href) return '';
+        const mime = String(item.mime_type || '').toLowerCase();
+        const name = item.file_name || 'Rich attachment';
+        if (mime.startsWith('image/')) return `<a class="message-media-preview image" href="${esc(href)}" target="_blank" rel="noopener"><img src="${esc(href)}" alt="${esc(name)}" loading="lazy"><span>${esc(name)}</span></a>`;
+        if (mime.startsWith('video/')) return `<video class="message-media-player" controls preload="metadata" src="${esc(href)}"></video>`;
+        if (mime.startsWith('audio/')) return `<audio class="message-media-player" controls preload="metadata" src="${esc(href)}"></audio>`;
+        return `<a class="message-attachment" href="${esc(href)}" target="_blank" rel="noopener"><span>OPEN FILE</span><strong>${esc(name)}</strong><small>${esc(bytes(item.file_size))}</small></a>`;
+      }).join('');
       return `<article class="bubble ${message.sender_id === user.id ? 'mine' : ''}" data-message="${message.id}"><p>${esc(message.body || '')}</p>${media}<small>${esc(message.display_name || message.username || 'Rich Member')} · ${stamp(message.created_at)}${message.is_edited ? ' · edited' : ''}</small><div class="bubble-tools"><button type="button" data-react="${esc(defaultReaction)}">${esc(defaultReaction)} ${counts[defaultReaction] || ''}</button><button type="button" data-react="🔥">🔥 ${counts['🔥'] || ''}</button><button type="button" data-react="💯">💯 ${counts['💯'] || ''}</button></div></article>`;
-    }).join('') : '<div class="comm-empty">Start the conversation.</div>';
+    }).join('') : '<div class="comm-empty rich-dm-empty"><span>💨</span><h2>Start the conversation</h2><p>Send a message, attachment, reaction or Rich Call.</p></div>';
     feed.scrollTop = feed.scrollHeight;
 
     feed.querySelectorAll<HTMLButtonElement>('[data-react]').forEach((button) => button.onclick = async () => {
@@ -164,6 +209,7 @@ export async function mount(): Promise<void> {
       if (file.size > 25 * 1024 * 1024) { setStatus('Attachment must be 25 MB or smaller.'); return; }
       const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
       const path = `${user.id}/dm/${threadId}/${crypto.randomUUID()}-${safeName}`;
+      attachmentState.textContent = 'UPLOADING';
       try {
         const { error: uploadError } = await supabase.storage.from('general-uploads').upload(path, file, { contentType: file.type || 'application/octet-stream', cacheControl: '31536000', upsert: false });
         if (uploadError) throw uploadError;
@@ -171,7 +217,11 @@ export async function mount(): Promise<void> {
         const { error } = await supabase.rpc('rb_dm_finalize_attachment', { p_thread_id: threadId, p_file_url: url, p_file_name: file.name, p_mime_type: file.type || 'application/octet-stream', p_file_size: file.size, p_storage_path: path });
         if (error) throw error;
         attachmentInput.value = '';
+        attachmentState.textContent = 'READY';
+        setStatus('Attachment delivered.');
+        await refreshThread(threadId);
       } catch (caught) {
+        attachmentState.textContent = 'ERROR';
         setStatus(caught instanceof Error ? caught.message : 'Unable to upload attachment.');
       }
     };
@@ -211,13 +261,17 @@ export async function mount(): Promise<void> {
     if (destroyed || loadingThread) return;
     if (activeThread && activeThread !== threadId) await setTyping(activeThread, false);
     activeThread = threadId;
+    activeState.textContent = 'OPEN';
     drawThreads();
     params.set('thread', threadId);
     history.replaceState({}, '', `${ROUTES.messages}?${params.toString()}`);
     if (threadChannel) await supabase.removeChannel(threadChannel);
     threadChannel = supabase.channel(`rich-dm:${threadId}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'dm_messages', filter: `thread_id=eq.${threadId}` }, () => void refreshThread(threadId))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'dm_message_attachments', filter: `thread_id=eq.${threadId}` }, () => void refreshThread(threadId))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'dm_message_reactions' }, () => void refreshThread(threadId))
       .on('postgres_changes', { event: '*', schema: 'public', table: 'dm_typing_status', filter: `thread_id=eq.${threadId}` }, () => void refreshThread(threadId))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'dm_call_sessions', filter: `thread_id=eq.${threadId}` }, () => void refreshThread(threadId))
       .subscribe();
     await refreshThread(threadId);
     if (sharedPostPending) {
@@ -283,6 +337,7 @@ export async function mount(): Promise<void> {
 
   listChannel = supabase.channel(`rich-dm-list:${user.id}`)
     .on('postgres_changes', { event: '*', schema: 'public', table: 'dm_thread_members', filter: `user_id=eq.${user.id}` }, scheduleThreads)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'dm_messages' }, scheduleThreads)
     .subscribe();
 
   const cleanup = () => {
