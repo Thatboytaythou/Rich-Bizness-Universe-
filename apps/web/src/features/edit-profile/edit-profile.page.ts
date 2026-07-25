@@ -86,6 +86,7 @@ export async function mount(): Promise<void> {
   const bannerInitial = profile.banner_url || '/images/brand/Avatar-hero-Banner.png.jpeg';
 
   root.innerHTML = `<main class="edit-profile-shell">
+    <div class="edit-profile-atmosphere" aria-hidden="true"><i></i><i></i><i></i></div>
     <header class="edit-profile-header">
       <a href="${ROUTES.profile}" aria-label="Back to profile">←</a>
       <div><p>RICH BIZNESS IDENTITY ENGINE</p><h1>Edit Profile</h1></div>
@@ -111,10 +112,16 @@ export async function mount(): Promise<void> {
         </div>
       </section>
 
+      <section class="identity-progress" aria-label="Profile completion">
+        <div><small>IDENTITY COMPLETION</small><strong id="completionValue">0%</strong></div>
+        <div class="identity-progress-track"><i id="completionBar"></i></div>
+        <p id="completionHint">Complete your public identity and connected presence.</p>
+      </section>
+
       <section class="identity-shortcuts">
-        <a href="${ROUTES.avatar}">AVATAR SELECTOR</a>
-        <a href="${ROUTES.avatarCharacters}">3D AVATAR LOBBY</a>
-        <a href="${ROUTES.settings}">IDENTITY SETTINGS</a>
+        <a href="${ROUTES.avatar}"><strong>AVATAR SELECTOR</strong><small>Choose your character</small></a>
+        <a href="${ROUTES.avatarCharacters}"><strong>3D AVATAR LOBBY</strong><small>Enter the character world</small></a>
+        <a href="${ROUTES.settings}"><strong>IDENTITY SETTINGS</strong><small>Privacy, alerts and controls</small></a>
       </section>
 
       <section class="edit-profile-section">
@@ -160,6 +167,9 @@ export async function mount(): Promise<void> {
   const displayNameInput = form.elements.namedItem('display_name') as HTMLInputElement;
   const usernameInput = form.elements.namedItem('username') as HTMLInputElement;
   const bioCount = root.querySelector<HTMLElement>('#bioCount')!;
+  const completionValue = root.querySelector<HTMLElement>('#completionValue')!;
+  const completionBar = root.querySelector<HTMLElement>('#completionBar')!;
+  const completionHint = root.querySelector<HTMLElement>('#completionHint')!;
 
   let avatarUrl = profile.avatar_url;
   let bannerUrl = profile.banner_url;
@@ -167,7 +177,21 @@ export async function mount(): Promise<void> {
   let bannerObjectUrl: string | null = null;
   let destroyed = false;
 
-  const markUnsaved = () => { if (saveState.textContent !== 'SAVING') saveState.textContent = 'UNSAVED'; };
+  const updateCompletion = () => {
+    const requiredChecks = [displayNameInput.value.trim(), normalizeUsername(usernameInput.value), bio.value.trim(), avatarUrl || avatarFile.files?.[0]?.name, bannerUrl || bannerFile.files?.[0]?.name];
+    const socialNames = ['website_url', 'instagram_url', 'youtube_url', 'tiktok_url', 'facebook_url', 'snapchat_url'];
+    const socialChecks = socialNames.map((name) => field(form, name));
+    const completed = [...requiredChecks, ...socialChecks].filter(Boolean).length;
+    const total = requiredChecks.length + socialChecks.length;
+    const percent = Math.round((completed / total) * 100);
+    completionValue.textContent = `${percent}%`;
+    completionBar.style.width = `${percent}%`;
+    completionHint.textContent = percent >= 90 ? 'Your Rich Bizness identity is fully connected.' : percent >= 60 ? 'Strong identity. Add more connected presence to finish it.' : 'Complete your public identity and connected presence.';
+  };
+  const markUnsaved = () => {
+    if (saveState.textContent !== 'SAVING') saveState.textContent = 'UNSAVED';
+    updateCompletion();
+  };
   const replaceObjectUrl = (current: string | null, file: File): string => {
     if (current) URL.revokeObjectURL(current);
     return URL.createObjectURL(file);
@@ -260,6 +284,8 @@ export async function mount(): Promise<void> {
       if (bannerUrl) bannerPreview.style.backgroundImage = `url("${bannerUrl}")`;
       message.textContent = 'Profile, Rich ID and Meta avatar are synchronized.';
       saveState.textContent = 'SAVED';
+      updateCompletion();
+      void supabase.rpc('rb_award_xp', { p_event_key: 'profile_updated', p_section: 'profile', p_source_table: 'profiles' });
     } catch (caught) {
       message.textContent = caught instanceof Error ? caught.message : 'Unable to save profile.';
       saveState.textContent = 'ERROR';
@@ -267,6 +293,8 @@ export async function mount(): Promise<void> {
       if (!destroyed) saveButton.disabled = false;
     }
   };
+
+  updateCompletion();
 
   const cleanup = () => {
     if (destroyed) return;
