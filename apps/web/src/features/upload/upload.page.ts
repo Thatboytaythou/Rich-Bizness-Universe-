@@ -7,7 +7,7 @@ type Channel = ReturnType<typeof supabase.channel>;
 
 const esc = (value: unknown) => String(value ?? '').replace(/[&<>'"]/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[char] ?? char));
 const formatSize = (bytes: number) => bytes >= 1024 ** 3 ? `${(bytes / 1024 ** 3).toFixed(2)} GB` : bytes >= 1024 ** 2 ? `${(bytes / 1024 ** 2).toFixed(1)} MB` : `${Math.ceil(bytes / 1024)} KB`;
-const kindFor = (mime: string) => mime.startsWith('image/') ? 'image' : mime.startsWith('video/') ? 'video' : mime.startsWith('audio/') ? 'audio' : 'file';
+const kindFor = (mime: string) => mime.startsWith('image/') ? 'image' : mime.startsWith('video/') ? 'video' : mime.startsWith('audio/') ? 'audio' : mime.includes('gltf') ? 'model' : 'file';
 const routeIcon = (section: string) => ({ feed: '◫', gallery: '▣', gaming: '🎮', live: '◉', meta: '◎', music: '♪', podcast: '◌', profile: '◍', radio: '◉', sports: '🏆', store: '◆' } as Record<string, string>)[section] ?? '⬆';
 
 export async function mount(): Promise<void> {
@@ -33,16 +33,19 @@ export async function mount(): Promise<void> {
     </form><aside class="upload-sidebar"><section class="upload-card route-intel"><header class="panel-title"><div><p>ROUTE INTELLIGENCE</p><h2>Pipeline Details</h2></div><span>LIVE</span></header><div id="routeIntel"></div></section><section class="upload-card recent-panel"><div class="panel-title"><div><p>YOUR PIPELINE</p><h2>Recent Uploads</h2></div><button id="refreshUploads" type="button" aria-label="Refresh uploads">↻</button></div><div id="recentUploads" class="recent-list"></div></section></aside></section>
   </div></main>`;
 
-  const form = document.querySelector<HTMLFormElement>('#uploadForm')!;
-  const routeKey = document.querySelector<HTMLSelectElement>('#routeKey')!;
-  const fileInput = document.querySelector<HTMLInputElement>('#fileInput')!;
-  const dropZone = document.querySelector<HTMLElement>('#dropZone')!;
-  const preview = document.querySelector<HTMLElement>('#preview')!;
-  const message = document.querySelector<HTMLElement>('#uploadMessage')!;
-  const state = document.querySelector<HTMLElement>('#uploadState')!;
-  const bar = document.querySelector<HTMLElement>('#meterBar')!;
-  const button = document.querySelector<HTMLButtonElement>('#uploadButton')!;
-  const fileMeta = document.querySelector<HTMLElement>('#fileMeta')!;
+  const form = root.querySelector<HTMLFormElement>('#uploadForm')!;
+  const routeKey = root.querySelector<HTMLSelectElement>('#routeKey')!;
+  const visibility = root.querySelector<HTMLSelectElement>('#visibility')!;
+  const title = root.querySelector<HTMLInputElement>('#title')!;
+  const description = root.querySelector<HTMLTextAreaElement>('#description')!;
+  const fileInput = root.querySelector<HTMLInputElement>('#fileInput')!;
+  const dropZone = root.querySelector<HTMLElement>('#dropZone')!;
+  const preview = root.querySelector<HTMLElement>('#preview')!;
+  const message = root.querySelector<HTMLElement>('#uploadMessage')!;
+  const state = root.querySelector<HTMLElement>('#uploadState')!;
+  const bar = root.querySelector<HTMLElement>('#meterBar')!;
+  const button = root.querySelector<HTMLButtonElement>('#uploadButton')!;
+  const fileMeta = root.querySelector<HTMLElement>('#fileMeta')!;
 
   let routes: Row[] = [];
   let recentUploads: Row[] = [];
@@ -51,10 +54,13 @@ export async function mount(): Promise<void> {
   let previewUrl = '';
   let uploading = false;
   let disposed = false;
-  let channel: Channel | null = null;
+  let uploadChannel: Channel | null = null;
+  let queueChannel: Channel | null = null;
+  let refreshTimer = 0;
 
   const activeRoute = () => routes.find((route) => route.route_key === routeKey.value) ?? routes[0];
   const setMessage = (value: string) => { message.textContent = value; };
+  const scheduleSnapshot = () => { clearTimeout(refreshTimer); refreshTimer = window.setTimeout(() => void loadSnapshot().catch((error) => setMessage(error.message)), 160); };
   const clearPreview = () => {
     if (previewUrl) URL.revokeObjectURL(previewUrl);
     previewUrl = '';
@@ -72,10 +78,17 @@ export async function mount(): Promise<void> {
     const extensions = Array.isArray(route.accepted_extensions) ? route.accepted_extensions.map((value: string) => `.${value}`) : [];
     return [...mimes, ...extensions].join(',') || '*/*';
   };
+  const syncUrl = () => {
+    const route = activeRoute();
+    if (!route) return;
+    const url = new URL(location.href);
+    url.searchParams.set('route', route.route_key);
+    history.replaceState({}, '', url);
+  };
 
   const renderRecent = () => {
-    const recent = document.querySelector<HTMLElement>('#recentUploads')!;
-    recent.innerHTML = recentUploads.length ? recentUploads.map((upload) => `<article class="status-${esc(upload.processing_status || 'completed')}"><span>${upload.media_type === 'image' ? '▣' : upload.media_type === 'video' ? '▶' : upload.media_type === 'audio' ? '♪' : '⬆'}</span><div><strong>${esc(upload.title || 'Untitled upload')}</strong><small>${esc(upload.section || upload.bucket)} · ${esc(upload.processing_status || 'completed')} ${Number.isFinite(Number(upload.processing_progress)) ? `· ${Number(upload.processing_progress)}%` : ''}</small>${upload.failure_reason ? `<em>${esc(upload.failure_reason)}</em>` : ''}</div><time>${upload.created_at ? new Date(upload.created_at).toLocaleDateString() : ''}</time></article>`).join('') : '<div class="empty"><b>⬆</b><strong>No uploads yet</strong><span>Your first elite drop will appear here.</span></div>';
+    const recent = root.querySelector<HTMLElement>('#recentUploads')!;
+    recent.innerHTML = recentUploads.length ? recentUploads.map((upload) => `<article class="status-${esc(upload.processing_status || 'completed')}"><span>${upload.media_type === 'image' ? '▣' : upload.media_type === 'video' ? '▶' : upload.media_type === 'audio' ? '♪' : upload.media_type === 'model' ? '◎' : '⬆'}</span><div><strong>${esc(upload.title || 'Untitled upload')}</strong><small>${esc(upload.section || upload.bucket)} · ${esc(upload.processing_status || 'completed')} ${Number.isFinite(Number(upload.processing_progress)) ? `· ${Number(upload.processing_progress)}%` : ''}</small>${upload.failure_reason ? `<em>${esc(upload.failure_reason)}</em>` : ''}${upload.published_record?.status ? `<small>${esc(upload.published_record.status)}${upload.published_record.table ? ` · ${esc(upload.published_record.table)}` : ''}</small>` : ''}</div><time>${upload.created_at ? new Date(upload.created_at).toLocaleDateString() : ''}</time></article>`).join('') : '<div class="empty"><b>⬆</b><strong>No uploads yet</strong><span>Your first elite drop will appear here.</span></div>';
   };
 
   const renderSnapshot = (snapshot: Row) => {
@@ -84,34 +97,39 @@ export async function mount(): Promise<void> {
     profile = (snapshot.profile ?? {}) as Row;
     if (!routes.length) throw new Error('No active upload routes are configured.');
     const sections = [...new Set(routes.map((route) => String(route.section)))];
-    document.querySelector<HTMLElement>('#creatorChip')!.innerHTML = `<img src="${esc(profile.avatar_url || '/brand/icons/profile-placeholder.svg')}" alt=""><div><strong>${esc(profile.display_name || profile.username || 'Rich Creator')}</strong><span>${esc(profile.rank_title || 'CREATOR')} · LVL ${Number(profile.rich_level ?? 1)}</span></div>`;
-    document.querySelector<HTMLElement>('#heroStats')!.innerHTML = `<article><small>DESTINATIONS</small><strong>${routes.length}</strong><span>${sections.length} connected sections</span></article><article><small>MY UPLOADS</small><strong>${Number(snapshot.total_uploads ?? 0)}</strong><span>${Number(snapshot.queued_uploads ?? 0)} processing</span></article><article><small>PIPELINE HEALTH</small><strong>${Number(snapshot.failed_uploads ?? 0) === 0 ? '100%' : 'CHECK'}</strong><span>${Number(snapshot.failed_uploads ?? 0)} failed uploads</span></article>`;
-    document.querySelector<HTMLElement>('#routeCount')!.textContent = `${routes.length} secure routes`;
+    root.querySelector<HTMLElement>('#creatorChip')!.innerHTML = `<img src="${esc(profile.avatar_url || '/brand/icons/profile-placeholder.svg')}" alt=""><div><strong>${esc(profile.display_name || profile.username || 'Rich Creator')}</strong><span>${esc(profile.rank_title || 'CREATOR')} · LVL ${Number(profile.rich_level ?? 1)}</span></div>`;
+    root.querySelector<HTMLElement>('#heroStats')!.innerHTML = `<article><small>DESTINATIONS</small><strong>${routes.length}</strong><span>${sections.length} connected sections</span></article><article><small>MY UPLOADS</small><strong>${Number(snapshot.total_uploads ?? 0)}</strong><span>${Number(snapshot.queued_uploads ?? 0)} processing</span></article><article><small>PIPELINE HEALTH</small><strong>${Number(snapshot.failed_uploads ?? 0) === 0 ? '100%' : 'CHECK'}</strong><span>${Number(snapshot.failed_uploads ?? 0)} failed uploads</span></article>`;
+    root.querySelector<HTMLElement>('#routeCount')!.textContent = `${routes.length} secure routes`;
+    const previous = routeKey.value;
     routeKey.innerHTML = routes.map((route) => `<option value="${esc(route.route_key)}">${esc(String(route.section).toUpperCase())} · ${esc(route.route_key)}</option>`).join('');
-    document.querySelector<HTMLElement>('#routeChips')!.innerHTML = sections.map((section) => `<button type="button" class="route-chip" data-section="${esc(section)}"><b>${routeIcon(section)}</b><span>${esc(section.toUpperCase())}</span><small>${routes.filter((route) => route.section === section).length}</small></button>`).join('');
+    root.querySelector<HTMLElement>('#routeChips')!.innerHTML = sections.map((section) => `<button type="button" class="route-chip" data-section="${esc(section)}"><b>${routeIcon(section)}</b><span>${esc(section.toUpperCase())}</span><small>${routes.filter((route) => route.section === section).length}</small></button>`).join('');
     const requested = new URLSearchParams(location.search).get('route');
-    const requestedRoute = routes.find((route) => route.route_key === requested) ?? routes.find((route) => route.section === requested);
+    const requestedRoute = routes.find((route) => route.route_key === requested) ?? routes.find((route) => route.section === requested) ?? routes.find((route) => route.route_key === previous);
     if (requestedRoute) routeKey.value = requestedRoute.route_key;
-    document.querySelectorAll<HTMLButtonElement>('.route-chip').forEach((chip) => chip.onclick = () => {
+    root.querySelectorAll<HTMLButtonElement>('.route-chip').forEach((chip) => chip.onclick = () => {
       const first = routes.find((route) => route.section === chip.dataset.section);
       if (!first) return;
       routeKey.value = first.route_key;
       renderRoute();
-      document.querySelector('.upload-console')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      syncUrl();
+      root.querySelector('.upload-console')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     });
     renderRecent();
     renderRoute();
-    state.textContent = 'SYSTEM READY';
+    state.textContent = Number(snapshot.queued_uploads ?? 0) > 0 ? 'PIPELINE ACTIVE' : 'SYSTEM READY';
   };
 
   const renderRoute = () => {
     const route = activeRoute();
     if (!route) return;
     fileInput.accept = acceptValue(route);
-    document.querySelector<HTMLElement>('#routeHint')!.textContent = `${String(route.media_type ?? 'mixed').toUpperCase()} · max ${Number(route.max_file_size_mb ?? 300)} MB · ${route.processing_type ?? 'metadata'} processing`;
-    document.querySelector<HTMLElement>('#routeBlueprint')!.innerHTML = `<article><small>SECTION</small><strong>${esc(String(route.section).toUpperCase())}</strong></article><article><small>BUCKET</small><strong>${esc(route.bucket)}</strong></article><article><small>MEDIA</small><strong>${esc(String(route.media_type ?? 'mixed').toUpperCase())}</strong></article><article><small>ACCESS</small><strong>${route.is_public === false ? 'PRIVATE VAULT' : 'PUBLIC CDN'}</strong></article>`;
-    document.querySelector<HTMLElement>('#routeIntel')!.innerHTML = `<div class="intel-world"><b>${routeIcon(route.section)}</b><div><small>ACTIVE WORLD</small><h3>${esc(String(route.section).toUpperCase())}</h3><p>${esc(route.route_key)}</p></div></div><dl><div><dt>Storage bucket</dt><dd>${esc(route.bucket)}</dd></div><div><dt>Database target</dt><dd>${esc(route.target_table || 'uploads')}</dd></div><div><dt>Target field</dt><dd>${esc(route.target_column || 'public_url')}</dd></div><div><dt>Processing</dt><dd>${esc(route.processing_type || 'metadata')}</dd></div><div><dt>Maximum size</dt><dd>${Number(route.max_file_size_mb ?? 300)} MB</dd></div></dl>`;
-    document.querySelectorAll<HTMLElement>('.route-chip').forEach((chip) => chip.classList.toggle('active', chip.dataset.section === route.section));
+    const isPrivate = route.is_public === false;
+    if (isPrivate && visibility.value === 'public') visibility.value = 'private';
+    visibility.querySelector<HTMLOptionElement>('option[value="public"]')!.disabled = isPrivate;
+    root.querySelector<HTMLElement>('#routeHint')!.textContent = `${String(route.media_type ?? 'mixed').toUpperCase()} · max ${Number(route.max_file_size_mb ?? 300)} MB · ${route.processing_type ?? 'metadata'} processing`;
+    root.querySelector<HTMLElement>('#routeBlueprint')!.innerHTML = `<article><small>SECTION</small><strong>${esc(String(route.section).toUpperCase())}</strong></article><article><small>BUCKET</small><strong>${esc(route.bucket)}</strong></article><article><small>MEDIA</small><strong>${esc(String(route.media_type ?? 'mixed').toUpperCase())}</strong></article><article><small>ACCESS</small><strong>${isPrivate ? 'PRIVATE VAULT' : 'PUBLIC CDN'}</strong></article>`;
+    root.querySelector<HTMLElement>('#routeIntel')!.innerHTML = `<div class="intel-world"><b>${routeIcon(route.section)}</b><div><small>ACTIVE WORLD</small><h3>${esc(String(route.section).toUpperCase())}</h3><p>${esc(route.route_key)}</p></div></div><dl><div><dt>Storage bucket</dt><dd>${esc(route.bucket)}</dd></div><div><dt>Database target</dt><dd>${esc(route.target_table || 'uploads')}</dd></div><div><dt>Target field</dt><dd>${esc(route.target_column || 'public_url')}</dd></div><div><dt>Processing</dt><dd>${esc(route.processing_type || 'metadata')}</dd></div><div><dt>Maximum size</dt><dd>${Number(route.max_file_size_mb ?? 300)} MB</dd></div></dl>`;
+    root.querySelectorAll<HTMLElement>('.route-chip').forEach((chip) => chip.classList.toggle('active', chip.dataset.section === route.section));
     if (selected && !accepted(selected, route)) setFile(null);
   };
 
@@ -122,6 +140,7 @@ export async function mount(): Promise<void> {
       preview.innerHTML = '<div class="preview-empty"><b>4K</b><span>Preview chamber ready</span></div>';
       fileMeta.textContent = 'NO FILE';
       fileInput.value = '';
+      button.disabled = false;
       return;
     }
     const route = activeRoute();
@@ -130,19 +149,23 @@ export async function mount(): Promise<void> {
       selected = null;
       fileMeta.textContent = 'REJECTED';
       setMessage('This file type is not accepted by the selected destination.');
+      button.disabled = true;
       return;
     }
     if (file.size > max) {
       selected = null;
       fileMeta.textContent = 'REJECTED';
       setMessage(`File exceeds the ${Number(route.max_file_size_mb ?? 300)} MB route limit.`);
+      button.disabled = true;
       return;
     }
     previewUrl = URL.createObjectURL(file);
     const kind = kindFor(file.type);
-    preview.innerHTML = kind === 'image' ? `<img src="${previewUrl}" alt="Upload preview">` : kind === 'video' ? `<video src="${previewUrl}" controls playsinline preload="metadata"></video>` : kind === 'audio' ? `<div class="audio-preview"><b>♪</b><strong>${esc(file.name)}</strong><audio src="${previewUrl}" controls preload="metadata"></audio></div>` : `<div class="file-preview"><b>⬆</b><strong>${esc(file.name)}</strong><small>${formatSize(file.size)}</small></div>`;
+    preview.innerHTML = kind === 'image' ? `<img src="${previewUrl}" alt="Upload preview">` : kind === 'video' ? `<video src="${previewUrl}" controls playsinline preload="metadata"></video>` : kind === 'audio' ? `<div class="audio-preview"><b>♪</b><strong>${esc(file.name)}</strong><audio src="${previewUrl}" controls preload="metadata"></audio></div>` : `<div class="file-preview"><b>${kind === 'model' ? '◎' : '⬆'}</b><strong>${esc(file.name)}</strong><small>${formatSize(file.size)}</small></div>`;
+    preview.querySelectorAll<HTMLImageElement>('img').forEach((image) => image.onerror = () => { preview.innerHTML = `<div class="file-preview"><b>⬆</b><strong>${esc(file.name)}</strong><small>${formatSize(file.size)}</small></div>`; });
     fileMeta.textContent = `${kind.toUpperCase()} · ${formatSize(file.size)}`;
     setMessage('Media verified locally. Server validation will run on registration.');
+    button.disabled = false;
   };
 
   const loadSnapshot = async () => {
@@ -151,9 +174,9 @@ export async function mount(): Promise<void> {
     if (!disposed) renderSnapshot((data ?? {}) as Row);
   };
 
-  routeKey.onchange = renderRoute;
-  document.querySelector<HTMLButtonElement>('#pickFile')!.onclick = () => fileInput.click();
-  document.querySelector<HTMLButtonElement>('#refreshUploads')!.onclick = () => void loadSnapshot().catch((error) => setMessage(error.message));
+  routeKey.onchange = () => { renderRoute(); syncUrl(); };
+  root.querySelector<HTMLButtonElement>('#pickFile')!.onclick = () => fileInput.click();
+  root.querySelector<HTMLButtonElement>('#refreshUploads')!.onclick = () => void loadSnapshot().catch((error) => setMessage(error.message));
   fileInput.onchange = () => setFile(fileInput.files?.[0] ?? null);
   const dragHandler = (event: DragEvent) => {
     event.preventDefault();
@@ -169,6 +192,7 @@ export async function mount(): Promise<void> {
     if (!accepted(selected, route)) { setMessage('File validation no longer matches the selected route.'); return; }
     uploading = true;
     button.disabled = true;
+    button.querySelector('span')!.textContent = 'SECURING DROP';
     state.textContent = 'UPLOADING';
     state.classList.add('working');
     bar.style.width = '12%';
@@ -177,21 +201,21 @@ export async function mount(): Promise<void> {
     try {
       const extension = file.name.split('.').pop()?.replace(/[^a-z0-9]/gi, '').toLowerCase() || 'bin';
       path = `${user.id}/${route.route_key}/${new Date().toISOString().slice(0, 10)}/${crypto.randomUUID()}.${extension}`;
-      bar.style.width = '35%';
+      bar.style.width = '28%';
       const { error: storageError } = await supabase.storage.from(route.bucket).upload(path, file, { cacheControl: '31536000', contentType: file.type || 'application/octet-stream', upsert: false });
       if (storageError) throw storageError;
-      bar.style.width = '72%';
+      bar.style.width = '68%';
       const publicUrl = route.is_public === false ? `private://${route.bucket}/${path}` : supabase.storage.from(route.bucket).getPublicUrl(path).data.publicUrl;
       const { error: registerError } = await supabase.rpc('rb_register_upload', {
         p_route_key: route.route_key,
-        p_title: (document.querySelector<HTMLInputElement>('#title')!.value || '').trim(),
-        p_description: (document.querySelector<HTMLTextAreaElement>('#description')!.value || '').trim(),
+        p_title: title.value.trim(),
+        p_description: description.value.trim(),
         p_file_path: path,
         p_public_url: publicUrl,
         p_mime_type: file.type || 'application/octet-stream',
         p_file_size: file.size,
-        p_visibility: document.querySelector<HTMLSelectElement>('#visibility')!.value,
-        p_metadata: { original_name: file.name, source: 'upload_command', client_kind: kindFor(file.type) }
+        p_visibility: visibility.value,
+        p_metadata: { original_name: file.name, source: 'upload_command', client_kind: kindFor(file.type), client_version: 3 }
       });
       if (registerError) {
         await supabase.storage.from(route.bucket).remove([path]);
@@ -204,6 +228,7 @@ export async function mount(): Promise<void> {
       form.reset();
       routeKey.value = route.route_key;
       renderRoute();
+      syncUrl();
       await loadSnapshot();
     } catch (error) {
       state.textContent = 'UPLOAD FAILED';
@@ -212,17 +237,26 @@ export async function mount(): Promise<void> {
     } finally {
       uploading = false;
       button.disabled = false;
+      button.querySelector('span')!.textContent = 'UPLOAD TO RICH BIZNESS';
       state.classList.remove('working');
     }
   };
 
-  channel = supabase.channel(`upload-owner:${user.id}`).on('postgres_changes', { event: '*', schema: 'public', table: 'uploads', filter: `user_id=eq.${user.id}` }, () => void loadSnapshot()).subscribe();
+  uploadChannel = supabase.channel(`upload-owner:${user.id}`)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'uploads', filter: `user_id=eq.${user.id}` }, scheduleSnapshot)
+    .subscribe();
+  queueChannel = supabase.channel(`upload-queue:${user.id}`)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'upload_processing_queue', filter: `user_id=eq.${user.id}` }, scheduleSnapshot)
+    .subscribe();
 
   const cleanup = () => {
     if (disposed) return;
     disposed = true;
     clearPreview();
-    if (channel) void supabase.removeChannel(channel);
+    clearTimeout(refreshTimer);
+    if (uploadChannel) void supabase.removeChannel(uploadChannel);
+    if (queueChannel) void supabase.removeChannel(queueChannel);
+    delete root.dataset.uploadOwner;
   };
   window.addEventListener('pagehide', cleanup, { once: true });
   window.addEventListener('beforeunload', cleanup, { once: true });
