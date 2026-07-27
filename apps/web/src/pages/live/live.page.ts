@@ -58,6 +58,8 @@ export async function mount(): Promise<void> {
   let catalogChannel: Channel | null = null;
   let roomChannel: Channel | null = null;
   let viewerRoom: Room | null = null;
+  let viewerJoinedStreamId: string | null = null;
+  let viewerDisconnecting = false;
   let hostRoom: Room | null = null;
   let hostVideo: LocalVideoTrack | null = null;
   let hostAudio: LocalAudioTrack | null = null;
@@ -72,15 +74,27 @@ export async function mount(): Promise<void> {
     history.replaceState({}, '', `${url.pathname}${url.search}${url.hash}`);
   };
 
-  const disconnectViewer = async (record = true) => {
-    if (record && user && active?.id && viewerRoom) {
-      const { error } = await supabase.rpc('rb_live_action', { p_action: 'leave', p_stream_id: active.id, p_payload: { source: 'livekit-viewer' } });
-      if (error) console.error('Live leave action failed', error);
-    }
-    viewerElements.forEach((element) => { element.pause(); element.srcObject = null; element.remove(); });
-    viewerElements.clear();
-    if (viewerRoom) await viewerRoom.disconnect().catch(() => undefined);
+  const recordViewerLeave = async (streamId: string | null, source: string) => {
+    if (!user || !streamId) return;
+    const { error } = await supabase.rpc('rb_live_action', { p_action: 'leave', p_stream_id: streamId, p_payload: { source } });
+    if (error) console.error('Live leave action failed', error);
+  };
+
+  const disconnectViewer = async (record = true, source = 'livekit-viewer') => {
+    if (viewerDisconnecting) return;
+    viewerDisconnecting = true;
+    const room = viewerRoom;
+    const joinedStreamId = viewerJoinedStreamId;
     viewerRoom = null;
+    viewerJoinedStreamId = null;
+    try {
+      if (record) await recordViewerLeave(joinedStreamId, source);
+      viewerElements.forEach((element) => { element.pause(); element.srcObject = null; element.remove(); });
+      viewerElements.clear();
+      if (room) await room.disconnect().catch(() => undefined);
+    } finally {
+      viewerDisconnecting = false;
+    }
   };
 
   const stopHost = async () => {
@@ -194,7 +208,7 @@ export async function mount(): Promise<void> {
   const open = async (row: Row) => {
     active=row;
     setStreamUrl(row);
-    await disconnectViewer(false);
+    await disconnectViewer(true, 'switch-room');
     if(roomChannel)await supabase.removeChannel(roomChannel);
     roomChannel=null;
     await refresh();
@@ -212,7 +226,30 @@ export async function mount(): Promise<void> {
   };
 
   const tokenFor = async (stream: Row, role: 'host'|'viewer') => { if(!requireUser())throw new Error('Tap in to enter Live rooms.');const {data:{session}}=await supabase.auth.getSession();if(!session)throw new Error('Your Rich ID session expired.');const response=await fetch('/api/live/token',{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${session.access_token}`},body:JSON.stringify({roomName:stream.livekit_room_name,streamId:stream.id,role})});const payload=await response.json();if(!response.ok)throw new Error(payload.error||'Live room token failed.');return payload; };
-  const popIn = async (stream: Row) => { try { const payload=await tokenFor(stream,'viewer');await disconnectViewer(false);const room=new Room({adaptiveStream:true,dynacast:true});viewerRoom=room;room.on(RoomEvent.TrackSubscribed,(track)=>{const stage=document.querySelector<HTMLElement>('#viewerStage');if(!stage)return;const element=lockMedia(track.attach(),track.kind===Track.Kind.Video?'live-inline-video':'live-inline-audio');viewerElements.add(element);stage.append(element);});room.on(RoomEvent.TrackUnsubscribed,(track)=>track.detach().forEach((element)=>{viewerElements.delete(element);element.remove();}));room.on(RoomEvent.Disconnected,()=>{if(!disposed){viewerRoom=null;renderRoom();}});await room.connect(payload.url,payload.token);active=stream;const joined=await runLiveAction('join',{source:'livekit-viewer',device_info:{platform:navigator.platform,user_agent:navigator.userAgent}});if(!joined)throw new Error('Could not register this Live room session.');heroEl.innerHTML=`<div id="viewerStage" class="live-viewer-stage"></div><div class="media-ultimate__hero-copy"><span class="media-ultimate__eyebrow">NOW WATCHING · ${esc(stream.display_room_name||stream.category||'BIZNESS PARTY')}</span><h2>${esc(stream.title)}</h2><p>You popped in. WE LIT🔥</p><div class="media-ultimate__actions"><button id="leaveRoomBtn" class="media-ultimate__btn">LEAVE ROOM</button><a class="media-ultimate__btn" href="/watch.html">WE 🔥📺</a></div></div>`;document.querySelector<HTMLButtonElement>('#leaveRoomBtn')!.onclick=async()=>{await disconnectViewer();renderRoom();}; } catch(error){await disconnectViewer(false);detailEl.innerHTML=`<div class="media-ultimate__empty">${esc(error instanceof Error?error.message:'Could not pop in.')}</div>`;} };
+  const popIn = async (stream: Row) => {
+    let joined = false;
+    try {
+      await disconnectViewer(true, 'replace-viewer');
+      active=stream;
+      const joinResult=await runLiveAction('join',{source:'livekit-viewer',device_info:{platform:navigator.platform,user_agent:navigator.userAgent}});
+      if(!joinResult)throw new Error('Could not register this Live room session.');
+      joined=true;
+      viewerJoinedStreamId=String(stream.id);
+      const payload=await tokenFor(stream,'viewer');
+      const room=new Room({adaptiveStream:true,dynacast:true});
+      viewerRoom=room;
+      room.on(RoomEvent.TrackSubscribed,(track)=>{const stage=document.querySelector<HTMLElement>('#viewerStage');if(!stage)return;const element=lockMedia(track.attach(),track.kind===Track.Kind.Video?'live-inline-video':'live-inline-audio');viewerElements.add(element);stage.append(element);});
+      room.on(RoomEvent.TrackUnsubscribed,(track)=>track.detach().forEach((element)=>{viewerElements.delete(element);element.remove();}));
+      room.on(RoomEvent.Disconnected,()=>{if(disposed||viewerDisconnecting)return;const streamId=viewerJoinedStreamId;viewerRoom=null;viewerJoinedStreamId=null;void recordViewerLeave(streamId,'livekit-disconnected').finally(()=>{if(!disposed)renderRoom();});});
+      await room.connect(payload.url,payload.token);
+      heroEl.innerHTML=`<div id="viewerStage" class="live-viewer-stage"></div><div class="media-ultimate__hero-copy"><span class="media-ultimate__eyebrow">NOW WATCHING · ${esc(stream.display_room_name||stream.category||'BIZNESS PARTY')}</span><h2>${esc(stream.title)}</h2><p>You popped in. WE LIT🔥</p><div class="media-ultimate__actions"><button id="leaveRoomBtn" class="media-ultimate__btn">LEAVE ROOM</button><a class="media-ultimate__btn" href="/watch.html">WE 🔥📺</a></div></div>`;
+      document.querySelector<HTMLButtonElement>('#leaveRoomBtn')!.onclick=async()=>{await disconnectViewer(true,'viewer-left');renderRoom();};
+    } catch(error){
+      if(joined)await disconnectViewer(true,'viewer-connect-failed');
+      else await disconnectViewer(false);
+      detailEl.innerHTML=`<div class="media-ultimate__empty">${esc(error instanceof Error?error.message:'Could not pop in.')}</div>`;
+    }
+  };
 
   const connectHost = async (stream: Row) => { studioStatus.textContent='CHECKING CAMERA + MIC...';await stopHost();const payload=await tokenFor(stream,'host');const room=new Room({adaptiveStream:true,dynacast:true});hostRoom=room;room.on(RoomEvent.Disconnected,()=>{if(!disposed&&hostRoom){studioStatus.textContent='LIVE ROOM DISCONNECTED';}});await room.connect(payload.url,payload.token);hostVideo=await createLocalVideoTrack({facingMode:'user',resolution:{width:1280,height:720}});hostAudio=await createLocalAudioTrack({echoCancellation:true,noiseSuppression:true,autoGainControl:true});await room.localParticipant.publishTrack(hostVideo,{simulcast:true});await room.localParticipant.publishTrack(hostAudio);studioPreview.innerHTML=`<div id="hostVideoMount" class="live-host-stage"></div><span class="live-host-badge">● WE LIT🔥</span><div class="live-host-controls"><button id="toggleMic">🎙️</button><button id="toggleCam">📹</button><button id="endLive" class="danger">■</button></div><div class="live-studio__preview-overlay"><small>${esc(stream.display_room_name||'BIZNESS PARTY')}</small><h3>${esc(stream.title)}</h3></div>`;const element=lockMedia(hostVideo.attach(),'live-inline-video live-host-video');element.muted=true;element.autoplay=true;document.querySelector<HTMLElement>('#hostVideoMount')!.append(element);heartbeat=window.setInterval(()=>void supabase.rpc('rb_live_heartbeat',{p_stream_id:stream.id}),30000);studioStatus.textContent=`WE LIT🔥 — YOU LIVE AS ${String(profile.display_name||profile.username||'RICH CREATOR').toUpperCase()}`;document.querySelector<HTMLButtonElement>('#toggleMic')!.onclick=async()=>{if(hostAudio){await hostAudio.setMuted(!hostAudio.isMuted);document.querySelector<HTMLButtonElement>('#toggleMic')!.textContent=hostAudio.isMuted?'🔇':'🎙️';}};document.querySelector<HTMLButtonElement>('#toggleCam')!.onclick=async()=>{if(hostVideo){await hostVideo.setMuted(!hostVideo.isMuted);document.querySelector<HTMLButtonElement>('#toggleCam')!.textContent=hostVideo.isMuted?'🚫':'📹';}};document.querySelector<HTMLButtonElement>('#endLive')!.onclick=()=>void endLive(stream); };
   const endLive = async (stream: Row) => { studioStatus.textContent='WRAPPIN’ THE PARTY UP...';await stopHost();const {error}=await supabase.rpc('rb_end_live_stream',{p_stream_id:stream.id});if(error){studioStatus.textContent=error.message;studioStatus.dataset.error='true';return;}activeHostStream=null;startButton.disabled=false;studioStatus.textContent='PARTY’S OVER — REPLAY GETTIN’ RIGHT';await refresh();window.setTimeout(()=>studio.close(),600); };
@@ -224,17 +261,13 @@ export async function mount(): Promise<void> {
   studio.addEventListener('cancel',(event)=>{if(hostRoom)event.preventDefault();});
   document.querySelectorAll<HTMLButtonElement>('[data-category]').forEach((button)=>button.onclick=()=>{selectedCategory=button.dataset.category||selectedCategory;document.querySelectorAll('[data-category]').forEach((node)=>node.classList.toggle('active',node===button));document.querySelector<HTMLElement>('#previewCategory')!.textContent=categories.find((item)=>item.slug===selectedCategory)?.slang_label??'BIZNESS PARTY';});
   document.querySelector<HTMLInputElement>('#liveTitle')!.addEventListener('input',(event)=>{document.querySelector<HTMLElement>('#previewTitle')!.textContent=(event.target as HTMLInputElement).value||'Your Live Title';});
-  document.querySelector<HTMLFormElement>('#goLiveForm')!.onsubmit=async(event)=>{event.preventDefault();if(hostStarting||hostRoom||!requireUser())return;hostStarting=true;startButton.disabled=true;studioStatus.textContent='GETTIN’ THE BIZNESS PARTY RIGHT...';const title=document.querySelector<HTMLInputElement>('#liveTitle')!.value.trim();if(!title){hostStarting=false;startButton.disabled=false;studioStatus.textContent='NAME THE LIVE FIRST.';return;}const {data,error}=await supabase.rpc('rb_start_live_stream',{p_title:title,p_description:document.querySelector<HTMLTextAreaElement>('#liveDescription')!.value.trim()||null,p_category:selectedCategory,p_access_type:document.querySelector<HTMLSelectElement>('#liveAccess')!.value,p_price_cents:Math.round(Number(document.querySelector<HTMLInputElement>('#livePrice')!.value||0)*100),p_thumbnail_url:null,p_cover_url:null,p_is_chat_enabled:document.querySelector<HTMLInputElement>('#liveChatEnabled')!.checked,p_is_cohost_enabled:document.querySelector<HTMLInputElement>('#liveCohostEnabled')!.checked,p_recording_enabled:document.querySelector<HTMLInputElement>('#liveRecordingEnabled')!.checked,p_transcription_enabled:document.querySelector<HTMLInputElement>('#liveCaptionsEnabled')!.checked});if(error){hostStarting=false;startButton.disabled=false;studioStatus.textContent=error.message;studioStatus.dataset.error='true';return;}activeHostStream=(data as Row).stream;try{await connectHost(activeHostStream);await refresh();setStreamUrl(activeHostStream);}catch(connectError){await stopHost();if(activeHostStream?.id)await supabase.rpc('rb_end_live_stream',{p_stream_id:activeHostStream.id});activeHostStream=null;startButton.disabled=false;studioStatus.textContent=connectError instanceof Error?connectError.message:'Camera or live room failed.';}finally{hostStarting=false;}};
+  document.querySelector<HTMLFormElement>('#goLiveForm')!.onsubmit=async(event)=>{event.preventDefault();if(hostStarting||hostRoom||!requireUser())return;hostStarting=true;startButton.disabled=true;studioStatus.textContent='GETTIN’ THE BIZNESS PARTY RIGHT...';const title=document.querySelector<HTMLInputElement>('#liveTitle')!.value.trim();if(!title){hostStarting=false;startButton.disabled=false;studioStatus.textContent='NAME THE LIVE FIRST.';return;}const {data,error}=await supabase.rpc('rb_start_live_stream',{p_title:title,p_description:document.querySelector<HTMLTextAreaElement>('#liveDescription')!.value.trim()||null,p_category:selectedCategory,p_access_type:document.querySelector<HTMLSelectElement>('#liveAccess')!.value,p_price_cents:Math.round(Number(document.querySelector<HTMLInputElement>('#livePrice')!.value||0)*100),p_thumbnail_url:null,p_cover_url:null,p_is_chat_enabled:document.querySelector<HTMLInputElement>('#liveChatEnabled')!.checked,p_is_cohost_enabled:document.querySelector<HTMLInputElement>('#liveCohostEnabled')!.checked,p_recording_enabled:document.querySelector<HTMLInputElement>('#liveRecordingEnabled')!.checked,p_transcription_enabled:document.querySelector<HTMLInputElement>('#liveCaptionsEnabled')!.checked});if(error){hostStarting=false;startButton.disabled=false;studioStatus.textContent=error.message;studioStatus.dataset.error='true';return;}activeHostStream=(data as Row).stream;try{await connectHost(activeHostStream);await refresh();}catch(connectError){await stopHost();if(activeHostStream?.id)await supabase.rpc('rb_end_live_stream',{p_stream_id:activeHostStream.id});activeHostStream=null;startButton.disabled=false;studioStatus.textContent=connectError instanceof Error?connectError.message:'Camera or live room failed.';}finally{hostStarting=false;}};
 
   await refresh();
   const requested=new URLSearchParams(location.search).get('stream');if(requested){const row=[...streams,...recordings].find((item)=>String(item.id)===requested);if(row)await open(row);}else if(active)await open(active);
-  catalogChannel=supabase.channel('rich-live-owner')
-    .on('postgres_changes',{event:'*',schema:'public',table:'live_streams'},()=>void refresh())
-    .on('postgres_changes',{event:'*',schema:'public',table:'live_recordings'},()=>void refresh())
-    .on('postgres_changes',{event:'*',schema:'public',table:'live_alert_subscriptions'},()=>void refresh())
-    .subscribe();
+  catalogChannel=supabase.channel('rich-live-owner').on('postgres_changes',{event:'*',schema:'public',table:'live_streams'},()=>void refresh()).on('postgres_changes',{event:'*',schema:'public',table:'live_recordings'},()=>void refresh()).on('postgres_changes',{event:'*',schema:'public',table:'live_alert_subscriptions'},()=>void refresh()).subscribe();
 
-  const cleanup=async()=>{if(disposed)return;disposed=true;await stopHost();await disconnectViewer();if(roomChannel)await supabase.removeChannel(roomChannel);if(catalogChannel)await supabase.removeChannel(catalogChannel);root.querySelectorAll<HTMLMediaElement>('video,audio').forEach((media)=>{media.pause();media.removeAttribute('src');media.load();});};
+  const cleanup=async()=>{if(disposed)return;disposed=true;await stopHost();await disconnectViewer(true,'page-exit');if(roomChannel)await supabase.removeChannel(roomChannel);if(catalogChannel)await supabase.removeChannel(catalogChannel);root.querySelectorAll<HTMLMediaElement>('video,audio').forEach((media)=>{media.pause();media.removeAttribute('src');media.load();});};
   window.addEventListener('pagehide',()=>void cleanup(),{once:true});
   window.addEventListener('beforeunload',()=>void cleanup(),{once:true});
 }
