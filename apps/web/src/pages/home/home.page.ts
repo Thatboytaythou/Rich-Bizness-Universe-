@@ -17,8 +17,9 @@ export async function mountHomePage(): Promise<void> {
   app.replaceChildren();
 
   const network = [
-    ['PROFILE','Universal identity, XP, avatar and creator status','/profile.html','ID'],
-    ['AVATAR','Character selection and full 3D lobby','/avatar.html','3D'],
+    ['PROFILE','Universal identity, XP, creator status, edit and settings','/profile.html','ID'],
+    ['AVATAR SELECTOR','Choose, equip and customize your universal character','/avatar.html','3D'],
+    ['3D CHARACTER LOBBY','Enter the full avatar-character motion lobby','/avatar-characters.html','◉'],
     ['META','Rooms, worlds, visits and connected identity','/meta.html','◎'],
     ['FEED','Community drops, comments and discovery','/feed.html','◫'],
     ['WE LIT 🔥','Live rooms, calls, reactions and VIP','/live.html','◉'],
@@ -43,6 +44,7 @@ export async function mountHomePage(): Promise<void> {
         <nav aria-label="Primary navigation">
           <a href="/profile.html">PROFILE</a>
           <a href="/avatar.html">AVATAR</a>
+          <a href="/avatar-characters.html">3D LOBBY</a>
           <a href="/live.html">WE LIT 🔥</a>
           <a href="/watch.html">WE 🔥 📺</a>
           <a class="rb-home__nav-cta" href="${primaryHref}">${primaryLabel}</a>
@@ -53,7 +55,7 @@ export async function mountHomePage(): Promise<void> {
         <div class="rb-home__copy">
           <p class="rb-home__kicker">GLOBAL CREATOR OPERATING SYSTEM</p>
           <h1>BUILD IT.<br><span>OWN IT.</span><br>LIVE RICH.</h1>
-          <p class="rb-home__lead">One connected cinematic universe for identity, avatar, XP, creators, live rooms, music, podcasts, radio, games, sports, stores and ownership.</p>
+          <p class="rb-home__lead">One connected cinematic universe for identity, avatar selection, 3D character motion, XP, creators, live rooms, music, podcasts, radio, games, sports, stores and ownership.</p>
           <div class="rb-home__actions">
             <a class="primary" href="${primaryHref}">${primaryLabel}</a>
             <a href="/profile.html">OPEN UNIVERSAL PROFILE</a>
@@ -70,7 +72,7 @@ export async function mountHomePage(): Promise<void> {
           <a class="rb-home__portal" href="${primaryHref}" aria-label="${primaryLabel}">
             <i></i><i></i><i></i><i></i><span>RB</span><small>${primaryLabel}</small>
           </a>
-          <div class="rb-home__orbit" aria-hidden="true"><span>PROFILE</span><span>AVATAR</span><span>LIVE</span><span>STORE</span></div>
+          <div class="rb-home__orbit" aria-hidden="true"><span>PROFILE</span><span>AVATAR</span><span>3D LOBBY</span><span>LIVE</span><span>STORE</span></div>
         </div>
       </section>
 
