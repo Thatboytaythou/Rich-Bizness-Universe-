@@ -6,6 +6,25 @@ const webRoot = resolve(__dirname, 'apps/web');
 const portalBackgroundSource = resolve(__dirname, 'images/0E886281-8F03-4288-B3CA-C45369B7B58E.png');
 const portalBackgroundOutput = resolve(__dirname, 'apps/web/dist/images/0E886281-8F03-4288-B3CA-C45369B7B58E.png');
 
+const vendorChunk = (id: string): string | undefined => {
+  if (!id.includes('node_modules')) return undefined;
+
+  if (id.includes('/livekit-client/') || id.includes('/@livekit/')) return 'vendor-livekit';
+  if (id.includes('/three/')) return 'vendor-three';
+
+  if (id.includes('/@supabase/realtime-js/')) return 'vendor-supabase-realtime';
+  if (id.includes('/@supabase/postgrest-js/')) return 'vendor-supabase-postgrest';
+  if (id.includes('/@supabase/auth-js/')) return 'vendor-supabase-auth';
+  if (id.includes('/@supabase/storage-js/')) return 'vendor-supabase-storage';
+  if (id.includes('/@supabase/functions-js/')) return 'vendor-supabase-functions';
+  if (id.includes('/@supabase/supabase-js/')) return 'vendor-supabase-core';
+
+  if (id.includes('/ws/')) return 'vendor-websocket';
+  if (id.includes('/tslib/')) return 'vendor-tslib';
+
+  return 'vendor-shared';
+};
+
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, __dirname, '');
   const runtimeEnv = {
@@ -42,13 +61,7 @@ export default defineConfig(({ mode }) => {
           index: page('index'), portal: page('portal'), tapIn: page('tap-in'), profile: page('profile'), editProfile: page('edit-profile'), settings: page('settings'), notifications: page('notifications'), messages: page('messages'), search: page('search'), upload: page('upload'), creator: page('creator'), creatorDimensions: page('creator-dimensions'), admin: page('admin'), feed: page('feed'), gallery: page('gallery'), live: page('live'), watch: page('watch'), music: page('music'), podcast: page('podcast'), radio: page('radio'), sports: page('sports'), store: page('store'), gaming: page('gaming'), meta: page('meta'), avatar: page('avatar'), avatarCharacters: page('avatar-characters'), richChess: page('rich-chess'), smokeRoomCards: page('smoke-room-cards'), djRadioRun: page('dj-radio-run'), moneyRoadRunner: page('money-road-runner'), richSamuraisSonNinja: page('rich-samurais-son-ninja'), auraShinobiClash: page('aura-shinobi-clash'), bossWalkBattle: page('boss-walk-battle'), smokeBurstArena: page('smoke-burst-arena'), heroVillainShowdown: page('hero-villain-showdown'), empireBuilder: page('empire-builder'), marketFlip: page('market-flip'), vaultUnlock: page('vault-unlock'), portalRoomRush: page('portal-room-rush'), avatarFreeRoam: page('avatar-free-roam'), smokeCityHustle: page('smoke-city-hustle'), treehouseRide: page('treehouse-ride'), studioShowdown: page('studio-showdown'), richCourtKing: page('rich-court-king'), diamondBatFlip: page('diamond-bat-flip'), golfGreenGold: page('golf-green-gold'), gymGrindReps: page('gym-grind-reps'), cashRainCatcher: page('cash-rain-catcher'), portalDash: page('portal-dash'), biznessPartyRoom: page('bizness-party-room'), richColorClash: page('rich-color-clash'), richSpadesRoyale: page('rich-spades-royale'), richCheckersElite: page('rich-checkers-elite'), crownConnectFour: page('crown-connect-four')
         },
         output: {
-          manualChunks(id: string) {
-            if (!id.includes('node_modules')) return undefined;
-            if (id.includes('/livekit-client/') || id.includes('/@livekit/')) return 'vendor-livekit';
-            if (id.includes('/three/')) return 'vendor-three';
-            if (id.includes('/@supabase/')) return 'vendor-supabase';
-            return undefined;
-          }
+          manualChunks: vendorChunk
         }
       }
     },
