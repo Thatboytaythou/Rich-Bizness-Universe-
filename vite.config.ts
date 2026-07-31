@@ -9,7 +9,17 @@ const portalBackgroundOutput = resolve(__dirname, 'apps/web/dist/images/0E886281
 const vendorChunk = (id: string): string | undefined => {
   if (!id.includes('node_modules')) return undefined;
 
-  if (id.includes('/livekit-client/') || id.includes('/@livekit/')) return 'vendor-livekit';
+  if (id.includes('/@livekit/protocol/')) return 'vendor-livekit-protocol';
+  if (id.includes('/@livekit/mutex/')) return 'vendor-livekit-mutex';
+  if (id.includes('/@livekit/typed-emitter/')) return 'vendor-livekit-events';
+  if (id.includes('/webrtc-adapter/')) return 'vendor-webrtc-adapter';
+  if (id.includes('/livekit-client/')) {
+    if (id.includes('/room/')) return 'vendor-livekit-room';
+    if (id.includes('/track/')) return 'vendor-livekit-track';
+    if (id.includes('/participant/')) return 'vendor-livekit-participant';
+    return 'vendor-livekit-core';
+  }
+  if (id.includes('/@livekit/')) return 'vendor-livekit-shared';
   if (id.includes('/three/')) return 'vendor-three';
 
   if (id.includes('/@supabase/realtime-js/')) return 'vendor-supabase-realtime';
