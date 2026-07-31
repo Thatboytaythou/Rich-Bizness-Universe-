@@ -97,6 +97,8 @@ export async function mountPortalPage(): Promise<void> {
   const recent = Array.isArray(snapshot.recent_activity) ? snapshot.recent_activity.slice(0, 5) : [];
 
   const identityRoute = ROUTES.profile;
+  const avatarSelectorRoute = ROUTES.avatar;
+  const avatarLobbyRoute = ROUTES.avatarCharacters;
   const name = String(profile.display_name ?? profile.username ?? avatar.display_name ?? user.email?.split('@')[0] ?? 'RICH BIZNESS');
   const avatarUrl = safeUrl(profile.avatar_url ?? avatar.avatar_url);
   const accent = String(settings.accent_color ?? '#31ff63');
@@ -157,15 +159,15 @@ export async function mountPortalPage(): Promise<void> {
           </a>`).join('')}
         </nav>
 
-        <a class="portal-core portal-core--unified" href="${identityRoute}" aria-label="Enter your universe" style="border:0;background:transparent;box-shadow:none;overflow:visible;animation:none;">
+        <div class="portal-core portal-core--unified" aria-label="Rich Bizness portal command center">
           <span class="portal-core__content">
             <small>RICH BIZNESS LLC</small>
-            <strong>ENTER</strong>
-            <span>OPEN YOUR UNIVERSE</span>
+            <strong>PORTAL</strong>
+            <span>CHOOSE YOUR UNIVERSE</span>
             <b>${xpCurrent.toLocaleString()} / ${xpNext.toLocaleString()} XP</b>
             <i><u style="width:${xpPercent}%"></u></i>
           </span>
-        </a>
+        </div>
 
         <div class="portal-route-layer">
           ${destinations.map((destination, index) => {
@@ -187,6 +189,8 @@ export async function mountPortalPage(): Promise<void> {
         <a href="${ROUTES.messages}" aria-label="Messages"><span>✦</span><small>DM</small>${Number(snapshot.unread_threads ?? 0) ? `<b>${snapshot.unread_threads}</b>` : ''}</a>
         <a href="${ROUTES.notifications}" aria-label="Notifications"><span>◌</span><small>ALERTS</small>${Number(snapshot.unread_notifications ?? 0) ? `<b>${snapshot.unread_notifications}</b>` : ''}</a>
         <a href="${identityRoute}" aria-label="Profile"><span>◎</span><small>PROFILE</small></a>
+        <a href="${avatarSelectorRoute}" aria-label="Avatar selector"><span>◆</span><small>AVATAR</small></a>
+        <a href="${avatarLobbyRoute}" aria-label="3D avatar lobby"><span>◉</span><small>3D LOBBY</small></a>
       </aside>
 
       <footer class="portal-stats">
