@@ -49,15 +49,16 @@ export async function mount(): Promise<void> {
   let loading = false;
   let queued = false;
   let destroyed = false;
+  let accessDenied = false;
   let statusTimer: number | undefined;
   let realtimeTimer: number | undefined;
   let channel: ReturnType<typeof supabase.channel> | null = null;
 
   const setStatus = (message: string) => {
-    if (destroyed) return;
+    if (destroyed || accessDenied) return;
     status.textContent = message;
     if (statusTimer) clearTimeout(statusTimer);
-    statusTimer = window.setTimeout(() => { if (!destroyed && status.textContent === message) status.textContent = ''; }, 3500);
+    statusTimer = window.setTimeout(() => { if (!destroyed && !accessDenied && status.textContent === message) status.textContent = ''; }, 3500);
   };
 
   const lanes = [['overview','OVERVIEW'],['moderation','MODERATION'],['systems','SYSTEMS'],['platform','PLATFORM'],['analytics','ANALYTICS + MONEY'],['audit','AUDIT + TRUST'],['roles','ROLES']];
@@ -76,7 +77,7 @@ export async function mount(): Promise<void> {
   };
 
   const render = () => {
-    if (!snapshot || destroyed) return;
+    if (!snapshot || destroyed || accessDenied) return;
     const s = snapshot;
     roleNode.textContent = String(s.role.role_label || s.role.role_key || 'SECURE').toUpperCase();
     const failedOps = Number(s.counts.failed_jobs ?? 0) + Number(s.counts.failed_webhooks ?? 0) + Number(s.counts.failed_requests ?? 0);
@@ -132,7 +133,7 @@ export async function mount(): Promise<void> {
   };
 
   const load = async (): Promise<void> => {
-    if (destroyed) return;
+    if (destroyed || accessDenied) return;
     if (loading) { queued = true; return; }
     loading = true;
     refresh.disabled = true;
@@ -147,21 +148,27 @@ export async function mount(): Promise<void> {
       render();
       setStatus(`SYSTEM VERIFIED · ${when(snapshot.generated_at)}`);
     } catch (caught) {
-      root.innerHTML = `<main class="deep-shell"><div class="deep-wrap"><header class="deep-top"><a href="${ROUTES.portal}">←</a><div><p>RICH BIZNESS SECURITY</p><h1>Restricted</h1></div></header><section class="deep-hero"><div><small>ADMIN ACCESS REQUIRED</small><h2>FOUNDER GATE</h2><p>${esc(caught instanceof Error ? caught.message : 'This command center is protected by server-owned roles and permission levels.')}</p></div></section></div></main>`;
+      accessDenied = true;
+      queued = false;
+      if (statusTimer) clearTimeout(statusTimer);
+      root.innerHTML = `<main class="deep-shell"><div class="deep-wrap"><header class="deep-top"><a href="${ROUTES.portal}">←</a><div><p>RICH BIZNESS SECURITY</p><h1>Restricted</h1></div></header><section class="deep-hero"><div><small>ADMIN ACCESS REQUIRED</small><h2>FOUNDER GATE</h2><p>${esc(caught instanceof Error ? caught.message : 'This command center is protected by server-owned roles and permission levels.')}</p><div class="deep-actions"><a class="deep-btn primary" href="${ROUTES.portal}">RETURN TO PORTAL</a><a class="deep-btn" href="${ROUTES.profile}">PROFILE</a></div></div></section></div></main>`;
     } finally {
       loading = false;
-      refresh.disabled = false;
-      refresh.textContent = 'REFRESH SYSTEM';
-      root.classList.remove('admin-loading');
-      if (queued && !destroyed) { queued = false; await load(); }
+      if (!accessDenied) {
+        refresh.disabled = false;
+        refresh.textContent = 'REFRESH SYSTEM';
+        root.classList.remove('admin-loading');
+        if (queued && !destroyed) { queued = false; await load(); }
+      }
     }
   };
 
   refresh.onclick = () => void load();
   await load();
+  if (accessDenied || destroyed) return;
 
   const scheduleReload = () => {
-    if (destroyed) return;
+    if (destroyed || accessDenied) return;
     if (realtimeTimer) clearTimeout(realtimeTimer);
     realtimeTimer = window.setTimeout(() => void load(), 350);
   };
