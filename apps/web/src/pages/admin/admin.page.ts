@@ -61,9 +61,18 @@ export async function mount(): Promise<void> {
   };
 
   const lanes = [['overview','OVERVIEW'],['moderation','MODERATION'],['systems','SYSTEMS'],['platform','PLATFORM'],['analytics','ANALYTICS + MONEY'],['audit','AUDIT + TRUST'],['roles','ROLES']];
+  const requestedLane = new URLSearchParams(location.search).get('lane');
+  if (requestedLane && lanes.some(([key]) => key === requestedLane)) lane = requestedLane;
   const renderTabs = () => {
     tabs.innerHTML = lanes.map(([key,label]) => `<button class="deep-tab ${lane === key ? 'active' : ''}" data-lane="${key}" type="button">${label}</button>`).join('');
-    tabs.querySelectorAll<HTMLButtonElement>('[data-lane]').forEach((button) => button.onclick = () => { lane = button.dataset.lane!; renderTabs(); render(); });
+    tabs.querySelectorAll<HTMLButtonElement>('[data-lane]').forEach((button) => button.onclick = () => {
+      lane = button.dataset.lane!;
+      const url = new URL(location.href);
+      if (lane === 'overview') url.searchParams.delete('lane'); else url.searchParams.set('lane', lane);
+      history.replaceState(null, '', `${url.pathname}${url.search}${url.hash}`);
+      renderTabs();
+      render();
+    });
   };
 
   const render = () => {
