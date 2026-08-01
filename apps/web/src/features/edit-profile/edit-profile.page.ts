@@ -285,7 +285,6 @@ export async function mount(): Promise<void> {
       message.textContent = 'Profile, Rich ID and Meta avatar are synchronized.';
       saveState.textContent = 'SAVED';
       updateCompletion();
-      void supabase.rpc('rb_award_xp', { p_event_key: 'profile_updated', p_section: 'profile', p_source_table: 'profiles' });
     } catch (caught) {
       message.textContent = caught instanceof Error ? caught.message : 'Unable to save profile.';
       saveState.textContent = 'ERROR';
