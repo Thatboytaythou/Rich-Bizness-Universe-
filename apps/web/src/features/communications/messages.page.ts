@@ -101,22 +101,6 @@ export async function mount(): Promise<void> {
     updateSummary();
   };
 
-  const loadThreads = async () => {
-    if (destroyed || loadingThreads) return;
-    loadingThreads = true;
-    try {
-      const { data, error } = await supabase.rpc('rb_dm_threads_snapshot', { p_limit: 150 });
-      if (error) throw error;
-      threads = (((data as any)?.threads ?? []) as Thread[]);
-      drawThreads();
-      if (activeThread && threads.some((thread) => thread.id === activeThread) && !threadChannel && !loadingThread) await openThread(activeThread);
-    } catch (caught) {
-      setStatus(caught instanceof Error ? caught.message : 'Unable to load conversations.');
-    } finally {
-      loadingThreads = false;
-    }
-  };
-
   const sendSharedPost = async (threadId: string) => {
     if (!sharedPostPending) return;
     const postId = sharedPostPending;
@@ -268,7 +252,7 @@ export async function mount(): Promise<void> {
     if (threadChannel) await supabase.removeChannel(threadChannel);
     threadChannel = supabase.channel(`rich-dm:${threadId}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'dm_messages', filter: `thread_id=eq.${threadId}` }, () => void refreshThread(threadId))
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'dm_message_attachments', filter: `thread_id=eq.${threadId}` }, () => void refreshThread(threadId))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'dm_message_attachments' }, () => void refreshThread(threadId))
       .on('postgres_changes', { event: '*', schema: 'public', table: 'dm_message_reactions' }, () => void refreshThread(threadId))
       .on('postgres_changes', { event: '*', schema: 'public', table: 'dm_typing_status', filter: `thread_id=eq.${threadId}` }, () => void refreshThread(threadId))
       .on('postgres_changes', { event: '*', schema: 'public', table: 'dm_call_sessions', filter: `thread_id=eq.${threadId}` }, () => void refreshThread(threadId))
@@ -281,6 +265,22 @@ export async function mount(): Promise<void> {
       } catch (caught) {
         setStatus(caught instanceof Error ? caught.message : 'Unable to share post.');
       }
+    }
+  };
+
+  const loadThreads = async () => {
+    if (destroyed || loadingThreads) return;
+    loadingThreads = true;
+    try {
+      const { data, error } = await supabase.rpc('rb_dm_threads_snapshot', { p_limit: 150 });
+      if (error) throw error;
+      threads = (((data as any)?.threads ?? []) as Thread[]);
+      drawThreads();
+      if (activeThread && threads.some((thread) => thread.id === activeThread) && !threadChannel && !loadingThread) await openThread(activeThread);
+    } catch (caught) {
+      setStatus(caught instanceof Error ? caught.message : 'Unable to load conversations.');
+    } finally {
+      loadingThreads = false;
     }
   };
 
