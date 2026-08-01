@@ -14,7 +14,8 @@ type Notice = {
 type FilterKey='all'|'unread'|'social'|'media'|'live'|'money'|'system';
 type Snapshot={counts?:{all?:number;unread?:number;unseen?:number};notifications?:Notice[]};
 
-const esc=(value:string|null|undefined)=>(value??'').replace(/[&<>'"]/g,(character)=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[character]??character));
+const FILTERS:FilterKey[]=['all','unread','social','media','live','money','system'];
+const esc=(value:string|null|undefined)=>(value??'').replace(/[&<>'\"]/g,(character)=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','\"':'&quot;'}[character]??character));
 function relativeTime(value:string|null):string{
   if(!value)return'';
   const seconds=Math.max(0,Math.floor((Date.now()-new Date(value).getTime())/1000));
@@ -42,6 +43,9 @@ export async function mount():Promise<void>{
   const user=getAuthSnapshot().user;
   if(!user){location.replace(`/tap-in.html?next=${encodeURIComponent(ROUTES.notifications)}`);return;}
 
+  const requestedFilter=new URLSearchParams(location.search).get('filter');
+  let activeFilter:FilterKey=FILTERS.includes(requestedFilter as FilterKey)?requestedFilter as FilterKey:'all';
+
   root.innerHTML=`<main class="notifications-shell"><div class="notifications-wrap">
     <header class="notifications-head"><a href="${ROUTES.portal}" aria-label="Back to Portal">←</a><div><p>SMOKE CLOUD RICH ALERTS</p><h1>Notifications</h1></div><span id="noticeCount" class="notifications-count">0 NEW</span></header>
     <section class="notifications-hero" aria-label="Notification command summary">
@@ -49,7 +53,7 @@ export async function mount():Promise<void>{
       <div class="notifications-metrics"><article><span>UNREAD</span><strong id="metricUnread">0</strong></article><article><span>LIVE</span><strong id="metricLive">0</strong></article><article><span>MONEY</span><strong id="metricMoney">0</strong></article><article><span>SYSTEM</span><strong id="metricSystem">0</strong></article></div>
     </section>
     <nav class="notifications-shortcuts" aria-label="Notification shortcuts"><a href="${ROUTES.messages}">RICH-DM</a><a href="${ROUTES.live}">LIVE</a><a href="${ROUTES.watch}">WATCH</a><a href="${ROUTES.settings}">SETTINGS</a></nav>
-    <section class="notifications-command"><div class="notifications-filters" role="tablist">${(['all','unread','social','media','live','money','system'] as FilterKey[]).map((filter)=>`<button type="button" data-filter="${filter}" class="${filter==='all'?'active':''}">${filter.toUpperCase()} <span data-filter-count="${filter}">0</span></button>`).join('')}</div><div class="notifications-actions"><button id="markAll" type="button">MARK ALL READ</button><button id="refresh" type="button">REFRESH</button></div></section>
+    <section class="notifications-command"><div class="notifications-filters" role="tablist">${FILTERS.map((filter)=>`<button type="button" data-filter="${filter}" class="${filter===activeFilter?'active':''}">${filter.toUpperCase()} <span data-filter-count="${filter}">0</span></button>`).join('')}</div><div class="notifications-actions"><button id="markAll" type="button">MARK ALL READ</button><button id="refresh" type="button">REFRESH</button></div></section>
     <p id="noticeStatus" class="notifications-status" role="status"></p><section id="noticeList" class="notifications-list" aria-live="polite"></section>
   </div></main>`;
 
@@ -63,7 +67,7 @@ export async function mount():Promise<void>{
   const metricLive=root.querySelector<HTMLElement>('#metricLive')!;
   const metricMoney=root.querySelector<HTMLElement>('#metricMoney')!;
   const metricSystem=root.querySelector<HTMLElement>('#metricSystem')!;
-  let notices:Notice[]=[]; let authoritativeAll=0; let authoritativeUnread=0; let activeFilter:FilterKey='all';
+  let notices:Notice[]=[]; let authoritativeAll=0; let authoritativeUnread=0;
   let destroyed=false; let loading=false; let refreshQueued=false; let refreshTimer=0; let channel:ReturnType<typeof supabase.channel>|null=null;
 
   const setStatus=(message:string)=>{if(!destroyed)status.textContent=message;};
@@ -114,7 +118,16 @@ export async function mount():Promise<void>{
     const openButton=target.closest<HTMLButtonElement>('[data-open]'); if(!openButton)return;
     try{await markRead(openButton.dataset.open!);location.assign(openButton.dataset.target||ROUTES.notifications);}catch(caught){setStatus(caught instanceof Error?caught.message:'Unable to open alert.');}
   });
-  filterButtons.forEach((button)=>button.addEventListener('click',()=>{activeFilter=button.dataset.filter as FilterKey;filterButtons.forEach((item)=>item.classList.toggle('active',item===button));render();}));
+  filterButtons.forEach((button)=>button.addEventListener('click',()=>{
+    const next=button.dataset.filter as FilterKey;
+    if(!FILTERS.includes(next))return;
+    activeFilter=next;
+    const url=new URL(location.href);
+    if(next==='all')url.searchParams.delete('filter');else url.searchParams.set('filter',next);
+    history.replaceState(null,'',`${url.pathname}${url.search}${url.hash}`);
+    filterButtons.forEach((item)=>item.classList.toggle('active',item===button));
+    render();
+  }));
   refreshButton.addEventListener('click',()=>void load());
   markAllButton.addEventListener('click',async()=>{
     markAllButton.disabled=true;
