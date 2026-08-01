@@ -137,6 +137,7 @@ export async function mount(): Promise<void> {
 
   signOutButton.onclick = async () => {
     signOutButton.disabled = true;
+    status.textContent = 'Signing out…';
     const { error } = await supabase.auth.signOut();
     if (error) { status.textContent = error.message; signOutButton.disabled = false; return; }
     location.replace(ROUTES.home);
@@ -173,7 +174,6 @@ export async function mount(): Promise<void> {
       saveState.textContent = 'SAVED';
       saveSummary.textContent = 'UNIVERSE SYNCHRONIZED';
       status.textContent = 'Settings synchronized across Profile, Rich-DM, notifications, privacy, calls, comments and visual experience.';
-      void supabase.rpc('rb_award_xp', { p_event_key: 'settings_updated', p_section: 'settings', p_source_table: 'user_settings', p_source_id: null, p_amount: null });
     }
     saving = false;
     if (!destroyed) saveButton.disabled = false;
