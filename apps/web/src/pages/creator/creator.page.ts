@@ -32,9 +32,39 @@ export async function mount():Promise<void>{
   }else if(lane==='money')content.innerHTML=`<section class="creator-section"><header><div><p>CREATOR WALLET</p><h2>Revenue position</h2></div></header><div class="creator-metrics"><article><small>EARNED</small><strong>${money(balance.earned_cents,balance.currency)}</strong></article><article><small>AVAILABLE</small><strong>${money(balance.available_cents,balance.currency)}</strong></article><article><small>PENDING</small><strong>${money(balance.pending_cents,balance.currency)}</strong></article><article><small>PAID OUT</small><strong>${money(balance.paid_out_cents,balance.currency)}</strong></article></div><div class="creator-actions"><a class="creator-btn primary" href="/settings.html">PAYOUT SETTINGS</a><a class="creator-btn" href="/store.html">ORDER CENTER</a><a class="creator-btn" href="/notifications.html">${alerts.toLocaleString()} ALERT MEMBERS</a></div></section>`;
   else content.innerHTML=`<section class="creator-section"><header><div><p>SECRET CREATOR NETWORK</p><h2>Four paid dimensions</h2></div><a class="creator-btn primary" href="/creator-dimensions.html">ENTER GATE</a></header><div class="creator-grid">${card('On The Go','Mobile earning and dispatch dimension','/creator-dimensions.html?dimension=on_the_go',profile.banner_url,'PAID')}${card('Dash Businesses','Private business operations network','/creator-dimensions.html?dimension=dash_businesses',profile.banner_url,'PAID')}${card('Private World','Members-only social and Meta world','/creator-dimensions.html?dimension=private_world',profile.banner_url,'PAID')}${card('Movies','Premium cinema and screening dimension','/creator-dimensions.html?dimension=movies',profile.banner_url,'PAID')}</div></section>`;
  };
- const load=async()=>{if(destroyed)return;if(loading){queued=true;return;}loading=true;const id=user.id;const r=await Promise.all([supabase.from('profiles').select('*').eq('id',id).single(),supabase.from('creator_page_settings').select('*').eq('user_id',id).maybeSingle(),supabase.from('creator_available_balances').select('*').eq('artist_user_id',id).maybeSingle(),supabase.from('music_tracks').select('*').eq('user_id',id).order('created_at',{ascending:false}).limit(30),supabase.from('products').select('*').eq('seller_id',id).order('created_at',{ascending:false}).limit(30),supabase.from('live_streams').select('*').eq('creator_id',id).order('created_at',{ascending:false}).limit(30),supabase.from('meta_worlds').select('*').eq('owner_id',id).order('created_at',{ascending:false}).limit(30),supabase.from('feed_posts').select('*').eq('user_id',id).order('created_at',{ascending:false}).limit(30),supabase.from('creator_alert_subscriptions').select('id',{count:'exact',head:true}).eq('creator_id',id).eq('is_active',true),supabase.from('games').select('*').eq('creator_id',id).order('created_at',{ascending:false}).limit(30)]);profile=r[0].data||{};settings=r[1].data||{};balance=r[2].data||{};tracks=r[3].data||[];products=r[4].data||[];streams=r[5].data||[];worlds=r[6].data||[];posts=r[7].data||[];alerts=r[8].count||0;games=r[9].data||[];loading=false;drawTabs();render();setStatus('CREATOR UNIVERSE ONLINE');if(queued){queued=false;void load();}};
+ const load=async()=>{
+  if(destroyed)return;
+  if(loading){queued=true;return;}
+  loading=true;
+  setStatus('SYNCING CREATOR UNIVERSE…');
+  try{
+   const id=user.id;
+   const r=await Promise.all([
+    supabase.from('profiles').select('*').eq('id',id).single(),
+    supabase.from('creator_page_settings').select('*').eq('user_id',id).maybeSingle(),
+    supabase.from('creator_available_balances').select('*').eq('artist_user_id',id).maybeSingle(),
+    supabase.from('music_tracks').select('*').eq('user_id',id).order('created_at',{ascending:false}).limit(30),
+    supabase.from('products').select('*').eq('seller_id',id).order('created_at',{ascending:false}).limit(30),
+    supabase.from('live_streams').select('*').eq('creator_id',id).order('created_at',{ascending:false}).limit(30),
+    supabase.from('meta_worlds').select('*').eq('owner_id',id).order('created_at',{ascending:false}).limit(30),
+    supabase.from('feed_posts').select('*').eq('user_id',id).order('created_at',{ascending:false}).limit(30),
+    supabase.from('creator_alert_subscriptions').select('id',{count:'exact',head:true}).eq('creator_id',id).eq('is_active',true),
+    supabase.from('games').select('*').eq('creator_id',id).order('created_at',{ascending:false}).limit(30)
+   ]);
+   const failed=r.find(result=>result.error);
+   if(failed?.error)throw failed.error;
+   profile=r[0].data||{};settings=r[1].data||{};balance=r[2].data||{};tracks=r[3].data||[];products=r[4].data||[];streams=r[5].data||[];worlds=r[6].data||[];posts=r[7].data||[];alerts=r[8].count||0;games=r[9].data||[];
+   drawTabs();render();setStatus('CREATOR UNIVERSE ONLINE');
+  }catch(caught){
+   setStatus(caught instanceof Error?caught.message:'Unable to sync creator universe.',true);
+  }finally{
+   loading=false;
+   if(queued&&!destroyed){queued=false;void load();}
+  }
+ };
  const requestedLane=new URLSearchParams(location.search).get('lane');if(requestedLane&&lanes.some(([key])=>key===requestedLane))lane=requestedLane;
  await load();
- ['creator_page_settings','creator_available_balances','creator_alert_subscriptions','creator_dimension_access'].forEach(table=>channels.push(supabase.channel(`creator:${table}:${user.id}`).on('postgres_changes',{event:'*',schema:'public',table},()=>{clearTimeout(refreshTimer);refreshTimer=window.setTimeout(()=>void load(),180);}).subscribe()));
+ const realtimeOwners:[string,string][]=[['creator_page_settings','user_id'],['creator_available_balances','artist_user_id'],['creator_alert_subscriptions','creator_id'],['creator_dimension_access','user_id']];
+ realtimeOwners.forEach(([table,column])=>channels.push(supabase.channel(`creator:${table}:${user.id}`).on('postgres_changes',{event:'*',schema:'public',table,filter:`${column}=eq.${user.id}`},()=>{clearTimeout(refreshTimer);refreshTimer=window.setTimeout(()=>void load(),180);}).subscribe()));
  const cleanup=()=>{if(destroyed)return;destroyed=true;clearTimeout(refreshTimer);channels.forEach(c=>void supabase.removeChannel(c));delete root.dataset.creatorOwner;};window.addEventListener('pagehide',cleanup,{once:true});window.addEventListener('beforeunload',cleanup,{once:true});
 }
