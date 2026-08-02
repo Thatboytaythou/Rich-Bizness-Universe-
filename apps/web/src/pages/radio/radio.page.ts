@@ -57,9 +57,15 @@ export async function mount(): Promise<void> {
   let queued = false;
   let destroyed = false;
   let refreshTimer: number | undefined;
+  let messageTimer: number | undefined;
   let autoplayAfterSelect = false;
 
-  const setMessage = (text: string, error = false) => { message.textContent = text; message.dataset.error = String(error); window.setTimeout(() => { if (message.textContent === text) message.textContent = ''; }, 3200); };
+  const setMessage = (text: string, error = false) => {
+    message.textContent = text;
+    message.dataset.error = String(error);
+    window.clearTimeout(messageTimer);
+    messageTimer = window.setTimeout(() => { if (!destroyed && message.textContent === text) message.textContent = ''; }, 3200);
+  };
   const requireUser = () => { if (userId) return true; location.assign(`/tap-in.html?next=${encodeURIComponent(location.pathname + location.search)}`); return false; };
   const action = async (name: string, payload: Row) => { const { data, error } = await supabase.rpc('rb_radio_action', { p_action: name, p_payload: payload }); if (error) throw error; return (data ?? {}) as Row; };
   const activeIndex = () => stations.findIndex((station) => String(station.id) === String(active?.id ?? ''));
@@ -118,14 +124,21 @@ export async function mount(): Promise<void> {
     if (autoplayAfterSelect) { autoplayAfterSelect = false; void playActive(); }
   };
 
+  const subscribeComments = async (stationId: string | null) => {
+    if (commentChannel) { await supabase.removeChannel(commentChannel); commentChannel = null; }
+    if (!stationId || destroyed) return;
+    commentChannel = supabase.channel(`radio-comments:${stationId}`).on('postgres_changes', { event: '*', schema: 'public', table: 'radio_comments', filter: `station_id=eq.${stationId}` }, () => scheduleLoad(stationId)).subscribe();
+  };
+
   const selectStation = async (station: Row, shouldPlay = false) => {
     if (active && String(active.id) !== String(station.id)) { audio.pause(); await closeSession(); }
     active = station;
     autoplayAfterSelect = shouldPlay;
-    history.replaceState({}, '', `/radio.html?id=${encodeURIComponent(station.id)}`);
+    const url = new URL(location.href);
+    url.searchParams.set('id', String(station.id));
+    history.replaceState({}, '', `${url.pathname}${url.search}${url.hash}`);
     await load(station.id);
-    if (commentChannel) await supabase.removeChannel(commentChannel);
-    commentChannel = supabase.channel(`radio-comments:${station.id}`).on('postgres_changes', { event: '*', schema: 'public', table: 'radio_comments', filter: `station_id=eq.${station.id}` }, () => scheduleLoad(station.id)).subscribe();
+    await subscribeComments(active?.id ? String(active.id) : null);
   };
 
   const moveQueue = async (direction: number) => {
@@ -136,6 +149,7 @@ export async function mount(): Promise<void> {
   };
 
   const load = async (stationId?: string) => {
+    if (destroyed) return;
     if (loading) { queued = true; return; }
     loading = true;
     try {
@@ -147,8 +161,20 @@ export async function mount(): Promise<void> {
       active = stations.find((station) => String(station.id) === String(snapshot.active_id)) ?? stations[0] ?? null;
       renderMetrics(); renderList(); renderComments();
       if (active) bindActive(); else { hero.innerHTML = '<div class="sound-empty">No radio stations are public yet.</div>'; player.hidden = true; }
-    } catch (error) { setMessage(error instanceof Error ? error.message : 'Radio network failed to load.', true); }
-    finally { loading = false; if (queued && !destroyed) { queued = false; void load(active?.id); } }
+    } catch (error) {
+      snapshot = {};
+      stations = [];
+      active = null;
+      audio.pause();
+      audio.removeAttribute('src');
+      audio.load();
+      player.hidden = true;
+      renderMetrics();
+      renderList();
+      renderComments();
+      hero.innerHTML = '<div class="sound-empty">Radio network is temporarily unavailable.</div>';
+      setMessage(error instanceof Error ? error.message : 'Radio network failed to load.', true);
+    } finally { loading = false; if (queued && !destroyed) { queued = false; void load(active?.id); } }
   };
 
   const scheduleLoad = (stationId?: string) => { window.clearTimeout(refreshTimer); refreshTimer = window.setTimeout(() => void load(stationId || active?.id), 180); };
@@ -167,34 +193,44 @@ export async function mount(): Promise<void> {
 
   const onPlay = () => { q<HTMLButtonElement>('#radioToggle').textContent = 'Ⅱ'; void startSession(); };
   const onPause = () => { q<HTMLButtonElement>('#radioToggle').textContent = '▶'; if (!audio.ended) void closeSession(); };
+  const onEnded = () => void moveQueue(1);
   audio.addEventListener('play', onPlay);
   audio.addEventListener('pause', onPause);
-  audio.addEventListener('ended', () => void moveQueue(1));
+  audio.addEventListener('ended', onEnded);
   q<HTMLButtonElement>('#radioPrev').onclick = () => void moveQueue(-1);
   q<HTMLButtonElement>('#radioNext').onclick = () => void moveQueue(1);
   q<HTMLButtonElement>('#radioToggle').onclick = () => { if (audio.paused) void playActive(); else audio.pause(); };
 
   await load();
   stationChannel = supabase.channel('rich-radio-stations').on('postgres_changes', { event: '*', schema: 'public', table: 'radio_stations' }, () => scheduleLoad()).subscribe();
-  if (active) commentChannel = supabase.channel(`radio-comments:${active.id}`).on('postgres_changes', { event: '*', schema: 'public', table: 'radio_comments', filter: `station_id=eq.${active.id}` }, () => scheduleLoad(active?.id)).subscribe();
-  listenerChannel = supabase.channel(`rich-radio-listeners:${userId || anonymousId}`)
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'radio_likes' }, () => scheduleLoad())
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'radio_sessions' }, () => scheduleLoad())
-    .subscribe();
+  await subscribeComments(active?.id ? String(active.id) : null);
+  if (userId) {
+    listenerChannel = supabase.channel(`rich-radio-listeners:${userId}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'radio_likes', filter: `user_id=eq.${userId}` }, () => scheduleLoad())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'radio_sessions', filter: `user_id=eq.${userId}` }, () => scheduleLoad())
+      .subscribe();
+  } else {
+    listenerChannel = supabase.channel(`rich-radio-listeners:${anonymousId}`)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'radio_sessions', filter: `anonymous_id=eq.${anonymousId}` }, () => scheduleLoad())
+      .subscribe();
+  }
 
   const cleanup = () => {
     if (destroyed) return;
     destroyed = true;
     window.clearTimeout(refreshTimer);
+    window.clearTimeout(messageTimer);
     void closeSession();
     audio.pause();
     audio.removeEventListener('play', onPlay);
     audio.removeEventListener('pause', onPause);
+    audio.removeEventListener('ended', onEnded);
     audio.removeAttribute('src');
     audio.load();
     if (stationChannel) void supabase.removeChannel(stationChannel);
     if (commentChannel) void supabase.removeChannel(commentChannel);
     if (listenerChannel) void supabase.removeChannel(listenerChannel);
+    delete root.dataset.radioOwner;
   };
   window.addEventListener('pagehide', cleanup, { once: true });
   window.addEventListener('beforeunload', cleanup, { once: true });
