@@ -1,6 +1,6 @@
 export type PageModule = Readonly<{ mount: () => void | Promise<void> }>;
 export type AuthPolicy = 'public' | 'optional' | 'required';
-export type PageRegistration = Readonly<{ auth: AuthPolicy; load: () => Promise<PageModule> }>;
+export type PageRegistration = Readonly<{ auth: AuthPolicy; owner: string; load: () => Promise<PageModule> }>;
 
 type MountModule = Readonly<Record<string, unknown>>;
 type RegistrationOptions = Readonly<{
@@ -14,6 +14,7 @@ type RegistrationOptions = Readonly<{
 function guardedRegistration({ auth, owner, loadModule, exportName = 'mount', preload = [] }: RegistrationOptions): PageRegistration {
   return {
     auth,
+    owner,
     load: async () => {
       if (preload.length) await Promise.all(preload.map((load) => load()));
       const module = await loadModule();
@@ -24,11 +25,26 @@ function guardedRegistration({ auth, owner, loadModule, exportName = 'mount', pr
         mount: async () => {
           const app = document.querySelector<HTMLElement>('#app');
           if (!app) throw new Error('Missing #app mount');
-          if (app.dataset.pageOwner === owner) return;
+
+          const activeOwner = app.dataset.pageOwner;
+          if (activeOwner === owner && app.dataset.pageMounted === 'true') return;
+          if (activeOwner && activeOwner !== owner) {
+            throw new Error(`Route owner conflict: ${activeOwner} tried to overlap ${owner}`);
+          }
 
           app.dataset.pageOwner = owner;
+          app.dataset.pageMounted = 'false';
           app.replaceChildren();
-          await (mount as () => void | Promise<void>)();
+
+          try {
+            await (mount as () => void | Promise<void>)();
+            app.dataset.pageMounted = 'true';
+          } catch (error) {
+            delete app.dataset.pageMounted;
+            delete app.dataset.pageOwner;
+            app.replaceChildren();
+            throw error;
+          }
         }
       };
     }
@@ -36,8 +52,8 @@ function guardedRegistration({ auth, owner, loadModule, exportName = 'mount', pr
 }
 
 const pageModules: Record<string, PageRegistration> = {
-  home: { auth: 'optional', load: async () => { const module = await import('./pages/home/home.page'); return { mount: module.mountHomePage }; } },
-  'tap-in': { auth: 'optional', load: async () => { const module = await import('./pages/tap-in/tap-in.page'); return { mount: module.mountTapInPage }; } },
+  home: guardedRegistration({ auth: 'optional', owner: 'rich-bizness-home-v1', exportName: 'mountHomePage', loadModule: () => import('./pages/home/home.page') }),
+  'tap-in': guardedRegistration({ auth: 'optional', owner: 'rich-bizness-tap-in-v1', exportName: 'mountTapInPage', loadModule: () => import('./pages/tap-in/tap-in.page') }),
 
   profile: guardedRegistration({ auth: 'optional', owner: 'rich-bizness-profile-v2', exportName: 'mountProfilePage', preload: [() => import('./pages/profile/profile-motion.css')], loadModule: () => import('./pages/profile/profile.page') }),
   portal: guardedRegistration({ auth: 'required', owner: 'rich-bizness-portal-v3', exportName: 'mountPortalPage', loadModule: () => import('./pages/portal/portal.universe') }),
