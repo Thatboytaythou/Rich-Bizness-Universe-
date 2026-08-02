@@ -43,6 +43,13 @@ body[data-page="portal"] #app {
   display: none;
 }
 
+.portal-stage--elite .portal-machine,
+.portal-stage--elite .portal-machine *,
+.portal-stage--elite .portal-core--unified,
+.portal-stage--elite .portal-core--unified * {
+  pointer-events: none !important;
+}
+
 .portal-stage--elite .portal-machine__frame {
   -webkit-mask: radial-gradient(circle, transparent 0 65%, #000 66% 100%);
   mask: radial-gradient(circle, transparent 0 65%, #000 66% 100%);
@@ -50,7 +57,7 @@ body[data-page="portal"] #app {
 
 .portal-stage--elite .portal-core--unified {
   inset: 31%;
-  z-index: 30;
+  z-index: 12;
   overflow: visible;
   border: 0 !important;
   border-radius: 50%;
@@ -87,6 +94,23 @@ body[data-page="portal"] #app {
 
 .portal-stage--elite .portal-core--unified .portal-core__content b {
   font-size: clamp(.42rem, 1.6vw, .54rem);
+}
+
+.portal-stage--elite .portal-media-system,
+.portal-stage--elite .portal-route-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 40;
+  pointer-events: none;
+}
+
+.portal-stage--elite .portal-media-node,
+.portal-stage--elite .portal-node {
+  position: absolute;
+  z-index: 41;
+  pointer-events: auto !important;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .portal-stage--elite .portal-route-layer {
