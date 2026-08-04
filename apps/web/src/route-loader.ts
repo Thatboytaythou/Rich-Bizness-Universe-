@@ -53,7 +53,7 @@ function guardedRegistration({ auth, owner, loadModule, exportName = 'mount', pr
 
 const pageModules: Record<string, PageRegistration> = {
   home: guardedRegistration({ auth: 'optional', owner: 'rich-bizness-home-v1', exportName: 'mountHomePage', loadModule: () => import('./pages/home/home.page') }),
-  'tap-in': guardedRegistration({ auth: 'optional', owner: 'rich-bizness-tap-in-v1', exportName: 'mountTapInPage', loadModule: () => import('./pages/tap-in/tap-in.page') }),
+  'tap-in': guardedRegistration({ auth: 'optional', owner: 'rich-bizness-tap-in-v2', exportName: 'mountTapInPage', loadModule: () => import('./pages/tap-in/tap-in.page') }),
 
   profile: guardedRegistration({ auth: 'optional', owner: 'rich-bizness-profile-v2', exportName: 'mountProfilePage', preload: [() => import('./pages/profile/profile-motion.css')], loadModule: () => import('./pages/profile/profile.page') }),
   portal: guardedRegistration({ auth: 'required', owner: 'rich-bizness-portal-v3', exportName: 'mountPortalPage', loadModule: () => import('./pages/portal/portal.universe') }),
