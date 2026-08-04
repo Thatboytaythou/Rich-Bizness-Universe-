@@ -11,6 +11,16 @@ type RegistrationOptions = Readonly<{
   preload?: readonly (() => Promise<unknown>)[];
 }>;
 
+const OWNER_KEY='pageOwner';
+const MOUNTED_KEY='pageMounted';
+const EPOCH_KEY='pageEpoch';
+
+function resetMountState(app:HTMLElement):void{
+  app.replaceChildren();
+  delete app.dataset[OWNER_KEY];
+  delete app.dataset[MOUNTED_KEY];
+}
+
 function guardedRegistration({ auth, owner, loadModule, exportName = 'mount', preload = [] }: RegistrationOptions): PageRegistration {
   return {
     auth,
@@ -26,23 +36,23 @@ function guardedRegistration({ auth, owner, loadModule, exportName = 'mount', pr
           const app = document.querySelector<HTMLElement>('#app');
           if (!app) throw new Error('Missing #app mount');
 
-          const activeOwner = app.dataset.pageOwner;
-          if (activeOwner === owner && app.dataset.pageMounted === 'true') return;
-          if (activeOwner && activeOwner !== owner) {
-            throw new Error(`Route owner conflict: ${activeOwner} tried to overlap ${owner}`);
-          }
+          const epoch=String(Number(app.dataset[EPOCH_KEY]??'0')+1);
+          app.dataset[EPOCH_KEY]=epoch;
 
-          app.dataset.pageOwner = owner;
-          app.dataset.pageMounted = 'false';
-          app.replaceChildren();
+          const activeOwner = app.dataset[OWNER_KEY];
+          const alreadyMounted = activeOwner === owner && app.dataset[MOUNTED_KEY] === 'true';
+          if (alreadyMounted) return;
+
+          resetMountState(app);
+          app.dataset[OWNER_KEY] = owner;
+          app.dataset[MOUNTED_KEY] = 'false';
 
           try {
             await (mount as () => void | Promise<void>)();
-            app.dataset.pageMounted = 'true';
+            if(app.dataset[EPOCH_KEY]!==epoch)return;
+            app.dataset[MOUNTED_KEY] = 'true';
           } catch (error) {
-            delete app.dataset.pageMounted;
-            delete app.dataset.pageOwner;
-            app.replaceChildren();
+            if(app.dataset[EPOCH_KEY]===epoch)resetMountState(app);
             throw error;
           }
         }
@@ -54,7 +64,6 @@ function guardedRegistration({ auth, owner, loadModule, exportName = 'mount', pr
 const pageModules: Record<string, PageRegistration> = {
   home: guardedRegistration({ auth: 'optional', owner: 'rich-bizness-home-v1', exportName: 'mountHomePage', loadModule: () => import('./pages/home/home.page') }),
   'tap-in': guardedRegistration({ auth: 'optional', owner: 'rich-bizness-tap-in-v2', exportName: 'mountTapInPage', loadModule: () => import('./pages/tap-in/tap-in.page') }),
-
   profile: guardedRegistration({ auth: 'optional', owner: 'rich-bizness-profile-v2', exportName: 'mountProfilePage', preload: [() => import('./pages/profile/profile-motion.css')], loadModule: () => import('./pages/profile/profile.page') }),
   portal: guardedRegistration({ auth: 'required', owner: 'rich-bizness-portal-v3', exportName: 'mountPortalPage', loadModule: () => import('./pages/portal/portal.universe') }),
   gaming: guardedRegistration({ auth: 'optional', owner: 'rich-bizness-gaming-v5', exportName: 'mountGamingPage', loadModule: () => import('./pages/gaming/gaming.v4.page') }),
