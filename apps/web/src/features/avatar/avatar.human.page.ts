@@ -7,6 +7,7 @@ import './avatar.css';
 
 type Row = Record<string, any>;
 type Preset = { preset_key:string; title:string; aura:string; outfit:string; motion:string; config:Record<string,string> };
+type CharacterConfig={body_type:string;build:string;hair:string;style:string;smoke:string};
 
 const palettes:Record<string,{primary:number;secondary:number;skin:number}> = {
   'Emerald Gold': { primary:0x31ff63, secondary:0xf7c948, skin:0x70442f },
@@ -35,6 +36,13 @@ export async function mount():Promise<void>{
   const requested=new URLSearchParams(location.search).get('preset');
   let preset=presets.find(x=>x.preset_key===requested)??presets.find(x=>x.preset_key===a.metadata?.preset_key)??presets[0];
   let aura=String(preset?.aura??a.aura??'Emerald Gold');
+  const runtimeConfig:CharacterConfig={
+    body_type:String(a.outfit?.character?.body_type??preset?.config.body_type??'male'),
+    build:String(a.outfit?.character?.build??preset?.config.build??'athletic'),
+    hair:String(a.outfit?.character?.hair??preset?.config.hair??'energy'),
+    style:String(a.outfit?.character?.style??preset?.config.style??'human rig'),
+    smoke:String(a.smoke?.mode??preset?.config.smoke??'cinematic')
+  };
   const ui=mountHumanUi(root,{
     name:String(a.display_name??p.display_name??p.username??'Rich Avatar'),
     level:Number(level.level??a.level??p.rich_level??1),
@@ -115,8 +123,13 @@ export async function mount():Promise<void>{
   function rebuild(){
     disposeActor();actor.clear();
     const colors=palettes[aura]??palettes['Emerald Gold'];
-    rig=createHumanRig(colors,preset?.config.body_type==='female');
-    actor.add(rig.root);rim.color.setHex(colors.primary);spawnRing.material.color.setHex(colors.primary);portalRing.material.color.setHex(colors.primary);portalLight.color.setHex(colors.primary);(particles.material as THREE.PointsMaterial).color.setHex(colors.primary);document.documentElement.style.setProperty('--avatar-accent',`#${colors.primary.toString(16).padStart(6,'0')}`);
+    rig=createHumanRig(colors,runtimeConfig.body_type==='female');
+    const buildScale=runtimeConfig.build==='heroic'?1.08:runtimeConfig.build==='street'?.98:1;
+    rig.root.scale.set(buildScale,1,buildScale);
+    actor.add(rig.root);
+    rim.color.setHex(colors.primary);spawnRing.material.color.setHex(colors.primary);portalRing.material.color.setHex(colors.primary);portalLight.color.setHex(colors.primary);(particles.material as THREE.PointsMaterial).color.setHex(colors.primary);
+    (particles.material as THREE.PointsMaterial).opacity=runtimeConfig.smoke==='off'?.18:runtimeConfig.smoke==='heavy'?.88:.65;
+    document.documentElement.style.setProperty('--avatar-accent',`#${colors.primary.toString(16).padStart(6,'0')}`);
   }
   rebuild();
 
@@ -141,9 +154,11 @@ export async function mount():Promise<void>{
   ui.onActionEnd=next=>{if(next==='sprint')keys.delete('ShiftLeft');};
   ui.onJoystick=value=>{touch=value;};
   ui.onAura=value=>{aura=value;rebuild();ui.refresh(preset,aura);};
-  ui.onPreset=value=>{preset=presets.find(x=>x.preset_key===value)??preset;aura=preset?.aura??aura;rebuild();ui.refresh(preset,aura);const url=new URL(location.href);url.searchParams.set('preset',preset?.preset_key??'');history.replaceState(null,'',`${url.pathname}${url.search}${url.hash}`);};
-  ui.onReset=()=>{yaw=0;pitch=.045;zoom=matchMedia('(max-width: 640px)').matches?10.6:9.4;actor.position.set(0,0,18);velocity.set(0,0,0);};
-  ui.onSave=async()=>{ui.status.textContent='Synchronizing cinematic human character…';const{error:saveError}=await supabase.rpc('rb_save_avatar_studio',{p_display_name:ui.nameInput.value.trim(),p_preset_key:preset?.preset_key??'boss',p_aura:aura,p_outfit:{preset:preset?.outfit??'Rich Street',character:preset?.config??{},rig:'human-v4-world'},p_accessories:{signature:preset?.config?.signature??null},p_smoke:{mode:preset?.config?.smoke??'cinematic',intensity:'elite'},p_emotes:{idle:true,power_up:true,combat_pose:true,free_roam:true},p_character_type:preset?.preset_key??'custom'});ui.status.textContent=saveError?saveError.message:'Character synced across Profile, Portal, Meta and the free-roam world.';};
+  ui.onPreset=value=>{preset=presets.find(x=>x.preset_key===value)??preset;aura=preset?.aura??aura;Object.assign(runtimeConfig,preset?.config??{});rebuild();ui.refresh(preset,aura);const url=new URL(location.href);url.searchParams.set('preset',preset?.preset_key??'');history.replaceState(null,'',`${url.pathname}${url.search}${url.hash}`);};
+  ui.onBody=value=>{runtimeConfig.body_type=value;rebuild();ui.status.textContent=`${value==='female'?'Girl':'Boy'} body rig active.`;};
+  ui.onCustomization=value=>{Object.assign(runtimeConfig,value);rebuild();ui.status.textContent='Character customization applied to the live 3D rig.';};
+  ui.onReset=()=>{yaw=0;pitch=.045;zoom=matchMedia('(max-width: 640px)').matches?10.6:9.4;actor.position.set(0,0,18);velocity.set(0,0,0);Object.assign(runtimeConfig,preset?.config??{body_type:'male',build:'athletic',hair:'energy',style:'human rig',smoke:'cinematic'});rebuild();ui.refresh(preset,aura);};
+  ui.onSave=async()=>{ui.status.textContent='Synchronizing cinematic human character…';const{error:saveError}=await supabase.rpc('rb_save_avatar_studio',{p_display_name:ui.nameInput.value.trim(),p_preset_key:preset?.preset_key??'boss',p_aura:aura,p_outfit:{preset:preset?.outfit??'Rich Street',character:runtimeConfig,rig:'human-v5-custom-world'},p_accessories:{signature:preset?.config?.signature??null,hair:runtimeConfig.hair,style:runtimeConfig.style},p_smoke:{mode:runtimeConfig.smoke,intensity:runtimeConfig.smoke==='heavy'?'elite':'cinematic'},p_emotes:{idle:true,power_up:true,combat_pose:true,free_roam:true,dance:true,smoke:true},p_character_type:runtimeConfig.body_type});ui.status.textContent=saveError?saveError.message:'Character synced across Profile, Portal, Meta and the free-roam world.';};
 
   actor.position.set(0,0,18);
   const bounds=54;
