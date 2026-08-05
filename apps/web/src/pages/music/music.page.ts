@@ -7,15 +7,18 @@ type Row = Record<string, any>;
 type Channel = ReturnType<typeof supabase.channel>;
 type Snapshot = { tracks?: Row[]; playlists?: Row[]; active_state?: { liked?: boolean; in_rotation?: boolean }; comments?: Row[]; metrics?: Row };
 
+type MusicRoot = HTMLElement & { __rbMusicCleanup?: () => void };
+
 const esc = (value: unknown) => String(value ?? '').replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char] ?? char));
 const fmt = (value: unknown) => Number(value ?? 0).toLocaleString();
 const safeMedia = (value: unknown) => { try { const url = new URL(String(value || ''), location.origin); return ['http:', 'https:'].includes(url.protocol) ? url.href : ''; } catch { return ''; } };
 
 export async function mount(): Promise<void> {
-  const root = document.querySelector<HTMLElement>('#app');
+  const root = document.querySelector<MusicRoot>('#app');
   if (!root) throw new Error('Missing #app mount');
-  if (root.dataset.musicOwner === 'mounted') return;
-  root.dataset.musicOwner = 'mounted';
+  root.__rbMusicCleanup?.();
+  const owner = `music-v4-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  root.dataset.musicOwner = owner;
 
   const user = getAuthSnapshot().user;
   const userId = user?.id ?? null;
@@ -56,14 +59,16 @@ export async function mount(): Promise<void> {
   let countedTrack: string | null = null;
   let autoplayAfterOpen = false;
 
-  const setStatus = (message: string, error = false) => { if (destroyed) return; status.textContent = message; status.dataset.error = String(error); window.clearTimeout(statusTimer); statusTimer = window.setTimeout(() => { if (!destroyed && status.textContent === message) status.textContent = ''; }, 3200); };
+  const isCurrent = () => !destroyed && root.dataset.musicOwner === owner;
+  const setStatus = (message: string, error = false) => { if (!isCurrent()) return; status.textContent = message; status.dataset.error = String(error); window.clearTimeout(statusTimer); statusTimer = window.setTimeout(() => { if (isCurrent() && status.textContent === message) status.textContent = ''; }, 3200); };
   const requireUser = () => { if (userId) return true; location.assign(`/tap-in.html?next=${encodeURIComponent(location.pathname + location.search)}`); return false; };
   const action = async (name: string, payload: Row) => { const { data, error } = await supabase.rpc('rb_music_action', { p_action: name, p_payload: payload }); if (error) throw error; return data as Row; };
   const tracks = () => snapshot.tracks ?? [];
   const activeIndex = () => tracks().findIndex((row) => String(row.id) === String(active?.id ?? ''));
-  const setTrackUrl = (trackId: string | null) => { const url = new URL(location.href); if (trackId) url.searchParams.set('id', trackId); else url.searchParams.delete('id'); history.replaceState({}, '', `${url.pathname}${url.search}${url.hash}`); };
+  const setTrackUrl = (trackId: string | null) => { if (!isCurrent()) return; const url = new URL(location.href); if (trackId) url.searchParams.set('id', trackId); else url.searchParams.delete('id'); history.replaceState({}, '', `${url.pathname}${url.search}${url.hash}`); };
 
   const renderCatalog = () => {
+    if (!isCurrent()) return;
     const catalog = tracks();
     const playlists = snapshot.playlists ?? [];
     const m = snapshot.metrics ?? {};
@@ -76,21 +81,24 @@ export async function mount(): Promise<void> {
   };
 
   const renderComments = () => {
+    if (!isCurrent()) return;
     comments.innerHTML = (snapshot.comments ?? []).map((comment) => `<article class="sound-comment"><b>${esc(comment.display_name || comment.username || 'Rich Listener')}</b><p>${esc(comment.comment)}</p></article>`).join('') || '<div class="sound-empty">Be the first to talk your talk.</div>';
   };
 
   const load = async (trackId: string | null = active?.id ?? null) => {
-    if (destroyed) return;
+    if (!isCurrent()) return;
     if (loading) { queued = true; return; }
     loading = true;
     try {
       const { data, error } = await supabase.rpc('rb_music_snapshot', { p_track_id: trackId, p_limit: 120 });
       if (error) throw error;
+      if (!isCurrent()) return;
       snapshot = (data ?? {}) as Snapshot;
       if (active) active = tracks().find((row) => row.id === active?.id) ?? active;
       renderCatalog();
       renderComments();
     } catch (error) {
+      if (!isCurrent()) return;
       snapshot = {};
       active = null;
       player.hidden = true;
@@ -103,26 +111,28 @@ export async function mount(): Promise<void> {
       setTrackUrl(null);
       setStatus(error instanceof Error ? error.message : 'Music sync failed.', true);
     }
-    finally { loading = false; if (queued && !destroyed) { queued = false; void load(); } }
+    finally { loading = false; if (queued && isCurrent()) { queued = false; void load(); } }
   };
 
   const registerPlay = async (track: Row) => {
-    if (!userId || countedTrack === String(track.id)) return;
+    if (!userId || countedTrack === String(track.id) || !isCurrent()) return;
     countedTrack = String(track.id);
     await action('history', { track_id: track.id, progress_seconds: 0, completed: false, count_play: true, title: track.title });
-    void load(track.id);
+    if (isCurrent()) void load(track.id);
   };
 
   const playActive = async () => {
+    if (!isCurrent()) return;
     if (!active || !safeMedia(active.audio_url || active.file_url)) return setStatus('This track has no playable audio source.', true);
     try { await audio.play(); await registerPlay(active); } catch { setStatus('Playback could not start.', true); }
   };
 
   const openTrack = async (track: Row, shouldPlay = false) => {
+    if (!isCurrent()) return;
     active = track;
     autoplayAfterOpen = shouldPlay;
     await load(track.id);
-    if (!active || String(active.id) !== String(track.id)) return;
+    if (!isCurrent() || !active || String(active.id) !== String(track.id)) return;
     const state = snapshot.active_state ?? {};
     const cover = safeMedia(track.cover_url) || '/images/brand/IMG_5997.png';
     hero.innerHTML = `<img src="${esc(cover)}" alt=""><div class="music-visualizer" aria-hidden="true">${Array.from({ length: 18 }, (_, index) => `<i style="--bar:${index}"></i>`).join('')}</div><div class="sound-copy"><span>RICH SOUND · ${esc(track.genre || 'MUSIC')}</span><h2>${esc(track.title || 'Untitled Track')}</h2><p>${esc(track.description || `${track.display_name || track.username || 'Rich Bizness Artist'} just dropped a new sound.`)}</p><div class="sound-actions"><button id="musicPlayBtn" class="sound-btn primary">▶ PLAY</button><button id="musicLikeBtn" class="sound-btn">${state.liked ? '♥ LIKED' : '♡ LIKE'}</button><button id="musicRotationBtn" class="sound-btn">${state.in_rotation ? 'REMOVE FROM ROTATION' : 'ADD TO ROTATION'}</button><a class="sound-btn" href="/profile.html?id=${encodeURIComponent(track.artist_user_id || track.user_id || '')}">ARTIST PROFILE</a></div></div>`;
@@ -136,12 +146,14 @@ export async function mount(): Promise<void> {
     q<HTMLButtonElement>('#musicRotationBtn').onclick = async () => { if (!requireUser()) return; try { await action('toggle_rotation', { track_id: track.id }); await openTrack(track, false); } catch (error) { setStatus(error instanceof Error ? error.message : 'Rotation update failed.', true); } };
     setTrackUrl(String(track.id));
     if (commentChannel) await supabase.removeChannel(commentChannel);
-    commentChannel = supabase.channel(`music-comments:${track.id}`).on('postgres_changes', { event: '*', schema: 'public', table: 'music_comments', filter: `track_id=eq.${track.id}` }, () => scheduleLoad()).subscribe();
+    if (!isCurrent()) return;
+    commentChannel = supabase.channel(`music-comments:${track.id}:${owner}`).on('postgres_changes', { event: '*', schema: 'public', table: 'music_comments', filter: `track_id=eq.${track.id}` }, () => scheduleLoad()).subscribe();
     if (autoplayAfterOpen) { autoplayAfterOpen = false; await playActive(); }
   };
 
-  const writeHistory = async (completed: boolean) => { if (!userId || !active) return; try { await action('history', { track_id: active.id, progress_seconds: Math.floor(completed ? audio.duration || 0 : audio.currentTime), completed, count_play: false, title: active.title }); } catch { /* passive history must not interrupt playback */ } };
+  const writeHistory = async (completed: boolean) => { if (!userId || !active || !isCurrent()) return; try { await action('history', { track_id: active.id, progress_seconds: Math.floor(completed ? audio.duration || 0 : audio.currentTime), completed, count_play: false, title: active.title }); } catch { /* passive history must not interrupt playback */ } };
   const moveQueue = async (direction: number) => {
+    if (!isCurrent()) return;
     const catalog = tracks();
     if (!catalog.length) return;
     const current = activeIndex();
@@ -153,7 +165,7 @@ export async function mount(): Promise<void> {
 
   commentForm.onsubmit = async (event) => {
     event.preventDefault();
-    if (!active || !requireUser()) return;
+    if (!active || !requireUser() || !isCurrent()) return;
     const value = commentInput.value.trim();
     if (!value) return;
     const button = commentForm.querySelector<HTMLButtonElement>('button')!;
@@ -163,11 +175,11 @@ export async function mount(): Promise<void> {
     finally { button.disabled = false; }
   };
 
-  const onTimeUpdate = () => { if (!userId || !active || !Number.isFinite(audio.duration)) return; const now = Date.now(); if (now - lastHistoryWrite < 15000) return; lastHistoryWrite = now; void writeHistory(false); };
-  const onEnded = async () => { await writeHistory(true); await moveQueue(1); };
-  const onPlay = () => { q<HTMLButtonElement>('#musicToggle').textContent = '⏸'; };
-  const onPause = () => { q<HTMLButtonElement>('#musicToggle').textContent = '▶'; };
-  const scheduleLoad = () => { window.clearTimeout(refreshTimer); refreshTimer = window.setTimeout(() => void load(), 180); };
+  const onTimeUpdate = () => { if (!userId || !active || !Number.isFinite(audio.duration) || !isCurrent()) return; const now = Date.now(); if (now - lastHistoryWrite < 15000) return; lastHistoryWrite = now; void writeHistory(false); };
+  const onEnded = async () => { if (!isCurrent()) return; await writeHistory(true); await moveQueue(1); };
+  const onPlay = () => { if (isCurrent()) q<HTMLButtonElement>('#musicToggle').textContent = '⏸'; };
+  const onPause = () => { if (isCurrent()) q<HTMLButtonElement>('#musicToggle').textContent = '▶'; };
+  const scheduleLoad = () => { if (!isCurrent()) return; window.clearTimeout(refreshTimer); refreshTimer = window.setTimeout(() => { if (isCurrent()) void load(); }, 180); };
   audio.addEventListener('timeupdate', onTimeUpdate);
   audio.addEventListener('ended', onEnded);
   audio.addEventListener('play', onPlay);
@@ -176,20 +188,42 @@ export async function mount(): Promise<void> {
   q<HTMLButtonElement>('#musicNext').onclick = () => void moveQueue(1);
   q<HTMLButtonElement>('#musicToggle').onclick = () => { if (audio.paused) void playActive(); else audio.pause(); };
 
+  const cleanup = () => {
+    if (destroyed) return;
+    destroyed = true;
+    window.clearTimeout(refreshTimer);
+    window.clearTimeout(statusTimer);
+    audio.pause();
+    audio.removeEventListener('timeupdate', onTimeUpdate);
+    audio.removeEventListener('ended', onEnded);
+    audio.removeEventListener('play', onPlay);
+    audio.removeEventListener('pause', onPause);
+    audio.removeAttribute('src');
+    audio.load();
+    if (catalogChannel) void supabase.removeChannel(catalogChannel);
+    if (commentChannel) void supabase.removeChannel(commentChannel);
+    if (listenerChannel) void supabase.removeChannel(listenerChannel);
+    if (root.dataset.musicOwner === owner) delete root.dataset.musicOwner;
+    if (root.__rbMusicCleanup === cleanup) delete root.__rbMusicCleanup;
+    window.removeEventListener('pagehide', cleanup);
+    window.removeEventListener('beforeunload', cleanup);
+  };
+  root.__rbMusicCleanup = cleanup;
+  window.addEventListener('pagehide', cleanup, { once: true });
+  window.addEventListener('beforeunload', cleanup, { once: true });
+
   await load(null);
+  if (!isCurrent()) return;
   const requested = new URLSearchParams(location.search).get('id');
   const initial = tracks().find((row) => String(row.id) === requested) ?? tracks()[0];
-  if (initial) await openTrack(initial, false); else hero.innerHTML = '<div class="sound-empty">No music releases yet.</div>';
-
-  catalogChannel = supabase.channel('music-catalog').on('postgres_changes', { event: '*', schema: 'public', table: 'music_tracks' }, scheduleLoad).subscribe();
+  if (initial) await openTrack(initial, false); else if (isCurrent()) hero.innerHTML = '<div class="sound-empty">No music releases yet.</div>';
+  if (!isCurrent()) return;
+  catalogChannel = supabase.channel(`music-catalog:${owner}`).on('postgres_changes', { event: '*', schema: 'public', table: 'music_tracks' }, scheduleLoad).subscribe();
   if (userId) {
-    listenerChannel = supabase.channel(`music-listener:${userId}`)
+    listenerChannel = supabase.channel(`music-listener:${userId}:${owner}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'music_likes', filter: `user_id=eq.${userId}` }, scheduleLoad)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'playlists', filter: `user_id=eq.${userId}` }, scheduleLoad)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'audio_listening_history', filter: `user_id=eq.${userId}` }, scheduleLoad)
       .subscribe();
   }
-  const cleanup = () => { if (destroyed) return; destroyed = true; window.clearTimeout(refreshTimer); window.clearTimeout(statusTimer); audio.pause(); audio.removeEventListener('timeupdate', onTimeUpdate); audio.removeEventListener('ended', onEnded); audio.removeEventListener('play', onPlay); audio.removeEventListener('pause', onPause); audio.removeAttribute('src'); audio.load(); if (catalogChannel) void supabase.removeChannel(catalogChannel); if (commentChannel) void supabase.removeChannel(commentChannel); if (listenerChannel) void supabase.removeChannel(listenerChannel); delete root.dataset.musicOwner; };
-  window.addEventListener('pagehide', cleanup, { once: true });
-  window.addEventListener('beforeunload', cleanup, { once: true });
 }
