@@ -11,11 +11,21 @@ type RegistrationOptions = Readonly<{
   preload?: readonly (() => Promise<unknown>)[];
 }>;
 
-const OWNER_KEY='pageOwner';
-const MOUNTED_KEY='pageMounted';
-const EPOCH_KEY='pageEpoch';
+const OWNER_KEY = 'pageOwner';
+const MOUNTED_KEY = 'pageMounted';
+const EPOCH_KEY = 'pageEpoch';
+const CLEANUP_KEY = '__rbPageCleanup';
 
-function resetMountState(app:HTMLElement):void{
+type CleanupHost = Window & { __rbPageCleanup?: (() => void | Promise<void>) | null };
+
+async function runPreviousCleanup(): Promise<void> {
+  const host = window as CleanupHost;
+  const cleanup = host[CLEANUP_KEY as keyof CleanupHost] as (() => void | Promise<void>) | null | undefined;
+  host.__rbPageCleanup = null;
+  if (typeof cleanup === 'function') await cleanup();
+}
+
+function resetMountState(app: HTMLElement): void {
   app.replaceChildren();
   delete app.dataset[OWNER_KEY];
   delete app.dataset[MOUNTED_KEY];
@@ -36,23 +46,24 @@ function guardedRegistration({ auth, owner, loadModule, exportName = 'mount', pr
           const app = document.querySelector<HTMLElement>('#app');
           if (!app) throw new Error('Missing #app mount');
 
-          const epoch=String(Number(app.dataset[EPOCH_KEY]??'0')+1);
-          app.dataset[EPOCH_KEY]=epoch;
+          const epoch = String(Number(app.dataset[EPOCH_KEY] ?? '0') + 1);
+          app.dataset[EPOCH_KEY] = epoch;
 
           const activeOwner = app.dataset[OWNER_KEY];
           const alreadyMounted = activeOwner === owner && app.dataset[MOUNTED_KEY] === 'true';
           if (alreadyMounted) return;
 
+          await runPreviousCleanup();
           resetMountState(app);
           app.dataset[OWNER_KEY] = owner;
           app.dataset[MOUNTED_KEY] = 'false';
 
           try {
             await (mount as () => void | Promise<void>)();
-            if(app.dataset[EPOCH_KEY]!==epoch)return;
+            if (app.dataset[EPOCH_KEY] !== epoch) return;
             app.dataset[MOUNTED_KEY] = 'true';
           } catch (error) {
-            if(app.dataset[EPOCH_KEY]===epoch)resetMountState(app);
+            if (app.dataset[EPOCH_KEY] === epoch) resetMountState(app);
             throw error;
           }
         }
@@ -66,13 +77,13 @@ const pageModules: Record<string, PageRegistration> = {
   'tap-in': guardedRegistration({ auth: 'optional', owner: 'rich-bizness-tap-in-v2', exportName: 'mountTapInPage', loadModule: () => import('./pages/tap-in/tap-in.page') }),
   profile: guardedRegistration({ auth: 'optional', owner: 'rich-bizness-profile-v2', exportName: 'mountProfilePage', preload: [() => import('./pages/profile/profile-motion.css')], loadModule: () => import('./pages/profile/profile.page') }),
   portal: guardedRegistration({ auth: 'required', owner: 'rich-bizness-portal-v3', exportName: 'mountPortalPage', loadModule: () => import('./pages/portal/portal.universe') }),
-  gaming: guardedRegistration({ auth: 'optional', owner: 'rich-bizness-gaming-v5', exportName: 'mountGamingPage', loadModule: () => import('./pages/gaming/gaming.v4.page') }),
+  gaming: guardedRegistration({ auth: 'optional', owner: 'rich-bizness-gaming-v6', exportName: 'mountGamingPage', loadModule: () => import('./pages/gaming/gaming.v4.page') }),
   feed: guardedRegistration({ auth: 'optional', owner: 'rich-bizness-feed-v3', loadModule: () => import('./pages/feed/feed.page') }),
   gallery: guardedRegistration({ auth: 'optional', owner: 'rich-bizness-gallery-v3', loadModule: () => import('./pages/gallery/gallery.page') }),
-  live: guardedRegistration({ auth: 'optional', owner: 'rich-bizness-live-v4', preload: [() => import('./pages/live/live-universe.css'), () => import('./styles/live-command-v4.css')], loadModule: () => import('./pages/live/live.page') }),
-  music: guardedRegistration({ auth: 'optional', owner: 'rich-bizness-music-v3', loadModule: () => import('./pages/music/music.page') }),
-  podcast: guardedRegistration({ auth: 'optional', owner: 'rich-bizness-podcast-v3', loadModule: () => import('./pages/podcast/podcast.page') }),
-  radio: guardedRegistration({ auth: 'optional', owner: 'rich-bizness-radio-v3', loadModule: () => import('./pages/radio/radio.page') }),
+  live: guardedRegistration({ auth: 'optional', owner: 'rich-bizness-live-v5', preload: [() => import('./pages/live/live-universe.css'), () => import('./styles/live-command-v4.css')], loadModule: () => import('./pages/live/live.page') }),
+  music: guardedRegistration({ auth: 'optional', owner: 'rich-bizness-music-v4', loadModule: () => import('./pages/music/music.page') }),
+  podcast: guardedRegistration({ auth: 'optional', owner: 'rich-bizness-podcast-v4', loadModule: () => import('./pages/podcast/podcast.page') }),
+  radio: guardedRegistration({ auth: 'optional', owner: 'rich-bizness-radio-v4', loadModule: () => import('./pages/radio/radio.page') }),
   sports: guardedRegistration({ auth: 'optional', owner: 'rich-bizness-sports-v3', loadModule: () => import('./pages/sports/sports.page') }),
   store: guardedRegistration({ auth: 'optional', owner: 'rich-bizness-store-v2', loadModule: () => import('./pages/store/store.page') }),
   meta: guardedRegistration({ auth: 'required', owner: 'rich-bizness-meta-v3', preload: [() => import('./pages/meta/meta-premium.css')], loadModule: () => import('./pages/meta/meta.page') }),
@@ -85,10 +96,10 @@ const pageModules: Record<string, PageRegistration> = {
   messages: guardedRegistration({ auth: 'required', owner: 'rich-bizness-messages-v3', preload: [() => import('./features/communications/messages-motion.css')], loadModule: () => import('./features/communications/messages.page') }),
   upload: guardedRegistration({ auth: 'required', owner: 'rich-bizness-upload-v3', loadModule: () => import('./features/upload/upload.page') }),
   search: guardedRegistration({ auth: 'optional', owner: 'rich-bizness-search-v3', loadModule: () => import('./features/search/search.page') }),
-  watch: guardedRegistration({ auth: 'optional', owner: 'rich-bizness-watch-v3', loadModule: () => import('./features/watch/watch.page') }),
+  watch: guardedRegistration({ auth: 'optional', owner: 'rich-bizness-watch-v4', loadModule: () => import('./features/watch/watch.page') }),
   avatar: guardedRegistration({ auth: 'required', owner: 'rich-bizness-avatar-selector-v2', loadModule: () => import('./features/avatar/avatar.selector.page') }),
   'avatar-characters': guardedRegistration({ auth: 'required', owner: 'rich-bizness-avatar-lobby-v3', loadModule: () => import('./features/avatar/avatar.human.page') }),
-  'avatar-free-roam': guardedRegistration({ auth: 'optional', owner: 'rich-bizness-game-avatar-free-roam-v2', loadModule: () => import('./pages/games/avatar-free-roam.page') })
+  'avatar-free-roam': guardedRegistration({ auth: 'optional', owner: 'rich-bizness-game-avatar-free-roam-v3', loadModule: () => import('./pages/games/avatar-free-roam.page') })
 };
 
 export function getPageRegistration(page: string): PageRegistration | null {
