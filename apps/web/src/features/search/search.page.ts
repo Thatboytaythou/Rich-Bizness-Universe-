@@ -24,7 +24,9 @@ type SearchSnapshot = {
 
 type CategoryKey = 'all' | 'people' | 'creator' | 'feed' | 'gallery' | 'watch' | 'music' | 'podcast' | 'radio' | 'live' | 'sports' | 'gaming' | 'store' | 'meta';
 type Channel = ReturnType<typeof supabase.channel>;
+type CleanupHost = Window & { __rbPageCleanup?: (() => void | Promise<void>) | null };
 
+const OWNER = 'rich-bizness-search-v3';
 const categories: ReadonlyArray<readonly [CategoryKey, string]> = [
   ['all', 'ALL'], ['people', 'PEOPLE'], ['creator', 'CREATORS'], ['feed', 'FEED'], ['gallery', 'GALLERY'],
   ['watch', 'WATCH'], ['music', 'MUSIC'], ['podcast', 'PODCAST'], ['radio', 'RADIO'], ['live', 'LIVE'],
@@ -66,8 +68,9 @@ const compactQuery = (value: string) => value.trim().replace(/\s+/g, ' ').slice(
 export async function mount(): Promise<void> {
   const root = document.querySelector<HTMLElement>('#app');
   if (!root) throw new Error('Missing #app mount');
-  if (root.dataset.searchOwner === 'active') return;
-  root.dataset.searchOwner = 'active';
+  const mountEpoch = root.dataset.pageEpoch ?? '';
+  let disposed = false;
+  const isCurrent = () => !disposed && root.dataset.pageEpoch === mountEpoch && root.dataset.pageOwner === OWNER;
 
   const userId = getAuthSnapshot().user?.id ?? null;
   const sessionId = (() => {
@@ -114,15 +117,15 @@ export async function mount(): Promise<void> {
   let refreshTimer = 0;
   let requestId = 0;
   let focusedIndex = -1;
-  let disposed = false;
   let lastExecutedQuery = '';
   let catalogChannel: Channel | null = null;
 
   const setStatus = (message = '', error = false) => {
+    if (!isCurrent()) return;
     status.textContent = message;
     status.dataset.error = String(error);
     window.clearTimeout(statusTimer);
-    if (message) statusTimer = window.setTimeout(() => { if (status.textContent === message) status.textContent = ''; }, 3200);
+    if (message) statusTimer = window.setTimeout(() => { if (isCurrent() && status.textContent === message) status.textContent = ''; }, 3200);
   };
 
   const localRecent = (): string[] => {
@@ -141,13 +144,10 @@ export async function mount(): Promise<void> {
   };
 
   const visibleRows = () => active === 'all' ? rows : rows.filter((row) => normalizeCategory(row.category) === active);
-
-  const chooseQuery = (query: string) => {
-    input.value = query;
-    void runSearch(true);
-  };
+  const chooseQuery = (query: string) => { if (!isCurrent()) return; input.value = query; void runSearch(true); };
 
   const drawDiscoveryRows = () => {
+    if (!isCurrent()) return;
     trendingRow.innerHTML = trending.length
       ? `<div class="discovery-label"><small>TRENDING NOW</small><span>GLOBAL</span></div><div class="discovery-pills">${trending.map((item, index) => `<button type="button" data-trending="${esc(item.query)}"><b>${String(index + 1).padStart(2, '0')}</b>${esc(item.query)}<small>${item.searches} searches</small></button>`).join('')}</div>`
       : '<div class="discovery-label"><small>TRENDING NOW</small><span>BUILDING SIGNAL</span></div>';
@@ -158,8 +158,10 @@ export async function mount(): Promise<void> {
     recentRow.querySelectorAll<HTMLButtonElement>('[data-recent]').forEach((button) => { button.onclick = () => chooseQuery(button.dataset.recent || ''); });
     const clearHistory = root.querySelector<HTMLButtonElement>('#clearHistory');
     if (clearHistory) clearHistory.onclick = async () => {
+      if (!isCurrent()) return;
       clearHistory.disabled = true;
       const { error } = await supabase.rpc('rb_search_action', { p_action: 'clear_history', p_payload: {} });
+      if (!isCurrent()) return;
       clearHistory.disabled = false;
       if (error) return setStatus(error.message, true);
       recent = [];
@@ -170,12 +172,14 @@ export async function mount(): Promise<void> {
   };
 
   const drawFilters = () => {
+    if (!isCurrent()) return;
     filters.innerHTML = categories.map(([key, label]) => {
       const total = key === 'all' ? rows.length : Number(counts[key] ?? rows.filter((row) => normalizeCategory(row.category) === key).length);
       return `<button type="button" class="search-chip ${key === active ? 'active' : ''}" data-filter="${key}" ${key !== 'all' && rows.length > 0 && total === 0 ? 'disabled' : ''}><span>${label}</span><b>${total}</b></button>`;
     }).join('');
     filters.querySelectorAll<HTMLButtonElement>('[data-filter]').forEach((button) => {
       button.onclick = () => {
+        if (!isCurrent()) return;
         const next = (button.dataset.filter as CategoryKey) || 'all';
         if (active === next) return;
         active = next;
@@ -187,7 +191,7 @@ export async function mount(): Promise<void> {
   };
 
   const recordClick = async (row: SearchResult) => {
-    if (!lastExecutedQuery) return;
+    if (!lastExecutedQuery || !isCurrent()) return;
     await supabase.rpc('rb_search_action', {
       p_action: 'record_click',
       p_payload: {
@@ -203,7 +207,7 @@ export async function mount(): Promise<void> {
   };
 
   const drawResults = () => {
-    if (disposed) return;
+    if (!isCurrent()) return;
     const visible = visibleRows();
     count.textContent = lastExecutedQuery ? `${visible.length} ${active === 'all' ? 'GLOBAL' : active.toUpperCase()} RESULT${visible.length === 1 ? '' : 'S'}` : 'DISCOVERY READY';
     results.innerHTML = visible.length
@@ -225,10 +229,8 @@ export async function mount(): Promise<void> {
   };
 
   const recordQuery = async (query: string, resultCount: number) => {
-    await supabase.rpc('rb_search_action', {
-      p_action: 'record_query',
-      p_payload: { query, category: active, result_count: resultCount, session_id: sessionId }
-    });
+    if (!isCurrent()) return;
+    await supabase.rpc('rb_search_action', { p_action: 'record_query', p_payload: { query, category: active, result_count: resultCount, session_id: sessionId } });
   };
 
   const loadSnapshot = async (query: string, category: CategoryKey = active) => {
@@ -238,10 +240,11 @@ export async function mount(): Promise<void> {
   };
 
   const runSearch = async (immediate = false, record = true) => {
+    if (!isCurrent()) return;
     window.clearTimeout(timer);
     const query = compactQuery(input.value);
     if (!immediate) {
-      timer = window.setTimeout(() => void runSearch(true), 260);
+      timer = window.setTimeout(() => { if (isCurrent()) void runSearch(true); }, 260);
       return;
     }
     const current = ++requestId;
@@ -261,7 +264,7 @@ export async function mount(): Promise<void> {
     results.innerHTML = '<div class="search-state scanning"><strong>GLOBAL INDEX ACTIVE</strong><span>Ranking every connected world...</span></div>';
     try {
       const snapshot = await loadSnapshot(query, active);
-      if (disposed || current !== requestId) return;
+      if (!isCurrent() || current !== requestId) return;
       rows = (snapshot.results ?? []).sort((a, b) => Number(b.score ?? 0) - Number(a.score ?? 0));
       counts = snapshot.counts ?? counts;
       recent = [...new Set([...(snapshot.recent ?? []).map((item) => item.query), ...localRecent()])].slice(0, 8);
@@ -276,19 +279,20 @@ export async function mount(): Promise<void> {
       history.replaceState({}, '', `/search.html?q=${encodeURIComponent(query)}${categoryQuery}`);
       if (record) void recordQuery(query, rows.length);
     } catch (error) {
-      if (disposed || current !== requestId) return;
+      if (!isCurrent() || current !== requestId) return;
       count.textContent = 'SEARCH ERROR';
       results.innerHTML = `<div class="search-state"><strong>DISCOVERY SIGNAL INTERRUPTED.</strong><span>${esc(error instanceof Error ? error.message : 'Please try again.')}</span></div>`;
     }
   };
 
   const scheduleRefresh = () => {
-    if (!lastExecutedQuery || disposed) return;
+    if (!lastExecutedQuery || !isCurrent()) return;
     window.clearTimeout(refreshTimer);
-    refreshTimer = window.setTimeout(() => void runSearch(true, false), 220);
+    refreshTimer = window.setTimeout(() => { if (isCurrent()) void runSearch(true, false); }, 220);
   };
 
   const resetSearch = (focus = true) => {
+    if (!isCurrent()) return;
     window.clearTimeout(timer);
     window.clearTimeout(refreshTimer);
     requestId += 1;
@@ -309,6 +313,7 @@ export async function mount(): Promise<void> {
   const onInput = () => void runSearch(false);
   const onClear = () => resetSearch();
   const onKeyDown = (event: KeyboardEvent) => {
+    if (!isCurrent()) return;
     if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
       event.preventDefault();
       input.focus({ preventScroll: true });
@@ -343,13 +348,13 @@ export async function mount(): Promise<void> {
   clearButton.addEventListener('click', onClear);
   window.addEventListener('keydown', onKeyDown);
 
-  catalogChannel = supabase.channel(`rich-search-catalog:${sessionId}`);
+  catalogChannel = supabase.channel(`rich-search-catalog:${mountEpoch}:${sessionId}`);
   indexedTables.forEach((table) => {
     catalogChannel = catalogChannel!.on('postgres_changes', { event: '*', schema: 'public', table }, scheduleRefresh);
   });
   catalogChannel.subscribe();
 
-  const cleanup = () => {
+  const cleanup = async () => {
     if (disposed) return;
     disposed = true;
     requestId += 1;
@@ -360,17 +365,25 @@ export async function mount(): Promise<void> {
     input.removeEventListener('input', onInput);
     clearButton.removeEventListener('click', onClear);
     window.removeEventListener('keydown', onKeyDown);
-    if (catalogChannel) void supabase.removeChannel(catalogChannel);
-    delete root.dataset.searchOwner;
+    if (catalogChannel) await supabase.removeChannel(catalogChannel);
+    catalogChannel = null;
+    const host = window as CleanupHost;
+    if (host.__rbPageCleanup === cleanup) host.__rbPageCleanup = null;
+    window.removeEventListener('pagehide', onPageExit);
+    window.removeEventListener('beforeunload', onPageExit);
   };
-  window.addEventListener('pagehide', cleanup, { once: true });
-  window.addEventListener('beforeunload', cleanup, { once: true });
+  const onPageExit = () => { void cleanup(); };
+  (window as CleanupHost).__rbPageCleanup = cleanup;
+  window.addEventListener('pagehide', onPageExit, { once: true });
+  window.addEventListener('beforeunload', onPageExit, { once: true });
 
   try {
     const snapshot = await loadSnapshot('', 'all');
+    if (!isCurrent()) return;
     recent = [...new Set([...(snapshot.recent ?? []).map((item) => item.query), ...localRecent()])].slice(0, 8);
     trending = (snapshot.trending ?? []).map((item) => ({ query: item.query, searches: Number(item.searches ?? 0) }));
   } catch (error) {
+    if (!isCurrent()) return;
     setStatus(error instanceof Error ? error.message : 'Discovery intelligence could not load.', true);
     recent = localRecent();
   }
