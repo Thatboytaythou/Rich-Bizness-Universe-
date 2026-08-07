@@ -4,8 +4,10 @@ import './upload.css';
 
 type Row = Record<string, any>;
 type Channel = ReturnType<typeof supabase.channel>;
+type CleanupHost = Window & { __rbPageCleanup?: (() => void | Promise<void>) | null };
 
-const esc = (value: unknown) => String(value ?? '').replace(/[&<>'"]/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[char] ?? char));
+const PAGE_OWNER = 'rich-bizness-upload-v3';
+const esc = (value: unknown) => String(value ?? '').replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' }[char] ?? char));
 const formatSize = (bytes: number) => bytes >= 1024 ** 3 ? `${(bytes / 1024 ** 3).toFixed(2)} GB` : bytes >= 1024 ** 2 ? `${(bytes / 1024 ** 2).toFixed(1)} MB` : `${Math.ceil(bytes / 1024)} KB`;
 const kindFor = (mime: string) => mime.startsWith('image/') ? 'image' : mime.startsWith('video/') ? 'video' : mime.startsWith('audio/') ? 'audio' : mime.includes('gltf') ? 'model' : 'file';
 const routeIcon = (section: string) => ({ feed: '◫', gallery: '▣', gaming: '🎮', live: '◉', meta: '◎', music: '♪', podcast: '◌', profile: '◍', radio: '◉', sports: '🏆', store: '◆' } as Record<string, string>)[section] ?? '⬆';
@@ -13,8 +15,9 @@ const routeIcon = (section: string) => ({ feed: '◫', gallery: '▣', gaming: '
 export async function mount(): Promise<void> {
   const root = document.querySelector<HTMLElement>('#app');
   if (!root) throw new Error('Missing #app mount');
-  if (root.dataset.uploadOwner === 'active') return;
-  root.dataset.uploadOwner = 'active';
+  if (root.dataset.pageOwner !== PAGE_OWNER) return;
+  const epoch = root.dataset.pageEpoch ?? '';
+  const isCurrent = () => root.dataset.pageOwner === PAGE_OWNER && root.dataset.pageEpoch === epoch;
 
   const auth = getAuthSnapshot();
   const user = auth.user;
@@ -59,8 +62,8 @@ export async function mount(): Promise<void> {
   let refreshTimer = 0;
 
   const activeRoute = () => routes.find((route) => route.route_key === routeKey.value) ?? routes[0];
-  const setMessage = (value: string) => { message.textContent = value; };
-  const scheduleSnapshot = () => { clearTimeout(refreshTimer); refreshTimer = window.setTimeout(() => void loadSnapshot().catch((error) => setMessage(error.message)), 160); };
+  const setMessage = (value: string) => { if (isCurrent() && !disposed) message.textContent = value; };
+  const scheduleSnapshot = () => { clearTimeout(refreshTimer); refreshTimer = window.setTimeout(() => { if (isCurrent() && !disposed) void loadSnapshot().catch((error) => setMessage(error.message)); }, 160); };
   const clearPreview = () => {
     if (previewUrl) URL.revokeObjectURL(previewUrl);
     previewUrl = '';
@@ -80,18 +83,20 @@ export async function mount(): Promise<void> {
   };
   const syncUrl = () => {
     const route = activeRoute();
-    if (!route) return;
+    if (!route || !isCurrent()) return;
     const url = new URL(location.href);
     url.searchParams.set('route', route.route_key);
     history.replaceState({}, '', url);
   };
 
   const renderRecent = () => {
+    if (!isCurrent() || disposed) return;
     const recent = root.querySelector<HTMLElement>('#recentUploads')!;
     recent.innerHTML = recentUploads.length ? recentUploads.map((upload) => `<article class="status-${esc(upload.processing_status || 'completed')}"><span>${upload.media_type === 'image' ? '▣' : upload.media_type === 'video' ? '▶' : upload.media_type === 'audio' ? '♪' : upload.media_type === 'model' ? '◎' : '⬆'}</span><div><strong>${esc(upload.title || 'Untitled upload')}</strong><small>${esc(upload.section || upload.bucket)} · ${esc(upload.processing_status || 'completed')} ${Number.isFinite(Number(upload.processing_progress)) ? `· ${Number(upload.processing_progress)}%` : ''}</small>${upload.failure_reason ? `<em>${esc(upload.failure_reason)}</em>` : ''}${upload.published_record?.status ? `<small>${esc(upload.published_record.status)}${upload.published_record.table ? ` · ${esc(upload.published_record.table)}` : ''}</small>` : ''}</div><time>${upload.created_at ? new Date(upload.created_at).toLocaleDateString() : ''}</time></article>`).join('') : '<div class="empty"><b>⬆</b><strong>No uploads yet</strong><span>Your first elite drop will appear here.</span></div>';
   };
 
   const renderSnapshot = (snapshot: Row) => {
+    if (!isCurrent() || disposed) return;
     routes = (snapshot.routes ?? []) as Row[];
     recentUploads = (snapshot.recent_uploads ?? []) as Row[];
     profile = (snapshot.profile ?? {}) as Row;
@@ -107,6 +112,7 @@ export async function mount(): Promise<void> {
     const requestedRoute = routes.find((route) => route.route_key === requested) ?? routes.find((route) => route.section === requested) ?? routes.find((route) => route.route_key === previous);
     if (requestedRoute) routeKey.value = requestedRoute.route_key;
     root.querySelectorAll<HTMLButtonElement>('.route-chip').forEach((chip) => chip.onclick = () => {
+      if (!isCurrent() || disposed) return;
       const first = routes.find((route) => route.section === chip.dataset.section);
       if (!first) return;
       routeKey.value = first.route_key;
@@ -120,6 +126,7 @@ export async function mount(): Promise<void> {
   };
 
   const renderRoute = () => {
+    if (!isCurrent() || disposed) return;
     const route = activeRoute();
     if (!route) return;
     fileInput.accept = acceptValue(route);
@@ -134,6 +141,7 @@ export async function mount(): Promise<void> {
   };
 
   const setFile = (file: File | null) => {
+    if (!isCurrent() || disposed) return;
     clearPreview();
     selected = file;
     if (!file) {
@@ -162,16 +170,17 @@ export async function mount(): Promise<void> {
     previewUrl = URL.createObjectURL(file);
     const kind = kindFor(file.type);
     preview.innerHTML = kind === 'image' ? `<img src="${previewUrl}" alt="Upload preview">` : kind === 'video' ? `<video src="${previewUrl}" controls playsinline preload="metadata"></video>` : kind === 'audio' ? `<div class="audio-preview"><b>♪</b><strong>${esc(file.name)}</strong><audio src="${previewUrl}" controls preload="metadata"></audio></div>` : `<div class="file-preview"><b>${kind === 'model' ? '◎' : '⬆'}</b><strong>${esc(file.name)}</strong><small>${formatSize(file.size)}</small></div>`;
-    preview.querySelectorAll<HTMLImageElement>('img').forEach((image) => image.onerror = () => { preview.innerHTML = `<div class="file-preview"><b>⬆</b><strong>${esc(file.name)}</strong><small>${formatSize(file.size)}</small></div>`; });
+    preview.querySelectorAll<HTMLImageElement>('img').forEach((image) => image.onerror = () => { if (isCurrent() && !disposed) preview.innerHTML = `<div class="file-preview"><b>⬆</b><strong>${esc(file.name)}</strong><small>${formatSize(file.size)}</small></div>`; });
     fileMeta.textContent = `${kind.toUpperCase()} · ${formatSize(file.size)}`;
     setMessage('Media verified locally. Server validation will run on registration.');
     button.disabled = false;
   };
 
   const loadSnapshot = async () => {
+    const requestEpoch = epoch;
     const { data, error } = await supabase.rpc('rb_upload_snapshot', { p_limit: 20 });
     if (error) throw error;
-    if (!disposed) renderSnapshot((data ?? {}) as Row);
+    if (!disposed && root.dataset.pageEpoch === requestEpoch && root.dataset.pageOwner === PAGE_OWNER) renderSnapshot((data ?? {}) as Row);
   };
 
   routeKey.onchange = () => { renderRoute(); syncUrl(); };
@@ -180,13 +189,16 @@ export async function mount(): Promise<void> {
   fileInput.onchange = () => setFile(fileInput.files?.[0] ?? null);
   const dragHandler = (event: DragEvent) => {
     event.preventDefault();
+    if (!isCurrent() || disposed) return;
     dropZone.classList.toggle('active', event.type === 'dragenter' || event.type === 'dragover');
     if (event.type === 'drop') setFile(event.dataTransfer?.files?.[0] ?? null);
   };
-  ['dragenter', 'dragover', 'dragleave', 'drop'].forEach((name) => dropZone.addEventListener(name, dragHandler as EventListener));
+  const dragEvents = ['dragenter', 'dragover', 'dragleave', 'drop'] as const;
+  dragEvents.forEach((name) => dropZone.addEventListener(name, dragHandler as EventListener));
 
   form.onsubmit = async (event) => {
     event.preventDefault();
+    if (!isCurrent() || disposed) return;
     if (uploading || !selected) { if (!selected) setMessage('Choose a file first.'); return; }
     const route = activeRoute();
     if (!accepted(selected, route)) { setMessage('File validation no longer matches the selected route.'); return; }
@@ -204,6 +216,7 @@ export async function mount(): Promise<void> {
       bar.style.width = '28%';
       const { error: storageError } = await supabase.storage.from(route.bucket).upload(path, file, { cacheControl: '31536000', contentType: file.type || 'application/octet-stream', upsert: false });
       if (storageError) throw storageError;
+      if (!isCurrent() || disposed) return;
       bar.style.width = '68%';
       const publicUrl = route.is_public === false ? `private://${route.bucket}/${path}` : supabase.storage.from(route.bucket).getPublicUrl(path).data.publicUrl;
       const { error: registerError } = await supabase.rpc('rb_register_upload', {
@@ -221,6 +234,7 @@ export async function mount(): Promise<void> {
         await supabase.storage.from(route.bucket).remove([path]);
         throw registerError;
       }
+      if (!isCurrent() || disposed) return;
       bar.style.width = '100%';
       state.textContent = route.processing_type === 'metadata' ? 'PUBLISHED' : 'PROCESSING';
       setMessage(route.processing_type === 'metadata' ? 'Upload published successfully.' : 'Upload secured and queued for processing.');
@@ -231,33 +245,40 @@ export async function mount(): Promise<void> {
       syncUrl();
       await loadSnapshot();
     } catch (error) {
+      if (!isCurrent() || disposed) return;
       state.textContent = 'UPLOAD FAILED';
       setMessage(error instanceof Error ? error.message : 'Upload failed.');
       bar.style.width = '0%';
     } finally {
       uploading = false;
-      button.disabled = false;
-      button.querySelector('span')!.textContent = 'UPLOAD TO RICH BIZNESS';
-      state.classList.remove('working');
+      if (isCurrent() && !disposed) {
+        button.disabled = false;
+        button.querySelector('span')!.textContent = 'UPLOAD TO RICH BIZNESS';
+        state.classList.remove('working');
+      }
     }
   };
 
-  uploadChannel = supabase.channel(`upload-owner:${user.id}`)
+  uploadChannel = supabase.channel(`upload-owner:${user.id}:${epoch}`)
     .on('postgres_changes', { event: '*', schema: 'public', table: 'uploads', filter: `user_id=eq.${user.id}` }, scheduleSnapshot)
     .subscribe();
-  queueChannel = supabase.channel(`upload-queue:${user.id}`)
+  queueChannel = supabase.channel(`upload-queue:${user.id}:${epoch}`)
     .on('postgres_changes', { event: '*', schema: 'public', table: 'upload_processing_queue', filter: `user_id=eq.${user.id}` }, scheduleSnapshot)
     .subscribe();
 
   const cleanup = () => {
     if (disposed) return;
     disposed = true;
+    uploading = false;
     clearPreview();
     clearTimeout(refreshTimer);
+    dragEvents.forEach((name) => dropZone.removeEventListener(name, dragHandler as EventListener));
     if (uploadChannel) void supabase.removeChannel(uploadChannel);
     if (queueChannel) void supabase.removeChannel(queueChannel);
-    delete root.dataset.uploadOwner;
+    uploadChannel = null;
+    queueChannel = null;
   };
+  (window as CleanupHost).__rbPageCleanup = cleanup;
   window.addEventListener('pagehide', cleanup, { once: true });
   window.addEventListener('beforeunload', cleanup, { once: true });
 
