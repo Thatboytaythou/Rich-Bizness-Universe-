@@ -11,8 +11,9 @@ type CallSession = { id: string; call_type?: string | null; call_status?: string
 type Profile = { id: string; username: string | null; display_name: string | null; avatar_url: string | null; online_status: string | null };
 type ThreadSnapshot = { thread?: Record<string, unknown> | null; members?: Array<Record<string, unknown>>; messages?: Message[]; attachments?: Attachment[]; reactions?: Array<{ message_id: string; emoji: string; user_id: string }>; typing?: Array<{ user_id: string; typing_label: string }>; calls?: CallSession[]; call_sessions?: CallSession[] };
 type Channel = ReturnType<typeof supabase.channel>;
+type CleanupHost = Window & { __rbPageCleanup?: (() => void | Promise<void>) | null };
 
-const esc = (value: string | null | undefined) => (value ?? '').replace(/[&<>'"]/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' })[character] ?? character);
+const esc = (value: string | null | undefined) => (value ?? '').replace(/[&<>'\"]/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '\"': '&quot;' })[character] ?? character);
 const stamp = (value: string | null) => value ? new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }).format(new Date(value)) : '';
 const isUuid = (value: string | null) => Boolean(value && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value));
 const bytes = (value: number | null | undefined) => {
@@ -26,15 +27,15 @@ const safeHref = (value: string | null | undefined) => {
   try {
     const url = new URL(value ?? '', location.origin);
     return ['http:', 'https:'].includes(url.protocol) ? url.href : '';
-  } catch {
-    return '';
-  }
+  } catch { return ''; }
 };
 
 export async function mount(): Promise<void> {
   const root = document.querySelector<HTMLElement>('#app');
-  if (!root || root.dataset.messagesOwner === 'mounted') return;
-  root.dataset.messagesOwner = 'mounted';
+  if (!root) throw new Error('Missing #app mount');
+  const mountEpoch = root.dataset.pageEpoch ?? '';
+  let destroyed = false;
+  const isCurrent = () => !destroyed && root.dataset.pageEpoch === mountEpoch && root.dataset.pageOwner === 'rich-bizness-messages-v3';
 
   const user = getAuthSnapshot().user;
   if (!user) {
@@ -67,33 +68,38 @@ export async function mount(): Promise<void> {
   let listChannel: Channel | null = null;
   let typingTimer: number | undefined;
   let refreshTimer: number | undefined;
+  let statusTimer: number | undefined;
   let threads: Thread[] = [];
-  let destroyed = false;
   let loadingThreads = false;
   let loadingThread = false;
 
   const setStatus = (message: string) => {
-    if (destroyed) return;
+    if (!isCurrent()) return;
     status.textContent = message;
-    window.setTimeout(() => { if (!destroyed && status.textContent === message) status.textContent = ''; }, 3200);
+    if (statusTimer) window.clearTimeout(statusTimer);
+    statusTimer = window.setTimeout(() => { if (isCurrent() && status.textContent === message) status.textContent = ''; }, 3200);
   };
 
   const updateSummary = () => {
+    if (!isCurrent()) return;
     threadCount.textContent = String(threads.length);
     unreadCount.textContent = String(threads.reduce((total, thread) => total + Number(thread.unread_count ?? 0), 0));
     activeState.textContent = activeThread ? 'OPEN' : 'NONE';
   };
 
   const scheduleThreads = () => {
+    if (!isCurrent()) return;
     if (refreshTimer) window.clearTimeout(refreshTimer);
     refreshTimer = window.setTimeout(() => void loadThreads(), 180);
   };
 
   const setTyping = async (threadId: string, value: boolean) => {
+    if (!isCurrent()) return;
     await supabase.rpc('rb_dm_set_typing', { p_thread_id: threadId, p_is_typing: value });
   };
 
   const drawThreads = () => {
+    if (!isCurrent()) return;
     const query = search.value.trim().toLowerCase();
     const rows = threads.filter((thread) => !query || `${thread.title ?? ''} ${thread.last_message ?? ''}`.toLowerCase().includes(query));
     threadList.innerHTML = rows.length ? rows.map((thread) => `<button class="comm-item ${activeThread === thread.id ? 'active' : ''}" data-thread="${thread.id}"><span class="comm-icon">${thread.thread_type === 'group' ? '👥' : '💨'}</span><div><h3>${esc(thread.title || 'Rich Conversation')}</h3><p>${esc(thread.last_message || thread.typing_label || 'Start the smoke...')}</p></div><span class="thread-side"><time>${stamp(thread.last_message_at)}</time>${Number(thread.unread_count ?? 0) > 0 ? `<b>${Number(thread.unread_count)}</b>` : ''}${thread.is_pinned ? '<i>PIN</i>' : ''}</span></button>`).join('') : '<div class="comm-empty">No conversations found.</div>';
@@ -102,15 +108,17 @@ export async function mount(): Promise<void> {
   };
 
   const sendSharedPost = async (threadId: string) => {
-    if (!sharedPostPending) return;
+    if (!sharedPostPending || !isCurrent()) return;
     const postId = sharedPostPending;
     const { data, error } = await supabase.rpc('rb_feed_snapshot', { p_section: 'all', p_limit: 1, p_post_id: postId });
+    if (!isCurrent()) return;
     if (error) throw error;
     const post = (((data as any)?.posts ?? []) as Array<Record<string, unknown>>).find((row) => String(row.id) === postId);
     if (!post) throw new Error('Shared post is unavailable.');
     const title = String(post.title || post.body || 'Rich Bizness post').trim().slice(0, 180);
     const body = `Shared from Rich Feed: ${title}\n${location.origin}/feed.html?post=${encodeURIComponent(postId)}`;
     const { error: sendError } = await supabase.rpc('rb_dm_send_message', { p_thread_id: threadId, p_body: body, p_reply_to: null });
+    if (!isCurrent()) return;
     if (sendError) throw sendError;
     sharedPostPending = null;
     params.delete('share');
@@ -120,7 +128,7 @@ export async function mount(): Promise<void> {
   };
 
   const drawThread = async (threadId: string, snapshot: ThreadSnapshot) => {
-    if (destroyed || activeThread !== threadId) return;
+    if (!isCurrent() || activeThread !== threadId) return;
     const thread = snapshot.thread ?? {};
     const messages = snapshot.messages ?? [];
     const attachments = snapshot.attachments ?? [];
@@ -155,8 +163,9 @@ export async function mount(): Promise<void> {
 
     feed.querySelectorAll<HTMLButtonElement>('[data-react]').forEach((button) => button.onclick = async () => {
       const message = button.closest<HTMLElement>('[data-message]')?.dataset.message;
-      if (!message) return;
+      if (!message || !isCurrent()) return;
       const { error } = await supabase.rpc('rb_dm_toggle_reaction', { p_message_id: message, p_emoji: button.dataset.react });
+      if (!isCurrent()) return;
       if (error) setStatus(error.message); else await refreshThread(threadId);
     });
 
@@ -165,18 +174,18 @@ export async function mount(): Promise<void> {
     panel.querySelector<HTMLFormElement>('#composer')!.onsubmit = async (event) => {
       event.preventDefault();
       const body = input.value.trim();
-      if (!body || input.disabled) return;
+      if (!body || input.disabled || !isCurrent()) return;
       input.disabled = true;
       try {
         const { error } = await supabase.rpc('rb_dm_send_message', { p_thread_id: threadId, p_body: body, p_reply_to: null });
+        if (!isCurrent()) return;
         if (error) throw error;
         input.value = '';
         await setTyping(threadId, false);
       } catch (caught) {
         setStatus(caught instanceof Error ? caught.message : 'Unable to send message.');
       } finally {
-        input.disabled = false;
-        input.focus();
+        if (isCurrent()) { input.disabled = false; input.focus(); }
       }
     };
 
@@ -189,29 +198,33 @@ export async function mount(): Promise<void> {
     panel.querySelector<HTMLButtonElement>('#attachButton')!.onclick = () => attachmentInput.click();
     attachmentInput.onchange = async () => {
       const file = attachmentInput.files?.[0];
-      if (!file) return;
+      if (!file || !isCurrent()) return;
       if (file.size > 25 * 1024 * 1024) { setStatus('Attachment must be 25 MB or smaller.'); return; }
       const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
       const path = `${user.id}/dm/${threadId}/${crypto.randomUUID()}-${safeName}`;
       attachmentState.textContent = 'UPLOADING';
       try {
         const { error: uploadError } = await supabase.storage.from('general-uploads').upload(path, file, { contentType: file.type || 'application/octet-stream', cacheControl: '31536000', upsert: false });
+        if (!isCurrent()) return;
         if (uploadError) throw uploadError;
         const url = supabase.storage.from('general-uploads').getPublicUrl(path).data.publicUrl;
         const { error } = await supabase.rpc('rb_dm_finalize_attachment', { p_thread_id: threadId, p_file_url: url, p_file_name: file.name, p_mime_type: file.type || 'application/octet-stream', p_file_size: file.size, p_storage_path: path });
+        if (!isCurrent()) return;
         if (error) throw error;
         attachmentInput.value = '';
         attachmentState.textContent = 'READY';
         setStatus('Attachment delivered.');
         await refreshThread(threadId);
       } catch (caught) {
-        attachmentState.textContent = 'ERROR';
+        if (isCurrent()) attachmentState.textContent = 'ERROR';
         setStatus(caught instanceof Error ? caught.message : 'Unable to upload attachment.');
       }
     };
 
     const startCall = async (type: 'audio' | 'video') => {
+      if (!isCurrent()) return;
       const { data, error } = await supabase.rpc('rb_dm_start_call', { p_thread_id: threadId, p_call_type: type });
+      if (!isCurrent()) return;
       if (error) { setStatus(error.message); return; }
       const callId = String((data as any)?.call_id || '');
       if (callId) location.href = `${ROUTES.messages}?thread=${encodeURIComponent(threadId)}&call=${encodeURIComponent(callId)}`;
@@ -220,6 +233,7 @@ export async function mount(): Promise<void> {
     panel.querySelector<HTMLButtonElement>('#videoCall')!.onclick = () => void startCall('video');
 
     const { error: readError } = await supabase.rpc('rb_dm_mark_thread_read', { p_thread_id: threadId });
+    if (!isCurrent()) return;
     if (!readError) {
       const cached = threads.find((item) => item.id === threadId);
       if (cached) cached.unread_count = 0;
@@ -228,29 +242,30 @@ export async function mount(): Promise<void> {
   };
 
   const refreshThread = async (threadId: string) => {
-    if (destroyed || activeThread !== threadId || loadingThread) return;
+    if (!isCurrent() || activeThread !== threadId || loadingThread) return;
     loadingThread = true;
     try {
       const { data, error } = await supabase.rpc('rb_dm_thread_snapshot', { p_thread_id: threadId, p_limit: 350 });
+      if (!isCurrent() || activeThread !== threadId) return;
       if (error) throw error;
       await drawThread(threadId, (data ?? {}) as ThreadSnapshot);
     } catch (caught) {
       setStatus(caught instanceof Error ? caught.message : 'Unable to open conversation.');
-    } finally {
-      loadingThread = false;
-    }
+    } finally { loadingThread = false; }
   };
 
   const openThread = async (threadId: string) => {
-    if (destroyed || loadingThread) return;
+    if (!isCurrent() || loadingThread) return;
     if (activeThread && activeThread !== threadId) await setTyping(activeThread, false);
+    if (!isCurrent()) return;
     activeThread = threadId;
     activeState.textContent = 'OPEN';
     drawThreads();
     params.set('thread', threadId);
     history.replaceState({}, '', `${ROUTES.messages}?${params.toString()}`);
     if (threadChannel) await supabase.removeChannel(threadChannel);
-    threadChannel = supabase.channel(`rich-dm:${threadId}`)
+    if (!isCurrent()) return;
+    threadChannel = supabase.channel(`rich-dm:${mountEpoch}:${threadId}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'dm_messages', filter: `thread_id=eq.${threadId}` }, () => void refreshThread(threadId))
       .on('postgres_changes', { event: '*', schema: 'public', table: 'dm_message_attachments' }, () => void refreshThread(threadId))
       .on('postgres_changes', { event: '*', schema: 'public', table: 'dm_message_reactions' }, () => void refreshThread(threadId))
@@ -259,46 +274,34 @@ export async function mount(): Promise<void> {
       .subscribe();
     await refreshThread(threadId);
     if (sharedPostPending) {
-      try {
-        await sendSharedPost(threadId);
-        await refreshThread(threadId);
-      } catch (caught) {
-        setStatus(caught instanceof Error ? caught.message : 'Unable to share post.');
-      }
+      try { await sendSharedPost(threadId); await refreshThread(threadId); }
+      catch (caught) { setStatus(caught instanceof Error ? caught.message : 'Unable to share post.'); }
     }
   };
 
   const loadThreads = async () => {
-    if (destroyed || loadingThreads) return;
+    if (!isCurrent() || loadingThreads) return;
     loadingThreads = true;
     try {
       const { data, error } = await supabase.rpc('rb_dm_threads_snapshot', { p_limit: 150 });
+      if (!isCurrent()) return;
       if (error) throw error;
       threads = (((data as any)?.threads ?? []) as Thread[]);
       drawThreads();
       if (activeThread && threads.some((thread) => thread.id === activeThread) && !threadChannel && !loadingThread) await openThread(activeThread);
     } catch (caught) {
       setStatus(caught instanceof Error ? caught.message : 'Unable to load conversations.');
-    } finally {
-      loadingThreads = false;
-    }
+    } finally { loadingThreads = false; }
   };
 
   const openDirectFor = async (profileId: string) => {
-    if (!isUuid(profileId) || profileId === user.id) {
-      setStatus('Invalid message recipient.');
-      return;
-    }
+    if (!isCurrent()) return;
+    if (!isUuid(profileId) || profileId === user.id) { setStatus('Invalid message recipient.'); return; }
     const { data: threadId, error } = await supabase.rpc('rb_create_direct_thread', { p_other_user: profileId });
-    if (error) {
-      setStatus(error.message);
-      return;
-    }
+    if (!isCurrent()) return;
+    if (error) { setStatus(error.message); return; }
     const id = String(threadId || '');
-    if (!isUuid(id)) {
-      setStatus('Unable to open conversation.');
-      return;
-    }
+    if (!isUuid(id)) { setStatus('Unable to open conversation.'); return; }
     activeThread = id;
     params.set('thread', id);
     history.replaceState({}, '', `${ROUTES.messages}?${params.toString()}`);
@@ -307,7 +310,7 @@ export async function mount(): Promise<void> {
   };
 
   const openNewThread = () => {
-    if (document.querySelector('.new-thread-modal')) return;
+    if (!isCurrent() || document.querySelector('.new-thread-modal')) return;
     const modal = document.createElement('div');
     modal.className = 'new-thread-modal';
     modal.innerHTML = `<section class="comm-card new-thread-card"><header class="thread-title"><div><strong>${sharedPostPending ? 'Share Rich Feed post' : 'New Rich-DM'}</strong><p>${sharedPostPending ? 'Choose who receives this post.' : 'Search people by name or username.'}</p></div><button id="closeNew" class="comm-button">✕</button></header><input id="profileSearch" placeholder="Search Rich Bizness members" autocomplete="off"/><div id="profileResults" class="profile-results"></div></section>`;
@@ -319,12 +322,10 @@ export async function mount(): Promise<void> {
       const query = box.value.trim();
       if (query.length < 2) { results.innerHTML = ''; return; }
       const { data, error } = await supabase.rpc('rb_dm_search_profiles', { p_query: query, p_limit: 20 });
+      if (!isCurrent() || !document.body.contains(modal)) return;
       if (error) { results.innerHTML = `<div class="comm-empty">${esc(error.message)}</div>`; return; }
       results.innerHTML = ((data ?? []) as Profile[]).map((profile) => `<article class="profile-result"><a href="/profile.html?id=${encodeURIComponent(profile.id)}"><img src="${esc(profile.avatar_url || '/brand/icons/profile-placeholder.svg')}" alt=""><div><strong>${esc(profile.display_name || profile.username || 'Rich Member')}</strong><p>@${esc(profile.username || 'member')} · ${esc(profile.online_status || 'offline')}</p></div></a><button class="comm-button primary" data-user="${profile.id}">${sharedPostPending ? 'SHARE' : 'MESSAGE'}</button></article>`).join('') || '<div class="comm-empty">No message-ready members found.</div>';
-      results.querySelectorAll<HTMLButtonElement>('[data-user]').forEach((button) => button.onclick = async () => {
-        modal.remove();
-        await openDirectFor(String(button.dataset.user || ''));
-      });
+      results.querySelectorAll<HTMLButtonElement>('[data-user]').forEach((button) => button.onclick = async () => { modal.remove(); await openDirectFor(String(button.dataset.user || '')); });
     };
     box.focus();
   };
@@ -332,25 +333,27 @@ export async function mount(): Promise<void> {
   search.oninput = drawThreads;
   root.querySelector<HTMLButtonElement>('#newThread')!.onclick = openNewThread;
   await loadThreads();
+  if (!isCurrent()) return;
   if (requestedUser) await openDirectFor(requestedUser);
   else if (sharedPostPending) openNewThread();
 
-  listChannel = supabase.channel(`rich-dm-list:${user.id}`)
+  if (!isCurrent()) return;
+  listChannel = supabase.channel(`rich-dm-list:${mountEpoch}:${user.id}`)
     .on('postgres_changes', { event: '*', schema: 'public', table: 'dm_thread_members', filter: `user_id=eq.${user.id}` }, scheduleThreads)
     .on('postgres_changes', { event: '*', schema: 'public', table: 'dm_messages' }, scheduleThreads)
     .subscribe();
 
-  const cleanup = () => {
+  const cleanup = async () => {
     if (destroyed) return;
     destroyed = true;
     if (typingTimer) window.clearTimeout(typingTimer);
     if (refreshTimer) window.clearTimeout(refreshTimer);
-    if (activeThread) void setTyping(activeThread, false);
-    if (threadChannel) void supabase.removeChannel(threadChannel);
-    if (listChannel) void supabase.removeChannel(listChannel);
+    if (statusTimer) window.clearTimeout(statusTimer);
+    if (activeThread) void supabase.rpc('rb_dm_set_typing', { p_thread_id: activeThread, p_is_typing: false });
+    if (threadChannel) { await supabase.removeChannel(threadChannel); threadChannel = null; }
+    if (listChannel) { await supabase.removeChannel(listChannel); listChannel = null; }
     document.querySelector('.new-thread-modal')?.remove();
-    delete root.dataset.messagesOwner;
+    panel.querySelectorAll<HTMLMediaElement>('audio,video').forEach((media) => { media.pause(); media.removeAttribute('src'); media.load(); });
   };
-  window.addEventListener('pagehide', cleanup, { once: true });
-  window.addEventListener('beforeunload', cleanup, { once: true });
+  (window as CleanupHost).__rbPageCleanup = cleanup;
 }
