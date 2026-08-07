@@ -30,9 +30,12 @@ type SaveResult = {
   };
 };
 
+type CleanupHost = Window & { __rbPageCleanup?: (() => void | Promise<void>) | null };
+
 const PROFILE_COLUMNS = 'username,display_name,bio,avatar_url,banner_url,website_url,instagram_url,youtube_url,tiktok_url,facebook_url,snapchat_url,favorite_section,rich_level,rank_title';
 const FAVORITE_SECTIONS = ['portal', 'feed', 'gallery', 'live', 'watch', 'music', 'podcast', 'radio', 'sports', 'store', 'gaming', 'meta', 'profile'];
 const MAX_IMAGE_BYTES = 8 * 1024 * 1024;
+const OWNER = 'rich-bizness-edit-profile-v2';
 
 const esc = (value: string | null | undefined): string => (value ?? '').replace(/[&<>'"]/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' })[character] ?? character);
 const field = (form: HTMLFormElement, name: string): string | null => {
@@ -69,8 +72,10 @@ async function uploadProfileAsset(userId: string, bucket: 'avatars' | 'profile-b
 
 export async function mount(): Promise<void> {
   const root = document.querySelector<HTMLElement>('#app');
-  if (!root || root.dataset.editProfileOwner === 'mounted') return;
-  root.dataset.editProfileOwner = 'mounted';
+  if (!root) throw new Error('Missing #app mount');
+  const mountEpoch = root.dataset.pageEpoch ?? '';
+  let destroyed = false;
+  const isCurrent = () => !destroyed && root.dataset.pageOwner === OWNER && root.dataset.pageEpoch === mountEpoch;
 
   const user = getAuthSnapshot().user;
   if (!user) {
@@ -79,6 +84,7 @@ export async function mount(): Promise<void> {
   }
 
   const { data, error } = await supabase.from('profiles').select(PROFILE_COLUMNS).eq('id', user.id).single();
+  if (!isCurrent()) return;
   if (error) throw error;
   const profile = data as ProfileDraft;
   const avatarFallback = '/brand/icons/profile-placeholder.svg';
@@ -175,9 +181,9 @@ export async function mount(): Promise<void> {
   let bannerUrl = profile.banner_url;
   let avatarObjectUrl: string | null = null;
   let bannerObjectUrl: string | null = null;
-  let destroyed = false;
 
   const updateCompletion = () => {
+    if (!isCurrent()) return;
     const requiredChecks = [displayNameInput.value.trim(), normalizeUsername(usernameInput.value), bio.value.trim(), avatarUrl || avatarFile.files?.[0]?.name, bannerUrl || bannerFile.files?.[0]?.name];
     const socialNames = ['website_url', 'instagram_url', 'youtube_url', 'tiktok_url', 'facebook_url', 'snapchat_url'];
     const socialChecks = socialNames.map((name) => field(form, name));
@@ -189,6 +195,7 @@ export async function mount(): Promise<void> {
     completionHint.textContent = percent >= 90 ? 'Your Rich Bizness identity is fully connected.' : percent >= 60 ? 'Strong identity. Add more connected presence to finish it.' : 'Complete your public identity and connected presence.';
   };
   const markUnsaved = () => {
+    if (!isCurrent()) return;
     if (saveState.textContent !== 'SAVING') saveState.textContent = 'UNSAVED';
     updateCompletion();
   };
@@ -197,27 +204,29 @@ export async function mount(): Promise<void> {
     return URL.createObjectURL(file);
   };
   const refreshIdentityPreview = () => {
+    if (!isCurrent()) return;
     previewName.textContent = displayNameInput.value.trim() || 'Rich Bizness User';
     previewHandle.textContent = `@${normalizeUsername(usernameInput.value) || 'rich_user'}`;
   };
 
   avatarFile.onchange = () => {
     const file = avatarFile.files?.[0];
-    if (!file) return;
+    if (!file || !isCurrent()) return;
     avatarObjectUrl = replaceObjectUrl(avatarObjectUrl, file);
     avatarPreview.src = avatarObjectUrl;
     markUnsaved();
   };
   bannerFile.onchange = () => {
     const file = bannerFile.files?.[0];
-    if (!file) return;
+    if (!file || !isCurrent()) return;
     bannerObjectUrl = replaceObjectUrl(bannerObjectUrl, file);
     bannerPreview.style.backgroundImage = `url("${bannerObjectUrl}")`;
     markUnsaved();
   };
-  bio.oninput = () => { bioCount.textContent = `${bio.value.length}/300`; markUnsaved(); };
+  bio.oninput = () => { if (!isCurrent()) return; bioCount.textContent = `${bio.value.length}/300`; markUnsaved(); };
   displayNameInput.oninput = () => { refreshIdentityPreview(); markUnsaved(); };
   usernameInput.oninput = () => {
+    if (!isCurrent()) return;
     const normalized = normalizeUsername(usernameInput.value);
     if (usernameInput.value !== normalized) usernameInput.value = normalized;
     refreshIdentityPreview();
@@ -227,7 +236,7 @@ export async function mount(): Promise<void> {
 
   form.onsubmit = async (event) => {
     event.preventDefault();
-    if (saveButton.disabled) return;
+    if (saveButton.disabled || !isCurrent()) return;
     saveButton.disabled = true;
     saveState.textContent = 'SAVING';
     message.textContent = 'Synchronizing your Rich Bizness identity…';
@@ -241,7 +250,9 @@ export async function mount(): Promise<void> {
       const avatar = avatarFile.files?.[0];
       const banner = bannerFile.files?.[0];
       if (avatar) avatarUrl = await uploadProfileAsset(user.id, 'avatars', avatar);
+      if (!isCurrent()) return;
       if (banner) bannerUrl = await uploadProfileAsset(user.id, 'profile-banners', banner);
+      if (!isCurrent()) return;
 
       const payload = {
         p_username: username,
@@ -259,6 +270,7 @@ export async function mount(): Promise<void> {
       };
 
       const { data: saved, error: saveError } = await supabase.rpc('rb_save_profile_identity', payload);
+      if (!isCurrent()) return;
       if (saveError) throw saveError;
       const result = (saved ?? {}) as SaveResult;
       if (!result.saved) throw new Error('Profile identity was not saved.');
@@ -272,6 +284,7 @@ export async function mount(): Promise<void> {
           banner_url: bannerUrl
         }
       });
+      if (!isCurrent()) return;
       if (authError) throw new Error(`Profile saved, but Auth identity mirror needs retry: ${authError.message}`);
 
       avatarFile.value = '';
@@ -286,10 +299,11 @@ export async function mount(): Promise<void> {
       saveState.textContent = 'SAVED';
       updateCompletion();
     } catch (caught) {
+      if (!isCurrent()) return;
       message.textContent = caught instanceof Error ? caught.message : 'Unable to save profile.';
       saveState.textContent = 'ERROR';
     } finally {
-      if (!destroyed) saveButton.disabled = false;
+      if (isCurrent()) saveButton.disabled = false;
     }
   };
 
@@ -298,9 +312,17 @@ export async function mount(): Promise<void> {
   const cleanup = () => {
     if (destroyed) return;
     destroyed = true;
+    form.removeEventListener('input', markUnsaved);
+    avatarFile.onchange = null;
+    bannerFile.onchange = null;
+    bio.oninput = null;
+    displayNameInput.oninput = null;
+    usernameInput.oninput = null;
+    form.onsubmit = null;
     if (avatarObjectUrl) URL.revokeObjectURL(avatarObjectUrl);
     if (bannerObjectUrl) URL.revokeObjectURL(bannerObjectUrl);
-    root.dataset.editProfileOwner = '';
+    avatarObjectUrl = null;
+    bannerObjectUrl = null;
   };
-  window.addEventListener('pagehide', cleanup, { once: true });
+  (window as CleanupHost).__rbPageCleanup = cleanup;
 }
