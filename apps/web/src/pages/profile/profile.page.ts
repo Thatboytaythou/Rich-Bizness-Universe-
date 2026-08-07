@@ -112,7 +112,9 @@ function getViewSessionId(profileId: string): string {
 export async function mountProfilePage(): Promise<void> {
   const root = document.querySelector<HTMLElement>('#app');
   if (!root) throw new Error('Missing #app mount');
-
+  const mountEpoch = root.dataset.pageEpoch ?? '';
+  let disposed = false;
+  const isCurrent = () => !disposed && root.dataset.pageEpoch === mountEpoch && root.dataset.pageOwner === 'rich-bizness-profile-v2';
   const session = getAuthSnapshot().session;
   const params = new URLSearchParams(location.search);
   const requested = params.get('id') || params.get('user') || params.get('u');
@@ -123,15 +125,17 @@ export async function mountProfilePage(): Promise<void> {
   }
 
   const profileId = requested || session!.user.id;
-  const [{ data, error }, { data: adminData }] = await Promise.all([
+  const [{ data, error }, { data: adminData, error: adminError }] = await Promise.all([
     supabase.rpc('rb_profile_universe_snapshot', { p_profile_id: profileId }),
-    session ? supabase.rpc('rb_is_admin', {}) : Promise.resolve({ data: false } as any),
+    session ? supabase.rpc('rb_is_admin', { p_min_permission: 0 }) : Promise.resolve({ data: false, error: null } as any),
   ]);
+  if (!isCurrent()) return;
 
   if (error) {
     root.innerHTML = `<main class="pu-fail"><a href="/portal.html">← PORTAL</a><h1>PROFILE ENGINE OFFLINE</h1><p>${esc(error.message)}</p></main>`;
     return;
   }
+  if (adminError) console.warn('Profile admin check failed', adminError.message);
 
   const snap = (data ?? {}) as unknown as Snapshot;
   const profile = snap.profile ?? {};
@@ -229,21 +233,22 @@ export async function mountProfilePage(): Promise<void> {
   </main>`;
 
   const activateTab = (key: string) => {
+    if (!isCurrent()) return;
     const valid = tabs.some(([tab]) => tab === key) ? key : 'feed';
-    document.querySelectorAll<HTMLElement>('[data-tab]').forEach(tab => {
+    root.querySelectorAll<HTMLElement>('[data-tab]').forEach(tab => {
       const active = tab.dataset.tab === valid;
       tab.classList.toggle('active', active);
       tab.setAttribute('aria-selected', String(active));
     });
-    document.querySelectorAll<HTMLElement>('[data-panel]').forEach(panel => panel.classList.toggle('active', panel.dataset.panel === valid));
+    root.querySelectorAll<HTMLElement>('[data-panel]').forEach(panel => panel.classList.toggle('active', panel.dataset.panel === valid));
     params.set('tab', valid);
     history.replaceState(null, '', `${location.pathname}?${params.toString()}`);
   };
 
-  document.querySelectorAll<HTMLButtonElement>('[data-tab]').forEach(button => button.addEventListener('click', () => activateTab(button.dataset.tab ?? 'feed')));
+  root.querySelectorAll<HTMLButtonElement>('[data-tab]').forEach(button => button.addEventListener('click', () => activateTab(button.dataset.tab ?? 'feed')));
   activateTab(params.get('tab') ?? 'feed');
 
-  const follow = document.querySelector<HTMLButtonElement>('#followButton');
+  const follow = root.querySelector<HTMLButtonElement>('#followButton');
   follow?.addEventListener('click', async () => {
     if (!session) {
       location.assign(`/tap-in.html?next=${encodeURIComponent(location.pathname + location.search)}`);
@@ -253,20 +258,21 @@ export async function mountProfilePage(): Promise<void> {
     const original = follow.textContent;
     follow.textContent = 'SYNCING';
     const { data: result, error: followError } = await supabase.rpc('rb_profile_toggle_follow', { p_profile_id: profileId });
+    if (!isCurrent()) return;
     if (followError) {
       follow.textContent = original;
       follow.title = followError.message;
     } else {
       const response = result as any;
       follow.textContent = response.following ? 'FOLLOWING' : 'FOLLOW';
-      const followerMetric = document.querySelector<HTMLElement>('.pu-metrics article:first-child strong');
+      const followerMetric = root.querySelector<HTMLElement>('.pu-metrics article:first-child strong');
       if (followerMetric) followerMetric.textContent = compact(response.followers);
-      if (response.following) void supabase.rpc('rb_award_xp', { p_event_key: 'profile_followed', p_section: 'profile', p_source_table: 'followers' });
+      if (response.following) void supabase.rpc('rb_award_xp', { p_event_key: 'section_visit', p_section: 'profile', p_source_table: 'followers', p_source_id: profileId, p_amount: 8 });
     }
     follow.disabled = false;
   });
 
-  document.querySelector<HTMLButtonElement>('#shareButton')?.addEventListener('click', async () => {
+  root.querySelector<HTMLButtonElement>('#shareButton')?.addEventListener('click', async () => {
     const url = `${location.origin}/profile.html?id=${profileId}`;
     try {
       if (navigator.share) await navigator.share({ title: `${display} · Rich Bizness`, url });
@@ -276,9 +282,18 @@ export async function mountProfilePage(): Promise<void> {
     }
   });
 
-  const channel = supabase.channel(`profile-universe:${profileId}`)
-    .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'profiles', filter: `id=eq.${profileId}` }, () => location.reload())
+  const channel = supabase.channel(`profile-universe:${profileId}:${mountEpoch || 'mount'}`)
+    .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'profiles', filter: `id=eq.${profileId}` }, () => {
+      if (isCurrent()) location.reload();
+    })
     .subscribe();
 
-  window.addEventListener('pagehide', () => { void supabase.removeChannel(channel); }, { once: true });
+  const cleanup = () => {
+    if (disposed) return;
+    disposed = true;
+    void supabase.removeChannel(channel);
+  };
+  window.__rbPageCleanup = cleanup;
+  window.addEventListener('pagehide', cleanup, { once: true });
+  window.addEventListener('beforeunload', cleanup, { once: true });
 }
