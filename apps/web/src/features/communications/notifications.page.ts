@@ -13,6 +13,7 @@ type Notice = {
 };
 type FilterKey='all'|'unread'|'social'|'media'|'live'|'money'|'system';
 type Snapshot={counts?:{all?:number;unread?:number;unseen?:number};notifications?:Notice[]};
+type CleanupHost=Window&{__rbPageCleanup?:(()=>void|Promise<void>)|null};
 
 const FILTERS:FilterKey[]=['all','unread','social','media','live','money','system'];
 const esc=(value:string|null|undefined)=>(value??'').replace(/[&<>'\"]/g,(character)=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','\"':'&quot;'}[character]??character));
@@ -38,8 +39,10 @@ function categoryFor(notice:Notice):Exclude<FilterKey,'all'|'unread'> {
 
 export async function mount():Promise<void>{
   const root=document.querySelector<HTMLElement>('#app');
-  if(!root||root.dataset.notificationsOwner==='mounted')return;
-  root.dataset.notificationsOwner='mounted';
+  if(!root)throw new Error('Missing #app mount');
+  const mountEpoch=root.dataset.pageEpoch??'';
+  let destroyed=false;
+  const isCurrent=()=>!destroyed&&root.dataset.pageEpoch===mountEpoch&&root.dataset.pageOwner==='rich-bizness-notifications-v2';
   const user=getAuthSnapshot().user;
   if(!user){location.replace(`/tap-in.html?next=${encodeURIComponent(ROUTES.notifications)}`);return;}
 
@@ -68,12 +71,13 @@ export async function mount():Promise<void>{
   const metricMoney=root.querySelector<HTMLElement>('#metricMoney')!;
   const metricSystem=root.querySelector<HTMLElement>('#metricSystem')!;
   let notices:Notice[]=[]; let authoritativeAll=0; let authoritativeUnread=0;
-  let destroyed=false; let loading=false; let refreshQueued=false; let refreshTimer=0; let channel:ReturnType<typeof supabase.channel>|null=null;
+  let loading=false; let refreshQueued=false; let refreshTimer=0; let statusTimer=0; let channel:ReturnType<typeof supabase.channel>|null=null; let requestId=0;
 
-  const setStatus=(message:string)=>{if(!destroyed)status.textContent=message;};
+  const setStatus=(message:string)=>{if(!isCurrent())return;status.textContent=message;window.clearTimeout(statusTimer);if(message)statusTimer=window.setTimeout(()=>{if(isCurrent()&&status.textContent===message)status.textContent='';},3200);};
   const filteredNotices=()=>notices.filter((notice)=>activeFilter==='all'||(activeFilter==='unread'?!notice.is_read:categoryFor(notice)===activeFilter));
   const categoryCount=(category:Exclude<FilterKey,'all'|'unread'>)=>notices.filter((notice)=>categoryFor(notice)===category).length;
   const updateCounts=()=>{
+    if(!isCurrent())return;
     count.textContent=`${authoritativeUnread} NEW`;
     metricUnread.textContent=String(authoritativeUnread);
     metricLive.textContent=String(categoryCount('live'));
@@ -87,6 +91,7 @@ export async function mount():Promise<void>{
     markAllButton.disabled=authoritativeUnread===0||loading;
   };
   const render=()=>{
+    if(!isCurrent())return;
     const rows=filteredNotices(); updateCounts();
     list.innerHTML=rows.length?rows.map((notice)=>{
       const category=categoryFor(notice); const target=safeTarget(notice.action_url||notice.target_url); const action=notice.action_label||'OPEN';
@@ -96,29 +101,33 @@ export async function mount():Promise<void>{
   };
   const markRead=async(id:string)=>{
     const{data,error}=await supabase.rpc('rb_notifications_mark_read',{p_notification_id:id,p_all:false}); if(error)throw error;
+    if(!isCurrent())return;
     const notice=notices.find((row)=>row.id===id); if(notice){notice.is_read=true;notice.is_seen=true;}
     authoritativeUnread=Number((data as any)?.unread??Math.max(0,authoritativeUnread-1));
   };
   const load=async()=>{
-    if(destroyed)return; if(loading){refreshQueued=true;return;} loading=true; refreshButton.disabled=true; setStatus('SYNCING ALERTS…');
+    if(!isCurrent())return; if(loading){refreshQueued=true;return;} loading=true; refreshButton.disabled=true; setStatus('SYNCING ALERTS…'); const current=++requestId;
     try{
       const{data,error}=await supabase.rpc('rb_notifications_snapshot',{p_limit:150}); if(error)throw error;
+      if(!isCurrent()||current!==requestId)return;
       const snapshot=(data??{}) as Snapshot; notices=snapshot.notifications??[]; authoritativeAll=Number(snapshot.counts?.all??notices.length); authoritativeUnread=Number(snapshot.counts?.unread??notices.filter((notice)=>!notice.is_read).length); render();
       const unseenIds=notices.filter((notice)=>!notice.is_seen).map((notice)=>notice.id);
-      if(unseenIds.length){const{error:seenError}=await supabase.rpc('rb_notifications_mark_seen',{p_ids:unseenIds});if(seenError)throw seenError;notices.forEach((notice)=>{if(unseenIds.includes(notice.id))notice.is_seen=true;});}
+      if(unseenIds.length){const{error:seenError}=await supabase.rpc('rb_notifications_mark_seen',{p_ids:unseenIds});if(seenError)throw seenError;if(!isCurrent()||current!==requestId)return;notices.forEach((notice)=>{if(unseenIds.includes(notice.id))notice.is_seen=true;});}
       setStatus('');
-    }catch(caught){setStatus(caught instanceof Error?caught.message:'Unable to sync notifications.');}
-    finally{loading=false;refreshButton.disabled=false;updateCounts();if(refreshQueued){refreshQueued=false;void load();}}
+    }catch(caught){if(isCurrent()&&current===requestId)setStatus(caught instanceof Error?caught.message:'Unable to sync notifications.');}
+    finally{if(isCurrent()&&current===requestId){loading=false;refreshButton.disabled=false;updateCounts();if(refreshQueued){refreshQueued=false;void load();}}}
   };
   const queueLoad=()=>{window.clearTimeout(refreshTimer);refreshTimer=window.setTimeout(()=>void load(),180);};
 
   list.addEventListener('click',async(event)=>{
+    if(!isCurrent())return;
     const target=event.target as HTMLElement; const readButton=target.closest<HTMLButtonElement>('[data-read]');
     if(readButton){readButton.disabled=true;try{await markRead(readButton.dataset.read!);render();}catch(caught){setStatus(caught instanceof Error?caught.message:'Unable to update alert.');}return;}
     const openButton=target.closest<HTMLButtonElement>('[data-open]'); if(!openButton)return;
-    try{await markRead(openButton.dataset.open!);location.assign(openButton.dataset.target||ROUTES.notifications);}catch(caught){setStatus(caught instanceof Error?caught.message:'Unable to open alert.');}
+    try{await markRead(openButton.dataset.open!);if(isCurrent())location.assign(openButton.dataset.target||ROUTES.notifications);}catch(caught){setStatus(caught instanceof Error?caught.message:'Unable to open alert.');}
   });
   filterButtons.forEach((button)=>button.addEventListener('click',()=>{
+    if(!isCurrent())return;
     const next=button.dataset.filter as FilterKey;
     if(!FILTERS.includes(next))return;
     activeFilter=next;
@@ -130,14 +139,16 @@ export async function mount():Promise<void>{
   }));
   refreshButton.addEventListener('click',()=>void load());
   markAllButton.addEventListener('click',async()=>{
-    markAllButton.disabled=true;
-    try{const{data,error}=await supabase.rpc('rb_notifications_mark_read',{p_notification_id:null,p_all:true});if(error)throw error;notices.forEach((notice)=>{notice.is_read=true;notice.is_seen=true;});authoritativeUnread=Number((data as any)?.unread??0);render();setStatus('All alerts marked read.');}
+    if(!isCurrent())return;markAllButton.disabled=true;
+    try{const{data,error}=await supabase.rpc('rb_notifications_mark_read',{p_notification_id:null,p_all:true});if(error)throw error;if(!isCurrent())return;notices.forEach((notice)=>{notice.is_read=true;notice.is_seen=true;});authoritativeUnread=Number((data as any)?.unread??0);render();setStatus('All alerts marked read.');}
     catch(caught){setStatus(caught instanceof Error?caught.message:'Unable to mark alerts read.');}
     finally{updateCounts();}
   });
 
+  const cleanup=async()=>{if(destroyed)return;destroyed=true;requestId+=1;window.clearTimeout(refreshTimer);window.clearTimeout(statusTimer);if(channel){await supabase.removeChannel(channel);channel=null;}};
+  (window as CleanupHost).__rbPageCleanup=cleanup;
+
   await load();
-  channel=supabase.channel(`rich-notifications:${user.id}`).on('postgres_changes',{event:'*',schema:'public',table:'rich_notifications',filter:`user_id=eq.${user.id}`},queueLoad).subscribe();
-  const cleanup=()=>{if(destroyed)return;destroyed=true;window.clearTimeout(refreshTimer);if(channel){void supabase.removeChannel(channel);channel=null;}delete root.dataset.notificationsOwner;};
-  window.addEventListener('pagehide',cleanup,{once:true});
+  if(!isCurrent())return;
+  channel=supabase.channel(`rich-notifications:${mountEpoch}:${user.id}`).on('postgres_changes',{event:'*',schema:'public',table:'rich_notifications',filter:`user_id=eq.${user.id}`},queueLoad).subscribe();
 }
