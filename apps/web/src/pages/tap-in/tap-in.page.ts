@@ -12,9 +12,10 @@ const usernameFrom = (value: string) => value.trim().toLowerCase().replace(/[^a-
 export async function mountTapInPage(): Promise<void> {
   const app = document.querySelector<HTMLDivElement>('#app');
   if (!app) throw new Error('Missing #app mount');
-  if (app.dataset.pageOwner === OWNER) return;
-  app.replaceChildren();
-  app.dataset.pageOwner = OWNER;
+  const mountEpoch = app.dataset.pageEpoch ?? '';
+  let disposed = false;
+  const isCurrent = () => !disposed && app.dataset.pageEpoch === mountEpoch && app.dataset.pageOwner === OWNER;
+  if (app.dataset.pageOwner !== OWNER) return;
 
   const params = new URLSearchParams(location.search);
   const next = safeInternalRoute(params.get('next'));
@@ -28,7 +29,7 @@ export async function mountTapInPage(): Promise<void> {
 
   const controller = new AbortController();
   const { signal } = controller;
-  window.addEventListener('pagehide', () => controller.abort(), { once: true });
+  let redirectTimer = 0;
 
   app.innerHTML = `
     <main class="auth-shell" data-auth-state="ready">
@@ -78,13 +79,25 @@ export async function mountTapInPage(): Promise<void> {
   if (!shell || !status) throw new Error('Tap In gateway failed to mount');
 
   const setStatus = (message: string, error = false, busy = false) => {
+    if (!isCurrent()) return;
     status.textContent = message;
     status.dataset.error = String(error);
     shell.dataset.authState = error ? 'error' : busy ? 'busy' : 'ready';
   };
 
+  const cleanup = () => {
+    if (disposed) return;
+    disposed = true;
+    controller.abort();
+    if (redirectTimer) window.clearTimeout(redirectTimer);
+  };
+  (window as Window & { __rbPageCleanup?: (() => void | Promise<void>) | null }).__rbPageCleanup = cleanup;
+  window.addEventListener('pagehide', cleanup, { once: true });
+  window.addEventListener('beforeunload', cleanup, { once: true });
+
   app.querySelectorAll<HTMLButtonElement>('[data-toggle-password]').forEach((button) => {
     button.addEventListener('click', () => {
+      if (!isCurrent()) return;
       const input = app.querySelector<HTMLInputElement>(`#${button.dataset.togglePassword}`);
       if (!input) return;
       input.type = input.type === 'password' ? 'text' : 'password';
@@ -100,14 +113,15 @@ export async function mountTapInPage(): Promise<void> {
     if (!form || !password || !submit) throw new Error('Recovery form failed to mount');
     form.addEventListener('submit', async (event) => {
       event.preventDefault();
-      if (!form.reportValidity()) return;
+      if (!isCurrent() || !form.reportValidity()) return;
       submit.disabled = true;
       setStatus('LOCKIN’ YOUR NEW ACCESS...', false, true);
       const { error } = await supabase.auth.updateUser({ password: password.value });
+      if (!isCurrent()) return;
       submit.disabled = false;
       if (error) return setStatus(error.message, true);
       setStatus('ACCESS LOCKED — YOU TAPPED IN');
-      window.setTimeout(() => location.replace(next || '/profile.html'), 500);
+      redirectTimer = window.setTimeout(() => { if (isCurrent()) location.replace(next || '/profile.html'); }, 500);
     }, { signal });
     return;
   }
@@ -125,7 +139,7 @@ export async function mountTapInPage(): Promise<void> {
 
   app.querySelectorAll<HTMLButtonElement>('[data-auth-mode]').forEach((button) => {
     button.addEventListener('click', () => {
-      if (pending) return;
+      if (!isCurrent() || pending) return;
       mode = button.dataset.authMode === 'signup' ? 'signup' : 'signin';
       app.querySelectorAll<HTMLButtonElement>('[data-auth-mode]').forEach((node) => {
         const active = node === button;
@@ -142,7 +156,7 @@ export async function mountTapInPage(): Promise<void> {
 
   form.addEventListener('submit', async (event) => {
     event.preventDefault();
-    if (pending || !form.reportValidity()) return;
+    if (!isCurrent() || pending || !form.reportValidity()) return;
     pending = true;
     submitButton.disabled = true;
     recoverButton.disabled = true;
@@ -161,6 +175,7 @@ export async function mountTapInPage(): Promise<void> {
         })
       : await supabase.auth.signInWithPassword(credentials);
 
+    if (!isCurrent()) return;
     pending = false;
     submitButton.disabled = false;
     recoverButton.disabled = false;
@@ -172,6 +187,7 @@ export async function mountTapInPage(): Promise<void> {
       const user = activeSession.user;
       const fallbackName = chosenName || String(user.user_metadata.display_name ?? user.email?.split('@')[0] ?? 'Rich Member');
       const existing = await supabase.from('profiles').select('id,display_name,username').eq('id', user.id).maybeSingle();
+      if (!isCurrent()) return;
       if (existing.error) return setStatus('YOU TAPPED IN, BUT PROFILE LOCK NEEDS A RETRY', true);
 
       const profileResult = existing.data
@@ -184,15 +200,16 @@ export async function mountTapInPage(): Promise<void> {
             has_avatar: false,
             updated_at: new Date().toISOString()
           });
+      if (!isCurrent()) return;
       if (profileResult.error) return setStatus('YOU TAPPED IN, BUT PROFILE LOCK NEEDS A RETRY', true);
     }
 
     setStatus(`WELCOME BACK ${esc(chosenName || credentials.email.split('@')[0]).toUpperCase()} — VERIFIED`);
-    window.setTimeout(() => location.replace(next), 300);
+    redirectTimer = window.setTimeout(() => { if (isCurrent()) location.replace(next); }, 300);
   }, { signal });
 
   recoverButton.addEventListener('click', async () => {
-    if (pending) return;
+    if (!isCurrent() || pending) return;
     if (!email.value.trim()) return setStatus('DROP YOUR EMAIL FIRST', true);
     pending = true;
     recoverButton.disabled = true;
@@ -200,6 +217,7 @@ export async function mountTapInPage(): Promise<void> {
     setStatus('SENDING YOUR GET-BACK-IN LINK...', false, true);
     const redirect = `${location.origin}/tap-in.html?mode=recovery&next=${encodeURIComponent(next)}`;
     const { error } = await supabase.auth.resetPasswordForEmail(email.value.trim().toLowerCase(), { redirectTo: redirect });
+    if (!isCurrent()) return;
     pending = false;
     recoverButton.disabled = false;
     submitButton.disabled = false;
