@@ -5,6 +5,7 @@ import './avatar.selector.css';
 type Preset = { preset_key:string; title:string; aura:string; outfit:string; motion:string; config:Record<string,string> };
 type Snapshot = { profile?:Record<string,unknown>; avatar?:Record<string,any>; presets?:Preset[]; level?:Record<string,any> };
 
+const OWNER='rich-bizness-avatar-selector-v2';
 const esc=(v:unknown)=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]??c));
 const token=(v:unknown,fallback='custom')=>String(v??fallback).toLowerCase().replace(/[^a-z0-9_-]+/g,'-');
 const compact=(v:unknown)=>new Intl.NumberFormat('en-US',{notation:'compact',maximumFractionDigits:1}).format(Number(v??0));
@@ -51,15 +52,16 @@ const renderFigure=(preset:Preset)=>{
 
 export async function mount():Promise<void>{
   const root=document.querySelector<HTMLElement>('#app');
-  if(!root||root.dataset.avatarSelectorOwner==='mounted')return;
-  root.dataset.avatarSelectorOwner='mounted';
+  if(!root)throw new Error('Missing #app mount');
+  const mountEpoch=root.dataset.pageEpoch??'';
   let destroyed=false;
+  const isCurrent=()=>!destroyed&&root.dataset.pageEpoch===mountEpoch&&root.dataset.pageOwner===OWNER;
   const user=getAuthSnapshot().user;
-  if(!user){delete root.dataset.avatarSelectorOwner;location.replace('/tap-in.html?next=%2Favatar.html');return;}
+  if(!user){location.replace('/tap-in.html?next=%2Favatar.html');return;}
   try{
     const {data,error}=await supabase.rpc('rb_avatar_runtime_snapshot',{});
     if(error)throw error;
-    if(destroyed)return;
+    if(!isCurrent())return;
     const snapshot=(data??{}) as Snapshot;
     const presets=Array.isArray(snapshot.presets)?snapshot.presets:[];
     const profile=snapshot.profile??{};
@@ -80,12 +82,13 @@ export async function mount():Promise<void>{
     const activeTitle=root.querySelector<HTMLElement>('#activeIdentityPreset')!;
     const launch=root.querySelector<HTMLAnchorElement>('#launchLobby')!;
     const preview=root.querySelector<HTMLAnchorElement>('#previewLobby')!;
-    const syncUrl=()=>{const url=new URL(location.href);url.searchParams.set('preset',selected);history.replaceState({},'',`${url.pathname}${url.search}${url.hash}`);};
+    const syncUrl=()=>{if(!isCurrent())return;const url=new URL(location.href);url.searchParams.set('preset',selected);history.replaceState({},'',`${url.pathname}${url.search}${url.hash}`);};
     const updateSelection=(card:HTMLButtonElement)=>{
+      if(!isCurrent())return;
       selected=card.dataset.preset??selected;
       aura=card.dataset.aura??aura;
       const preset=activePreset();
-      cards.forEach(x=>{const isActive=x===card;x.classList.toggle('active',isActive);x.setAttribute('aria-pressed',String(isActive));const badge=x.querySelector<HTMLElement>('.preset-card__status');if(badge)badge.textContent=isActive?'ACTIVE':'AVAILABLE';});
+      cards.forEach(x=>{const active=x===card;x.classList.toggle('active',active);x.setAttribute('aria-pressed',String(active));const badge=x.querySelector<HTMLElement>('.preset-card__status');if(badge)badge.textContent=active?'ACTIVE':'AVAILABLE';});
       activeAura.textContent=aura;
       activeTitle.textContent=preset?.title??'Rich Character';
       launch.href=`/avatar-characters.html?preset=${encodeURIComponent(selected)}`;
@@ -96,6 +99,7 @@ export async function mount():Promise<void>{
     cards.forEach(card=>{card.setAttribute('aria-pressed',String(card.classList.contains('active')));card.onclick=()=>updateSelection(card);});
     const saveButton=root.querySelector<HTMLButtonElement>('#saveAvatar')!;
     saveButton.onclick=async()=>{
+      if(!isCurrent())return;
       const preset=activePreset();
       if(!preset)return;
       status.textContent='Synchronizing selected avatar identity…';
@@ -103,18 +107,20 @@ export async function mount():Promise<void>{
       try{
         const{error:saveError}=await supabase.rpc('rb_save_avatar_studio',{p_display_name:name,p_preset_key:selected,p_aura:aura,p_outfit:{preset:preset.outfit??'Rich Street',character:preset.config??{},rig:'human-v3-proportioned'},p_accessories:{signature:preset.config?.signature??null},p_smoke:{mode:preset.config?.smoke??'cinematic',intensity:'elite'},p_emotes:{idle:true,power_up:true,combat_pose:true},p_character_type:selected});
         if(saveError)throw saveError;
+        if(!isCurrent())return;
         status.textContent=`${preset.title??'Character'} is synced across Profile, Portal, Meta and the 3D lobby.`;
       }catch(error){
-        status.textContent=error instanceof Error?error.message:'Avatar could not be saved.';
+        if(isCurrent())status.textContent=error instanceof Error?error.message:'Avatar could not be saved.';
       }finally{
-        saveButton.disabled=false;
+        if(isCurrent())saveButton.disabled=false;
       }
     };
   }catch(error){
-    delete root.dataset.avatarSelectorOwner;
-    throw error;
+    if(isCurrent())throw error;
+    return;
   }
-  const cleanup=()=>{if(destroyed)return;destroyed=true;delete root.dataset.avatarSelectorOwner;};
+  const cleanup=()=>{if(destroyed)return;destroyed=true;};
+  window.__rbPageCleanup=cleanup;
   window.addEventListener('pagehide',cleanup,{once:true});
   window.addEventListener('beforeunload',cleanup,{once:true});
 }
