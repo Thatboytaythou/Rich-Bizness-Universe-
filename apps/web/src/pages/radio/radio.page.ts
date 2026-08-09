@@ -135,7 +135,7 @@ export async function mount(): Promise<void> {
   const subscribeComments = async (stationId: string | null) => {
     if (commentChannel) { await supabase.removeChannel(commentChannel); commentChannel = null; }
     if (!stationId || !isCurrent()) return;
-    commentChannel = supabase.channel(`radio-comments:${stationId}`).on('postgres_changes', { event: '*', schema: 'public', table: 'radio_comments', filter: `station_id=eq.${stationId}` }, () => scheduleLoad(stationId)).subscribe();
+    commentChannel = supabase.channel(`radio-comments:${mountEpoch}:${stationId}`).on('postgres_changes', { event: '*', schema: 'public', table: 'radio_comments', filter: `station_id=eq.${stationId}` }, () => scheduleLoad(stationId)).subscribe();
   };
 
   const selectStation = async (station: Row, shouldPlay = false) => {
@@ -237,16 +237,16 @@ export async function mount(): Promise<void> {
 
   await load();
   if (!isCurrent()) return;
-  stationChannel = supabase.channel('rich-radio-stations').on('postgres_changes', { event: '*', schema: 'public', table: 'radio_stations' }, () => scheduleLoad()).subscribe();
+  stationChannel = supabase.channel(`rich-radio-stations:${mountEpoch}`).on('postgres_changes', { event: '*', schema: 'public', table: 'radio_stations' }, () => scheduleLoad()).subscribe();
   await subscribeComments(active?.id ? String(active.id) : null);
   if (!isCurrent()) return;
   if (userId) {
-    listenerChannel = supabase.channel(`rich-radio-listeners:${userId}`)
+    listenerChannel = supabase.channel(`rich-radio-listeners:${mountEpoch}:${userId}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'radio_likes', filter: `user_id=eq.${userId}` }, () => scheduleLoad())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'radio_sessions', filter: `user_id=eq.${userId}` }, () => scheduleLoad())
       .subscribe();
   } else {
-    listenerChannel = supabase.channel(`rich-radio-listeners:${anonymousId}`)
+    listenerChannel = supabase.channel(`rich-radio-listeners:${mountEpoch}:${anonymousId}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'radio_sessions', filter: `anonymous_id=eq.${anonymousId}` }, () => scheduleLoad())
       .subscribe();
   }
