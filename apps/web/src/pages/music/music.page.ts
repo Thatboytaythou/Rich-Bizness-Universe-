@@ -144,7 +144,7 @@ export async function mount(): Promise<void> {
     setTrackUrl(String(track.id));
     if (commentChannel) await supabase.removeChannel(commentChannel);
     if (!isCurrent()) return;
-    commentChannel = supabase.channel(`music-comments:${track.id}`).on('postgres_changes', { event: '*', schema: 'public', table: 'music_comments', filter: `track_id=eq.${track.id}` }, () => scheduleLoad()).subscribe();
+    commentChannel = supabase.channel(`music-comments:${mountEpoch}:${track.id}`).on('postgres_changes', { event: '*', schema: 'public', table: 'music_comments', filter: `track_id=eq.${track.id}` }, () => scheduleLoad()).subscribe();
     if (autoplayAfterOpen) { autoplayAfterOpen = false; await playActive(); }
   };
 
@@ -172,11 +172,12 @@ export async function mount(): Promise<void> {
     finally { button.disabled = false; }
   };
 
-  const onTimeUpdate = () => { if (!userId || !active || !Number.isFinite(audio.duration) || !isCurrent()) return; const now = Date.now(); if (now - lastHistoryWrite < 15000) return; lastHistoryWrite = now; void writeHistory(false); };
-  const onEnded = async () => { if (!isCurrent()) return; await writeHistory(true); await moveQueue(1); };
-  const onPlay = () => { if (isCurrent()) q<HTMLButtonElement>('#musicToggle').textContent = '⏸'; };
-  const onPause = () => { if (isCurrent()) q<HTMLButtonElement>('#musicToggle').textContent = '▶'; };
+  const onTimeUpdate = () => { if (!userId || !active || !Number.isFinite(audio.duration) || !isCurrent()) return; const now = Date.now(); if (now - lastHistoryWrite < 12000) return; lastHistoryWrite = now; void writeHistory(false); };
+  const onEnded = () => { if (!isCurrent()) return; void writeHistory(true); countedTrack = null; void moveQueue(1); };
+  const onPlay = () => { if (!isCurrent()) return; q<HTMLButtonElement>('#musicToggle').textContent = '❚❚'; q<HTMLButtonElement>('#musicToggle').setAttribute('aria-label', 'Pause'); };
+  const onPause = () => { if (!isCurrent()) return; q<HTMLButtonElement>('#musicToggle').textContent = '▶'; q<HTMLButtonElement>('#musicToggle').setAttribute('aria-label', 'Play'); };
   const scheduleLoad = () => { if (!isCurrent()) return; window.clearTimeout(refreshTimer); refreshTimer = window.setTimeout(() => { if (isCurrent()) void load(); }, 180); };
+
   audio.addEventListener('timeupdate', onTimeUpdate);
   audio.addEventListener('ended', onEnded);
   audio.addEventListener('play', onPlay);
@@ -214,9 +215,9 @@ export async function mount(): Promise<void> {
   const initial = tracks().find((row) => String(row.id) === requested) ?? tracks()[0];
   if (initial) await openTrack(initial, false); else if (isCurrent()) hero.innerHTML = '<div class="sound-empty">No music releases yet.</div>';
   if (!isCurrent()) return;
-  catalogChannel = supabase.channel('music-catalog-owner').on('postgres_changes', { event: '*', schema: 'public', table: 'music_tracks' }, scheduleLoad).subscribe();
+  catalogChannel = supabase.channel(`music-catalog-owner:${mountEpoch}`).on('postgres_changes', { event: '*', schema: 'public', table: 'music_tracks' }, scheduleLoad).subscribe();
   if (userId) {
-    listenerChannel = supabase.channel(`music-listener:${userId}`)
+    listenerChannel = supabase.channel(`music-listener:${mountEpoch}:${userId}`)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'music_likes', filter: `user_id=eq.${userId}` }, scheduleLoad)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'playlists', filter: `user_id=eq.${userId}` }, scheduleLoad)
       .on('postgres_changes', { event: '*', schema: 'public', table: 'audio_listening_history', filter: `user_id=eq.${userId}` }, scheduleLoad)
