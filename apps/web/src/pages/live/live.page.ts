@@ -174,29 +174,22 @@ export async function mount(): Promise<void> {
     const poster=safeMedia(row.cover_url||row.thumbnail_url)||'/images/live/categories/family-bizness.svg';
     const gated=['vip','paid','private'].includes(String(row.access_type));
     const host=owned(row);
-    return `<img class="media-ultimate__hero-media" src="${esc(poster)}" alt=""><div class="media-ultimate__hero-copy"><span class="media-ultimate__eyebrow">● WE LIT🔥 · ${esc(row.display_room_name||row.category||'FAMILY BIZNESS')}</span><h2>${esc(row.title||'Family Bizness')}</h2><p>${esc(row.description||'Pop in and see what type time the Rich Bizness universe on.')}</p><div class="media-ultimate__actions"><button id="popInBtn" class="media-ultimate__btn primary">${host?'OPEN MY ROOM':user?'POP IN':'TAP IN TO POP IN'}</button>${gated&&!host?`<button id="buyAccessBtn" class="media-ultimate__btn">UNLOCK ${money(row.price_cents??0)}</button>`:''}${!host?'<button id="tipBtn" class="media-ultimate__btn">💰 TIP</button>':''}<button id="reactBtn" class="media-ultimate__btn">💨 REACT</button><button id="alertBtn" class="media-ultimate__btn">${alerts.has(String(row.creator_id))?'🔔 LOCKED IN':'🔔 STAY LOCKED'}</button><button id="shareBtn" class="media-ultimate__btn">↗ SHARE</button><a class="media-ultimate__btn" href="/watch.html?lane=live">WE 🔥📺 REPLAYS</a></div></div>`;
+    return `<img class="media-ultimate__hero-media" src="${esc(poster)}" alt=""><div class="media-ultimate__hero-copy"><span class="media-ultimate__eyebrow">● WE LIT🔥 · ${esc(row.display_room_name||row.category||'FAMILY BIZNESS')}</span><h2>${esc(row.title||'Family Bizness')}</h2><p>${esc(row.description||'Pop in and see what type time the Rich Bizness universe on.')}</p><div class="media-ultimate__actions"><button id="popInBtn" class="media-ultimate__btn primary">${host?'OPEN MY ROOM':user?'POP IN':'TAP IN TO POP IN'}</button>${gated&&!host?`<button id="buyAccessBtn" class="media-ultimate__btn">UNLOCK ${money(row.price_cents??0)}</button>`:''}${!host?'<button id="tipBtn" class="media-ultimate__btn">💰 TIP</button>':''}<button id="reactBtn" class="media-ultimate__btn">💨 REACT</button><button id="alertBtn" class="media-ultimate__btn">${alerts.has(String(row.creator_id))?'🔔 LOCKED IN':'🔔 STAY LOCKED'}</button><button id="shareBtn" class="media-ultimate__btn">↗ SHARE</button></div><div id="viewerStage" class="live-viewer-stage"></div></div>`;
   };
 
   const renderRoom = () => {
     if (!isCurrent()) return;
-    metricsEl.innerHTML = `<article><small>WE LIT🔥</small><strong>${Number(metrics.live_count??0)}</strong></article><article><small>NOW WATCHING</small><strong>${Number(metrics.viewer_count??0).toLocaleString()}</strong></article><article><small>ROOM ENERGY</small><strong>${Number(metrics.reaction_count??0).toLocaleString()}</strong></article><article><small>CREATOR BAG</small><strong>${money(metrics.revenue_cents??0)}</strong></article>`;
     const list=rows();
-    gridEl.innerHTML=list.length?list.map(renderCard).join(''):'<div class="media-ultimate__empty">Ain’t nothing in this lane yet.</div>';
+    metricsEl.innerHTML=`<article><small>LIVE NOW</small><strong>${Number(metrics.live_now??streams.filter(liveNow).length).toLocaleString()}</strong></article><article><small>WATCHING</small><strong>${Number(metrics.viewers??0).toLocaleString()}</strong></article><article><small>MEMBERS</small><strong>${Number(metrics.members??memberRows.length).toLocaleString()}</strong></article><article><small>TIPS</small><strong>${money(metrics.tips_cents??tipRows.reduce((sum,row)=>sum+Number(row.amount_cents??0),0))}</strong></article>`;
+    gridEl.innerHTML=list.map(renderCard).join('')||'<div class="media-ultimate__empty">No rooms in this lane yet.</div>';
     gridEl.querySelectorAll<HTMLElement>('[data-id]').forEach((card)=>card.onclick=()=>{const row=list.find((item)=>String(item.id)===card.dataset.id);if(row)void open(row);});
-    if (!active || !liveNow(active)) {
-      heroEl.innerHTML=`<div class="media-ultimate__empty"><strong>${user?'YOUR WE LIT 🔥 ROOM IS OFF':'AIN’T NOBODY LIVE YET'}</strong><br>${user?'Light your own room up or choose a public live below.':'Tap in when a public room goes live.'}</div>`;
-      detailEl.innerHTML='';
-      chatEl.innerHTML='<div class="media-ultimate__empty">Open a live room to load chat.</div>';
-      activityEl.innerHTML='<div class="media-ultimate__empty">Room activity appears here.</div>';
-      return;
-    }
+    if(!active){heroEl.innerHTML=user?'<div class="media-ultimate__empty"><strong>YOUR LIVE COMMAND IS READY.</strong><span>Pick a live room or launch your own.</span></div>':'<div class="media-ultimate__empty"><strong>WE LIT 🔥</strong><span>Pick any public live room to pop in.</span></div>';detailEl.innerHTML='';chatEl.innerHTML='<div class="media-ultimate__empty">Pop in a room.</div>';activityEl.innerHTML='';return;}
     heroEl.innerHTML=hero(active);
-    detailEl.innerHTML=[['BIZNESS PARTY',`${active.display_room_name||active.category||'Family Bizness'} · ${active.access_type||'free'}`],['STREAM QUALITY',`${active.stream_protocol||'LiveKit'} · ${active.latency_mode||'interactive'} · ${active.recording_enabled?'replay on':'replay off'}`],['NOW WATCHING',`${Number(metrics.member_count??active.viewer_count??active.view_count??0).toLocaleString()} active · ${Number(active.peak_viewers??0).toLocaleString()} peak`],['ROOM MONEY',`${money(metrics.tip_cents??0)} tips · ${money(metrics.purchase_cents??0)} access`]].map(([label,value])=>`<article><small>${esc(label)}</small><strong>${esc(value)}</strong></article>`).join('');
-    const isHost=owned(active);
-    chatEl.innerHTML=chatRows.length?chatRows.map((item)=>`<article class="${item.is_pinned?'is-pinned':''}"><strong>${esc(item.display_name||item.username||'RICH MEMBER')}</strong><p>${esc(item.message||item.body||'')}</p>${isHost?`<button type="button" data-pin-message="${esc(item.id)}">${item.is_pinned?'PINNED':'PIN'}</button>`:''}</article>`).join(''):'<div class="media-ultimate__empty">No chat yet.</div>';
-    activityEl.innerHTML=activityRows.length?`<h4>MEMBER ACTIVITY</h4>${activityRows.slice(0,12).map((item)=>`<span><b>${esc(String(item.activity_type||'activity').toUpperCase())}</b><small>${new Date(item.created_at).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit'})}</small></span>`).join('')}<div class="live-room-ledger"><small>${memberRows.filter((item)=>item.status==='active').length} ACTIVE</small><small>${tipRows.length} TIPS</small><small>${purchaseRows.length} ACCESS PASSES</small></div>`:'<div class="media-ultimate__empty">Room activity appears here.</div>';
-    q<HTMLButtonElement>('#popInBtn')?.addEventListener('click',()=>{if(requireUser())void popIn(active!);});
-    q<HTMLButtonElement>('#buyAccessBtn')?.addEventListener('click',async()=>{const result=await runLiveAction('purchase_access',{});if(result){await refresh();void popIn(active!);}});
+    detailEl.innerHTML=[['ROOM',active.display_room_name||active.category||'BIZNESS PARTY'],['HOST',active.display_name||active.username||'Rich Creator'],['ACCESS',String(active.access_type||'free').toUpperCase()],['VIEWERS',Number(active.viewer_count??0).toLocaleString()],['STATUS',String(active.status_label||active.status||'LIVE').toUpperCase()]].map(([label,value])=>`<div class="media-ultimate__row"><div><h5>${esc(label)}</h5><p>${esc(value)}</p></div></div>`).join('');
+    chatEl.innerHTML=chatRows.length?chatRows.map((row)=>`<article><p>${esc(row.message)}</p><small>${esc(row.display_name||row.username||'Rich Member')}</small>${owned(active)&&!row.is_pinned?`<button data-pin-message="${esc(row.id)}">PIN</button>`:''}</article>`).join(''):'<div class="media-ultimate__empty">Start the room conversation.</div>';
+    activityEl.innerHTML=activityRows.slice(0,8).map((row)=>`<span>${esc(row.activity_type||'activity')} · ${esc(row.display_name||row.username||'Rich Member')}</span>`).join('');
+    q<HTMLButtonElement>('#popInBtn')?.addEventListener('click',()=>void popIn(active!));
+    q<HTMLButtonElement>('#buyAccessBtn')?.addEventListener('click',async()=>{const result=await runLiveAction('purchase',{amount_cents:Number(active!.price_cents??0)});if(result)await refresh();});
     q<HTMLButtonElement>('#tipBtn')?.addEventListener('click',async()=>{const amount=Number(prompt('Tip amount in dollars','5')||0);if(!Number.isFinite(amount)||amount<=0)return;const result=await runLiveAction('tip',{amount_cents:Math.round(amount*100)});if(result){burst('💰');await refresh();}});
     q<HTMLButtonElement>('#reactBtn')?.addEventListener('click',async()=>{const result=await runLiveAction('reaction',{reaction:'💨'});if(result)burst('💨');});
     q<HTMLButtonElement>('#alertBtn')?.addEventListener('click',async()=>{const result=await runLiveAction('toggle_alert',{});if(result){const creator=String(active!.creator_id);if(result.active)alerts.add(creator);else alerts.delete(creator);renderRoom();}});
@@ -286,7 +279,29 @@ export async function mount(): Promise<void> {
   };
 
   const connectHost = async (stream: Row) => { studioStatus.textContent='CHECKING CAMERA + MIC...';await stopHost();const payload=await tokenFor(stream,'host');if(!isCurrent())return;const room=new Room({adaptiveStream:true,dynacast:true});hostRoom=room;room.on(RoomEvent.Disconnected,()=>{if(isCurrent()&&hostRoom){studioStatus.textContent='LIVE ROOM DISCONNECTED';}});await room.connect(payload.url,payload.token);if(!isCurrent())return;hostVideo=await createLocalVideoTrack({facingMode:'user',resolution:{width:1280,height:720}});hostAudio=await createLocalAudioTrack({echoCancellation:true,noiseSuppression:true,autoGainControl:true});await room.localParticipant.publishTrack(hostVideo,{simulcast:true});await room.localParticipant.publishTrack(hostAudio);studioPreview.innerHTML=`<div id="hostVideoMount" class="live-host-stage"></div><span class="live-host-badge">● WE LIT🔥</span><div class="live-host-controls"><button id="toggleMic">🎙️</button><button id="toggleCam">📹</button><button id="endLive" class="danger">■</button></div><div class="live-studio__preview-overlay"><small>${esc(stream.display_room_name||'BIZNESS PARTY')}</small><h3>${esc(stream.title)}</h3></div>`;const element=lockMedia(hostVideo.attach(),'live-inline-video live-host-video');element.muted=true;element.autoplay=true;q<HTMLElement>('#hostVideoMount').append(element);heartbeat=window.setInterval(()=>{if(isCurrent())void supabase.rpc('rb_live_heartbeat',{p_stream_id:stream.id});},30000);studioStatus.textContent=`WE LIT🔥 — YOU LIVE AS ${String(profile.display_name||profile.username||'RICH CREATOR').toUpperCase()}`;q<HTMLButtonElement>('#toggleMic').onclick=async()=>{if(hostAudio){await hostAudio.setMuted(!hostAudio.isMuted);q<HTMLButtonElement>('#toggleMic').textContent=hostAudio.isMuted?'🔇':'🎙️';}};q<HTMLButtonElement>('#toggleCam').onclick=async()=>{if(hostVideo){await hostVideo.setMuted(!hostVideo.isMuted);q<HTMLButtonElement>('#toggleCam').textContent=hostVideo.isMuted?'🚫':'📹';}};q<HTMLButtonElement>('#endLive').onclick=()=>void endLive(stream); };
-  const endLive = async (stream: Row) => { studioStatus.textContent='WRAPPIN’ THE PARTY UP...';await stopHost();const {error}=await supabase.rpc('rb_end_live_stream',{p_stream_id:stream.id});if(error){studioStatus.textContent=error.message;studioStatus.dataset.error='true';return;}activeHostStream=null;active=null;setStreamUrl(null);startButton.disabled=false;studioStatus.textContent='PARTY’S OVER — REPLAY GETTIN’ RIGHT ON WE 🔥📺';await refresh();window.setTimeout(()=>{if(isCurrent())studio.close();},600); };
+  const endLive = async (stream: Row) => {
+    studioStatus.textContent='WRAPPIN’ THE PARTY UP...';
+    await stopHost();
+    const {data,error}=await supabase.rpc('rb_end_live_stream',{p_stream_id:stream.id});
+    if(error){studioStatus.textContent=error.message;studioStatus.dataset.error='true';return;}
+    if(!isCurrent())return;
+    activeHostStream=null;
+    active=null;
+    setStreamUrl(null);
+    startButton.disabled=false;
+    const endedStream=((data??{}) as Row).stream??stream;
+    const {data:recording}=await supabase.from('live_recordings').select('id,status,recording_url').eq('stream_id',stream.id).in('status',['ready','completed','published','processed']).not('recording_url','is',null).order('updated_at',{ascending:false}).limit(1).maybeSingle();
+    if(!isCurrent())return;
+    if(recording?.id&&recording.recording_url){
+      studioStatus.textContent='PARTY’S OVER — REPLAY READY ON WE 🔥📺';
+      const watchUrl=`/watch.html?lane=live&type=live_recording&id=${encodeURIComponent(String(recording.id))}`;
+      window.setTimeout(()=>{if(isCurrent())location.assign(watchUrl);},650);
+      return;
+    }
+    studioStatus.textContent=endedStream.recording_enabled===false?'PARTY’S OVER — NO REPLAY SAVED':'PARTY’S OVER — REPLAY GETTIN’ RIGHT ON WE 🔥📺';
+    await refresh();
+    window.setTimeout(()=>{if(isCurrent())studio.close();},600);
+  };
 
   root.querySelectorAll<HTMLButtonElement>('[data-lane]').forEach((button)=>button.onclick=()=>{if(!isCurrent())return;lane=button.dataset.lane||'live';root.querySelectorAll('[data-lane]').forEach((node)=>node.classList.toggle('active',node===button));laneTitle.textContent=button.textContent||'WE LIT🔥';const list=rows();const first=userId?list.find(owned)??null:null;active=first;setStreamUrl(first);renderRoom();});
   q<HTMLFormElement>('#chatForm').onsubmit=async(event)=>{event.preventDefault();if(!active||!requireUser()||!isCurrent())return;const input=q<HTMLInputElement>('#chatInput');const message=input.value.trim();if(!message)return;const submit=event.submitter as HTMLButtonElement|null;if(submit)submit.disabled=true;const result=await runLiveAction('chat',{message});if(result){input.value='';await refresh();}if(submit)submit.disabled=false;};
