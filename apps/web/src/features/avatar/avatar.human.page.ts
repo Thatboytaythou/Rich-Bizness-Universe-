@@ -9,6 +9,7 @@ type Row = Record<string, any>;
 type Preset = { preset_key:string; title:string; aura:string; outfit:string; motion:string; config:Record<string,string> };
 type CharacterConfig={body_type:string;build:string;hair:string;style:string;smoke:string};
 
+const CANONICAL_OWNER='rich-bizness-avatar-lobby-v3';
 const palettes:Record<string,{primary:number;secondary:number;skin:number}> = {
   'Emerald Gold': { primary:0x31ff63, secondary:0xf7c948, skin:0x70442f },
   'Diamond Mist': { primary:0x8fe8ff, secondary:0xd99cff, skin:0x9a6248 },
@@ -19,15 +20,20 @@ const disposeObject=(root:THREE.Object3D)=>root.traverse((object:any)=>{object.g
 
 export async function mount():Promise<void>{
   const root=document.querySelector<HTMLElement>('#app');
-  if(!root||root.dataset.humanAvatarOwner==='mounted')return;
-  root.dataset.humanAvatarOwner='mounted';
+  if(!root)throw new Error('Missing #app mount');
+  const mountEpoch=root.dataset.pageEpoch??'';
+  let disposed=false;
+  const isCurrent=()=>!disposed&&root.dataset.pageEpoch===mountEpoch&&root.dataset.pageOwner===CANONICAL_OWNER;
+  if(root.dataset.pageOwner!==CANONICAL_OWNER)return;
+
   const lifecycle=new AbortController();
   const signal=lifecycle.signal;
   const user=getAuthSnapshot().user;
-  if(!user){delete root.dataset.humanAvatarOwner;location.replace('/tap-in.html?next=%2Favatar-characters.html');return;}
+  if(!user){location.replace('/tap-in.html?next=%2Favatar-characters.html');return;}
 
   const {data,error}=await supabase.rpc('rb_avatar_runtime_snapshot',{});
-  if(error){delete root.dataset.humanAvatarOwner;throw error;}
+  if(!isCurrent())return;
+  if(error)throw error;
   const s=(data??{}) as Row;
   const p=s.profile??{};
   const a=s.avatar??{};
@@ -121,6 +127,7 @@ export async function mount():Promise<void>{
   let rig={} as HumanRig;
   const disposeActor=()=>disposeObject(actor);
   function rebuild(){
+    if(!isCurrent())return;
     disposeActor();actor.clear();
     const colors=palettes[aura]??palettes['Emerald Gold'];
     rig=createHumanRig(colors,runtimeConfig.body_type==='female');
@@ -133,36 +140,37 @@ export async function mount():Promise<void>{
   }
   rebuild();
 
-  let yaw=0,pitch=.045,zoom=matchMedia('(max-width: 640px)').matches?10.6:9.4,drag=false,lastX=0,lastY=0,jump=0,grounded=true,action='none',until=0,touch={x:0,y:0},raf=0,cleaned=false;
+  let yaw=0,pitch=.045,zoom=matchMedia('(max-width: 640px)').matches?10.6:9.4,drag=false,lastX=0,lastY=0,jump=0,grounded=true,action='none',until=0,touch={x:0,y:0},raf=0;
   const keys=new Set<string>();
   const clock=new THREE.Clock();
   const velocity=new THREE.Vector3();
   const targetVelocity=new THREE.Vector3();
-  const trigger=(next:string)=>{action=next;until=performance.now()+1600;ui.state.textContent=next.toUpperCase();};
-  const resize=()=>{const width=Math.max(1,ui.canvas.clientWidth),height=Math.max(1,ui.canvas.clientHeight);renderer.setSize(width,height,false);camera.aspect=width/height;camera.updateProjectionMatrix();};
+  const trigger=(next:string)=>{if(!isCurrent())return;action=next;until=performance.now()+1600;ui.state.textContent=next.toUpperCase();};
+  const resize=()=>{if(!isCurrent())return;const width=Math.max(1,ui.canvas.clientWidth),height=Math.max(1,ui.canvas.clientHeight);renderer.setSize(width,height,false);camera.aspect=width/height;camera.updateProjectionMatrix();};
   const ro=new ResizeObserver(resize);ro.observe(ui.canvas);resize();
-  const kd=(event:KeyboardEvent)=>{keys.add(event.code);if(event.code==='Space'&&grounded){event.preventDefault();jump=7.2;grounded=false;}};
+  const kd=(event:KeyboardEvent)=>{if(!isCurrent())return;keys.add(event.code);if(event.code==='Space'&&grounded){event.preventDefault();jump=7.2;grounded=false;}};
   const ku=(event:KeyboardEvent)=>keys.delete(event.code);
   window.addEventListener('keydown',kd,{signal});window.addEventListener('keyup',ku,{signal});
-  ui.canvas.addEventListener('pointerdown',event=>{drag=true;lastX=event.clientX;lastY=event.clientY;ui.canvas.setPointerCapture(event.pointerId);},{signal});
-  ui.canvas.addEventListener('pointermove',event=>{if(!drag)return;yaw-=(event.clientX-lastX)*.0075;pitch=Math.max(-.14,Math.min(.3,pitch+(event.clientY-lastY)*.0036));lastX=event.clientX;lastY=event.clientY;},{signal});
+  ui.canvas.addEventListener('pointerdown',event=>{if(!isCurrent())return;drag=true;lastX=event.clientX;lastY=event.clientY;ui.canvas.setPointerCapture(event.pointerId);},{signal});
+  ui.canvas.addEventListener('pointermove',event=>{if(!isCurrent()||!drag)return;yaw-=(event.clientX-lastX)*.0075;pitch=Math.max(-.14,Math.min(.3,pitch+(event.clientY-lastY)*.0036));lastX=event.clientX;lastY=event.clientY;},{signal});
   const stopDrag=()=>{drag=false;};ui.canvas.addEventListener('pointerup',stopDrag,{signal});ui.canvas.addEventListener('pointercancel',stopDrag,{signal});
 
-  ui.onCamera=mode=>{zoom=mode==='portrait'?5.8:mode==='street'?12:9.4;pitch=mode==='portrait'?.015:mode==='street'?.11:.045;};
+  ui.onCamera=mode=>{if(!isCurrent())return;zoom=mode==='portrait'?5.8:mode==='street'?12:9.4;pitch=mode==='portrait'?.015:mode==='street'?.11:.045;};
   ui.onMotion=trigger;
-  ui.onAction=next=>{if(next==='jump'&&grounded){jump=7.2;grounded=false;}else if(next==='sprint')keys.add('ShiftLeft');else trigger(next);};
+  ui.onAction=next=>{if(!isCurrent())return;if(next==='jump'&&grounded){jump=7.2;grounded=false;}else if(next==='sprint')keys.add('ShiftLeft');else trigger(next);};
   ui.onActionEnd=next=>{if(next==='sprint')keys.delete('ShiftLeft');};
-  ui.onJoystick=value=>{touch=value;};
-  ui.onAura=value=>{aura=value;rebuild();ui.refresh(preset,aura);};
-  ui.onPreset=value=>{preset=presets.find(x=>x.preset_key===value)??preset;aura=preset?.aura??aura;Object.assign(runtimeConfig,preset?.config??{});rebuild();ui.refresh(preset,aura);const url=new URL(location.href);url.searchParams.set('preset',preset?.preset_key??'');history.replaceState(null,'',`${url.pathname}${url.search}${url.hash}`);};
-  ui.onBody=value=>{runtimeConfig.body_type=value;rebuild();ui.status.textContent=`${value==='female'?'Girl':'Boy'} body rig active.`;};
-  ui.onCustomization=value=>{Object.assign(runtimeConfig,value);rebuild();ui.status.textContent='Character customization applied to the live 3D rig.';};
-  ui.onReset=()=>{yaw=0;pitch=.045;zoom=matchMedia('(max-width: 640px)').matches?10.6:9.4;actor.position.set(0,0,18);velocity.set(0,0,0);Object.assign(runtimeConfig,preset?.config??{body_type:'male',build:'athletic',hair:'energy',style:'human rig',smoke:'cinematic'});rebuild();ui.refresh(preset,aura);};
-  ui.onSave=async()=>{ui.status.textContent='Synchronizing cinematic human character…';const{error:saveError}=await supabase.rpc('rb_save_avatar_studio',{p_display_name:ui.nameInput.value.trim(),p_preset_key:preset?.preset_key??'boss',p_aura:aura,p_outfit:{preset:preset?.outfit??'Rich Street',character:runtimeConfig,rig:'human-v5-custom-world'},p_accessories:{signature:preset?.config?.signature??null,hair:runtimeConfig.hair,style:runtimeConfig.style},p_smoke:{mode:runtimeConfig.smoke,intensity:runtimeConfig.smoke==='heavy'?'elite':'cinematic'},p_emotes:{idle:true,power_up:true,combat_pose:true,free_roam:true,dance:true,smoke:true},p_character_type:runtimeConfig.body_type});ui.status.textContent=saveError?saveError.message:'Character synced across Profile, Portal, Meta and the free-roam world.';};
+  ui.onJoystick=value=>{if(isCurrent())touch=value;};
+  ui.onAura=value=>{if(!isCurrent())return;aura=value;rebuild();ui.refresh(preset,aura);};
+  ui.onPreset=value=>{if(!isCurrent())return;preset=presets.find(x=>x.preset_key===value)??preset;aura=preset?.aura??aura;Object.assign(runtimeConfig,preset?.config??{});rebuild();ui.refresh(preset,aura);const url=new URL(location.href);url.searchParams.set('preset',preset?.preset_key??'');history.replaceState(null,'',`${url.pathname}${url.search}${url.hash}`);};
+  ui.onBody=value=>{if(!isCurrent())return;runtimeConfig.body_type=value;rebuild();ui.status.textContent=`${value==='female'?'Girl':'Boy'} body rig active.`;};
+  ui.onCustomization=value=>{if(!isCurrent())return;Object.assign(runtimeConfig,value);rebuild();ui.status.textContent='Character customization applied to the live 3D rig.';};
+  ui.onReset=()=>{if(!isCurrent())return;yaw=0;pitch=.045;zoom=matchMedia('(max-width: 640px)').matches?10.6:9.4;actor.position.set(0,0,18);velocity.set(0,0,0);Object.assign(runtimeConfig,preset?.config??{body_type:'male',build:'athletic',hair:'energy',style:'human rig',smoke:'cinematic'});rebuild();ui.refresh(preset,aura);};
+  ui.onSave=async()=>{if(!isCurrent())return;ui.status.textContent='Synchronizing cinematic human character…';const{error:saveError}=await supabase.rpc('rb_save_avatar_studio',{p_display_name:ui.nameInput.value.trim(),p_preset_key:preset?.preset_key??'boss',p_aura:aura,p_outfit:{preset:preset?.outfit??'Rich Street',character:runtimeConfig,rig:'human-v5-custom-world'},p_accessories:{signature:preset?.config?.signature??null,hair:runtimeConfig.hair,style:runtimeConfig.style},p_smoke:{mode:runtimeConfig.smoke,intensity:runtimeConfig.smoke==='heavy'?'elite':'cinematic'},p_emotes:{idle:true,power_up:true,combat_pose:true,free_roam:true,dance:true,smoke:true},p_character_type:runtimeConfig.body_type});if(!isCurrent())return;ui.status.textContent=saveError?saveError.message:'Character synced across Profile, Portal, Meta and the free-roam world.';};
 
   actor.position.set(0,0,18);
   const bounds=54;
   const loop=()=>{
+    if(!isCurrent())return;
     raf=requestAnimationFrame(loop);if(document.hidden)return;
     const dt=Math.min(clock.getDelta(),.033),time=clock.elapsedTime;
     const ix=(keys.has('KeyD')?1:0)-(keys.has('KeyA')?1:0)+touch.x;
@@ -183,6 +191,8 @@ export async function mount():Promise<void>{
   };
   loop();
 
-  const cleanup=()=>{if(cleaned)return;cleaned=true;lifecycle.abort();cancelAnimationFrame(raf);ro.disconnect();disposeActor();disposeObject(world);particleGeo.dispose();renderer.dispose();ui.cleanup();delete root.dataset.humanAvatarOwner;document.documentElement.style.removeProperty('--avatar-accent');};
-  window.addEventListener('pagehide',cleanup,{once:true,signal});window.addEventListener('beforeunload',cleanup,{once:true,signal});
+  const cleanup=()=>{if(disposed)return;disposed=true;lifecycle.abort();cancelAnimationFrame(raf);ro.disconnect();disposeActor();disposeObject(world);particleGeo.dispose();renderer.dispose();ui.cleanup();document.documentElement.style.removeProperty('--avatar-accent');};
+  (window as Window & {__rbPageCleanup?:(()=>void)|null}).__rbPageCleanup=cleanup;
+  window.addEventListener('pagehide',cleanup,{once:true});
+  window.addEventListener('beforeunload',cleanup,{once:true});
 }
