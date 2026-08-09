@@ -18,6 +18,7 @@ export async function mount(): Promise<void> {
   if (!root) throw new Error('Missing #app');
   const host = window as CleanupHost;
   const mountEpoch = root.dataset.pageEpoch ?? '';
+  let destroyed = false;
   const isCurrent = () => !destroyed && root.dataset.pageEpoch === mountEpoch && root.dataset.pageOwner === 'rich-bizness-podcast-v4';
 
   const user = getAuthSnapshot().user;
@@ -44,7 +45,6 @@ export async function mount(): Promise<void> {
   let listenerChannel: Channel | null = null;
   let loading = false;
   let queued = false;
-  let destroyed = false;
   let refreshTimer: number | undefined;
   let statusTimer: number | undefined;
   let lastHistory = 0;
@@ -104,7 +104,7 @@ export async function mount(): Promise<void> {
   const subscribeComments = async (episodeId: string | null) => {
     if (commentChannel) { await supabase.removeChannel(commentChannel); commentChannel = null; }
     if (!episodeId || !isCurrent()) return;
-    commentChannel = supabase.channel(`podcast-comments:${episodeId}`).on('postgres_changes', { event: '*', schema: 'public', table: 'podcast_comments', filter: `episode_id=eq.${episodeId}` }, () => scheduleLoad(episodeId)).subscribe();
+    commentChannel = supabase.channel(`podcast-comments:${mountEpoch}:${episodeId}`).on('postgres_changes', { event: '*', schema: 'public', table: 'podcast_comments', filter: `episode_id=eq.${episodeId}` }, () => scheduleLoad(episodeId)).subscribe();
   };
 
   const syncUrl = (episodeId: string) => { if (!isCurrent()) return; const url = new URL(location.href); url.searchParams.set('id', episodeId); url.searchParams.delete('episode'); history.replaceState({}, '', `${url.pathname}${url.search}${url.hash}`); };
@@ -137,7 +137,7 @@ export async function mount(): Promise<void> {
       media.onended = () => { if (isCurrent()) { void persist(media, true); void moveQueue(1); } };
     }
     root.querySelector<HTMLButtonElement>('#podcastPlayBtn')!.onclick = () => void playActive();
-    root.querySelector<HTMLButtonElement>('#podcastLikeBtn')!.onclick = async () => { if (!requireUser()) return; try { const result = await action('toggle_like', { episode_id: current.id }); snapshot.liked = Boolean(result.liked); await load(String(current.id), false); await openEpisode(current, false, false); } catch (error) { setStatus(error instanceof Error ? error.message : 'Like failed', true); } };
+    root.querySelector<HTMLButtonElement>('#podcastLikeBtn')!.onclick = async () => { if (!requireUser()) return; try { const result = await action('toggle_like', { episode_id: current.id }); if (!isCurrent()) return; snapshot.liked = Boolean(result.liked); await load(String(current.id), false); if (isCurrent()) await openEpisode(current, false, false); } catch (error) { setStatus(error instanceof Error ? error.message : 'Like failed', true); } };
     if (autoplayAfterOpen) { autoplayAfterOpen = false; await playActive(); }
   };
 
@@ -169,7 +169,7 @@ export async function mount(): Promise<void> {
 
   const scheduleLoad = (episodeId?: string) => { if (!isCurrent()) return; window.clearTimeout(refreshTimer); refreshTimer = window.setTimeout(() => { if (isCurrent()) void load(episodeId || (active?.id ? String(active.id) : undefined), false); }, 180); };
 
-  form.onsubmit = async (event) => { event.preventDefault(); if (!active || !requireUser() || !isCurrent()) return; const body = input.value.trim(); if (!body) return; const button = form.querySelector<HTMLButtonElement>('button')!; button.disabled = true; try { await action('comment', { episode_id: active.id, body }); input.value = ''; await load(String(active.id), false); } catch (error) { setStatus(error instanceof Error ? error.message : 'Comment failed', true); } finally { button.disabled = false; } };
+  form.onsubmit = async (event) => { event.preventDefault(); if (!active || !requireUser() || !isCurrent()) return; const body = input.value.trim(); if (!body) return; const button = form.querySelector<HTMLButtonElement>('button')!; button.disabled = true; try { await action('comment', { episode_id: active.id, body }); if (!isCurrent()) return; input.value = ''; await load(String(active.id), false); } catch (error) { setStatus(error instanceof Error ? error.message : 'Comment failed', true); } finally { if (isCurrent()) button.disabled = false; } };
 
   root.querySelector<HTMLButtonElement>('#podcastPrev')!.onclick = () => void moveQueue(-1);
   root.querySelector<HTMLButtonElement>('#podcastNext')!.onclick = () => void moveQueue(1);
@@ -187,15 +187,18 @@ export async function mount(): Promise<void> {
     await Promise.allSettled(removals);
     networkChannel = null; commentChannel = null; listenerChannel = null;
     if (host.__rbPageCleanup === cleanup) host.__rbPageCleanup = null;
+    window.removeEventListener('pagehide', onPageExit);
+    window.removeEventListener('beforeunload', onPageExit);
   };
+  const onPageExit = () => { void cleanup(); };
   host.__rbPageCleanup = cleanup;
-  window.addEventListener('pagehide', () => void cleanup(), { once: true });
-  window.addEventListener('beforeunload', () => void cleanup(), { once: true });
+  window.addEventListener('pagehide', onPageExit, { once: true });
+  window.addEventListener('beforeunload', onPageExit, { once: true });
 
   await load(undefined, true);
   if (!isCurrent()) return;
-  networkChannel = supabase.channel('podcast-network-owner').on('postgres_changes', { event: '*', schema: 'public', table: 'podcast_shows' }, () => scheduleLoad()).on('postgres_changes', { event: '*', schema: 'public', table: 'podcast_episodes' }, () => scheduleLoad()).subscribe();
+  networkChannel = supabase.channel(`podcast-network-owner:${mountEpoch}`).on('postgres_changes', { event: '*', schema: 'public', table: 'podcast_shows' }, () => scheduleLoad()).on('postgres_changes', { event: '*', schema: 'public', table: 'podcast_episodes' }, () => scheduleLoad()).subscribe();
   if (userId && isCurrent()) {
-    listenerChannel = supabase.channel(`podcast-listener:${userId}`).on('postgres_changes', { event: '*', schema: 'public', table: 'podcast_likes', filter: `user_id=eq.${userId}` }, () => scheduleLoad()).on('postgres_changes', { event: '*', schema: 'public', table: 'audio_listening_history', filter: `user_id=eq.${userId}` }, () => scheduleLoad()).subscribe();
+    listenerChannel = supabase.channel(`podcast-listener:${mountEpoch}:${userId}`).on('postgres_changes', { event: '*', schema: 'public', table: 'podcast_likes', filter: `user_id=eq.${userId}` }, () => scheduleLoad()).on('postgres_changes', { event: '*', schema: 'public', table: 'audio_listening_history', filter: `user_id=eq.${userId}` }, () => scheduleLoad()).subscribe();
   }
 }
