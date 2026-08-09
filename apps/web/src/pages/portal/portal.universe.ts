@@ -34,6 +34,7 @@ type Destination = {
 };
 
 const DEFAULT_PORTAL_BACKGROUND = '/images/0E886281-8F03-4288-B3CA-C45369B7B58E.png';
+const CANONICAL_OWNER = 'rich-bizness-portal-v3';
 
 const destinations: Destination[] = [
   { key: 'live', label: 'LIVE', icon: '◉', href: ROUTES.live, position: 'top', kicker: 'BROADCAST' },
@@ -79,13 +80,18 @@ export async function mountPortalPage(): Promise<void> {
   const app = document.querySelector<HTMLDivElement>('#app');
   if (!app) throw new Error('Missing #app mount');
 
+  const mountEpoch = app.dataset.pageEpoch ?? '';
+  let disposed = false;
+  const isCurrent = () => !disposed && app.dataset.pageEpoch === mountEpoch && app.dataset.pageOwner === CANONICAL_OWNER;
+
   if (document.activeElement instanceof HTMLElement) document.activeElement.blur();
 
   const user = getAuthSnapshot().user;
-  if (!user) return;
+  if (!user || !isCurrent()) return;
 
   let snapshot: PortalSnapshot = {};
   const { data, error } = await supabase.rpc('rb_portal_elite_snapshot', {});
+  if (!isCurrent()) return;
   if (!error) snapshot = (data ?? {}) as PortalSnapshot;
 
   const profile = snapshot.profile ?? {};
@@ -201,21 +207,27 @@ export async function mountPortalPage(): Promise<void> {
       </footer>
     </main>`;
 
+  if (!isCurrent()) return;
   const cleanupMotion = mountPortalMotion({ reduced: reducedMotion });
-  const pulseTrack = document.querySelector<HTMLElement>('.portal-pulse > div');
+  const pulseTrack = app.querySelector<HTMLElement>('.portal-pulse > div');
   let pulseTimer: number | null = null;
   if (pulseTrack && !reducedMotion) {
     let pulseIndex = 0;
     pulseTimer = window.setInterval(() => {
+      if (!isCurrent()) return;
       pulseIndex = (pulseIndex + 1) % Math.max(1, recent.length);
       pulseTrack.style.transform = `translateY(-${pulseIndex * 100}%)`;
     }, 4200);
   }
 
   const cleanup = () => {
+    if (disposed) return;
+    disposed = true;
     cleanupMotion();
     if (pulseTimer !== null) window.clearInterval(pulseTimer);
   };
+
+  (window as Window & { __rbPageCleanup?: (() => void | Promise<void>) | null }).__rbPageCleanup = cleanup;
   window.addEventListener('pagehide', cleanup, { once: true });
   window.addEventListener('beforeunload', cleanup, { once: true });
 }
