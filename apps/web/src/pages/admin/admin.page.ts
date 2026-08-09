@@ -13,6 +13,7 @@ type Snapshot = {
   generated_at: string;
 };
 
+const OWNER = 'rich-bizness-admin-v3';
 const esc = (value: unknown) => String(value ?? '').replace(/[&<>"']/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[character] ?? character);
 const when = (value: unknown) => value ? new Intl.DateTimeFormat('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }).format(new Date(String(value))) : '';
 const cash = (value: unknown) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(Number(value ?? 0) / 100);
@@ -23,8 +24,10 @@ const badge = (value: unknown) => { const text = String(value ?? 'unknown').toLo
 export async function mount(): Promise<void> {
   const root = document.querySelector<HTMLElement>('#app');
   if (!root) throw new Error('Missing #app');
-  if (root.dataset.adminOwner === 'mounted') return;
-  root.dataset.adminOwner = 'mounted';
+  const mountEpoch = root.dataset.pageEpoch ?? '';
+  let destroyed = false;
+  const isCurrent = () => !destroyed && root.dataset.pageEpoch === mountEpoch && root.dataset.pageOwner === OWNER;
+  if (root.dataset.pageOwner !== OWNER) return;
 
   const user = getAuthSnapshot().user;
   if (!user) { location.replace(`${ROUTES.tapIn}?next=${encodeURIComponent(ROUTES.admin)}`); return; }
@@ -48,25 +51,26 @@ export async function mount(): Promise<void> {
   let lane = 'overview';
   let loading = false;
   let queued = false;
-  let destroyed = false;
   let accessDenied = false;
   let statusTimer: number | undefined;
   let realtimeTimer: number | undefined;
   let channel: ReturnType<typeof supabase.channel> | null = null;
 
   const setStatus = (message: string) => {
-    if (destroyed || accessDenied) return;
+    if (!isCurrent() || accessDenied) return;
     status.textContent = message;
     if (statusTimer) clearTimeout(statusTimer);
-    statusTimer = window.setTimeout(() => { if (!destroyed && !accessDenied && status.textContent === message) status.textContent = ''; }, 3500);
+    statusTimer = window.setTimeout(() => { if (isCurrent() && !accessDenied && status.textContent === message) status.textContent = ''; }, 3500);
   };
 
   const lanes = [['overview','OVERVIEW'],['moderation','MODERATION'],['systems','SYSTEMS'],['platform','PLATFORM'],['analytics','ANALYTICS + MONEY'],['audit','AUDIT + TRUST'],['roles','ROLES']];
   const requestedLane = new URLSearchParams(location.search).get('lane');
   if (requestedLane && lanes.some(([key]) => key === requestedLane)) lane = requestedLane;
   const renderTabs = () => {
+    if (!isCurrent()) return;
     tabs.innerHTML = lanes.map(([key,label]) => `<button class="deep-tab ${lane === key ? 'active' : ''}" data-lane="${key}" type="button">${label}</button>`).join('');
     tabs.querySelectorAll<HTMLButtonElement>('[data-lane]').forEach((button) => button.onclick = () => {
+      if (!isCurrent()) return;
       lane = button.dataset.lane!;
       const url = new URL(location.href);
       if (lane === 'overview') url.searchParams.delete('lane'); else url.searchParams.set('lane', lane);
@@ -77,16 +81,11 @@ export async function mount(): Promise<void> {
   };
 
   const render = () => {
-    if (!snapshot || destroyed || accessDenied) return;
+    if (!snapshot || !isCurrent() || accessDenied) return;
     const s = snapshot;
     roleNode.textContent = String(s.role.role_label || s.role.role_key || 'SECURE').toUpperCase();
     const failedOps = Number(s.counts.failed_jobs ?? 0) + Number(s.counts.failed_webhooks ?? 0) + Number(s.counts.failed_requests ?? 0);
-    const permissions = [
-      ['MODERATION', s.permissions.moderate],
-      ['USERS', s.permissions.users],
-      ['PLATFORM', s.permissions.platform],
-      ['MONEY', s.permissions.money]
-    ];
+    const permissions = [['MODERATION', s.permissions.moderate],['USERS', s.permissions.users],['PLATFORM', s.permissions.platform],['MONEY', s.permissions.money]];
     operatorDeck.innerHTML = `<article class="admin-operator-primary"><small>OPERATOR ACCESS</small><strong>${esc(s.role.role_label || s.role.role_key || 'Protected role')}</strong><p>Snapshot verified ${when(s.generated_at)} · ${failedOps ? `${failedOps} failed operation${failedOps === 1 ? '' : 's'} need review` : 'all monitored operations clear'}</p></article><article class="admin-operator-health ${failedOps ? 'danger' : ''}"><small>OPERATIONS HEALTH</small><strong>${failedOps ? 'ATTENTION' : 'NOMINAL'}</strong><div><span>JOBS ${Number(s.counts.failed_jobs ?? 0)}</span><span>WEBHOOKS ${Number(s.counts.failed_webhooks ?? 0)}</span><span>REQUESTS ${Number(s.counts.failed_requests ?? 0)}</span></div></article><article class="admin-operator-permissions"><small>PERMISSION MATRIX</small><div>${permissions.map(([label,enabled]) => `<span class="${enabled ? 'enabled' : ''}">${label} ${enabled ? 'ON' : 'LOCKED'}</span>`).join('')}</div></article>`;
     stats.innerHTML = `<article><small>PENDING REVIEW</small><strong>${Number(s.counts.pending_reviews ?? 0).toLocaleString()}</strong></article><article><small>OPEN REPORTS</small><strong>${Number(s.counts.open_reports ?? 0).toLocaleString()}</strong></article><article><small>FAILED OPS</small><strong>${failedOps.toLocaleString()}</strong></article><article><small>TRACKED VALUE</small><strong>${s.permissions.money ? cash(s.counts.tracked_value_cents) : 'PROTECTED'}</strong></article>`;
 
@@ -110,30 +109,32 @@ export async function mount(): Promise<void> {
     }
 
     content.querySelectorAll<HTMLButtonElement>('[data-review]').forEach((button) => button.onclick = async () => {
-      if (!snapshot?.permissions.moderate) return;
+      if (!isCurrent() || !snapshot?.permissions.moderate) return;
       const decision = button.dataset.review!;
       if (!confirm(`${decision.toUpperCase()} THIS REVIEW?`)) return;
       button.disabled = true;
       setStatus(`APPLYING ${decision.toUpperCase()} DECISION…`);
       const { error } = await supabase.rpc('rb_admin_action', { p_action: 'review_decision', p_target_id: button.dataset.id, p_value: { status: decision } });
+      if (!isCurrent()) return;
       if (error) setStatus(error.message); else { setStatus(`REVIEW ${decision.toUpperCase()}`); await load(); }
-      button.disabled = false;
+      if (isCurrent()) button.disabled = false;
     });
 
     content.querySelectorAll<HTMLButtonElement>('[data-flag]').forEach((button) => button.onclick = async () => {
-      if (!snapshot?.permissions.platform) return;
+      if (!isCurrent() || !snapshot?.permissions.platform) return;
       const enabled = button.dataset.enabled === 'true';
       if (!confirm(`${enabled ? 'ENABLE' : 'DISABLE'} THIS FEATURE FLAG?`)) return;
       button.disabled = true;
       setStatus(`${enabled ? 'ENABLING' : 'DISABLING'} FEATURE FLAG…`);
       const { error } = await supabase.rpc('rb_admin_action', { p_action: 'feature_flag', p_target_id: button.dataset.flag, p_value: { enabled } });
+      if (!isCurrent()) return;
       if (error) setStatus(error.message); else { setStatus(`FEATURE FLAG ${enabled ? 'ENABLED' : 'DISABLED'}`); await load(); }
-      button.disabled = false;
+      if (isCurrent()) button.disabled = false;
     });
   };
 
   const load = async (): Promise<void> => {
-    if (destroyed || accessDenied) return;
+    if (!isCurrent() || accessDenied) return;
     if (loading) { queued = true; return; }
     loading = true;
     refresh.disabled = true;
@@ -142,38 +143,40 @@ export async function mount(): Promise<void> {
     setStatus('SYNCING ADMIN CORE…');
     try {
       const { data, error } = await supabase.rpc('rb_admin_snapshot', { p_limit: 100 });
+      if (!isCurrent()) return;
       if (error) throw error;
       snapshot = data as Snapshot;
       renderTabs();
       render();
       setStatus(`SYSTEM VERIFIED · ${when(snapshot.generated_at)}`);
     } catch (caught) {
+      if (!isCurrent()) return;
       accessDenied = true;
       queued = false;
       if (statusTimer) clearTimeout(statusTimer);
       root.innerHTML = `<main class="deep-shell"><div class="deep-wrap"><header class="deep-top"><a href="${ROUTES.portal}">←</a><div><p>RICH BIZNESS SECURITY</p><h1>Restricted</h1></div></header><section class="deep-hero"><div><small>ADMIN ACCESS REQUIRED</small><h2>FOUNDER GATE</h2><p>${esc(caught instanceof Error ? caught.message : 'This command center is protected by server-owned roles and permission levels.')}</p><div class="deep-actions"><a class="deep-btn primary" href="${ROUTES.portal}">RETURN TO PORTAL</a><a class="deep-btn" href="${ROUTES.profile}">PROFILE</a></div></div></section></div></main>`;
     } finally {
       loading = false;
-      if (!accessDenied) {
+      if (isCurrent() && !accessDenied) {
         refresh.disabled = false;
         refresh.textContent = 'REFRESH SYSTEM';
         root.classList.remove('admin-loading');
-        if (queued && !destroyed) { queued = false; await load(); }
+        if (queued) { queued = false; await load(); }
       }
     }
   };
 
   refresh.onclick = () => void load();
   await load();
-  if (accessDenied || destroyed) return;
+  if (!isCurrent() || accessDenied) return;
 
   const scheduleReload = () => {
-    if (destroyed || accessDenied) return;
+    if (!isCurrent() || accessDenied) return;
     if (realtimeTimer) clearTimeout(realtimeTimer);
     realtimeTimer = window.setTimeout(() => void load(), 350);
   };
 
-  channel = supabase.channel(`admin-core:${user.id}`)
+  channel = supabase.channel(`admin-core:${user.id}:${mountEpoch || 'mount'}`)
     .on('postgres_changes', { event: '*', schema: 'public', table: 'content_review_queue' }, scheduleReload)
     .on('postgres_changes', { event: '*', schema: 'public', table: 'moderation_reports' }, scheduleReload)
     .on('postgres_changes', { event: '*', schema: 'public', table: 'feature_flags' }, scheduleReload)
@@ -189,9 +192,11 @@ export async function mount(): Promise<void> {
     destroyed = true;
     if (statusTimer) clearTimeout(statusTimer);
     if (realtimeTimer) clearTimeout(realtimeTimer);
-    if (channel) void supabase.removeChannel(channel);
-    delete root.dataset.adminOwner;
+    refresh.onclick = null;
+    root.classList.remove('admin-loading');
+    if (channel) { void supabase.removeChannel(channel); channel = null; }
   };
+  (window as any).__rbPageCleanup = cleanup;
   window.addEventListener('pagehide', cleanup, { once: true });
   window.addEventListener('beforeunload', cleanup, { once: true });
 }
