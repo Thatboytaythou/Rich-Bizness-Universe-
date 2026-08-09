@@ -2,32 +2,19 @@ import { getAuthSnapshot } from '../../core/auth/auth-store';
 import './home.css';
 
 const BACKGROUND = '/images/0E886281-8F03-4288-B3CA-C45369B7B58E.png';
-const HOME_OWNER = 'rich-bizness-home-v2';
+const HOME_OWNER = 'rich-bizness-home-v1';
 
 export async function mountHomePage(): Promise<void> {
   const app = document.querySelector<HTMLDivElement>('#app');
   if (!app) throw new Error('Missing #app mount');
-  if (app.dataset.pageOwner === HOME_OWNER) return;
+  const mountEpoch = app.dataset.pageEpoch ?? '';
+  let disposed = false;
+  const isCurrent = () => !disposed && app.dataset.pageEpoch === mountEpoch && app.dataset.pageOwner === HOME_OWNER;
+  if (!isCurrent()) return;
 
   const signedIn = Boolean(getAuthSnapshot().user);
   const primaryHref = signedIn ? '/portal.html' : '/tap-in.html?next=%2Fportal.html';
   const primaryLabel = signedIn ? 'ENTER UNIVERSE' : 'TAP IN';
-
-  app.dataset.pageOwner = HOME_OWNER;
-  app.replaceChildren();
-
-  const network = [
-    ['PROFILE','Universal identity, XP, creator status, edit and settings','/profile.html','ID'],
-    ['AVATAR SELECTOR','Choose, equip and customize your universal character','/avatar.html','3D'],
-    ['3D CHARACTER LOBBY','Enter the full avatar-character motion lobby','/avatar-characters.html','◉'],
-    ['META','Rooms, worlds, visits and connected identity','/meta.html','◎'],
-    ['FEED','Community drops, comments and discovery','/feed.html','◫'],
-    ['WE LIT 🔥','Live rooms, calls, reactions and VIP','/live.html','◉'],
-    ['WE 🔥 📺','Watch network, cinema and synchronized viewing','/watch.html','▶'],
-    ['MUSIC','Artists, tracks, podcasts and radio','/music.html','♪'],
-    ['GAMING','28 connected games, sessions and XP','/gaming.html','🎮'],
-    ['STORE','Creator products, orders and seller tools','/store.html','🛒']
-  ];
 
   app.innerHTML = `
     <main class="rb-home" style="--rb-home-bg:url('${BACKGROUND}')">
@@ -79,8 +66,29 @@ export async function mountHomePage(): Promise<void> {
       <section class="rb-home__command" aria-label="Rich Bizness command gateway">
         <header><div><small>UNIVERSE COMMAND DECK</small><h2>EVERY SYSTEM. ONE IDENTITY.</h2></div><a href="/portal.html">OPEN PORTAL →</a></header>
         <div class="rb-home__network">
-          ${network.map(([title,copy,href,icon]) => `<a href="${href}"><i>${icon}</i><small>${copy}</small><strong>${title}</strong><span>OPEN SYSTEM →</span></a>`).join('')}
+          ${[
+            ['PROFILE','Universal identity, XP, creator status, edit and settings','/profile.html','ID'],
+            ['AVATAR SELECTOR','Choose, equip and customize your universal character','/avatar.html','3D'],
+            ['3D CHARACTER LOBBY','Enter the full avatar-character motion lobby','/avatar-characters.html','◉'],
+            ['META','Rooms, worlds, visits and connected identity','/meta.html','◎'],
+            ['FEED','Community drops, comments and discovery','/feed.html','◫'],
+            ['WE LIT 🔥','Live rooms, calls, reactions and VIP','/live.html','◉'],
+            ['WE 🔥 📺','Watch network, cinema and synchronized viewing','/watch.html','▶'],
+            ['MUSIC','Songs, tracks, playlists and original audio catalog','/music.html','♪'],
+            ['PODCAST','Shows and episodes','/podcast.html','◌'],
+            ['RADIO','24/7 live audio, DJ sets and creator takeovers','/radio.html','⌁'],
+            ['GAMING','28 connected games, sessions and XP','/gaming.html','🎮'],
+            ['STORE','Creator products, orders and seller tools','/store.html','🛒']
+          ].map(([title,copy,href,icon]) => `<a href="${href}"><i>${icon}</i><small>${copy}</small><strong>${title}</strong><span>OPEN SYSTEM →</span></a>`).join('')}
         </div>
       </section>
     </main>`;
+
+  const cleanup = () => {
+    if (disposed) return;
+    disposed = true;
+  };
+  (window as Window & { __rbPageCleanup?: (() => void | Promise<void>) | null }).__rbPageCleanup = cleanup;
+  window.addEventListener('pagehide', cleanup, { once: true });
+  window.addEventListener('beforeunload', cleanup, { once: true });
 }
