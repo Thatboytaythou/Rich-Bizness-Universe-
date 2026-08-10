@@ -1,7 +1,6 @@
 import { getAuthSnapshot } from '../../core/auth/auth-store';
 import { supabase } from '../../core/supabase/client';
 import '../../styles/rich-sound.css';
-import '../../styles/radio-universe.css';
 
 type Row = Record<string, any>;
 type Snapshot = { stations?: Row[]; active_id?: string | null; liked?: boolean; comments?: Row[]; metrics?: Row };
@@ -145,6 +144,7 @@ export async function mount(): Promise<void> {
     autoplayAfterSelect = shouldPlay;
     const url = new URL(location.href);
     url.searchParams.set('id', String(station.id));
+    url.searchParams.delete('station');
     history.replaceState({}, '', `${url.pathname}${url.search}${url.hash}`);
     await load(station.id);
     await subscribeComments(active?.id ? String(active.id) : null);
@@ -162,7 +162,8 @@ export async function mount(): Promise<void> {
     if (loading) { queued = true; return; }
     loading = true;
     try {
-      const requested = stationId || active?.id || new URLSearchParams(location.search).get('id');
+      const params = new URLSearchParams(location.search);
+      const requested = stationId || active?.id || params.get('station') || params.get('id');
       const { data, error } = await supabase.rpc('rb_radio_snapshot', { p_station_id: requested || null, p_limit: 100 });
       if (error) throw error;
       if (!isCurrent()) return;
@@ -202,52 +203,32 @@ export async function mount(): Promise<void> {
     finally { button.disabled = false; }
   };
 
-  const onPlay = () => { if (!isCurrent()) return; q<HTMLButtonElement>('#radioToggle').textContent = 'Ⅱ'; void startSession(); };
-  const onPause = () => { if (!isCurrent()) return; q<HTMLButtonElement>('#radioToggle').textContent = '▶'; if (!audio.ended) void closeSession(); };
-  const onEnded = () => { if (isCurrent()) void moveQueue(1); };
-  audio.addEventListener('play', onPlay);
-  audio.addEventListener('pause', onPause);
-  audio.addEventListener('ended', onEnded);
   q<HTMLButtonElement>('#radioPrev').onclick = () => void moveQueue(-1);
   q<HTMLButtonElement>('#radioNext').onclick = () => void moveQueue(1);
-  q<HTMLButtonElement>('#radioToggle').onclick = () => { if (audio.paused) void playActive(); else audio.pause(); };
+  q<HTMLButtonElement>('#radioToggle').onclick = () => audio.paused ? void playActive() : audio.pause();
+  audio.onplay = () => { if (isCurrent()) q<HTMLButtonElement>('#radioToggle').textContent = 'Ⅱ'; };
+  audio.onpause = () => { if (isCurrent()) q<HTMLButtonElement>('#radioToggle').textContent = '▶'; };
 
   const cleanup = async () => {
     if (destroyed) return;
     destroyed = true;
-    window.clearTimeout(refreshTimer);
-    window.clearTimeout(messageTimer);
+    window.clearTimeout(refreshTimer); window.clearTimeout(messageTimer);
+    audio.pause(); audio.removeAttribute('src'); audio.load();
     await closeSession();
-    audio.pause();
-    audio.removeEventListener('play', onPlay);
-    audio.removeEventListener('pause', onPause);
-    audio.removeEventListener('ended', onEnded);
-    audio.removeAttribute('src');
-    audio.load();
-    const removals = [stationChannel, commentChannel, listenerChannel].filter(Boolean).map((channel) => supabase.removeChannel(channel as Channel));
-    await Promise.allSettled(removals);
-    stationChannel = null;
-    commentChannel = null;
-    listenerChannel = null;
+    if (stationChannel) await supabase.removeChannel(stationChannel);
+    if (commentChannel) await supabase.removeChannel(commentChannel);
+    if (listenerChannel) await supabase.removeChannel(listenerChannel);
+    stationChannel = null; commentChannel = null; listenerChannel = null;
+    window.removeEventListener('pagehide', onPageExit);
+    window.removeEventListener('beforeunload', onPageExit);
     if (host.__rbPageCleanup === cleanup) host.__rbPageCleanup = null;
   };
+  const onPageExit = () => { void cleanup(); };
   host.__rbPageCleanup = cleanup;
-  window.addEventListener('pagehide', () => void cleanup(), { once: true });
-  window.addEventListener('beforeunload', () => void cleanup(), { once: true });
+  window.addEventListener('pagehide', onPageExit, { once: true });
+  window.addEventListener('beforeunload', onPageExit, { once: true });
 
-  await load();
-  if (!isCurrent()) return;
   stationChannel = supabase.channel(`rich-radio-stations:${mountEpoch}`).on('postgres_changes', { event: '*', schema: 'public', table: 'radio_stations' }, () => scheduleLoad()).subscribe();
-  await subscribeComments(active?.id ? String(active.id) : null);
-  if (!isCurrent()) return;
-  if (userId) {
-    listenerChannel = supabase.channel(`rich-radio-listeners:${mountEpoch}:${userId}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'radio_likes', filter: `user_id=eq.${userId}` }, () => scheduleLoad())
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'radio_sessions', filter: `user_id=eq.${userId}` }, () => scheduleLoad())
-      .subscribe();
-  } else {
-    listenerChannel = supabase.channel(`rich-radio-listeners:${mountEpoch}:${anonymousId}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'radio_sessions', filter: `anonymous_id=eq.${anonymousId}` }, () => scheduleLoad())
-      .subscribe();
-  }
+  listenerChannel = supabase.channel(`rich-radio-listeners:${mountEpoch}:${userId || anonymousId}`).on('postgres_changes', { event: '*', schema: 'public', table: 'radio_listen_sessions' }, () => scheduleLoad(active?.id)).subscribe();
+  await load();
 }
