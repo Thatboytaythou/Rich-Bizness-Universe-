@@ -4,9 +4,10 @@ import './avatar.selector.css';
 
 type Preset = { preset_key:string; title:string; aura:string; outfit:string; motion:string; config:Record<string,string> };
 type Snapshot = { profile?:Record<string,unknown>; avatar?:Record<string,any>; presets?:Preset[]; level?:Record<string,any> };
+type CleanupHost=Window&{__rbPageCleanup?:(()=>void|Promise<void>)|null};
 
 const OWNER='rich-bizness-avatar-selector-v2';
-const esc=(v:unknown)=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]??c));
+const esc=(v:unknown)=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot',"'":'&#39;'}[c]??c));
 const token=(v:unknown,fallback='custom')=>String(v??fallback).toLowerCase().replace(/[^a-z0-9_-]+/g,'-');
 const compact=(v:unknown)=>new Intl.NumberFormat('en-US',{notation:'compact',maximumFractionDigits:1}).format(Number(v??0));
 
@@ -56,6 +57,11 @@ export async function mount():Promise<void>{
   const mountEpoch=root.dataset.pageEpoch??'';
   let destroyed=false;
   const isCurrent=()=>!destroyed&&root.dataset.pageEpoch===mountEpoch&&root.dataset.pageOwner===OWNER;
+  const cleanup=()=>{if(destroyed)return;destroyed=true;const host=window as CleanupHost;if(host.__rbPageCleanup===cleanup)host.__rbPageCleanup=null;window.removeEventListener('pagehide',cleanup);window.removeEventListener('beforeunload',cleanup);};
+  (window as CleanupHost).__rbPageCleanup=cleanup;
+  window.addEventListener('pagehide',cleanup,{once:true});
+  window.addEventListener('beforeunload',cleanup,{once:true});
+
   const user=getAuthSnapshot().user;
   if(!user){location.replace('/tap-in.html?next=%2Favatar.html');return;}
   try{
@@ -102,10 +108,11 @@ export async function mount():Promise<void>{
       if(!isCurrent())return;
       const preset=activePreset();
       if(!preset)return;
+      const characterType=token(preset.config?.body_type,'male')==='female'?'female':'male';
       status.textContent='Synchronizing selected avatar identity…';
       saveButton.disabled=true;
       try{
-        const{error:saveError}=await supabase.rpc('rb_save_avatar_studio',{p_display_name:name,p_preset_key:selected,p_aura:aura,p_outfit:{preset:preset.outfit??'Rich Street',character:preset.config??{},rig:'human-v3-proportioned'},p_accessories:{signature:preset.config?.signature??null},p_smoke:{mode:preset.config?.smoke??'cinematic',intensity:'elite'},p_emotes:{idle:true,power_up:true,combat_pose:true},p_character_type:selected});
+        const{error:saveError}=await supabase.rpc('rb_save_avatar_studio',{p_display_name:name,p_preset_key:selected,p_aura:aura,p_outfit:{preset:preset.outfit??'Rich Street',character:preset.config??{},rig:'human-v3-proportioned'},p_accessories:{signature:preset.config?.signature??null},p_smoke:{mode:preset.config?.smoke??'cinematic',intensity:'elite'},p_emotes:{idle:true,power_up:true,combat_pose:true},p_character_type:characterType});
         if(saveError)throw saveError;
         if(!isCurrent())return;
         status.textContent=`${preset.title??'Character'} is synced across Profile, Portal, Meta and the 3D lobby.`;
@@ -117,10 +124,5 @@ export async function mount():Promise<void>{
     };
   }catch(error){
     if(isCurrent())throw error;
-    return;
   }
-  const cleanup=()=>{if(destroyed)return;destroyed=true;};
-  window.__rbPageCleanup=cleanup;
-  window.addEventListener('pagehide',cleanup,{once:true});
-  window.addEventListener('beforeunload',cleanup,{once:true});
 }
