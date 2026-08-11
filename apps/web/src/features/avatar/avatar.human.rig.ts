@@ -14,6 +14,8 @@ export type HumanRig = {
   rightLeg: THREE.Group;
   leftKnee: THREE.Group;
   rightKnee: THREE.Group;
+  leftHand: THREE.Group;
+  rightHand: THREE.Group;
   aura: THREE.Group;
   chain: THREE.Group;
 };
@@ -52,121 +54,167 @@ const jointedLimb = (
   const pivot = new THREE.Group();
   pivot.position.set(...position);
   parent.add(pivot);
-  mesh(pivot, new THREE.CylinderGeometry(topRadius, bottomRadius, length, 20, 3), material, [0, -length / 2, 0]);
+  mesh(pivot, new THREE.CapsuleGeometry((topRadius + bottomRadius) * .5, Math.max(.05, length - topRadius - bottomRadius), 6, 18), material, [0, -length / 2, 0]);
   return pivot;
+};
+
+const makeHand = (parent: THREE.Object3D, x: number, material: THREE.Material) => {
+  const hand = new THREE.Group();
+  hand.position.set(0, -.72, .01);
+  parent.add(hand);
+  mesh(hand, new THREE.SphereGeometry(.11, 18, 14), material, [0, 0, 0], [1, 1.22, .82]);
+  for (let i = -2; i <= 2; i++) mesh(hand, new THREE.CapsuleGeometry(.018, .075, 4, 8), material, [i * .036, -.095, .018], [.9, 1, .9], [0, 0, i * -.03 * x]);
+  return hand;
 };
 
 export function createHumanRig(palette: Palette, female = false): HumanRig {
   const root = new THREE.Group();
   root.position.y = .04;
 
-  const skin = mat(palette.skin, 0, .76);
-  const shirt = mat(0x101813, .18, .48);
-  const jacket = mat(palette.primary, .34, .3, palette.primary, .07);
-  const pants = mat(0x17212a, .22, .5);
-  const shoe = mat(0x050706, .42, .28);
-  const gold = mat(palette.secondary, .9, .12, palette.secondary, .08);
-  const dark = mat(0x040505, .3, .38);
-  const white = mat(0xf5f4ee, 0, .26);
+  const skin = mat(palette.skin, .02, .72);
+  const skinSoft = mat(palette.skin, .01, .82);
+  const shirt = mat(0x0d1511, .22, .42);
+  const jacket = mat(palette.primary, .42, .26, palette.primary, .09);
+  const jacketDark = mat(0x071009, .38, .3, palette.primary, .02);
+  const pants = mat(0x111820, .32, .44);
+  const shoe = mat(0x030504, .68, .2);
+  const gold = mat(palette.secondary, .92, .12, palette.secondary, .12);
+  const dark = mat(0x020303, .34, .32);
+  const white = mat(0xf7f5ef, 0, .24);
   const auraMaterial = new THREE.MeshBasicMaterial({ color: palette.primary, transparent: true, opacity: .22, depthWrite: false, blending: THREE.AdditiveBlending });
 
   const pelvis = new THREE.Group();
-  pelvis.position.y = 2.22;
+  pelvis.position.y = 2.26;
   root.add(pelvis);
-  mesh(pelvis, new THREE.BoxGeometry(.92, .4, .5), pants, [0, 0, 0], [female ? .88 : 1, 1, 1]);
-  mesh(pelvis, new THREE.CylinderGeometry(.43, .49, .36, 20), pants, [0, .19, 0], [female ? .9 : 1, 1, .84]);
+  mesh(pelvis, new THREE.CapsuleGeometry(female ? .36 : .4, .28, 6, 20), pants, [0, .02, 0], [female ? .96 : 1.08, 1, .82]);
 
   const spine = new THREE.Group();
-  spine.position.y = .3;
+  spine.position.y = .34;
   pelvis.add(spine);
-  mesh(spine, new THREE.CylinderGeometry(.34, .42, .72, 24), shirt, [0, .36, 0], [female ? .91 : 1, 1, .74]);
+  mesh(spine, new THREE.CapsuleGeometry(.32, .52, 6, 22), shirt, [0, .36, 0], [female ? .94 : 1.02, 1, .76]);
 
   const chest = new THREE.Group();
-  chest.position.y = .68;
+  chest.position.y = .66;
   spine.add(chest);
-  mesh(chest, new THREE.CylinderGeometry(female ? .47 : .57, .35, .9, 28), shirt, [0, .44, 0], [1, 1, .74]);
-  mesh(chest, new THREE.BoxGeometry(female ? 1.04 : 1.24, .28, .58), jacket, [0, .72, 0]);
-  mesh(chest, new THREE.BoxGeometry(female ? .92 : 1.1, .76, .13), jacket, [0, .4, .32]);
-  mesh(chest, new THREE.BoxGeometry(.18, .6, .16), dark, [0, .4, -.28]);
+  mesh(chest, new THREE.CapsuleGeometry(female ? .4 : .47, .56, 7, 26), shirt, [0, .42, 0], [1, 1, .76]);
+  mesh(chest, new THREE.BoxGeometry(female ? .9 : 1.08, .55, .1), jacket, [0, .48, .34]);
+  mesh(chest, new THREE.BoxGeometry(female ? .98 : 1.18, .22, .52), jacketDark, [0, .78, 0]);
+  mesh(chest, new THREE.BoxGeometry(.16, .56, .14), gold, [0, .46, .365], [.18, 1, 1]);
 
-  mesh(chest, new THREE.CylinderGeometry(.12, .15, .22, 18), skin, [0, 1, 0]);
+  mesh(chest, new THREE.CapsuleGeometry(.11, .1, 5, 16), skinSoft, [0, 1.0, 0]);
   const head = new THREE.Group();
-  head.position.y = 1.05;
+  head.position.y = 1.08;
   chest.add(head);
-  mesh(head, new THREE.SphereGeometry(.35, 34, 24), skin, [0, .25, 0], [.91, 1.08, .88]);
-  mesh(head, new THREE.BoxGeometry(.51, .35, .43), skin, [0, .04, .02], [.91, 1, .92]);
-  mesh(head, new THREE.SphereGeometry(.155, 20, 14), skin, [0, .08, .29], [.72, .72, .5]);
-  mesh(head, new THREE.BoxGeometry(.37, .075, .055), dark, [0, -.095, .37]);
-  mesh(head, new THREE.SphereGeometry(.034, 14, 10), white, [-.118, .24, .33]);
-  mesh(head, new THREE.SphereGeometry(.034, 14, 10), white, [.118, .24, .33]);
-  mesh(head, new THREE.SphereGeometry(.017, 12, 10), dark, [-.118, .24, .357]);
-  mesh(head, new THREE.SphereGeometry(.017, 12, 10), dark, [.118, .24, .357]);
-  mesh(head, new THREE.SphereGeometry(.08, 18, 12), skin, [-.34, .2, 0], [.45, .8, .5]);
-  mesh(head, new THREE.SphereGeometry(.08, 18, 12), skin, [.34, .2, 0], [.45, .8, .5]);
-  mesh(head, new THREE.SphereGeometry(.38, 28, 18), dark, [0, .45, -.03], [1, .5, .94]);
-  mesh(head, new THREE.BoxGeometry(.59, .095, .085), dark, [0, .255, .36]);
+  mesh(head, new THREE.SphereGeometry(.345, 40, 30), skin, [0, .24, 0], [.9, 1.08, .9]);
+  mesh(head, new THREE.SphereGeometry(.285, 36, 24), skinSoft, [0, .02, .012], [1, .86, .9]);
+  mesh(head, new THREE.CapsuleGeometry(.06, .09, 4, 14), skinSoft, [0, .1, .295], [.72, .74, .55], [Math.PI / 2, 0, 0]);
+  mesh(head, new THREE.SphereGeometry(.032, 16, 12), white, [-.112, .235, .316]);
+  mesh(head, new THREE.SphereGeometry(.032, 16, 12), white, [.112, .235, .316]);
+  mesh(head, new THREE.SphereGeometry(.014, 12, 10), dark, [-.112, .235, .342]);
+  mesh(head, new THREE.SphereGeometry(.014, 12, 10), dark, [.112, .235, .342]);
+  mesh(head, new THREE.BoxGeometry(.17, .022, .024), dark, [-.112, .305, .332], [1, 1, 1], [0, 0, -.05]);
+  mesh(head, new THREE.BoxGeometry(.17, .022, .024), dark, [.112, .305, .332], [1, 1, 1], [0, 0, .05]);
+  mesh(head, new THREE.BoxGeometry(.26, .03, .03), dark, [0, -.11, .342]);
+  mesh(head, new THREE.SphereGeometry(.07, 18, 12), skin, [-.33, .18, 0], [.4, .82, .5]);
+  mesh(head, new THREE.SphereGeometry(.07, 18, 12), skin, [.33, .18, 0], [.4, .82, .5]);
+  mesh(head, new THREE.SphereGeometry(.38, 34, 22), dark, [0, .43, -.04], [1, .5, .94]);
 
-  const shoulderY = .7;
-  const leftArm = jointedLimb(chest, [-.68, shoulderY, 0], .7, .15, .128, jacket);
-  const rightArm = jointedLimb(chest, [.68, shoulderY, 0], .7, .15, .128, jacket);
+  const shoulderY = .72;
+  const leftArm = jointedLimb(chest, [-.66, shoulderY, 0], .72, .15, .125, jacket);
+  const rightArm = jointedLimb(chest, [.66, shoulderY, 0], .72, .15, .125, jacket);
   leftArm.rotation.z = .08;
   rightArm.rotation.z = -.08;
+  const leftForearm = jointedLimb(leftArm, [0, -.69, 0], .62, .12, .095, skin);
+  const rightForearm = jointedLimb(rightArm, [0, -.69, 0], .62, .12, .095, skin);
+  const leftHand = makeHand(leftForearm, -1, skinSoft);
+  const rightHand = makeHand(rightForearm, 1, skinSoft);
 
-  const leftForearm = jointedLimb(leftArm, [0, -.7, 0], .64, .125, .1, skin);
-  const rightForearm = jointedLimb(rightArm, [0, -.7, 0], .64, .125, .1, skin);
-  mesh(leftForearm, new THREE.BoxGeometry(.21, .26, .14), skin, [0, -.74, .01], [1, 1.18, 1]);
-  mesh(rightForearm, new THREE.BoxGeometry(.21, .26, .14), skin, [0, -.74, .01], [1, 1.18, 1]);
-
-  const leftLeg = jointedLimb(pelvis, [-.255, -.08, 0], .92, .205, .165, pants);
-  const rightLeg = jointedLimb(pelvis, [.255, -.08, 0], .92, .205, .165, pants);
-  const leftKnee = jointedLimb(leftLeg, [0, -.92, 0], .86, .165, .128, pants);
-  const rightKnee = jointedLimb(rightLeg, [0, -.92, 0], .86, .165, .128, pants);
-  mesh(leftKnee, new THREE.BoxGeometry(.35, .19, .64), shoe, [0, -.91, .18], [1, 1, 1.14]);
-  mesh(rightKnee, new THREE.BoxGeometry(.35, .19, .64), shoe, [0, -.91, .18], [1, 1, 1.14]);
+  const hipX = female ? .23 : .27;
+  const leftLeg = jointedLimb(pelvis, [-hipX, -.05, 0], .94, .2, .16, pants);
+  const rightLeg = jointedLimb(pelvis, [hipX, -.05, 0], .94, .2, .16, pants);
+  const leftKnee = jointedLimb(leftLeg, [0, -.92, 0], .88, .16, .12, pants);
+  const rightKnee = jointedLimb(rightLeg, [0, -.92, 0], .88, .16, .12, pants);
+  mesh(leftKnee, new THREE.BoxGeometry(.32, .18, .68), shoe, [0, -.91, .19], [1, 1, 1.18]);
+  mesh(rightKnee, new THREE.BoxGeometry(.32, .18, .68), shoe, [0, -.91, .19], [1, 1, 1.18]);
+  mesh(leftKnee, new THREE.BoxGeometry(.25, .06, .3), gold, [0, -.86, .5], [.55, .4, .22]);
+  mesh(rightKnee, new THREE.BoxGeometry(.25, .06, .3), gold, [0, -.86, .5], [.55, .4, .22]);
 
   const chain = new THREE.Group();
-  chain.position.set(0, .54, .37);
+  chain.position.set(0, .56, .39);
   chest.add(chain);
-  mesh(chain, new THREE.TorusGeometry(.28, .024, 12, 56), gold, [0, 0, 0]);
-  mesh(chain, new THREE.BoxGeometry(.09, .25, .05), gold, [0, -.24, .02]);
-  mesh(chain, new THREE.OctahedronGeometry(.105, 0), gold, [0, -.39, .02], [1, 1.25, .5]);
+  mesh(chain, new THREE.TorusGeometry(.27, .02, 12, 64), gold, [0, 0, 0]);
+  mesh(chain, new THREE.BoxGeometry(.07, .22, .04), gold, [0, -.22, .02]);
+  mesh(chain, new THREE.OctahedronGeometry(.1, 1), gold, [0, -.36, .02], [1, 1.18, .45]);
 
   const aura = new THREE.Group();
   root.add(aura);
-  mesh(aura, new THREE.TorusGeometry(.95, .025, 12, 80), auraMaterial, [0, .08, 0], [1, 1, 1], [Math.PI / 2, 0, 0]);
-  mesh(aura, new THREE.TorusGeometry(.72, .018, 12, 72), auraMaterial.clone(), [0, .12, 0], [1, 1, 1], [Math.PI / 2, 0, 0]);
+  mesh(aura, new THREE.TorusGeometry(.98, .026, 14, 96), auraMaterial, [0, .08, 0], [1, 1, 1], [Math.PI / 2, 0, 0]);
+  mesh(aura, new THREE.TorusGeometry(.72, .018, 12, 84), auraMaterial.clone(), [0, .15, 0], [1, 1, 1], [Math.PI / 2, 0, 0]);
+  mesh(aura, new THREE.TorusKnotGeometry(.56, .012, 84, 10, 2, 3), auraMaterial.clone(), [0, 2.8, -.1], [1, .5, 1]);
 
-  return { root, pelvis, spine, chest, head, leftArm, rightArm, leftForearm, rightForearm, leftLeg, rightLeg, leftKnee, rightKnee, aura, chain };
+  return { root, pelvis, spine, chest, head, leftArm, rightArm, leftForearm, rightForearm, leftLeg, rightLeg, leftKnee, rightKnee, leftHand, rightHand, aura, chain };
 }
 
 export function animateHumanRig(rig: HumanRig, time: number, moving: boolean, sprinting: boolean, action: string) {
-  const speed = sprinting ? 12.5 : 7.2;
-  const amplitude = sprinting ? .76 : .44;
-  const stride = moving ? Math.sin(time * speed) * amplitude : Math.sin(time * 1.6) * .028;
-  const counter = moving ? Math.sin(time * speed + Math.PI) * amplitude : 0;
+  const speed = sprinting ? 13.8 : 7.8;
+  const amplitude = sprinting ? .82 : .48;
+  const phase = time * speed;
+  const stride = moving ? Math.sin(phase) * amplitude : 0;
+  const counter = moving ? Math.sin(phase + Math.PI) * amplitude : 0;
+  const breath = Math.sin(time * 1.55);
 
-  rig.leftArm.rotation.x = counter * .74;
-  rig.rightArm.rotation.x = stride * .74;
+  rig.leftArm.rotation.x = moving ? counter * .7 : -.04 + breath * .018;
+  rig.rightArm.rotation.x = moving ? stride * .7 : .04 - breath * .018;
   rig.leftLeg.rotation.x = stride;
   rig.rightLeg.rotation.x = counter;
-  rig.leftKnee.rotation.x = moving ? Math.max(0, -stride) * .68 : 0;
-  rig.rightKnee.rotation.x = moving ? Math.max(0, -counter) * .68 : 0;
-  rig.leftForearm.rotation.x = moving ? Math.max(0, stride) * .2 : 0;
-  rig.rightForearm.rotation.x = moving ? Math.max(0, counter) * .2 : 0;
+  rig.leftKnee.rotation.x = moving ? Math.max(0, -stride) * .76 : .02 + Math.max(0, breath) * .015;
+  rig.rightKnee.rotation.x = moving ? Math.max(0, -counter) * .76 : -.02 + Math.max(0, -breath) * .015;
+  rig.leftForearm.rotation.x = moving ? Math.max(0, stride) * .22 : -.08;
+  rig.rightForearm.rotation.x = moving ? Math.max(0, counter) * .22 : -.08;
+  rig.leftHand.rotation.z = Math.sin(time * 2.1) * .02;
+  rig.rightHand.rotation.z = -Math.sin(time * 2.1) * .02;
 
-  rig.leftArm.rotation.z = action === 'combat' ? -.86 : .08;
-  rig.rightArm.rotation.z = action === 'combat' ? .86 : -.08;
-  rig.leftForearm.rotation.x = action === 'combat' ? -1.22 : rig.leftForearm.rotation.x;
-  rig.rightForearm.rotation.x = action === 'combat' ? -1.22 : rig.rightForearm.rotation.x;
-  rig.spine.rotation.y = action === 'dance' ? Math.sin(time * 6) * .25 : action === 'combat' ? Math.sin(time * 8) * .1 : action === 'smoke' ? Math.sin(time * 2.2) * .06 : 0;
-  rig.spine.rotation.z = moving ? Math.sin(time * speed) * .03 : Math.sin(time * .9) * .01;
-  rig.head.rotation.y = action === 'smoke' ? -.18 + Math.sin(time * .8) * .04 : Math.sin(time * .72) * .05;
-  rig.head.rotation.x = action === 'power' ? -.09 : Math.sin(time * .5) * .018;
-  rig.pelvis.position.y = 2.22 + (moving ? Math.abs(Math.sin(time * speed)) * .04 : Math.sin(time * 1.4) * .014);
-  const powerScale = action === 'power' ? 1 + Math.sin(time * 18) * .018 : 1;
+  if (action === 'combat') {
+    rig.leftArm.rotation.z = -.92;
+    rig.rightArm.rotation.z = .92;
+    rig.leftForearm.rotation.x = -1.28;
+    rig.rightForearm.rotation.x = -1.16;
+    rig.chest.rotation.y = Math.sin(time * 8.5) * .08;
+  } else if (action === 'power') {
+    rig.leftArm.rotation.z = -.56;
+    rig.rightArm.rotation.z = .56;
+    rig.leftForearm.rotation.x = -.3;
+    rig.rightForearm.rotation.x = -.3;
+    rig.chest.rotation.x = -.035;
+  } else if (action === 'dance') {
+    rig.leftArm.rotation.z = -.35 + Math.sin(time * 5.2) * .22;
+    rig.rightArm.rotation.z = .35 - Math.sin(time * 5.2) * .22;
+    rig.chest.rotation.y = Math.sin(time * 5.8) * .28;
+  } else if (action === 'smoke') {
+    rig.rightArm.rotation.z = -.12;
+    rig.rightForearm.rotation.x = -1.52;
+    rig.rightForearm.rotation.z = -.24;
+    rig.head.rotation.y = -.15 + Math.sin(time * .8) * .04;
+  } else {
+    rig.leftArm.rotation.z = .08;
+    rig.rightArm.rotation.z = -.08;
+    rig.chest.rotation.y *= .86;
+    rig.chest.rotation.x *= .86;
+  }
+
+  rig.spine.rotation.y = action === 'dance' ? Math.sin(time * 6) * .2 : action === 'combat' ? Math.sin(time * 8) * .07 : action === 'smoke' ? Math.sin(time * 2.2) * .045 : Math.sin(time * .65) * .014;
+  rig.spine.rotation.z = moving ? Math.sin(phase) * .028 : Math.sin(time * .9) * .008;
+  if (action !== 'smoke') rig.head.rotation.y = Math.sin(time * .72) * .045;
+  rig.head.rotation.x = action === 'power' ? -.08 : Math.sin(time * .5) * .012;
+  rig.pelvis.position.y = 2.26 + (moving ? Math.abs(Math.sin(phase)) * .035 : breath * .01);
+  rig.pelvis.rotation.y = moving ? Math.sin(phase) * .025 : 0;
+  rig.chest.position.y = breath * .008;
+
+  const powerScale = action === 'power' ? 1.025 + Math.sin(time * 16) * .014 : 1;
   rig.root.scale.setScalar(powerScale);
-  rig.aura.rotation.y = time * .42;
-  rig.aura.rotation.z = Math.sin(time * .7) * .05;
-  rig.aura.scale.setScalar(action === 'power' ? 1.18 + Math.sin(time * 10) * .08 : 1 + Math.sin(time * 2) * .015);
-  rig.chain.rotation.z = moving ? Math.sin(time * speed) * .04 : Math.sin(time * 1.2) * .015;
+  rig.aura.rotation.y = time * .5;
+  rig.aura.rotation.z = Math.sin(time * .7) * .04;
+  rig.aura.scale.setScalar(action === 'power' ? 1.22 + Math.sin(time * 10) * .09 : 1 + Math.sin(time * 2) * .012);
+  rig.chain.rotation.z = moving ? Math.sin(phase) * .035 : Math.sin(time * 1.2) * .012;
+  rig.chain.rotation.x = moving ? Math.abs(Math.sin(phase)) * .025 : 0;
 }
