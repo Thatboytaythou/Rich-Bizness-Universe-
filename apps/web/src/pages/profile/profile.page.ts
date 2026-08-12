@@ -1,7 +1,6 @@
 import { getAuthSnapshot } from '../../core/auth/auth-store';
 import { supabase } from '../../core/supabase/client';
 import './profile-universe.css';
-import './profile-command-upgrade.css';
 
 type JsonRow = Record<string, any>;
 type Snapshot = {
@@ -73,11 +72,11 @@ function contentCard(item: JsonRow, type: string): string {
     : type === 'STORE'
       ? `/store.html?product=${item.id}`
       : type === 'GAMING'
-        ? `/gaming.html?clip=${item.id}`
+        ? `/gaming.html?game=${encodeURIComponent(item.slug ?? item.game_slug ?? item.id)}`
         : type === 'SPORTS'
           ? `/sports.html?post=${item.id}`
           : type === 'META'
-            ? `/meta.html?world=${item.id}`
+            ? `/meta.html?world=${encodeURIComponent(item.slug ?? item.world_slug ?? item.id)}`
             : `/feed.html?post=${item.id}`;
 
   return `<a class="pu-card" href="${href}">
@@ -188,16 +187,16 @@ export async function mountProfilePage(): Promise<void> {
     ownerControl('/settings.html', '⚙', 'SETTINGS', 'Privacy, motion, theme and notifications'),
     ownerControl('/avatar.html', '◆', 'CHOOSE AVATAR', 'Select your character identity'),
     ownerControl('/avatar-characters.html', '◉', '3D CHARACTER LOBBY', 'Enter the live controllable avatar space'),
-    ownerControl('/creator.html', '✦', 'CREATOR SECRET DOOR', 'Open your four creator dimensions'),
-    ownerControl('/upload.html', '↑', 'UPLOAD', 'Drop content into the universe'),
-    isAdmin ? ownerControl('/admin.html', '⌘', 'ADMIN COMMAND', 'Moderation, platform and system control', 'is-admin') : '',
+    ownerControl('/creator.html', '✦', 'CREATOR', 'Open your creator dimensions'),
+    ownerControl('/upload.html', '↑', 'UPLOAD', 'Publish into the universe'),
+    isAdmin ? ownerControl('/admin.html', '⌘', 'ADMIN', 'Platform control', 'is-admin') : '',
   ].filter(Boolean).join('');
 
   root.innerHTML = `<main class="profile-universe ${isOwner ? 'is-owner' : 'is-public'}" style="--profile-bg:url('${esc(snap.theme?.background_url ?? banner)}')">
     <div class="pu-atmosphere" aria-hidden="true"><i></i><i></i><i></i></div>
     <header class="pu-top">
       <a href="/portal.html" aria-label="Return to Portal">←</a>
-      <div><small>RICH BIZNESS UNIVERSAL IDENTITY</small><strong>${isOwner ? 'MY COMMAND CENTER' : 'PUBLIC PROFILE'}</strong></div>
+      <div><small>RICH BIZNESS</small><strong>${isOwner ? 'MY PROFILE' : 'PROFILE'}</strong></div>
       <a href="${isOwner ? '/settings.html' : `/messages.html?to=${profileId}`}" aria-label="${isOwner ? 'Open settings' : 'Send message'}">${isOwner ? '⚙' : '✦'}</a>
     </header>
 
@@ -206,94 +205,63 @@ export async function mountProfilePage(): Promise<void> {
       <div class="pu-hero-grid">
         <div class="pu-avatar"><img src="${esc(avatarUrl)}" alt="${esc(display)}"><span class="${profile.online_status === 'online' ? 'online' : ''}"></span><b>${avatar.is_realistic_3d ? '3D' : 'RB'}</b></div>
         <div class="pu-identity">
-          <div class="pu-kickers"><span>${profile.is_verified ? '◆ VERIFIED RICH ID' : 'RICH BIZNESS MEMBER'}</span>${roles.map(role => `<span>${esc(role)}</span>`).join('')}</div>
+          <div class="pu-kickers"><span>${profile.is_verified ? '◆ VERIFIED' : 'RICH MEMBER'}</span>${roles.slice(0,3).map(role => `<span>${esc(role)}</span>`).join('')}</div>
           <h1>${esc(display)}</h1><p>@${esc(profile.username ?? 'member')}</p>
-          <blockquote>${esc(profile.bio ?? 'Building a Rich Bizness universe.')}</blockquote>${socialLinks(profile)}
+          <blockquote>${esc(profile.bio ?? '')}</blockquote>${socialLinks(profile)}
         </div>
-        <aside class="pu-level"><small>RICH LEVEL</small><strong>${esc(level.level ?? profile.rich_level ?? avatar.level ?? 1)}</strong><span>${esc(level.rank_title ?? profile.rank_title ?? avatar.rank ?? 'Rookie Rich')}</span><div><i style="width:${xpPct}%"></i></div><em>${compact(xpCurrent)} / ${compact(xpNext)} XP</em></aside>
+        <aside class="pu-level"><small>LEVEL</small><strong>${esc(level.level ?? profile.rich_level ?? avatar.level ?? 1)}</strong><span>${esc(level.rank_title ?? profile.rank_title ?? avatar.rank ?? 'Rookie Rich')}</span><div><i style="width:${xpPct}%"></i></div><em>${compact(xpCurrent)} / ${compact(xpNext)} XP</em></aside>
       </div>
     </section>
 
-    ${isOwner ? `<section class="pu-owner-deck"><header><div><small>OWNER CONTROLS</small><h2>RUN YOUR WHOLE RICH ID</h2><p>Edit, customize, manage and enter every identity layer without hunting through the page.</p></div><span>${isAdmin ? 'ADMIN VERIFIED' : 'OWNER VERIFIED'}</span></header><div>${ownerActions}</div></section>` : ''}
+    ${isOwner ? `<section class="pu-owner-deck"><div>${ownerActions}</div></section>` : ''}
 
-    <section class="pu-metrics">${stat('FOLLOWERS', compact(counts.followers))}${stat('FOLLOWING', compact(counts.following))}${stat('TOTAL DROPS', compact(counts.posts))}${stat('PROFILE VIEWS', compact(counts.views))}${stat('RICH POINTS', compact(level.rich_points ?? profile.rich_points))}${stat('TRUST', `${level.trust_score ?? profile.trust_score ?? 100}%`)}</section>
+    <section class="pu-metrics">${stat('FOLLOWERS', compact(counts.followers))}${stat('FOLLOWING', compact(counts.following))}${stat('DROPS', compact(counts.posts))}${stat('VIEWS', compact(counts.views))}</section>
 
-    ${!isOwner ? `<nav class="pu-actions" aria-label="Profile actions"><button type="button" id="followButton" class="primary">${viewer.following ? 'FOLLOWING' : 'FOLLOW'}</button><a href="/messages.html?to=${profileId}">MESSAGE</a><a href="/creator.html?id=${profileId}">CREATOR PAGE</a><a href="/store.html?seller=${profileId}">STORE</a><button type="button" id="shareButton">SHARE</button></nav>` : ''}
+    ${!isOwner ? `<nav class="pu-actions" aria-label="Profile actions"><button type="button" id="followButton" class="primary">${viewer.following ? 'FOLLOWING' : 'FOLLOW'}</button><a href="/messages.html?to=${profileId}">MESSAGE</a><a href="/creator.html?id=${profileId}">CREATOR</a><a href="/store.html?seller=${profileId}">STORE</a><button type="button" id="shareButton">SHARE</button></nav>` : ''}
 
     <section class="pu-command">
-      <article class="pu-command__avatar"><div><small>UNIVERSAL CHARACTER</small><h2>${esc((avatar.character_type ?? 'CUSTOM').toUpperCase())}</h2><p>${esc(avatar.aura ?? 'Emerald Gold')} aura · ${avatar.is_controllable ? 'Realtime controllable' : 'Identity ready'} · ${esc(snap.loadout?.version ?? 1)} loadout</p></div><div class="pu-character-links"><a href="/avatar.html">CHOOSE CHARACTER</a><a href="/avatar-characters.html">ENTER 3D LOBBY</a></div></article>
-      ${stat('BALANCE', money(profile.balance_cents), 'Wallet + creator funds')}${stat('CREATOR', snap.creator ? 'ACTIVE' : 'LOCKED', snap.creator?.creator_title ?? 'Build creator presence')}${stat('SELLER', snap.seller ? 'ACTIVE' : 'LOCKED', snap.seller?.seller_rank ?? 'Open Rich Store')}${stat('GAMER', snap.gamer?.rank_title ?? 'ROOKIE', `${compact(snap.gamer?.wins ?? 0)} wins`)}${stat('SPORTS', snap.sports?.rank_title ?? 'FAN', `${compact(snap.sports?.points ?? 0)} points`)}
+      <article class="pu-command__avatar"><div><small>CHARACTER</small><h2>${esc((avatar.character_type ?? 'CUSTOM').toUpperCase())}</h2><p>${esc(avatar.aura ?? 'Emerald Gold')} · ${avatar.is_controllable ? 'Realtime controllable' : 'Ready'}</p></div><div class="pu-character-links"><a href="/avatar.html">CHOOSE</a><a href="/avatar-characters.html">3D LOBBY</a></div></article>
+      ${stat('BALANCE', money(profile.balance_cents))}${stat('CREATOR', snap.creator ? 'ACTIVE' : '—')}${stat('GAMER', snap.gamer?.rank_title ?? '—')}
     </section>
 
-    <section class="pu-badges"><header><div><small>ACHIEVEMENT VAULT</small><h2>BADGES + STATUS</h2></div><span>${compact(counts.badges)} UNLOCKED</span></header><div>${(snap.badges ?? []).length ? (snap.badges ?? []).map(badge => `<article class="${badge.equipped ? 'equipped' : ''}"><i>${esc(badge.icon ?? '◆')}</i><div><strong>${esc(badge.title)}</strong><small>${esc(badge.rarity)} · ${esc(badge.badge_type)}</small></div></article>`).join('') : '<p>No badges unlocked yet.</p>'}</div></section>
+    ${(snap.badges ?? []).length ? `<section class="pu-badges"><header><div><small>BADGES</small><h2>ACHIEVEMENTS</h2></div><span>${compact(counts.badges)} UNLOCKED</span></header><div>${(snap.badges ?? []).map(badge => `<article class="${badge.equipped ? 'equipped' : ''}"><i>${esc(badge.icon ?? '◆')}</i><div><strong>${esc(badge.title)}</strong><small>${esc(badge.rarity)}</small></div></article>`).join('')}</div></section>` : ''}
 
-    <section class="pu-library"><header><div><small>COMPLETE PROFILE UNIVERSE</small><h2>YOUR CONTENT WORLDS</h2></div><div class="pu-tabs" role="tablist">${tabs.map(([key, label, items]) => `<button type="button" role="tab" data-tab="${key}">${label}<span>${compact(items.length)}</span></button>`).join('')}</div></header>${tabs.map(([key, label, items]) => `<div class="pu-panel" data-panel="${key}" role="tabpanel">${items.length ? items.map(item => contentCard(item, label)).join('') : `<div class="pu-empty">NO ${label} YET</div>`}</div>`).join('')}</section>
-
-    <section class="pu-activity"><header><small>RECENT POWER MOVES</small><h2>XP + UNIVERSE ACTIVITY</h2></header><div>${(snap.activity ?? []).length ? (snap.activity ?? []).map(activity => `<article><span>+${esc(activity.xp_amount ?? 0)} XP</span><div><strong>${esc(String(activity.event_key ?? 'activity').replaceAll('_', ' ').toUpperCase())}</strong><small>${esc(activity.section ?? 'global')} · ${relative(activity.created_at)}</small></div><em>+${esc(activity.rich_points_amount ?? 0)} RP</em></article>`).join('') : '<p>No activity recorded yet.</p>'}</div></section>
+    <section class="pu-library"><header><div><small>CONTENT</small><h2>PROFILE DROPS</h2></div><div class="pu-tabs" role="tablist">${tabs.map(([key, label, items]) => `<button type="button" role="tab" data-tab="${key}">${label}<span>${compact(items.length)}</span></button>`).join('')}</div></header>${tabs.map(([key, label, items]) => `<div class="pu-panel" data-panel="${key}">${items.length ? items.map(item => contentCard(item, label)).join('') : `<p class="pu-empty">NO ${label} YET</p>`}</div>`).join('')}</section>
   </main>`;
 
-  const activateTab = (key: string) => {
-    if (!isCurrent()) return;
-    const valid = tabs.some(([tab]) => tab === key) ? key : 'feed';
-    root.querySelectorAll<HTMLElement>('[data-tab]').forEach(tab => {
-      const active = tab.dataset.tab === valid;
-      tab.classList.toggle('active', active);
-      tab.setAttribute('aria-selected', String(active));
+  const buttons = [...root.querySelectorAll<HTMLButtonElement>('[data-tab]')];
+  const setTab = (tab: string) => {
+    buttons.forEach(button => {
+      const active = button.dataset.tab === tab;
+      button.classList.toggle('active', active);
+      button.setAttribute('aria-selected', String(active));
     });
-    root.querySelectorAll<HTMLElement>('[data-panel]').forEach(panel => panel.classList.toggle('active', panel.dataset.panel === valid));
-    params.set('tab', valid);
-    history.replaceState(null, '', `${location.pathname}?${params.toString()}`);
+    root.querySelectorAll<HTMLElement>('[data-panel]').forEach(panel => panel.classList.toggle('active', panel.dataset.panel === tab));
   };
-
-  root.querySelectorAll<HTMLButtonElement>('[data-tab]').forEach(button => button.addEventListener('click', () => activateTab(button.dataset.tab ?? 'feed')));
-  activateTab(params.get('tab') ?? 'feed');
+  buttons.forEach(button => button.addEventListener('click', () => setTab(button.dataset.tab ?? 'feed')));
+  setTab('feed');
 
   const follow = root.querySelector<HTMLButtonElement>('#followButton');
   follow?.addEventListener('click', async () => {
-    if (!session) {
-      location.assign(`/tap-in.html?next=${encodeURIComponent(location.pathname + location.search)}`);
-      return;
-    }
-    follow.disabled = true;
-    const original = follow.textContent;
-    follow.textContent = 'SYNCING';
-    const { data: result, error: followError } = await supabase.rpc('rb_profile_toggle_follow', { p_profile_id: profileId });
+    const { data: followData, error: followError } = await supabase.rpc('rb_profile_follow_action', { p_target_id: profileId });
     if (!isCurrent()) return;
     if (followError) {
-      follow.textContent = original;
-      follow.title = followError.message;
-    } else {
-      const response = result as any;
-      follow.textContent = response.following ? 'FOLLOWING' : 'FOLLOW';
-      const followerMetric = root.querySelector<HTMLElement>('.pu-metrics article:first-child strong');
-      if (followerMetric) followerMetric.textContent = compact(response.followers);
-      if (response.following) void supabase.rpc('rb_award_xp', { p_event_key: 'section_visit', p_section: 'profile', p_source_table: 'followers', p_source_id: profileId, p_amount: 8 });
+      follow.textContent = 'TRY AGAIN';
+      return;
     }
-    follow.disabled = false;
+    follow.textContent = (followData as any)?.following ? 'FOLLOWING' : 'FOLLOW';
   });
 
   root.querySelector<HTMLButtonElement>('#shareButton')?.addEventListener('click', async () => {
     const url = `${location.origin}/profile.html?id=${profileId}`;
     try {
-      if (navigator.share) await navigator.share({ title: `${display} · Rich Bizness`, url });
+      if (navigator.share) await navigator.share({ title: display, url });
       else await navigator.clipboard.writeText(url);
-    } catch {
-      // The user cancelled the share sheet.
-    }
+    } catch {}
   });
 
-  const channel = supabase.channel(`profile-universe:${profileId}:${mountEpoch || 'mount'}`)
-    .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'profiles', filter: `id=eq.${profileId}` }, () => {
-      if (isCurrent()) location.reload();
-    })
-    .subscribe();
-
-  const cleanup = () => {
-    if (disposed) return;
-    disposed = true;
-    void supabase.removeChannel(channel);
-  };
-  window.__rbPageCleanup = cleanup;
+  const cleanup = () => { disposed = true; };
+  (window as Window & { __rbPageCleanup?: (() => void | Promise<void>) | null }).__rbPageCleanup = cleanup;
   window.addEventListener('pagehide', cleanup, { once: true });
   window.addEventListener('beforeunload', cleanup, { once: true });
 }
