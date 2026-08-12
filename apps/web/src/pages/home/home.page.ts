@@ -31,7 +31,6 @@ export async function mountHomePage(): Promise<void> {
         <nav aria-label="Primary navigation">
           <a href="/profile.html">PROFILE</a>
           <a href="/avatar.html">AVATAR</a>
-          <a href="/avatar-characters.html">3D LOBBY</a>
           <a href="/live.html">WE LIT 🔥</a>
           <a href="/watch.html">WE 🔥 📺</a>
           <a class="rb-home__nav-cta" href="${primaryHref}">${primaryLabel}</a>
@@ -40,18 +39,19 @@ export async function mountHomePage(): Promise<void> {
 
       <section class="rb-home__hero">
         <div class="rb-home__copy">
-          <p class="rb-home__kicker">GLOBAL CREATOR OPERATING SYSTEM</p>
+          <p class="rb-home__kicker">RICH BIZNESS UNIVERSE</p>
           <h1>BUILD IT.<br><span>OWN IT.</span><br>LIVE RICH.</h1>
-          <p class="rb-home__lead">One connected cinematic universe for identity, avatar selection, 3D character motion, XP, creators, live rooms, music, podcasts, radio, games, sports, stores and ownership.</p>
+          <p class="rb-home__lead">One identity. One avatar. One portal into creators, live rooms, music, games, store, sports and Meta.</p>
           <div class="rb-home__actions">
             <a class="primary" href="${primaryHref}">${primaryLabel}</a>
-            <a href="/profile.html">OPEN UNIVERSAL PROFILE</a>
+            <a href="/profile.html">PROFILE</a>
+            <a href="/avatar.html">AVATAR</a>
           </div>
-          <div class="rb-home__status" aria-label="Platform systems">
-            <span><b>RICH ID</b> CONNECTED</span>
-            <span><b>XP</b> REALTIME</span>
-            <span><b>AVATAR</b> UNIVERSAL</span>
-            <span><b>LIVEKIT</b> READY</span>
+          <div class="rb-home__status" aria-label="Universe shortcuts">
+            <a href="/live.html"><b>WE LIT 🔥</b><span>LIVE</span></a>
+            <a href="/music.html"><b>MUSIC</b><span>LISTEN</span></a>
+            <a href="/gaming.html"><b>GAMING</b><span>PLAY</span></a>
+            <a href="/store.html"><b>STORE</b><span>SHOP</span></a>
           </div>
         </div>
 
@@ -59,27 +59,7 @@ export async function mountHomePage(): Promise<void> {
           <a class="rb-home__portal" href="${primaryHref}" aria-label="${primaryLabel}">
             <i></i><i></i><i></i><i></i><span>RB</span><small>${primaryLabel}</small>
           </a>
-          <div class="rb-home__orbit" aria-hidden="true"><span>PROFILE</span><span>AVATAR</span><span>3D LOBBY</span><span>LIVE</span><span>STORE</span></div>
-        </div>
-      </section>
-
-      <section class="rb-home__command" aria-label="Rich Bizness command gateway">
-        <header><div><small>UNIVERSE COMMAND DECK</small><h2>EVERY SYSTEM. ONE IDENTITY.</h2></div><a href="/portal.html">OPEN PORTAL →</a></header>
-        <div class="rb-home__network">
-          ${[
-            ['PROFILE','Universal identity, XP, creator status, edit and settings','/profile.html','ID'],
-            ['AVATAR SELECTOR','Choose, equip and customize your universal character','/avatar.html','3D'],
-            ['3D CHARACTER LOBBY','Enter the full avatar-character motion lobby','/avatar-characters.html','◉'],
-            ['META','Rooms, worlds, visits and connected identity','/meta.html','◎'],
-            ['FEED','Community drops, comments and discovery','/feed.html','◫'],
-            ['WE LIT 🔥','Live rooms, calls, reactions and VIP','/live.html','◉'],
-            ['WE 🔥 📺','Watch network, cinema and synchronized viewing','/watch.html','▶'],
-            ['MUSIC','Songs, tracks, playlists and original audio catalog','/music.html','♪'],
-            ['PODCAST','Shows and episodes','/podcast.html','◌'],
-            ['RADIO','24/7 live audio, DJ sets and creator takeovers','/radio.html','⌁'],
-            ['GAMING','28 connected games, sessions and XP','/gaming.html','🎮'],
-            ['STORE','Creator products, orders and seller tools','/store.html','🛒']
-          ].map(([title,copy,href,icon]) => `<a href="${href}"><i>${icon}</i><small>${copy}</small><strong>${title}</strong><span>OPEN SYSTEM →</span></a>`).join('')}
+          <div class="rb-home__orbit" aria-hidden="true"><span>PROFILE</span><span>AVATAR</span><span>LIVE</span><span>GAMING</span><span>STORE</span></div>
         </div>
       </section>
     </main>`;
