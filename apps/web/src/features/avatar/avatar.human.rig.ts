@@ -25,7 +25,7 @@ type Palette = { primary:number; secondary:number; skin:number };
 
 const phys=(color:number,metalness=.08,roughness=.36,clearcoat=.18)=>new THREE.MeshPhysicalMaterial({color,metalness,roughness,clearcoat,clearcoatRoughness:.24});
 const std=(color:number,metalness=.04,roughness=.48)=>new THREE.MeshStandardMaterial({color,metalness,roughness});
-const basic=(color:number,opacity=.22)=>new THREE.MeshBasicMaterial({color,transparent:true,opacity,depthWrite:false,blending:THREE.AdditiveBlending});
+const glow=(color:number,opacity=.18)=>new THREE.MeshBasicMaterial({color,transparent:true,opacity,depthWrite:false,blending:THREE.AdditiveBlending,side:THREE.DoubleSide});
 
 const add=(parent:THREE.Object3D,geometry:THREE.BufferGeometry,material:THREE.Material,pos:[number,number,number],scale:[number,number,number]=[1,1,1],rot:[number,number,number]=[0,0,0])=>{const m=new THREE.Mesh(geometry,material);m.position.set(...pos);m.scale.set(...scale);m.rotation.set(...rot);m.castShadow=true;m.receiveShadow=true;parent.add(m);return m;};
 const limb=(parent:THREE.Object3D,pos:[number,number,number],length:number,radius:number,material:THREE.Material,scale:[number,number,number]=[1,1,1])=>{const p=new THREE.Group();p.position.set(...pos);parent.add(p);add(p,new THREE.CapsuleGeometry(radius,Math.max(.08,length-radius*2),10,28),material,[0,-length/2,0],scale);return p;};
@@ -33,7 +33,7 @@ const makeHand=(parent:THREE.Object3D,material:THREE.Material,side:number)=>{con
 
 export function createHumanRig(palette:Palette,female=false):HumanRig{
   const root=new THREE.Group();root.position.y=.02;
-  const skin=phys(palette.skin,.01,.42,.08),skinSoft=phys(palette.skin,.01,.5,.05),shirt=phys(0x0a0f0c,.18,.3,.18),jacket=phys(palette.primary,.38,.19,.52),jacketDark=phys(0x061008,.32,.26,.3),pants=phys(0x101820,.28,.33,.18),shoe=phys(0x020403,.62,.16,.64),gold=phys(palette.secondary,.9,.1,.72),dark=std(0x010202,.25,.32),white=std(0xf7f5ef,0,.18),lip=std(female?0x7f3348:0x4a241f,0,.36),auraMat=basic(palette.primary,.18);
+  const skin=phys(palette.skin,.01,.42,.08),skinSoft=phys(palette.skin,.01,.5,.05),shirt=phys(0x0a0f0c,.18,.3,.18),jacket=phys(palette.primary,.38,.19,.52),jacketDark=phys(0x061008,.32,.26,.3),pants=phys(0x101820,.28,.33,.18),shoe=phys(0x020403,.62,.16,.64),gold=phys(palette.secondary,.9,.1,.72),dark=std(0x010202,.25,.32),white=std(0xf7f5ef,0,.18),lip=std(female?0x7f3348:0x4a241f,0,.36);
 
   const pelvis=new THREE.Group();pelvis.position.y=2.05;root.add(pelvis);
   add(pelvis,new THREE.CapsuleGeometry(female?.38:.34,.2,10,28),pants,[0,0,0],[female?1.08:1,1,.78]);
@@ -77,7 +77,14 @@ export function createHumanRig(palette:Palette,female=false):HumanRig{
   add(leftKnee,new THREE.BoxGeometry(.16,.035,.2),gold,[0,-.9,.46]);add(rightKnee,new THREE.BoxGeometry(.16,.035,.2),gold,[0,-.9,.46]);
 
   const chain=new THREE.Group();chain.position.set(0,.57,.385);chest.add(chain);add(chain,new THREE.TorusGeometry(.235,.015,14,84),gold,[0,0,0]);add(chain,new THREE.BoxGeometry(.038,.16,.026),gold,[0,-.18,.018]);add(chain,new THREE.OctahedronGeometry(.07,1),gold,[0,-.28,.018],[1,1.1,.45]);
-  const aura=new THREE.Group();root.add(aura);add(aura,new THREE.TorusGeometry(1.0,.014,12,128),auraMat,[0,.05,0],[1,1,1],[Math.PI/2,0,0]);add(aura,new THREE.TorusGeometry(.69,.01,10,112),auraMat.clone(),[0,.11,0],[1,1,1],[Math.PI/2,0,0]);add(aura,new THREE.TorusKnotGeometry(.48,.008,100,10,2,3),auraMat.clone(),[0,3.03,-.1],[1,.46,1]);
+
+  const aura=new THREE.Group();root.add(aura);
+  const energy=glow(palette.primary,.08);
+  add(aura,new THREE.SphereGeometry(1.02,28,20),energy,[0,2.15,0],[1,.92,.7]);
+  const sparkMat=new THREE.MeshBasicMaterial({color:palette.primary,transparent:true,opacity:.34,depthWrite:false,blending:THREE.AdditiveBlending});
+  const sparkGeo=new THREE.SphereGeometry(.022,8,6);
+  for(let i=0;i<10;i++){const angle=(i/10)*Math.PI*2;add(aura,sparkGeo,sparkMat.clone(),[Math.cos(angle)*(.58+(i%3)*.12),.4+(i%5)*.52,Math.sin(angle)*(.3+(i%2)*.16)]);}
+
   return{root,pelvis,spine,chest,neck,head,leftArm,rightArm,leftForearm,rightForearm,leftLeg,rightLeg,leftKnee,rightKnee,leftHand,rightHand,aura,chain};
 }
 
@@ -91,5 +98,5 @@ export function animateHumanRig(rig:HumanRig,time:number,moving:boolean,sprintin
   else if(action==='power'){rig.leftArm.rotation.z=-.46;rig.rightArm.rotation.z=.46;rig.leftForearm.rotation.x=-.24;rig.rightForearm.rotation.x=-.24;rig.chest.rotation.x=-.038;rig.head.rotation.x=-.05;}
   else if(action==='dance'){rig.leftArm.rotation.z=-.26+Math.sin(time*5.1)*.18;rig.rightArm.rotation.z=.26-Math.sin(time*5.1)*.18;rig.chest.rotation.y=Math.sin(time*5.1)*.2;rig.pelvis.rotation.y=Math.sin(time*5.1)*.15;}
   else if(action==='smoke'){rig.rightArm.rotation.z=-.08;rig.rightForearm.rotation.x=-1.34;rig.rightForearm.rotation.z=-.17;rig.head.rotation.y=-.11+Math.sin(time*.72)*.024;}
-  const pulse=action==='power'?1.025+Math.sin(time*14)*.009:1;rig.aura.rotation.y=time*.42;rig.aura.rotation.z=Math.sin(time*.58)*.028;rig.aura.scale.setScalar(action==='power'?1.2+Math.sin(time*8.5)*.06:1+Math.sin(time*1.55)*.008);rig.chain.rotation.z=moving?Math.sin(phase)*.022:Math.sin(time)*.007;rig.chain.rotation.x=moving?Math.abs(Math.sin(phase))*.014:0;rig.root.scale.setScalar(pulse);
+  const pulse=action==='power'?1.025+Math.sin(time*14)*.009:1;rig.aura.rotation.y=Math.sin(time*.35)*.08;rig.aura.position.y=Math.sin(time*1.4)*.014;rig.aura.scale.setScalar(action==='power'?1.08+Math.sin(time*8.5)*.035:1+Math.sin(time*1.55)*.006);rig.chain.rotation.z=moving?Math.sin(phase)*.022:Math.sin(time)*.007;rig.chain.rotation.x=moving?Math.abs(Math.sin(phase))*.014:0;rig.root.scale.setScalar(pulse);
 }
