@@ -112,7 +112,7 @@ export async function mount():Promise<void>{
   const camera=new THREE.PerspectiveCamera(30,1,.1,100); camera.position.set(0,1.62,8.75);
   renderer=new THREE.WebGLRenderer({canvas,antialias:true,powerPreference:'high-performance'}); renderer.setPixelRatio(Math.min(devicePixelRatio,2.25)); renderer.outputColorSpace=THREE.SRGBColorSpace; renderer.toneMapping=THREE.ACESFilmicToneMapping; renderer.toneMappingExposure=1.5; renderer.shadowMap.enabled=true; renderer.shadowMap.type=THREE.PCFSoftShadowMap;
   scene.add(new THREE.HemisphereLight(0xffffff,0x64776a,3.2)); const key=new THREE.DirectionalLight(0xffffff,4.2); key.position.set(4,8,5); key.castShadow=true; scene.add(key); const fill=new THREE.PointLight(0x88ffba,34,16,2); fill.position.set(-3,2.8,4); scene.add(fill); const gold=new THREE.PointLight(0xffd96d,22,13,2); gold.position.set(3,1.8,4); scene.add(gold);
-  const floor=mesh(new THREE.PlaneGeometry(18,18),new THREE.MeshStandardMaterial({color:0edf5e9,roughness:.8})); floor.rotation.x=-Math.PI/2; floor.position.y=-1.42; scene.add(floor);
+  const floor=mesh(new THREE.PlaneGeometry(18,18),new THREE.MeshStandardMaterial({color:0xedf5e9,roughness:.8})); floor.rotation.x=-Math.PI/2; floor.position.y=-1.42; scene.add(floor);
   const wall=mesh(new THREE.PlaneGeometry(18,10),new THREE.MeshStandardMaterial({color:0xc3dccb,roughness:.92})); wall.position.set(0,2,-5.8); scene.add(wall);
 
   let gender:Gender='boy'; const buildInput=root.querySelector<HTMLSelectElement>('#buildInput')!; const styleInput=root.querySelector<HTMLSelectElement>('#styleInput')!; const auraInput=root.querySelector<HTMLSelectElement>('#auraInput')!;
