@@ -97,6 +97,8 @@ const pageModules: Record<string, PageRegistration> = {
   upload: guardedRegistration({ auth: 'required', owner: 'rich-bizness-upload-v3', loadModule: () => import('./features/upload/upload.page') }),
   search: guardedRegistration({ auth: 'optional', owner: 'rich-bizness-search-v3', loadModule: () => import('./features/search/search.page') }),
   watch: guardedRegistration({ auth: 'optional', owner: 'rich-bizness-watch-v4', loadModule: () => import('./features/watch/watch.page') }),
+  avatar: guardedRegistration({ auth: 'required', owner: 'rich-bizness-avatar-lobby-v1', loadModule: () => import('./features/avatar/avatar.lobby.page') }),
+  'avatar-characters': guardedRegistration({ auth: 'required', owner: 'rich-bizness-avatar-characters-v1', loadModule: () => import('./features/avatar/avatar.characters.page') }),
   'avatar-free-roam': guardedRegistration({ auth: 'optional', owner: 'rich-bizness-game-avatar-free-roam-v3', loadModule: () => import('./pages/games/avatar-free-roam.page') })
 };
 
