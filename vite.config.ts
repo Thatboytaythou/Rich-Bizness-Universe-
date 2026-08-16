@@ -8,7 +8,6 @@ const portalBackgroundOutput = resolve(__dirname, 'apps/web/dist/images/0E886281
 
 const vendorChunk = (id: string): string | undefined => {
   if (!id.includes('node_modules')) return undefined;
-
   if (id.includes('/@livekit/protocol/')) return 'vendor-livekit-protocol';
   if (id.includes('/@livekit/mutex/')) return 'vendor-livekit-mutex';
   if (id.includes('/@livekit/typed-emitter/')) return 'vendor-livekit-events';
@@ -21,17 +20,14 @@ const vendorChunk = (id: string): string | undefined => {
   }
   if (id.includes('/@livekit/')) return 'vendor-livekit-shared';
   if (id.includes('/three/')) return 'vendor-three';
-
   if (id.includes('/@supabase/realtime-js/')) return 'vendor-supabase-realtime';
   if (id.includes('/@supabase/postgrest-js/')) return 'vendor-supabase-postgrest';
   if (id.includes('/@supabase/auth-js/')) return 'vendor-supabase-auth';
   if (id.includes('/@supabase/storage-js/')) return 'vendor-supabase-storage';
   if (id.includes('/@supabase/functions-js/')) return 'vendor-supabase-functions';
   if (id.includes('/@supabase/supabase-js/')) return 'vendor-supabase-core';
-
   if (id.includes('/ws/')) return 'vendor-websocket';
   if (id.includes('/tslib/')) return 'vendor-tslib';
-
   return 'vendor-shared';
 };
 
@@ -51,16 +47,14 @@ export default defineConfig(({ mode }) => {
     publicDir: resolve(webRoot, 'public'),
     envDir: __dirname,
     define: { __RB_PUBLIC_ENV__: JSON.stringify(runtimeEnv) },
-    plugins: [
-      {
-        name: 'rb-publish-portal-background',
-        apply: 'build' as const,
-        writeBundle() {
-          mkdirSync(dirname(portalBackgroundOutput), { recursive: true });
-          copyFileSync(portalBackgroundSource, portalBackgroundOutput);
-        }
+    plugins: [{
+      name: 'rb-publish-portal-background',
+      apply: 'build' as const,
+      writeBundle() {
+        mkdirSync(dirname(portalBackgroundOutput), { recursive: true });
+        copyFileSync(portalBackgroundSource, portalBackgroundOutput);
       }
-    ],
+    }],
     build: {
       outDir: resolve(__dirname, 'apps/web/dist'),
       emptyOutDir: true,
@@ -68,11 +62,9 @@ export default defineConfig(({ mode }) => {
       target: 'es2022',
       rollupOptions: {
         input: {
-          index: page('index'), portal: page('portal'), tapIn: page('tap-in'), profile: page('profile'), editProfile: page('edit-profile'), settings: page('settings'), notifications: page('notifications'), messages: page('messages'), search: page('search'), upload: page('upload'), creator: page('creator'), creatorDimensions: page('creator-dimensions'), admin: page('admin'), feed: page('feed'), gallery: page('gallery'), live: page('live'), watch: page('watch'), music: page('music'), podcast: page('podcast'), radio: page('radio'), sports: page('sports'), store: page('store'), gaming: page('gaming'), meta: page('meta'), richChess: page('rich-chess'), smokeRoomCards: page('smoke-room-cards'), djRadioRun: page('dj-radio-run'), moneyRoadRunner: page('money-road-runner'), richSamuraisSonNinja: page('rich-samurais-son-ninja'), auraShinobiClash: page('aura-shinobi-clash'), bossWalkBattle: page('boss-walk-battle'), smokeBurstArena: page('smoke-burst-arena'), heroVillainShowdown: page('hero-villain-showdown'), empireBuilder: page('empire-builder'), marketFlip: page('market-flip'), vaultUnlock: page('vault-unlock'), portalRoomRush: page('portal-room-rush'), avatarFreeRoam: page('avatar-free-roam'), smokeCityHustle: page('smoke-city-hustle'), treehouseRide: page('treehouse-ride'), studioShowdown: page('studio-showdown'), richCourtKing: page('rich-court-king'), diamondBatFlip: page('diamond-bat-flip'), golfGreenGold: page('golf-green-gold'), gymGrindReps: page('gym-grind-reps'), cashRainCatcher: page('cash-rain-catcher'), portalDash: page('portal-dash'), biznessPartyRoom: page('bizness-party-room'), richColorClash: page('rich-color-clash'), richSpadesRoyale: page('rich-spades-royale'), richCheckersElite: page('rich-checkers-elite'), crownConnectFour: page('crown-connect-four')
+          index: page('index'), portal: page('portal'), tapIn: page('tap-in'), profile: page('profile'), editProfile: page('edit-profile'), settings: page('settings'), notifications: page('notifications'), messages: page('messages'), search: page('search'), upload: page('upload'), creator: page('creator'), creatorDimensions: page('creator-dimensions'), admin: page('admin'), feed: page('feed'), gallery: page('gallery'), live: page('live'), watch: page('watch'), music: page('music'), podcast: page('podcast'), radio: page('radio'), sports: page('sports'), store: page('store'), gaming: page('gaming'), meta: page('meta'), avatar: page('avatar'), avatarCharacters: page('avatar-characters'), richChess: page('rich-chess'), smokeRoomCards: page('smoke-room-cards'), djRadioRun: page('dj-radio-run'), moneyRoadRunner: page('money-road-runner'), richSamuraisSonNinja: page('rich-samurais-son-ninja'), auraShinobiClash: page('aura-shinobi-clash'), bossWalkBattle: page('boss-walk-battle'), smokeBurstArena: page('smoke-burst-arena'), heroVillainShowdown: page('hero-villain-showdown'), empireBuilder: page('empire-builder'), marketFlip: page('market-flip'), vaultUnlock: page('vault-unlock'), portalRoomRush: page('portal-room-rush'), avatarFreeRoam: page('avatar-free-roam'), smokeCityHustle: page('smoke-city-hustle'), treehouseRide: page('treehouse-ride'), studioShowdown: page('studio-showdown'), richCourtKing: page('rich-court-king'), diamondBatFlip: page('diamond-bat-flip'), golfGreenGold: page('golf-green-gold'), gymGrindReps: page('gym-grind-reps'), cashRainCatcher: page('cash-rain-catcher'), portalDash: page('portal-dash'), biznessPartyRoom: page('bizness-party-room'), richColorClash: page('rich-color-clash'), richSpadesRoyale: page('rich-spades-royale'), richCheckersElite: page('rich-checkers-elite'), crownConnectFour: page('crown-connect-four')
         },
-        output: {
-          manualChunks: vendorChunk
-        }
+        output: { manualChunks: vendorChunk }
       }
     },
     resolve: { alias: { '@web': resolve(webRoot, 'src'), '@rb/config': resolve(__dirname, 'packages/config/src'), '@rb/database': resolve(__dirname, 'packages/database/src'), '@rb/ui': resolve(__dirname, 'packages/ui/src'), '@rb/avatar': resolve(__dirname, 'engines/avatar/src'), '@rb/game-runtime': resolve(__dirname, 'engines/game-runtime/src') } }
