@@ -3,46 +3,150 @@ import { getAuthSnapshot } from '../../core/auth/auth-store';
 import { supabase } from '../../core/supabase/client';
 import './avatar.characters.css';
 
-type Snapshot = { profile?: Record<string, any>; avatar?: Record<string, any>; presets?: Array<Record<string, any>> };
+type Snapshot = { profile?: Record<string, any>; avatar?: Record<string, any> };
 type CleanupHost = Window & { __rbPageCleanup?: (() => void | Promise<void>) | null };
 const OWNER = 'rich-bizness-avatar-characters-v1';
 const esc = (v: unknown) => String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c] ?? c));
 
-function makeCharacter(gender: 'boy' | 'girl', accent: number, build: string, style: string) {
-  const root = new THREE.Group();
-  const skin = new THREE.MeshPhysicalMaterial({ color: gender === 'girl' ? 0x9a664c : 0x8d5d42, roughness: .46, metalness: .01, clearcoat: .12, clearcoatRoughness: .55 });
-  const outfit = new THREE.MeshPhysicalMaterial({ color: accent, roughness: .22, metalness: .18, clearcoat: .6, clearcoatRoughness: .18 });
-  const dark = new THREE.MeshPhysicalMaterial({ color: style === 'boss' ? 0x141717 : 0x0f1513, roughness: .34, metalness: .2, clearcoat: .25 });
-  const hair = new THREE.MeshStandardMaterial({ color: 0x111111, roughness: .26, metalness: .02 });
-  const eyeWhite = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: .5 });
-  const eyeDark = new THREE.MeshStandardMaterial({ color: 0x17120f, roughness: .45 });
+type Rig = {
+  root: THREE.Group;
+  hips: THREE.Group;
+  chest: THREE.Group;
+  head: THREE.Group;
+  leftShoulder: THREE.Group;
+  rightShoulder: THREE.Group;
+  leftElbow: THREE.Group;
+  rightElbow: THREE.Group;
+  leftHip: THREE.Group;
+  rightHip: THREE.Group;
+  leftKnee: THREE.Group;
+  rightKnee: THREE.Group;
+};
 
-  const scaleX = build === 'lean' ? .91 : build === 'heroic' ? 1.035 : 1;
-  const head = new THREE.Mesh(new THREE.SphereGeometry(.355, 40, 30), skin); head.scale.set(.92, 1.05, .94); head.position.y = 2.92; root.add(head);
-  const jaw = new THREE.Mesh(new THREE.SphereGeometry(.29, 32, 24), skin); jaw.scale.set(.9, .62, .82); jaw.position.set(0, 2.73, .03); root.add(jaw);
-  const neck = new THREE.Mesh(new THREE.CylinderGeometry(.125, .15, .34, 24), skin); neck.position.y = 2.46; root.add(neck);
-  const torso = new THREE.Mesh(new THREE.CapsuleGeometry(gender === 'girl' ? .39 : .44, 1.06, 12, 28), outfit); torso.position.y = 1.72; torso.scale.set(scaleX, 1, .56); root.add(torso);
-  const waist = new THREE.Mesh(new THREE.CylinderGeometry(.33, .38, .42, 28), dark); waist.position.y = .95; waist.scale.x = gender === 'girl' ? 1.04 : .94; root.add(waist);
-  const shoulder = (gender === 'girl' ? .48 : .54) * scaleX;
-  for (const side of [-1, 1]) {
-    const upper = new THREE.Mesh(new THREE.CapsuleGeometry(.105, .7, 10, 20), skin); upper.position.set(side * shoulder, 1.74, 0); upper.rotation.z = side * .02; root.add(upper);
-    const lower = new THREE.Mesh(new THREE.CapsuleGeometry(.095, .64, 10, 20), skin); lower.position.set(side * shoulder, 1.08, .015); root.add(lower);
-    const hand = new THREE.Mesh(new THREE.SphereGeometry(.115, 20, 16), skin); hand.scale.set(.82, 1.1, .82); hand.position.set(side * shoulder, .69, .02); root.add(hand);
-    const thigh = new THREE.Mesh(new THREE.CapsuleGeometry(.135, .94, 10, 20), dark); thigh.position.set(side * .205, .22, 0); root.add(thigh);
-    const shin = new THREE.Mesh(new THREE.CapsuleGeometry(.12, .9, 10, 20), dark); shin.position.set(side * .205, -.66, 0); root.add(shin);
-    const shoe = new THREE.Mesh(new THREE.BoxGeometry(.27, .16, .49), dark); shoe.position.set(side * .205, -1.15, .13); shoe.scale.y = .88; root.add(shoe);
+function capsule(radius: number, length: number, material: THREE.Material) {
+  const mesh = new THREE.Mesh(new THREE.CapsuleGeometry(radius, length, 10, 24), material);
+  mesh.castShadow = true;
+  mesh.receiveShadow = true;
+  return mesh;
+}
+
+function createRig(gender: 'boy' | 'girl', accent: number, build: string, style: string): Rig {
+  const root = new THREE.Group();
+  const hips = new THREE.Group();
+  const chest = new THREE.Group();
+  const head = new THREE.Group();
+  const leftShoulder = new THREE.Group();
+  const rightShoulder = new THREE.Group();
+  const leftElbow = new THREE.Group();
+  const rightElbow = new THREE.Group();
+  const leftHip = new THREE.Group();
+  const rightHip = new THREE.Group();
+  const leftKnee = new THREE.Group();
+  const rightKnee = new THREE.Group();
+
+  const skin = new THREE.MeshPhysicalMaterial({ color: gender === 'girl' ? 0xa06c50 : 0x8f6045, roughness: .42, metalness: .01, clearcoat: .18, clearcoatRoughness: .5 });
+  const cloth = new THREE.MeshPhysicalMaterial({ color: accent, roughness: .26, metalness: style === 'cyber' ? .28 : .08, clearcoat: .3, clearcoatRoughness: .36 });
+  const pants = new THREE.MeshPhysicalMaterial({ color: style === 'boss' ? 0x17191a : 0x151a18, roughness: .48, metalness: .06, clearcoat: .08 });
+  const shoeMat = new THREE.MeshPhysicalMaterial({ color: 0x0e1110, roughness: .32, metalness: .18, clearcoat: .38 });
+  const hairMat = new THREE.MeshStandardMaterial({ color: 0x121212, roughness: .5 });
+  const eyeWhite = new THREE.MeshStandardMaterial({ color: 0xf7f7f4, roughness: .45 });
+  const eyeDark = new THREE.MeshStandardMaterial({ color: 0x16110f, roughness: .4 });
+
+  const bodyScale = build === 'lean' ? .94 : build === 'heroic' ? 1.04 : 1;
+  const shoulderWidth = (gender === 'girl' ? .44 : .5) * bodyScale;
+  const hipWidth = gender === 'girl' ? .235 : .215;
+
+  root.add(hips);
+  hips.position.y = .72;
+
+  const pelvis = new THREE.Mesh(new THREE.SphereGeometry(.33, 28, 22), pants);
+  pelvis.scale.set(gender === 'girl' ? 1.08 : .98, .58, .72);
+  pelvis.position.y = 0;
+  hips.add(pelvis);
+
+  chest.position.y = .72;
+  hips.add(chest);
+  const torso = capsule(gender === 'girl' ? .34 : .38, .9, cloth);
+  torso.scale.set(bodyScale, 1, .58);
+  torso.position.y = .42;
+  chest.add(torso);
+
+  const neck = new THREE.Mesh(new THREE.CylinderGeometry(.11, .135, .28, 20), skin);
+  neck.position.y = 1.05;
+  chest.add(neck);
+
+  head.position.y = 1.33;
+  chest.add(head);
+  const skull = new THREE.Mesh(new THREE.SphereGeometry(.31, 40, 30), skin);
+  skull.scale.set(.9, 1.07, .93);
+  head.add(skull);
+  const jaw = new THREE.Mesh(new THREE.SphereGeometry(.24, 30, 22), skin);
+  jaw.scale.set(.9, .56, .82);
+  jaw.position.set(0, -.17, .02);
+  head.add(jaw);
+  const hair = new THREE.Mesh(new THREE.SphereGeometry(.32, 30, 18, 0, Math.PI * 2, 0, Math.PI * .5), hairMat);
+  hair.position.y = .17;
+  hair.scale.set(1.02, .58, 1.01);
+  head.add(hair);
+  for (const x of [-.105, .105]) {
+    const eye = new THREE.Mesh(new THREE.SphereGeometry(.036, 14, 10), eyeWhite);
+    eye.position.set(x, .02, .287);
+    head.add(eye);
+    const pupil = new THREE.Mesh(new THREE.SphereGeometry(.016, 10, 8), eyeDark);
+    pupil.position.set(x, .02, .318);
+    head.add(pupil);
   }
-  const hairCap = new THREE.Mesh(new THREE.SphereGeometry(.365, 32, 20, 0, Math.PI * 2, 0, Math.PI * .48), hair); hairCap.position.set(0, 3.125, -.01); hairCap.scale.set(1.03, .58, 1.02); root.add(hairCap);
-  for (const x of [-.125, .125]) {
-    const eye = new THREE.Mesh(new THREE.SphereGeometry(.043, 16, 12), eyeWhite); eye.position.set(x, 2.93, .325); root.add(eye);
-    const pupil = new THREE.Mesh(new THREE.SphereGeometry(.019, 12, 10), eyeDark); pupil.position.set(x, 2.93, .361); root.add(pupil);
-  }
-  const browMat = new THREE.MeshStandardMaterial({ color: 0x1a120e, roughness: .6 });
-  for (const x of [-.125, .125]) { const brow = new THREE.Mesh(new THREE.BoxGeometry(.12, .018, .025), browMat); brow.position.set(x, 3.015, .34); brow.rotation.z = x < 0 ? -.06 : .06; root.add(brow); }
-  const nose = new THREE.Mesh(new THREE.CapsuleGeometry(.025, .09, 6, 12), skin); nose.rotation.x = Math.PI / 2; nose.position.set(0, 2.86, .37); root.add(nose);
-  const mouth = new THREE.Mesh(new THREE.BoxGeometry(.13, .018, .02), new THREE.MeshStandardMaterial({ color: 0x4a211d, roughness: .55 })); mouth.position.set(0, 2.72, .355); root.add(mouth);
-  root.traverse((o) => { if ((o as THREE.Mesh).isMesh) { const m = o as THREE.Mesh; m.castShadow = true; m.receiveShadow = true; } });
-  return root;
+  const nose = capsule(.019, .075, skin); nose.rotation.x = Math.PI / 2; nose.position.set(0, -.055, .305); head.add(nose);
+  const mouth = new THREE.Mesh(new THREE.BoxGeometry(.105, .014, .018), new THREE.MeshStandardMaterial({ color: 0x5a2e28, roughness: .55 }));
+  mouth.position.set(0, -.16, .292); head.add(mouth);
+
+  const addArm = (side: -1 | 1, shoulderJoint: THREE.Group, elbowJoint: THREE.Group) => {
+    shoulderJoint.position.set(side * shoulderWidth, .72, 0);
+    chest.add(shoulderJoint);
+    const upper = capsule(.09, .55, skin); upper.position.y = -.3; shoulderJoint.add(upper);
+    elbowJoint.position.y = -.62; shoulderJoint.add(elbowJoint);
+    const forearm = capsule(.082, .5, skin); forearm.position.y = -.28; elbowJoint.add(forearm);
+    const hand = new THREE.Mesh(new THREE.SphereGeometry(.095, 18, 14), skin); hand.scale.set(.78, 1.05, .78); hand.position.y = -.58; elbowJoint.add(hand);
+  };
+  addArm(-1, leftShoulder, leftElbow);
+  addArm(1, rightShoulder, rightElbow);
+
+  const addLeg = (side: -1 | 1, hipJoint: THREE.Group, kneeJoint: THREE.Group) => {
+    hipJoint.position.set(side * hipWidth, -.08, 0);
+    hips.add(hipJoint);
+    const thigh = capsule(.115, .78, pants); thigh.position.y = -.43; hipJoint.add(thigh);
+    kneeJoint.position.y = -.84; hipJoint.add(kneeJoint);
+    const shin = capsule(.102, .74, pants); shin.position.y = -.4; kneeJoint.add(shin);
+    const shoe = new THREE.Mesh(new THREE.BoxGeometry(.24, .16, .46), shoeMat); shoe.position.set(0, -.84, .11); kneeJoint.add(shoe);
+  };
+  addLeg(-1, leftHip, leftKnee);
+  addLeg(1, rightHip, rightKnee);
+
+  root.traverse((o) => {
+    if ((o as THREE.Mesh).isMesh) {
+      const mesh = o as THREE.Mesh;
+      mesh.castShadow = true;
+      mesh.receiveShadow = true;
+    }
+  });
+
+  return { root, hips, chest, head, leftShoulder, rightShoulder, leftElbow, rightElbow, leftHip, rightHip, leftKnee, rightKnee };
+}
+
+function animateRig(rig: Rig, t: number) {
+  const breathe = Math.sin(t * 1.8) * .018;
+  rig.chest.rotation.z = Math.sin(t * .9) * .018;
+  rig.chest.position.y = .72 + breathe;
+  rig.head.rotation.y = Math.sin(t * .45) * .16;
+  rig.head.rotation.x = Math.sin(t * .8) * .025;
+  rig.leftShoulder.rotation.z = .06 + Math.sin(t * .9) * .035;
+  rig.rightShoulder.rotation.z = -.06 - Math.sin(t * .9) * .035;
+  rig.leftElbow.rotation.x = -.08 + Math.sin(t * .7) * .025;
+  rig.rightElbow.rotation.x = -.08 - Math.sin(t * .7) * .025;
+  rig.leftHip.rotation.x = Math.sin(t * .95) * .035;
+  rig.rightHip.rotation.x = -Math.sin(t * .95) * .035;
+  rig.leftKnee.rotation.x = Math.max(0, -Math.sin(t * .95)) * .035;
+  rig.rightKnee.rotation.x = Math.max(0, Math.sin(t * .95)) * .035;
 }
 
 export async function mount(): Promise<void> {
@@ -50,27 +154,43 @@ export async function mount(): Promise<void> {
   const epoch = root.dataset.pageEpoch ?? ''; let disposed = false; let renderer: THREE.WebGLRenderer | null = null; let raf = 0;
   const isCurrent = () => !disposed && root.dataset.pageEpoch === epoch && root.dataset.pageOwner === OWNER;
   const cleanup = () => { if (disposed) return; disposed = true; cancelAnimationFrame(raf); renderer?.dispose(); window.removeEventListener('resize', resize); const host = window as CleanupHost; if (host.__rbPageCleanup === cleanup) host.__rbPageCleanup = null; };
-  (window as CleanupHost).__rbPageCleanup = cleanup; window.addEventListener('pagehide', cleanup, { once: true }); window.addEventListener('beforeunload', cleanup, { once: true });
+  (window as CleanupHost).__rbPageCleanup = cleanup;
+  window.addEventListener('pagehide', cleanup, { once: true }); window.addEventListener('beforeunload', cleanup, { once: true });
+
   const user = getAuthSnapshot().user; if (!user) { location.replace('/tap-in.html?next=%2Favatar-characters.html'); return; }
   const { data, error } = await supabase.rpc('rb_avatar_runtime_snapshot', {}); if (error) throw error; if (!isCurrent()) return;
-  const snapshot = (data ?? {}) as Snapshot; const current = snapshot.avatar ?? {}; const display = String(current.display_name ?? snapshot.profile?.display_name ?? snapshot.profile?.username ?? 'Rich Avatar');
-  root.innerHTML = `<main class="ac-shell"><header><a class="back" href="/profile.html">←</a><div><small>RICH BIZNESS AVATAR STUDIO</small><h1>Build Your Character</h1><p>GTA-inspired character creator with a clean Snap-style workflow.</p></div><a href="/avatar.html" class="enter">OPEN LOBBY</a></header><section class="ac-layout"><div class="ac-stage"><div class="ac-stage-top"><span>LIVE 3D PREVIEW</span><b id="previewGender">BOY</b></div><canvas id="characterCanvas"></canvas><div class="ac-stage-copy"><strong id="previewName">${esc(display)}</strong><em id="previewStyle">ATHLETIC · STREET LUXE</em></div></div><aside class="ac-editor"><div class="section-title"><span>IDENTITY</span><small>01</small></div><div class="seg"><button data-gender="boy" class="active">BOY</button><button data-gender="girl">GIRL</button></div><label>NAME<input id="nameInput" value="${esc(display)}" maxlength="28"/></label><div class="edit-grid"><label>BUILD<select id="buildInput"><option value="athletic">ATHLETIC</option><option value="lean">LEAN</option><option value="heroic">HEROIC</option></select></label><label>STYLE<select id="styleInput"><option value="street">STREET LUXE</option><option value="boss">RICH BOSS</option><option value="tactical">TACTICAL</option><option value="cyber">CYBER</option></select></label></div><label>AURA<select id="auraInput"><option>Emerald Gold</option><option>Neon Phantom</option><option>Diamond Mist</option></select></label><div class="ac-actions"><button id="randomize">RANDOMIZE</button><button id="saveCharacter" class="primary">SAVE CHARACTER</button></div><p id="saveStatus">Save once and the same character loads inside the lobby.</p></aside></section></main>`;
-  const canvas = root.querySelector<HTMLCanvasElement>('#characterCanvas')!; const scene = new THREE.Scene(); scene.background = new THREE.Color(0x7aa98a); scene.fog = new THREE.Fog(0x7aa98a, 14, 30);
-  const camera = new THREE.PerspectiveCamera(31, 1, .1, 100); camera.position.set(0, 2.0, 8.35);
-  renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: false, powerPreference: 'high-performance' }); renderer.setPixelRatio(Math.min(devicePixelRatio, 2)); renderer.outputColorSpace = THREE.SRGBColorSpace; renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.65; renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
-  scene.add(new THREE.HemisphereLight(0xf4fff7, 0x36533d, 3.1)); const key = new THREE.DirectionalLight(0xffffff, 4.2); key.position.set(4.5, 8, 6); key.castShadow = true; scene.add(key); const fill = new THREE.PointLight(0xb8ffd0, 48, 16, 2); fill.position.set(-3, 3, 4); scene.add(fill); const gold = new THREE.PointLight(0xffdd72, 30, 12, 2); gold.position.set(3, 1.6, 4); scene.add(gold);
-  const floor = new THREE.Mesh(new THREE.CircleGeometry(5.4, 72), new THREE.MeshStandardMaterial({ color: 0xc8e6cf, roughness: .6, metalness: .05 })); floor.rotation.x = -Math.PI / 2; floor.position.y = -1.25; floor.receiveShadow = true; scene.add(floor);
-  const backdrop = new THREE.Mesh(new THREE.PlaneGeometry(14, 8), new THREE.MeshStandardMaterial({ color: 0x5c8e68, roughness: .9 })); backdrop.position.set(0, 2.3, -5.5); scene.add(backdrop);
-  const skyline = new THREE.Group(); for (let i = 0; i < 10; i++) { const h = 2.6 + Math.random() * 3; const b = new THREE.Mesh(new THREE.BoxGeometry(.8 + Math.random() * .8, h, .7), new THREE.MeshStandardMaterial({ color: i % 2 ? 0x6f9e78 : 0x84af8c, roughness: .78 })); b.position.set((i - 4.5) * 1.2, h / 2 - 1.2, -4.8 - Math.random() * .5); skyline.add(b); } scene.add(skyline);
-  let gender: 'boy' | 'girl' = 'boy'; const buildInput = root.querySelector<HTMLSelectElement>('#buildInput')!; const styleInput = root.querySelector<HTMLSelectElement>('#styleInput')!; const auraInput = root.querySelector<HTMLSelectElement>('#auraInput')!;
-  let character = makeCharacter(gender, 0x21ff82, buildInput.value, styleInput.value); character.position.y = .15; scene.add(character);
+  const snapshot = (data ?? {}) as Snapshot; const current = snapshot.avatar ?? {};
+  const display = String(current.display_name ?? snapshot.profile?.display_name ?? snapshot.profile?.username ?? 'Rich Avatar');
+  root.innerHTML = `<main class="ac-shell"><header><a class="back" href="/profile.html">←</a><div><small>RICH BIZNESS AVATAR STUDIO</small><h1>Build Your Character</h1></div><a href="/avatar.html" class="enter">OPEN LOBBY</a></header><section class="ac-layout"><div class="ac-stage"><div class="ac-stage-top"><span>FULL BODY 3D</span><b id="previewGender">BOY</b></div><canvas id="characterCanvas"></canvas><div class="ac-stage-copy"><strong id="previewName">${esc(display)}</strong><em id="previewStyle">ATHLETIC · STREET LUXE</em></div></div><aside class="ac-editor"><div class="section-title"><span>CHARACTER</span></div><div class="seg"><button data-gender="boy" class="active">BOY</button><button data-gender="girl">GIRL</button></div><label>NAME<input id="nameInput" value="${esc(display)}" maxlength="28"/></label><div class="edit-grid"><label>BUILD<select id="buildInput"><option value="athletic">ATHLETIC</option><option value="lean">LEAN</option><option value="heroic">HEROIC</option></select></label><label>STYLE<select id="styleInput"><option value="street">STREET LUXE</option><option value="boss">RICH BOSS</option><option value="tactical">TACTICAL</option><option value="cyber">CYBER</option></select></label></div><label>AURA<select id="auraInput"><option>Emerald Gold</option><option>Neon Phantom</option><option>Diamond Mist</option></select></label><div class="ac-actions"><button id="randomize">RANDOMIZE</button><button id="saveCharacter" class="primary">SAVE CHARACTER</button></div><p id="saveStatus">Full-body rig saves into the lobby.</p></aside></section></main>`;
+
+  const canvas = root.querySelector<HTMLCanvasElement>('#characterCanvas')!;
+  const scene = new THREE.Scene(); scene.background = new THREE.Color(0xcfe5d6); scene.fog = new THREE.Fog(0xcfe5d6, 18, 38);
+  const camera = new THREE.PerspectiveCamera(28, 1, .1, 100); camera.position.set(0, 1.72, 8.7);
+  renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
+  renderer.setPixelRatio(Math.min(devicePixelRatio, 2)); renderer.outputColorSpace = THREE.SRGBColorSpace; renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.35; renderer.shadowMap.enabled = true; renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+  scene.add(new THREE.HemisphereLight(0xffffff, 0x5f7564, 2.8));
+  const key = new THREE.DirectionalLight(0xffffff, 3.4); key.position.set(4, 8, 5); key.castShadow = true; scene.add(key);
+  const fill = new THREE.PointLight(0x78ffaf, 24, 14, 2); fill.position.set(-3, 2, 3); scene.add(fill);
+  const gold = new THREE.PointLight(0xffd86a, 18, 12, 2); gold.position.set(3, 1.4, 3); scene.add(gold);
+  const floor = new THREE.Mesh(new THREE.PlaneGeometry(18, 18), new THREE.MeshStandardMaterial({ color: 0xe7f1ea, roughness: .75 })); floor.rotation.x = -Math.PI / 2; floor.position.y = -1.42; floor.receiveShadow = true; scene.add(floor);
+  const wall = new THREE.Mesh(new THREE.PlaneGeometry(18, 10), new THREE.MeshStandardMaterial({ color: 0xb8d7c1, roughness: .88 })); wall.position.set(0, 2.2, -5.5); scene.add(wall);
+
+  let gender: 'boy' | 'girl' = 'boy';
+  const buildInput = root.querySelector<HTMLSelectElement>('#buildInput')!;
+  const styleInput = root.querySelector<HTMLSelectElement>('#styleInput')!;
+  const auraInput = root.querySelector<HTMLSelectElement>('#auraInput')!;
   const accent = () => auraInput.value === 'Neon Phantom' ? 0x8058ff : auraInput.value === 'Diamond Mist' ? 0x8fe8ff : 0x21ff82;
-  const rebuild = () => { scene.remove(character); character = makeCharacter(gender, accent(), buildInput.value, styleInput.value); character.position.y = .15; scene.add(character); root.querySelector<HTMLElement>('#previewStyle')!.textContent = `${buildInput.value.toUpperCase()} · ${styleInput.options[styleInput.selectedIndex].text}`; };
+  let rig = createRig(gender, accent(), buildInput.value, styleInput.value); rig.root.position.y = .1; scene.add(rig.root);
+  const rebuild = () => { scene.remove(rig.root); rig = createRig(gender, accent(), buildInput.value, styleInput.value); rig.root.position.y = .1; scene.add(rig.root); root.querySelector<HTMLElement>('#previewStyle')!.textContent = `${buildInput.value.toUpperCase()} · ${styleInput.options[styleInput.selectedIndex].text}`; };
+
   root.querySelectorAll<HTMLButtonElement>('[data-gender]').forEach((btn) => btn.onclick = () => { gender = btn.dataset.gender === 'girl' ? 'girl' : 'boy'; root.querySelectorAll<HTMLButtonElement>('[data-gender]').forEach((x) => x.classList.toggle('active', x === btn)); root.querySelector<HTMLElement>('#previewGender')!.textContent = gender.toUpperCase(); rebuild(); });
   buildInput.onchange = rebuild; styleInput.onchange = rebuild; auraInput.onchange = rebuild;
   const nameInput = root.querySelector<HTMLInputElement>('#nameInput')!; nameInput.oninput = () => { root.querySelector<HTMLElement>('#previewName')!.textContent = nameInput.value || 'Rich Avatar'; };
-  root.querySelector<HTMLButtonElement>('#randomize')!.onclick = () => { gender = Math.random() > .5 ? 'girl' : 'boy'; root.querySelectorAll<HTMLButtonElement>('[data-gender]').forEach((x) => x.classList.toggle('active', x.dataset.gender === gender)); root.querySelector<HTMLElement>('#previewGender')!.textContent = gender.toUpperCase(); buildInput.selectedIndex = Math.floor(Math.random() * buildInput.options.length); styleInput.selectedIndex = Math.floor(Math.random() * styleInput.options.length); auraInput.selectedIndex = Math.floor(Math.random() * auraInput.options.length); rebuild(); };
-  root.querySelector<HTMLButtonElement>('#saveCharacter')!.onclick = async () => { const status = root.querySelector<HTMLElement>('#saveStatus')!; status.textContent = 'Saving character…'; const { error: saveError } = await supabase.rpc('rb_save_avatar_studio', { p_display_name: nameInput.value || display, p_preset_key: `gta-${gender}`, p_aura: auraInput.value, p_outfit: { build: buildInput.value, style: styleInput.value, rig: 'gta-avatar-v2' }, p_accessories: {}, p_smoke: { mode: 'off' }, p_emotes: { idle: true, walk: true, run: true, jump: true, power: true }, p_character_type: gender === 'girl' ? 'female' : 'male' }); status.textContent = saveError ? saveError.message : 'Saved. Open the lobby to use this character.'; };
-  const clock = new THREE.Clock(); const animate = () => { if (disposed) return; const t = clock.getElapsedTime(); character.rotation.y = Math.sin(t * .45) * .18; character.position.y = .15 + Math.sin(t * 1.7) * .012; renderer!.render(scene, camera); raf = requestAnimationFrame(animate); };
-  const resize = () => { const r = canvas.getBoundingClientRect(); renderer!.setSize(Math.max(1, r.width), Math.max(1, r.height), false); camera.aspect = r.width / Math.max(1, r.height); camera.updateProjectionMatrix(); }; window.addEventListener('resize', resize); resize(); animate();
+  root.querySelector<HTMLButtonElement>('#randomize')!.onclick = () => { gender = Math.random() > .5 ? 'girl' : 'boy'; buildInput.selectedIndex = Math.floor(Math.random() * buildInput.options.length); styleInput.selectedIndex = Math.floor(Math.random() * styleInput.options.length); auraInput.selectedIndex = Math.floor(Math.random() * auraInput.options.length); root.querySelectorAll<HTMLButtonElement>('[data-gender]').forEach((x) => x.classList.toggle('active', x.dataset.gender === gender)); root.querySelector<HTMLElement>('#previewGender')!.textContent = gender.toUpperCase(); rebuild(); };
+  root.querySelector<HTMLButtonElement>('#saveCharacter')!.onclick = async () => { const status = root.querySelector<HTMLElement>('#saveStatus')!; status.textContent = 'Saving character…'; const { error: saveError } = await supabase.rpc('rb_save_avatar_studio', { p_display_name: nameInput.value || display, p_preset_key: `gta-${gender}`, p_aura: auraInput.value, p_outfit: { build: buildInput.value, style: styleInput.value, rig: 'gta-articulated-v1' }, p_accessories: {}, p_smoke: { mode: 'off' }, p_emotes: { idle: true, walk: true, run: true, jump: true, power: true }, p_character_type: gender === 'girl' ? 'female' : 'male' }); status.textContent = saveError ? saveError.message : 'Saved. Open the lobby to use the full-body character.'; };
+
+  const clock = new THREE.Clock();
+  const resize = () => { const r = canvas.getBoundingClientRect(); renderer!.setSize(Math.max(1, r.width), Math.max(1, r.height), false); camera.aspect = r.width / Math.max(1, r.height); camera.updateProjectionMatrix(); };
+  window.addEventListener('resize', resize); resize();
+  const loop = () => { if (disposed) return; const t = clock.getElapsedTime(); animateRig(rig, t); rig.root.rotation.y = Math.sin(t * .35) * .12; renderer!.render(scene, camera); raf = requestAnimationFrame(loop); }; loop();
 }
