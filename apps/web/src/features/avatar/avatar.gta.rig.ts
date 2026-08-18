@@ -28,233 +28,183 @@ export type GtaAvatarRig = {
   geometries: THREE.BufferGeometry[];
 };
 
-const BASE_PELVIS_Y = 1.47;
-const mat = <T extends THREE.Material>(m: T, bucket: THREE.Material[]) => { bucket.push(m); return m; };
-const geo = <T extends THREE.BufferGeometry>(g: T, bucket: THREE.BufferGeometry[]) => { bucket.push(g); return g; };
+const BASE_PELVIS_Y = 1.28;
+const mat = <T extends THREE.Material>(m:T,bucket:THREE.Material[]) => { bucket.push(m); return m; };
+const geo = <T extends THREE.BufferGeometry>(g:T,bucket:THREE.BufferGeometry[]) => { bucket.push(g); return g; };
 
-function mesh(g: THREE.BufferGeometry, m: THREE.Material) {
-  const x = new THREE.Mesh(g, m);
-  x.castShadow = true;
-  x.receiveShadow = true;
-  return x;
+function part(g:THREE.BufferGeometry,m:THREE.Material){
+  const x=new THREE.Mesh(g,m); x.castShadow=true; x.receiveShadow=true; return x;
+}
+function ellipsoid(x:number,y:number,z:number,m:THREE.Material,b:THREE.BufferGeometry[]){
+  const q=part(geo(new THREE.SphereGeometry(1,40,30),b),m); q.scale.set(x,y,z); return q;
+}
+function capsule(r:number,l:number,m:THREE.Material,b:THREE.BufferGeometry[]){
+  return part(geo(new THREE.CapsuleGeometry(r,l,12,28),b),m);
+}
+function tapered(top:number,bottom:number,h:number,m:THREE.Material,b:THREE.BufferGeometry[]){
+  return part(geo(new THREE.CylinderGeometry(top,bottom,h,32),b),m);
 }
 
-function capsule(r: number, l: number, m: THREE.Material, bucket: THREE.BufferGeometry[]) {
-  return mesh(geo(new THREE.CapsuleGeometry(r, l, 12, 28), bucket), m);
-}
+export function createGtaAvatar(options:{gender:AvatarGender;accent:number;build:string;style:string}):GtaAvatarRig{
+  const {gender,accent,build,style}=options;
+  const female=gender==='girl';
+  const materials:THREE.Material[]=[];
+  const geometries:THREE.BufferGeometry[]=[];
 
-function ellipsoid(rx: number, ry: number, rz: number, m: THREE.Material, bucket: THREE.BufferGeometry[]) {
-  const x = mesh(geo(new THREE.SphereGeometry(1, 36, 28), bucket), m);
-  x.scale.set(rx, ry, rz);
-  return x;
-}
+  const root=new THREE.Group();
+  const pelvis=new THREE.Group();
+  const spine=new THREE.Group();
+  const chest=new THREE.Group();
+  const neck=new THREE.Group();
+  const head=new THREE.Group();
+  const leftShoulder=new THREE.Group(),rightShoulder=new THREE.Group();
+  const leftElbow=new THREE.Group(),rightElbow=new THREE.Group();
+  const leftWrist=new THREE.Group(),rightWrist=new THREE.Group();
+  const leftHip=new THREE.Group(),rightHip=new THREE.Group();
+  const leftKnee=new THREE.Group(),rightKnee=new THREE.Group();
+  const leftAnkle=new THREE.Group(),rightAnkle=new THREE.Group();
 
-export function createGtaAvatar(options: { gender: AvatarGender; accent: number; build: string; style: string }): GtaAvatarRig {
-  const { gender, accent, build, style } = options;
-  const female = gender === 'girl';
-  const materials: THREE.Material[] = [];
-  const geometries: THREE.BufferGeometry[] = [];
+  const skin=mat(new THREE.MeshPhysicalMaterial({color:female?0xa86f54:0x925f45,roughness:.58,clearcoat:.025}),materials);
+  const top=mat(new THREE.MeshPhysicalMaterial({color:style==='boss'?0x171b19:accent,roughness:style==='cyber'?.32:.50,metalness:style==='cyber'?.20:.02,clearcoat:style==='cyber'?.25:.06}),materials);
+  const tee=mat(new THREE.MeshStandardMaterial({color:0xe6ebe7,roughness:.86}),materials);
+  const pants=mat(new THREE.MeshStandardMaterial({color:style==='boss'?0x111412:0x181d1a,roughness:.84}),materials);
+  const shoe=mat(new THREE.MeshPhysicalMaterial({color:0x0b0d0c,roughness:.46,metalness:.08,clearcoat:.12}),materials);
+  const hair=mat(new THREE.MeshStandardMaterial({color:0x101110,roughness:.82}),materials);
+  const eyeWhite=mat(new THREE.MeshStandardMaterial({color:0xf6f3ec,roughness:.55}),materials);
+  const iris=mat(new THREE.MeshStandardMaterial({color:0x27150f,roughness:.5}),materials);
+  const brow=mat(new THREE.MeshStandardMaterial({color:0x1d130f,roughness:.72}),materials);
+  const lips=mat(new THREE.MeshStandardMaterial({color:female?0x76424b:0x57332c,roughness:.64}),materials);
+  const belt=mat(new THREE.MeshStandardMaterial({color:0x0b0d0c,roughness:.6}),materials);
+  const gold=mat(new THREE.MeshPhysicalMaterial({color:0xc9a944,roughness:.28,metalness:.72}),materials);
 
-  const root = new THREE.Group();
-  const pelvis = new THREE.Group();
-  const spine = new THREE.Group();
-  const chest = new THREE.Group();
-  const neck = new THREE.Group();
-  const head = new THREE.Group();
-  const leftShoulder = new THREE.Group(), rightShoulder = new THREE.Group();
-  const leftElbow = new THREE.Group(), rightElbow = new THREE.Group();
-  const leftWrist = new THREE.Group(), rightWrist = new THREE.Group();
-  const leftHip = new THREE.Group(), rightHip = new THREE.Group();
-  const leftKnee = new THREE.Group(), rightKnee = new THREE.Group();
-  const leftAnkle = new THREE.Group(), rightAnkle = new THREE.Group();
-
-  const skin = mat(new THREE.MeshPhysicalMaterial({
-    color: female ? 0xa97256 : 0x956247,
-    roughness: .56,
-    metalness: 0,
-    clearcoat: .035,
-    clearcoatRoughness: .78
-  }), materials);
-  const outer = mat(new THREE.MeshPhysicalMaterial({
-    color: style === 'boss' ? 0x151917 : accent,
-    roughness: style === 'cyber' ? .3 : .48,
-    metalness: style === 'cyber' ? .22 : .025,
-    clearcoat: style === 'cyber' ? .3 : .08
-  }), materials);
-  const undershirt = mat(new THREE.MeshStandardMaterial({ color: 0xe9ece8, roughness: .82 }), materials);
-  const pants = mat(new THREE.MeshStandardMaterial({ color: style === 'boss' ? 0x101211 : 0x171b19, roughness: .8 }), materials);
-  const shoes = mat(new THREE.MeshPhysicalMaterial({ color: 0x0c0e0d, roughness: .44, metalness: .08, clearcoat: .14 }), materials);
-  const hair = mat(new THREE.MeshStandardMaterial({ color: 0x111211, roughness: .82 }), materials);
-  const white = mat(new THREE.MeshStandardMaterial({ color: 0xf6f4ef, roughness: .56 }), materials);
-  const iris = mat(new THREE.MeshStandardMaterial({ color: 0x27160f, roughness: .5 }), materials);
-  const brow = mat(new THREE.MeshStandardMaterial({ color: 0x1c130f, roughness: .74 }), materials);
-  const lips = mat(new THREE.MeshStandardMaterial({ color: female ? 0x73414a : 0x59342e, roughness: .66 }), materials);
-  const belt = mat(new THREE.MeshStandardMaterial({ color: 0x0b0d0c, roughness: .58 }), materials);
-  const metal = mat(new THREE.MeshPhysicalMaterial({ color: 0xc3a84d, roughness: .26, metalness: .72 }), materials);
-
-  const width = build === 'lean' ? .94 : build === 'heroic' ? 1.06 : 1;
-  const shoulderX = (female ? .34 : .385) * width;
-  const hipX = female ? .17 : .16;
-  const legScale = build === 'lean' ? 1.02 : build === 'heroic' ? .985 : 1;
+  const width=build==='lean'?.93:build==='heroic'?1.045:1;
+  const shoulderX=(female?.30:.335)*width;
+  const hipX=female?.145:.135;
+  const legScale=build==='lean'?1.015:build==='heroic'?.98:1;
 
   root.add(pelvis);
-  pelvis.position.y = BASE_PELVIS_Y;
+  pelvis.position.y=BASE_PELVIS_Y;
 
-  const pelvisMesh = ellipsoid(female ? .30 : .285, .19, .215, pants, geometries);
-  pelvis.add(pelvisMesh);
-  const beltMesh = mesh(geo(new THREE.CylinderGeometry(.275, .275, .075, 28), geometries), belt);
-  beltMesh.position.y = .16;
-  beltMesh.scale.z = .78;
-  pelvis.add(beltMesh);
-  const buckle = mesh(geo(new THREE.BoxGeometry(.075, .05, .02), geometries), metal);
-  buckle.position.set(0, .16, .219);
-  pelvis.add(buckle);
+  const pelvisBody=ellipsoid(female?.265:.245,.155,.19,pants,geometries);
+  pelvis.add(pelvisBody);
+  const beltBand=tapered(.245,.245,.065,belt,geometries); beltBand.position.y=.13; beltBand.scale.z=.78; pelvis.add(beltBand);
+  const buckle=part(geo(new THREE.BoxGeometry(.064,.044,.018),geometries),gold); buckle.position.set(0,.13,.194); pelvis.add(buckle);
 
-  spine.position.y = .20;
-  pelvis.add(spine);
-  const abdomen = ellipsoid(.225 * width, .29, .175, undershirt, geometries);
-  abdomen.position.y = .27;
-  spine.add(abdomen);
+  spine.position.y=.18; pelvis.add(spine);
+  const waist=tapered(.205*width,.225*width,.35,tee,geometries); waist.position.y=.18; waist.scale.z=.72; spine.add(waist);
 
-  chest.position.y = .36;
-  spine.add(chest);
-  const torso = ellipsoid((female ? .295 : .34) * width, .39, .205, outer, geometries);
-  torso.position.y = .30;
-  chest.add(torso);
-  const chestPanel = mesh(geo(new THREE.BoxGeometry(.235 * width, .36, .024), geometries), undershirt);
-  chestPanel.position.set(0, .29, .203);
-  chest.add(chestPanel);
+  chest.position.y=.31; spine.add(chest);
+  const torso=tapered((female?.275:.31)*width,.215*width,.50,top,geometries); torso.position.y=.25; torso.scale.z=.70; chest.add(torso);
+  const teeInset=part(geo(new THREE.PlaneGeometry(.18*width,.28),geometries),tee); teeInset.position.set(0,.25,.219); chest.add(teeInset);
 
-  neck.position.y = .69;
-  chest.add(neck);
-  const neckMesh = mesh(geo(new THREE.CylinderGeometry(.085, .095, .17, 22), geometries), skin);
-  neck.add(neckMesh);
+  neck.position.y=.54; chest.add(neck);
+  const neckBody=tapered(.076,.086,.15,skin,geometries); neck.add(neckBody);
 
-  head.position.y = .22;
-  neck.add(head);
-  const skull = ellipsoid(.205, .245, .205, skin, geometries); skull.position.y = .08; head.add(skull);
-  const jaw = ellipsoid(.17, .105, .165, skin, geometries); jaw.position.set(0, -.075, .015); head.add(jaw);
-  const leftEar = ellipsoid(.03, .047, .023, skin, geometries); leftEar.position.set(-.205, .075, 0); head.add(leftEar);
-  const rightEar = leftEar.clone(); rightEar.position.x = .205; head.add(rightEar);
-  const hairCap = mesh(geo(new THREE.SphereGeometry(.214, 34, 20, 0, Math.PI * 2, 0, Math.PI * .52), geometries), hair);
-  hairCap.position.y = .245; hairCap.scale.set(1.02, .48, 1.02); head.add(hairCap);
-  if (female) {
-    const pony = capsule(.038, .20, hair, geometries); pony.position.set(.07, .13, -.205); pony.rotation.z = .12; head.add(pony);
+  head.position.y=.18; neck.add(head);
+  const skull=ellipsoid(.175,.215,.18,skin,geometries); skull.position.y=.07; head.add(skull);
+  const jaw=ellipsoid(.148,.09,.145,skin,geometries); jaw.position.set(0,-.075,.012); head.add(jaw);
+  const earL=ellipsoid(.026,.042,.020,skin,geometries); earL.position.set(-.174,.055,0); head.add(earL);
+  const earR=earL.clone(); earR.position.x=.174; head.add(earR);
+  const hairCap=part(geo(new THREE.SphereGeometry(.184,36,22,0,Math.PI*2,0,Math.PI*.52),geometries),hair); hairCap.position.y=.218; hairCap.scale.set(1.02,.46,1.02); head.add(hairCap);
+  if(female){ const pony=capsule(.028,.15,hair,geometries); pony.position.set(.055,.10,-.18); pony.rotation.z=.12; head.add(pony); }
+
+  const leftEye=ellipsoid(.020,.015,.011,eyeWhite,geometries); leftEye.position.set(-.057,.075,.174); head.add(leftEye);
+  const rightEye=leftEye.clone(); rightEye.position.x=.057; head.add(rightEye);
+  for(const x of [-.057,.057]){
+    const p=ellipsoid(.0078,.0078,.0065,iris,geometries); p.position.set(x,.075,.186); head.add(p);
+    const b=part(geo(new THREE.BoxGeometry(.052,.009,.010),geometries),brow); b.position.set(x,.122,.178); b.rotation.z=x<0?-.035:.035; head.add(b);
   }
+  const nose=ellipsoid(.020,.030,.025,skin,geometries); nose.position.set(0,.015,.182); head.add(nose);
+  const mouth=part(geo(new THREE.BoxGeometry(.052,.009,.009),geometries),lips); mouth.position.set(0,-.065,.169); head.add(mouth);
 
-  const leftEye = ellipsoid(.024, .018, .014, white, geometries); leftEye.position.set(-.068, .095, .197); head.add(leftEye);
-  const rightEye = leftEye.clone(); rightEye.position.x = .068; head.add(rightEye);
-  for (const x of [-.068, .068]) {
-    const pupil = ellipsoid(.0095, .0095, .008, iris, geometries); pupil.position.set(x, .095, .211); head.add(pupil);
-    const browMesh = mesh(geo(new THREE.BoxGeometry(.065, .011, .012), geometries), brow); browMesh.position.set(x, .15, .202); browMesh.rotation.z = x < 0 ? -.04 : .04; head.add(browMesh);
-  }
-  const nose = capsule(.0115, .042, skin, geometries); nose.rotation.x = Math.PI / 2; nose.position.set(0, .03, .21); head.add(nose);
-  const mouth = mesh(geo(new THREE.BoxGeometry(.062, .01, .01), geometries), lips); mouth.position.set(0, -.065, .196); head.add(mouth);
-
-  const addArm = (side: -1 | 1, shoulder: THREE.Group, elbow: THREE.Group, wrist: THREE.Group) => {
-    shoulder.position.set(side * shoulderX, .52, 0);
-    chest.add(shoulder);
-    const sleeve = capsule(.075, .18, outer, geometries); sleeve.position.y = -.12; shoulder.add(sleeve);
-    const upper = capsule(.057, .31, skin, geometries); upper.position.y = -.36; shoulder.add(upper);
-    elbow.position.y = -.56; shoulder.add(elbow);
-    elbow.add(ellipsoid(.061, .058, .058, skin, geometries));
-    const fore = capsule(.052, .31, skin, geometries); fore.position.y = -.20; elbow.add(fore);
-    wrist.position.y = -.40; elbow.add(wrist);
-    const hand = ellipsoid(.061, .085, .038, skin, geometries); hand.position.y = -.065; wrist.add(hand);
-    for (let i = 0; i < 4; i++) {
-      const finger = capsule(.0065, .055, skin, geometries); finger.position.set((i - 1.5) * .015, -.125, .004); wrist.add(finger);
-    }
+  const addArm=(side:-1|1,shoulder:THREE.Group,elbow:THREE.Group,wrist:THREE.Group)=>{
+    shoulder.position.set(side*shoulderX,.39,0); chest.add(shoulder);
+    const sleeve=capsule(.066,.12,top,geometries); sleeve.position.y=-.09; shoulder.add(sleeve);
+    const upper=capsule(.049,.25,skin,geometries); upper.position.y=-.285; shoulder.add(upper);
+    elbow.position.y=-.45; shoulder.add(elbow);
+    elbow.add(ellipsoid(.052,.048,.046,skin,geometries));
+    const fore=capsule(.045,.245,skin,geometries); fore.position.y=-.16; elbow.add(fore);
+    wrist.position.y=-.32; elbow.add(wrist);
+    const hand=ellipsoid(.050,.070,.031,skin,geometries); hand.position.y=-.052; wrist.add(hand);
   };
-  addArm(-1, leftShoulder, leftElbow, leftWrist);
-  addArm(1, rightShoulder, rightElbow, rightWrist);
+  addArm(-1,leftShoulder,leftElbow,leftWrist); addArm(1,rightShoulder,rightElbow,rightWrist);
 
-  const addLeg = (side: -1 | 1, hip: THREE.Group, knee: THREE.Group, ankle: THREE.Group) => {
-    hip.position.set(side * hipX, -.08, 0);
-    pelvis.add(hip);
-    const thigh = capsule(.083, .53 * legScale, pants, geometries); thigh.position.y = -.34 * legScale; hip.add(thigh);
-    knee.position.y = -.67 * legScale; hip.add(knee);
-    knee.add(ellipsoid(.079, .066, .074, pants, geometries));
-    const shin = capsule(.072, .50 * legScale, pants, geometries); shin.position.y = -.32 * legScale; knee.add(shin);
-    ankle.position.y = -.63 * legScale; knee.add(ankle);
-    const foot = mesh(geo(new THREE.BoxGeometry(.18, .11, .34), geometries), shoes); foot.position.set(0, -.055, .105); foot.rotation.x = -.025; ankle.add(foot);
-    const sole = mesh(geo(new THREE.BoxGeometry(.184, .026, .345), geometries), shoes); sole.position.set(0, -.115, .105); ankle.add(sole);
+  const addLeg=(side:-1|1,hip:THREE.Group,knee:THREE.Group,ankle:THREE.Group)=>{
+    hip.position.set(side*hipX,-.06,0); pelvis.add(hip);
+    const thigh=capsule(.074,.42*legScale,pants,geometries); thigh.position.y=-.27*legScale; hip.add(thigh);
+    knee.position.y=-.53*legScale; hip.add(knee);
+    knee.add(ellipsoid(.069,.059,.065,pants,geometries));
+    const shin=capsule(.061,.39*legScale,pants,geometries); shin.position.y=-.25*legScale; knee.add(shin);
+    ankle.position.y=-.49*legScale; knee.add(ankle);
+    const foot=part(geo(new THREE.BoxGeometry(.16,.095,.29),geometries),shoe); foot.position.set(0,-.046,.088); ankle.add(foot);
+    const sole=part(geo(new THREE.BoxGeometry(.164,.022,.294),geometries),shoe); sole.position.set(0,-.098,.088); ankle.add(sole);
   };
-  addLeg(-1, leftHip, leftKnee, leftAnkle);
-  addLeg(1, rightHip, rightKnee, rightAnkle);
+  addLeg(-1,leftHip,leftKnee,leftAnkle); addLeg(1,rightHip,rightKnee,rightAnkle);
 
-  root.scale.setScalar(1.02);
-  return { root, pelvis, spine, chest, neck, head, leftShoulder, rightShoulder, leftElbow, rightElbow, leftWrist, rightWrist, leftHip, rightHip, leftKnee, rightKnee, leftAnkle, rightAnkle, leftEye, rightEye, materials, geometries };
+  root.scale.setScalar(1.0);
+  return {root,pelvis,spine,chest,neck,head,leftShoulder,rightShoulder,leftElbow,rightElbow,leftWrist,rightWrist,leftHip,rightHip,leftKnee,rightKnee,leftAnkle,rightAnkle,leftEye,rightEye,materials,geometries};
 }
 
-export function poseGtaAvatar(r: GtaAvatarRig, time: number, motion: AvatarMotion, powerAmount = 0) {
-  const walking = motion === 'walk' || motion === 'run';
-  const running = motion === 'run';
-  const gait = time * (running ? 10.2 : 6.4);
-  const stride = walking ? (running ? .58 : .36) : 0;
-  const swing = Math.sin(gait) * stride;
-  const bounce = walking ? Math.abs(Math.sin(gait)) * (running ? .022 : .011) : Math.sin(time * 1.55) * .0035;
+export function poseGtaAvatar(r:GtaAvatarRig,time:number,motion:AvatarMotion,powerAmount=0){
+  const walking=motion==='walk'||motion==='run';
+  const running=motion==='run';
+  const gait=time*(running?9.4:6.0);
+  const stride=walking?(running?.48:.31):0;
+  const swing=Math.sin(gait)*stride;
+  const lift=walking?Math.max(0,Math.sin(gait))*(running?.055:.032):0;
+  const bounce=walking?Math.abs(Math.sin(gait))*(running?.018:.009):Math.sin(time*1.45)*.003;
 
-  r.pelvis.position.y = BASE_PELVIS_Y + bounce;
-  r.pelvis.rotation.y = walking ? Math.sin(gait) * .035 : Math.sin(time * .42) * .01;
-  r.pelvis.rotation.z = walking ? Math.sin(gait) * .012 : 0;
-  r.spine.rotation.y = walking ? -Math.sin(gait) * .03 : Math.sin(time * .5) * .008;
-  r.chest.rotation.y = walking ? -Math.sin(gait) * .042 : Math.sin(time * .55) * .01;
-  r.chest.rotation.z = walking ? Math.sin(gait) * .014 : Math.sin(time * .72) * .005;
-  r.chest.rotation.x = Math.sin(time * 1.55) * .006;
-  r.neck.rotation.y = walking ? 0 : Math.sin(time * .45) * .02;
-  r.head.rotation.y = walking ? THREE.MathUtils.lerp(r.head.rotation.y, 0, .1) : Math.sin(time * .42) * .07;
-  r.head.rotation.x = walking ? -.01 : Math.sin(time * .7) * .012;
+  r.pelvis.position.y=BASE_PELVIS_Y+bounce;
+  r.pelvis.rotation.y=walking?Math.sin(gait)*.028:Math.sin(time*.38)*.008;
+  r.pelvis.rotation.z=walking?Math.sin(gait)*.010:0;
+  r.spine.rotation.y=walking?-Math.sin(gait)*.022:Math.sin(time*.46)*.006;
+  r.chest.rotation.y=walking?-Math.sin(gait)*.034:Math.sin(time*.50)*.008;
+  r.chest.rotation.z=walking?Math.sin(gait)*.010:Math.sin(time*.68)*.004;
+  r.chest.rotation.x=Math.sin(time*1.45)*.004;
+  r.neck.rotation.y=walking?0:Math.sin(time*.42)*.018;
+  r.head.rotation.y=walking?THREE.MathUtils.lerp(r.head.rotation.y,0,.12):Math.sin(time*.40)*.055;
+  r.head.rotation.x=walking?-.006:Math.sin(time*.66)*.009;
 
-  r.leftHip.rotation.x = swing;
-  r.rightHip.rotation.x = -swing;
-  r.leftKnee.rotation.x = walking ? Math.max(0, -Math.sin(gait)) * (running ? .78 : .48) : .01;
-  r.rightKnee.rotation.x = walking ? Math.max(0, Math.sin(gait)) * (running ? .78 : .48) : .01;
-  r.leftAnkle.rotation.x = -r.leftKnee.rotation.x * .40 + (walking ? Math.sin(gait) * .055 : 0);
-  r.rightAnkle.rotation.x = -r.rightKnee.rotation.x * .40 - (walking ? Math.sin(gait) * .055 : 0);
+  r.leftHip.rotation.x=swing;
+  r.rightHip.rotation.x=-swing;
+  r.leftHip.position.y=-.06+lift;
+  r.rightHip.position.y=-.06+(walking?Math.max(0,-Math.sin(gait))*(running?.055:.032):0);
+  r.leftKnee.rotation.x=walking?Math.max(0,-Math.sin(gait))*(running?.66:.40):.008;
+  r.rightKnee.rotation.x=walking?Math.max(0,Math.sin(gait))*(running?.66:.40):.008;
+  r.leftAnkle.rotation.x=-r.leftKnee.rotation.x*.36+(walking?Math.sin(gait)*.04:0);
+  r.rightAnkle.rotation.x=-r.rightKnee.rotation.x*.36-(walking?Math.sin(gait)*.04:0);
 
-  r.leftShoulder.rotation.x = -swing * .68;
-  r.rightShoulder.rotation.x = swing * .68;
-  r.leftShoulder.rotation.z = .018;
-  r.rightShoulder.rotation.z = -.018;
-  r.leftElbow.rotation.x = walking ? -.11 - Math.max(0, -swing) * .20 : -.06;
-  r.rightElbow.rotation.x = walking ? -.11 - Math.max(0, swing) * .20 : -.06;
-  r.leftWrist.rotation.z = walking ? Math.sin(gait) * .045 : Math.sin(time * .9) * .015;
-  r.rightWrist.rotation.z = walking ? -Math.sin(gait) * .045 : -Math.sin(time * .9) * .015;
+  r.leftShoulder.rotation.x=-swing*.62;
+  r.rightShoulder.rotation.x=swing*.62;
+  r.leftShoulder.rotation.z=.014;
+  r.rightShoulder.rotation.z=-.014;
+  r.leftElbow.rotation.x=walking?-.09-Math.max(0,-swing)*.16:-.045;
+  r.rightElbow.rotation.x=walking?-.09-Math.max(0,swing)*.16:-.045;
+  r.leftWrist.rotation.z=walking?Math.sin(gait)*.035:Math.sin(time*.82)*.012;
+  r.rightWrist.rotation.z=walking?-Math.sin(gait)*.035:-Math.sin(time*.82)*.012;
 
-  if (motion === 'jump') {
-    r.leftHip.rotation.x = -.16;
-    r.rightHip.rotation.x = -.16;
-    r.leftKnee.rotation.x = .30;
-    r.rightKnee.rotation.x = .30;
-    r.leftShoulder.rotation.x = -.14;
-    r.rightShoulder.rotation.x = -.14;
+  if(motion==='jump'){
+    r.leftHip.rotation.x=-.18; r.rightHip.rotation.x=-.18;
+    r.leftKnee.rotation.x=.33; r.rightKnee.rotation.x=.33;
+    r.leftShoulder.rotation.x=-.15; r.rightShoulder.rotation.x=-.15;
   }
-
-  if (motion === 'power' || powerAmount > 0) {
-    const p = Math.min(1, Math.max(powerAmount, motion === 'power' ? 1 : 0));
-    r.leftShoulder.rotation.z = THREE.MathUtils.lerp(r.leftShoulder.rotation.z, .9, p);
-    r.rightShoulder.rotation.z = THREE.MathUtils.lerp(r.rightShoulder.rotation.z, -.9, p);
-    r.leftElbow.rotation.x = -.42 * p;
-    r.rightElbow.rotation.x = -.42 * p;
-    r.chest.rotation.x = -.055 * p;
-    r.head.rotation.x = -.035 * p;
+  if(motion==='power'||powerAmount>0){
+    const p=Math.min(1,Math.max(powerAmount,motion==='power'?1:0));
+    r.leftShoulder.rotation.z=THREE.MathUtils.lerp(r.leftShoulder.rotation.z,.82,p);
+    r.rightShoulder.rotation.z=THREE.MathUtils.lerp(r.rightShoulder.rotation.z,-.82,p);
+    r.leftElbow.rotation.x=-.42*p; r.rightElbow.rotation.x=-.42*p;
+    r.chest.rotation.x=-.045*p; r.head.rotation.x=-.025*p;
   }
-
-  const blink = Math.sin(time * 3.1) > .992 ? .2 : 1;
-  r.leftEye.scale.y = blink;
-  r.rightEye.scale.y = blink;
+  const blink=Math.sin(time*3.0)>.992?.16:1;
+  r.leftEye.scale.y=blink; r.rightEye.scale.y=blink;
 }
 
-export function disposeGtaAvatar(r: GtaAvatarRig) {
-  r.geometries.forEach(g => g.dispose());
-  r.materials.forEach(m => m.dispose());
-}
+export function disposeGtaAvatar(r:GtaAvatarRig){ r.geometries.forEach(g=>g.dispose()); r.materials.forEach(m=>m.dispose()); }
 
-export function qualityProfile() {
-  const cores = navigator.hardwareConcurrency || 4;
-  const memory = Number((navigator as Navigator & { deviceMemory?: number }).deviceMemory ?? 4);
-  const high = cores >= 6 && memory >= 4;
-  const dpr = Math.min(window.devicePixelRatio || 1, high ? 2.4 : 1.75);
-  const shadowSize = high ? 2048 : 1024;
-  return { high, dpr, shadowSize };
+export function qualityProfile(){
+  const cores=navigator.hardwareConcurrency||4;
+  const high=cores>=6;
+  const dpr=Math.min(window.devicePixelRatio||1,high?2.25:1.7);
+  const shadowSize=high?2048:1024;
+  return {high,dpr,shadowSize};
 }
