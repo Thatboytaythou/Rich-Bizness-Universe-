@@ -39,6 +39,23 @@ function actionForMotion(runtime: SkinnedAvatarRuntime, motion: AvatarMotion): T
   return runtime.actions.values().next().value ?? null;
 }
 
+function assertProductionHumanoid(root: THREE.Group, clips: THREE.AnimationClip[]): void {
+  let skinnedMeshes = 0;
+  const bones = new Set<THREE.Bone>();
+
+  root.traverse((object) => {
+    const skinned = object as THREE.SkinnedMesh;
+    if (skinned.isSkinnedMesh) {
+      skinnedMeshes += 1;
+      for (const bone of skinned.skeleton?.bones ?? []) bones.add(bone);
+    }
+  });
+
+  if (skinnedMeshes < 1) throw new Error('Avatar asset rejected: no skinned humanoid mesh found.');
+  if (bones.size < 8) throw new Error(`Avatar asset rejected: incomplete skeleton (${bones.size} bones).`);
+  if (clips.length < 1) throw new Error('Avatar asset rejected: no skeletal animation clips found.');
+}
+
 function prepareModel(root: THREE.Group, targetHeight = 1.82): { bounds: THREE.Box3; height: number } {
   root.traverse((object) => {
     const mesh = object as THREE.Mesh;
@@ -56,6 +73,8 @@ function prepareModel(root: THREE.Group, targetHeight = 1.82): { bounds: THREE.B
   const initial = new THREE.Box3().setFromObject(root);
   const initialSize = initial.getSize(new THREE.Vector3());
   const safeHeight = Math.max(initialSize.y, 0.001);
+  if (!Number.isFinite(safeHeight) || safeHeight <= 0.01) throw new Error('Avatar asset rejected: invalid body bounds.');
+
   const scale = targetHeight / safeHeight;
   root.scale.multiplyScalar(scale);
   root.updateMatrixWorld(true);
@@ -68,7 +87,13 @@ function prepareModel(root: THREE.Group, targetHeight = 1.82): { bounds: THREE.B
   root.updateMatrixWorld(true);
 
   const bounds = new THREE.Box3().setFromObject(root);
-  return { bounds, height: bounds.getSize(new THREE.Vector3()).y };
+  const height = bounds.getSize(new THREE.Vector3()).y;
+  const groundError = Math.abs(bounds.min.y);
+  if (!Number.isFinite(height) || Math.abs(height - targetHeight) > 0.04) {
+    throw new Error(`Avatar asset rejected: normalized height ${height.toFixed(3)}m is outside tolerance.`);
+  }
+  if (groundError > 0.025) throw new Error(`Avatar asset rejected: feet are ${groundError.toFixed(3)}m off ground.`);
+  return { bounds, height };
 }
 
 export function resolveAvatarModelUrl(snapshot: Record<string, any> | null | undefined, gender: AvatarGender): string {
@@ -89,6 +114,7 @@ export async function loadSkinnedAvatar(options: {
 
   const root = gltf.scene;
   root.name = 'rb-skinned-avatar';
+  assertProductionHumanoid(root, gltf.animations);
   const { bounds, height } = prepareModel(root, options.targetHeight ?? 1.82);
   const mixer = new THREE.AnimationMixer(root);
   const actions = new Map<string, THREE.AnimationAction>();
@@ -166,13 +192,10 @@ export function disposeSkinnedAvatar(runtime: SkinnedAvatarRuntime): void {
 }
 
 export function qualityProfile() {
-  const nav = navigator as Navigator & { deviceMemory?: number };
-  const cores = nav.hardwareConcurrency || 4;
-  const memory = nav.deviceMemory || 4;
-  const high = cores >= 6 && memory >= 4;
+  const dpr = window.devicePixelRatio || 1;
   return {
-    high,
-    dpr: Math.min(window.devicePixelRatio || 1, high ? 2 : 1.5),
-    shadowSize: high ? 1536 : 1024
+    high: false,
+    dpr: Math.min(dpr, 1.65),
+    shadowSize: dpr > 1.5 ? 1280 : 1024
   };
 }
