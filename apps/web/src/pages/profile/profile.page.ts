@@ -185,8 +185,8 @@ export async function mountProfilePage(): Promise<void> {
   const ownerActions = [
     ownerControl('/edit-profile.html', '✎', 'EDIT PROFILE', 'Identity, bio, avatar and banner', 'is-primary'),
     ownerControl('/settings.html', '⚙', 'SETTINGS', 'Privacy, motion, theme and notifications'),
-    ownerControl('/avatar.html', '◆', 'CHOOSE AVATAR', 'Select your character identity'),
-    ownerControl('/avatar-characters.html', '◉', '3D CHARACTER LOBBY', 'Enter the live controllable avatar space'),
+    ownerControl('/avatar.html', '◆', '3D AVATAR LOBBY', 'Enter your controllable 3D character world'),
+    ownerControl('/avatar-characters.html', '◉', 'CHOOSE AVATAR', 'Select and customize your character'),
     ownerControl('/creator.html', '✦', 'CREATOR', 'Open your creator dimensions'),
     ownerControl('/upload.html', '↑', 'UPLOAD', 'Publish into the universe'),
     isAdmin ? ownerControl('/admin.html', '⌘', 'ADMIN', 'Platform control', 'is-admin') : '',
@@ -220,7 +220,7 @@ export async function mountProfilePage(): Promise<void> {
     ${!isOwner ? `<nav class="pu-actions" aria-label="Profile actions"><button type="button" id="followButton" class="primary">${viewer.following ? 'FOLLOWING' : 'FOLLOW'}</button><a href="/messages.html?to=${profileId}">MESSAGE</a><a href="/creator.html?id=${profileId}">CREATOR</a><a href="/store.html?seller=${profileId}">STORE</a><button type="button" id="shareButton">SHARE</button></nav>` : ''}
 
     <section class="pu-command">
-      <article class="pu-command__avatar"><div><small>CHARACTER</small><h2>${esc((avatar.character_type ?? 'CUSTOM').toUpperCase())}</h2><p>${esc(avatar.aura ?? 'Emerald Gold')} · ${avatar.is_controllable ? 'Realtime controllable' : 'Ready'}</p></div><div class="pu-character-links"><a href="/avatar.html">CHOOSE</a><a href="/avatar-characters.html">3D LOBBY</a></div></article>
+      <article class="pu-command__avatar"><div><small>CHARACTER</small><h2>${esc((avatar.character_type ?? 'CUSTOM').toUpperCase())}</h2><p>${esc(avatar.aura ?? 'Emerald Gold')} · ${avatar.is_controllable ? 'Realtime controllable' : 'Ready'}</p></div><div class="pu-character-links"><a href="/avatar.html">3D LOBBY</a><a href="/avatar-characters.html">CHOOSE</a></div></article>
       ${stat('BALANCE', money(profile.balance_cents))}${stat('CREATOR', snap.creator ? 'ACTIVE' : '—')}${stat('GAMER', snap.gamer?.rank_title ?? '—')}
     </section>
 
