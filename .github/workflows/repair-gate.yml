@@ -1,0 +1,36 @@
+name: Rich Bizness Repair Gate
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [rb-staged-repair-20260823]
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install
+        run: npm ci --no-audit --no-fund
+
+      - name: Validate contracts
+        run: npm run validate
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Build
+        run: npm run build
+
+      - name: Canonical source ownership gate
+        run: node scripts/validate-repair-stage.mjs
