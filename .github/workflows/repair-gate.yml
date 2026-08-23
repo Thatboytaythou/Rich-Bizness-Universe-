@@ -10,6 +10,10 @@ jobs:
   validate:
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: https://xfsrqomsiulswbalgknx.supabase.co
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: sb_publishable_pW8c7eWAX1GPi5HbncKjpg_CicEceV8
+      LIVEKIT_URL: wss://rich-bizness-mobile-app-ww6cieid.livekit.cloud
     steps:
       - name: Checkout
         uses: actions/checkout@v4
