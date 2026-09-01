@@ -1,10 +1,13 @@
 import { createClient } from '@supabase/supabase-js';
 
-const url = process.env.SUPABASE_URL ?? process.env.NEXT_PUBLIC_SUPABASE_URL;
-const publishableKey = process.env.SUPABASE_PUBLISHABLE_KEY ?? process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+const rawUrl = process.env.SUPABASE_URL ?? process.env.NEXT_PUBLIC_SUPABASE_URL;
+const rawPublishableKey = process.env.SUPABASE_PUBLISHABLE_KEY ?? process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-if (!url) throw new Error('Missing SUPABASE_URL.');
-if (!publishableKey) throw new Error('Missing SUPABASE_PUBLISHABLE_KEY.');
+if (!rawUrl) throw new Error('Missing SUPABASE_URL.');
+if (!rawPublishableKey) throw new Error('Missing SUPABASE_PUBLISHABLE_KEY.');
+
+const url: string = rawUrl;
+const publishableKey: string = rawPublishableKey;
 
 export function createSupabaseUserClient(accessToken: string) {
   return createClient(url, publishableKey, {
