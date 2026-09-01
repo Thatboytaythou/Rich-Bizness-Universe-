@@ -39,7 +39,7 @@ function parseLocalSave(raw: string | null): Json | null {
 
 async function action<T>(fn: string, args: Json): Promise<T> {
   if (disposed) throw new Error('Game runtime has already been disposed');
-  const { data, error } = await supabase.rpc(fn, args);
+  const { data, error } = await (supabase as any).rpc(fn, args);
   if (error) throw error;
   return data as T;
 }
