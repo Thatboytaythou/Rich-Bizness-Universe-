@@ -93,7 +93,7 @@ const pageModules: Record<string, PageRegistration> = {
   'edit-profile': guardedRegistration({ auth: 'required', owner: 'rich-bizness-edit-profile-v2', preload: [() => import('./features/edit-profile/edit-profile-motion.css')], loadModule: () => import('./features/edit-profile/edit-profile.page') }),
   settings: guardedRegistration({ auth: 'required', owner: 'rich-bizness-settings-v2', preload: [() => import('./features/communications/settings-motion.css')], loadModule: () => import('./features/communications/settings.page') }),
   notifications: guardedRegistration({ auth: 'required', owner: 'rich-bizness-notifications-v2', preload: [() => import('./features/communications/notifications-motion.css')], loadModule: () => import('./features/communications/notifications.page') }),
-  messages: guardedRegistration({ auth: 'required', owner: 'rich-bizness-messages-v3', preload: [() => import('./features/communications/messages-motion.css')], loadModule: () => import('./features/communications/messages.page') }),
+  messages: guardedRegistration({ auth: 'required', owner: 'rich-bizness-messages-v3', preload: [() => import('./features/communications/messages-motion.css')], loadModule: () => import('./features/communications/messages.runtime.page') }),
   upload: guardedRegistration({ auth: 'required', owner: 'rich-bizness-upload-v3', loadModule: () => import('./features/upload/upload.page') }),
   search: guardedRegistration({ auth: 'optional', owner: 'rich-bizness-search-v3', loadModule: () => import('./features/search/search.page') }),
   watch: guardedRegistration({ auth: 'optional', owner: 'rich-bizness-watch-v4', loadModule: () => import('./features/watch/watch.page') }),
