@@ -80,7 +80,7 @@ const pageModules: Record<string, PageRegistration> = {
   gaming: guardedRegistration({ auth: 'optional', owner: 'rich-bizness-gaming-v6', exportName: 'mountGamingPage', loadModule: () => import('./pages/gaming/gaming.v4.page') }),
   feed: guardedRegistration({ auth: 'optional', owner: 'rich-bizness-feed-v3', loadModule: () => import('./pages/feed/feed.page') }),
   gallery: guardedRegistration({ auth: 'optional', owner: 'rich-bizness-gallery-v3', loadModule: () => import('./pages/gallery/gallery.page') }),
-  live: guardedRegistration({ auth: 'optional', owner: 'rich-bizness-live-v5', preload: [() => import('./pages/live/live-universe.css'), () => import('./styles/live-command-v4.css')], loadModule: () => import('./pages/live/live.page') }),
+  live: guardedRegistration({ auth: 'optional', owner: 'rich-bizness-live-v5', preload: [() => import('./pages/live/live-universe.css'), () => import('./styles/live-command-v4.css')], loadModule: () => import('./pages/live/live.runtime.page') }),
   music: guardedRegistration({ auth: 'optional', owner: 'rich-bizness-music-v4', loadModule: () => import('./pages/music/music.page') }),
   podcast: guardedRegistration({ auth: 'optional', owner: 'rich-bizness-podcast-v4', loadModule: () => import('./pages/podcast/podcast.page') }),
   radio: guardedRegistration({ auth: 'optional', owner: 'rich-bizness-radio-v4', loadModule: () => import('./pages/radio/radio.page') }),
