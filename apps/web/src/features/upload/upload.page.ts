@@ -71,7 +71,60 @@ export async function mount(): Promise<void> {
   dropZone.addEventListener('dragleave', () => dropZone.classList.remove('active'), { signal });
   dropZone.addEventListener('drop', (event) => { event.preventDefault(); dropZone.classList.remove('active'); setFile(event.dataTransfer?.files?.[0] ?? null); }, { signal });
   root.querySelector<HTMLButtonElement>('#refreshUploads')!.addEventListener('click', () => void loadSnapshot().catch((error) => setMessage(error.message)), { signal });
-  form.addEventListener('submit', async (event) => { event.preventDefault(); if (!isCurrent() || uploading || !selected) return setMessage('Add a file first.'); const route = activeRoute(); if (!route) return; uploading = true; button.disabled = true; state.textContent = 'UPLOADING'; state.classList.add('working'); bar.style.width = '10%'; setMessage('Uploading…'); const ext = selected.name.split('.').pop()?.toLowerCase() || 'bin'; const objectPath = `${user.id}/${Date.now()}-${crypto.randomUUID()}.${ext}`; const { error: storageError } = await supabase.storage.from(route.bucket).upload(objectPath, selected, { cacheControl: '3600', upsert: false, contentType: selected.type || undefined }); if (!isCurrent()) return; if (storageError) { uploading = false; button.disabled = false; state.textContent = 'READY'; state.classList.remove('working'); bar.style.width = '0%'; return setMessage(storageError.message); } bar.style.width = '60%'; const { data: publicData } = supabase.storage.from(route.bucket).getPublicUrl(objectPath); const publicUrl = route.is_public === false ? null : publicData.publicUrl; const { error: insertError } = await supabase.from('uploads').insert({ user_id: user.id, section: route.section, route_key: route.route_key, bucket: route.bucket, object_path: objectPath, public_url: publicUrl, media_type: kindFor(selected.type), mime_type: selected.type || 'application/octet-stream', file_name: selected.name, file_size: selected.size, title: title.value.trim() || selected.name, description: description.value.trim(), visibility: visibility.value, processing_status: route.processing_type && route.processing_type !== 'none' ? 'queued' : 'completed', processing_progress: route.processing_type && route.processing_type !== 'none' ? 0 : 100 }); if (!isCurrent()) return; if (insertError) { uploading = false; button.disabled = false; state.textContent = 'READY'; state.classList.remove('working'); bar.style.width = '0%'; return setMessage(insertError.message); } bar.style.width = '100%'; setMessage('Published.'); state.textContent = 'READY'; state.classList.remove('working'); uploading = false; button.disabled = false; form.reset(); setFile(null); await loadSnapshot().catch(() => undefined); }, { signal });
+  form.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    if (!isCurrent() || uploading || !selected) return setMessage('Add a file first.');
+    const route = activeRoute();
+    if (!route) return;
+    uploading = true;
+    button.disabled = true;
+    state.textContent = 'UPLOADING';
+    state.classList.add('working');
+    bar.style.width = '10%';
+    setMessage('Uploading…');
+
+    const file = selected;
+    const ext = file.name.split('.').pop()?.toLowerCase() || 'bin';
+    const objectPath = `${user.id}/${route.route_key}/${Date.now()}-${crypto.randomUUID()}.${ext}`;
+    const contentType = file.type || 'application/octet-stream';
+    const { error: storageError } = await supabase.storage.from(route.bucket).upload(objectPath, file, { cacheControl: '3600', upsert: false, contentType });
+    if (!isCurrent()) return;
+    if (storageError) {
+      uploading = false; button.disabled = false; state.textContent = 'READY'; state.classList.remove('working'); bar.style.width = '0%';
+      return setMessage(storageError.message);
+    }
+
+    bar.style.width = '60%';
+    const { data: publicData } = supabase.storage.from(route.bucket).getPublicUrl(objectPath);
+    const publicUrl = route.is_public === false ? `private://${route.bucket}/${objectPath}` : publicData.publicUrl;
+    const { error: registerError } = await supabase.rpc('rb_register_upload', {
+      p_route_key: route.route_key,
+      p_title: title.value.trim() || file.name,
+      p_description: description.value.trim(),
+      p_file_path: objectPath,
+      p_public_url: publicUrl,
+      p_mime_type: contentType,
+      p_file_size: file.size,
+      p_visibility: route.is_public === false ? 'private' : visibility.value,
+      p_metadata: { file_name: file.name, client: 'upload-page-v3' }
+    });
+    if (!isCurrent()) return;
+    if (registerError) {
+      await supabase.storage.from(route.bucket).remove([objectPath]);
+      uploading = false; button.disabled = false; state.textContent = 'READY'; state.classList.remove('working'); bar.style.width = '0%';
+      return setMessage(registerError.message);
+    }
+
+    bar.style.width = '100%';
+    setMessage('Published and connected.');
+    state.textContent = 'READY';
+    state.classList.remove('working');
+    uploading = false;
+    button.disabled = false;
+    form.reset();
+    setFile(null);
+    await loadSnapshot().catch(() => undefined);
+  }, { signal });
 
   await loadSnapshot();
   if (!isCurrent()) return;
