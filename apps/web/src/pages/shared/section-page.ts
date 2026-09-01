@@ -16,7 +16,7 @@ export async function mountSectionPage(config: SectionPageConfig): Promise<void>
   const page = mountAppShell(root, { title: config.title, activeRoute: config.route });
   page.innerHTML = `<section class="rb-section"><header><p>RICH BIZNESS LLC</p><h1>${escapeHtml(config.title)}</h1></header><div data-state="loading">Loading…</div></section>`;
 
-  let query = supabase.from(config.table).select(config.columns ?? '*').order('created_at', { ascending: false }).limit(30);
+  let query = (supabase as any).from(config.table).select(config.columns ?? '*').order('created_at', { ascending: false }).limit(30);
   if (config.section) query = query.eq('section', config.section);
   const { data, error } = await query;
   const state = page.querySelector<HTMLElement>('[data-state]');
@@ -28,7 +28,7 @@ export async function mountSectionPage(config: SectionPageConfig): Promise<void>
     return;
   }
 
-  const rows = Array.isArray(data) ? data : [];
+  const rows = (Array.isArray(data) ? data : []) as Array<Record<string, unknown>>;
   state.dataset.state = rows.length ? 'ready' : 'empty';
   state.innerHTML = rows.length
     ? `<div class="rb-card-grid">${rows.map(renderRecord).join('')}</div>`
