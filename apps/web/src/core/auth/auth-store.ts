@@ -54,15 +54,15 @@ async function resolveVerifiedSession(): Promise<AuthSnapshot> {
   }
 
   const verified = await withTimeout(
-    supabase.auth.getUser(session.access_token),
-    { data: { user: null }, error: null }
+    supabase.auth.getUser(session.access_token).then(({ data, error }) => ({ user: data.user, error })),
+    { user: null as User | null, error: null }
   );
 
-  if (!verified.data.user) {
+  if (verified.error || !verified.user) {
     return publish({ session: null, user: null, ready: true });
   }
 
-  return publish({ session, user: verified.data.user, ready: true });
+  return publish({ session, user: verified.user, ready: true });
 }
 
 export function initializeAuth(): Promise<AuthSnapshot> {
