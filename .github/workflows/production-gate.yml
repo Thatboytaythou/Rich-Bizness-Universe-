@@ -1,0 +1,49 @@
+name: Production Gate
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main, finish-production-phase1-20260901]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-gate-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  validate-build:
+    name: Validate, typecheck, build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: https://xfsrqomsiulswbalgknx.supabase.co
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: sb_publishable_ci_validation_only
+      LIVEKIT_URL: wss://rich-bizness-mobile-app-ww6cieid.livekit.cloud
+      APP_URL: https://rich-bizness.com
+      APP_NAME: Rich Bizness Universe
+      APP_ENVIRONMENT: production
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: npm-shrinkwrap.json
+
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Validate contracts
+        run: npm run validate
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Production build
+        run: npm run build
