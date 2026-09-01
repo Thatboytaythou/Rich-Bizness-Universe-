@@ -96,10 +96,17 @@ async function settlePayment(supabase, event) {
   const object = event?.data?.object || {};
   const metadata = object.metadata || {};
 
-  if (event.type === 'checkout.session.completed' || event.type === 'checkout.session.async_payment_succeeded') {
+  const checkoutPaid = event.type === 'checkout.session.async_payment_succeeded'
+    || (event.type === 'checkout.session.completed' && ['paid', 'no_payment_required'].includes(String(object.payment_status || '').toLowerCase()));
+
+  if (checkoutPaid) {
     const paymentIntentId = typeof object.payment_intent === 'string' ? object.payment_intent : null;
     const amountCents = Number(object.amount_total || 0);
     const currency = String(object.currency || 'usd').toLowerCase();
+
+    if ((metadata.checkout_key || (metadata.live_kind && metadata.reference_id)) && !paymentIntentId) {
+      throw new Error('paid_checkout_missing_payment_intent');
+    }
 
     if (metadata.checkout_key) {
       const { error } = await supabase.rpc('rb_settle_store_payment', {
