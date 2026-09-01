@@ -22,7 +22,7 @@ async function loadCount(page: string, userId: string): Promise<number | null> {
   };
   const target = targets[page];
   if (!target) return null;
-  const { count, error } = await supabase
+  const { count, error } = await (supabase as any)
     .from(target.table)
     .select('*', { count: 'exact', head: true })
     .eq(target.column, userId);
