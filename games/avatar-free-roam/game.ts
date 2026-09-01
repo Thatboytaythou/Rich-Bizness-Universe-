@@ -22,14 +22,17 @@ root.innerHTML = `
     <div class="checkpoint" id="checkpoint" aria-label="Mission checkpoint"></div>
   </div>`;
 
-const player = document.querySelector<HTMLElement>('#player');
-const checkpoint = document.querySelector<HTMLElement>('#checkpoint');
-const scoreLabel = document.querySelector<HTMLElement>('#score');
-const missionLabel = document.querySelector<HTMLElement>('#mission');
-const statusLabel = document.querySelector<HTMLElement>('#status');
-if (!player || !checkpoint || !scoreLabel || !missionLabel || !statusLabel) {
-  throw new Error('Game HUD failed to mount');
+function requiredElement(selector: string): HTMLElement {
+  const element = document.querySelector<HTMLElement>(selector);
+  if (!element) throw new Error(`Game HUD failed to mount: ${selector}`);
+  return element;
 }
+
+const player = requiredElement('#player');
+const checkpoint = requiredElement('#checkpoint');
+const scoreLabel = requiredElement('#score');
+const missionLabel = requiredElement('#mission');
+const statusLabel = requiredElement('#status');
 
 const readKeyboard = createControls();
 const readMobile = mountMobileControls(root);
