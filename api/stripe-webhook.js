@@ -50,24 +50,15 @@ const PROCESSABLE_EVENTS = new Set([
 function getSupabaseAdmin() {
   const url = process.env.SUPABASE_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
   const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-  if (!url || !serviceRoleKey) {
-    throw new Error('Missing SUPABASE_URL/NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY');
-  }
-
-  return createClient(url, serviceRoleKey, {
-    auth: { persistSession: false, autoRefreshToken: false }
-  });
+  if (!url || !serviceRoleKey) throw new Error('supabase_webhook_not_configured');
+  return createClient(url, serviceRoleKey, { auth: { persistSession: false, autoRefreshToken: false } });
 }
 
 async function readRawBody(req) {
   if (Buffer.isBuffer(req.body)) return req.body;
   if (typeof req.body === 'string') return Buffer.from(req.body);
-
   const chunks = [];
-  for await (const chunk of req) {
-    chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
-  }
+  for await (const chunk of req) chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
   return Buffer.concat(chunks);
 }
 
@@ -76,34 +67,21 @@ function timingSafeHexEqual(a, b) {
     const left = Buffer.from(a, 'hex');
     const right = Buffer.from(b, 'hex');
     return left.length === right.length && crypto.timingSafeEqual(left, right);
-  } catch {
-    return false;
-  }
+  } catch { return false; }
 }
 
 function verifyStripeSignature(rawBody, signatureHeader, secret) {
   if (!signatureHeader || !secret) return false;
-
   const parts = signatureHeader.split(',').map((part) => part.trim());
   const timestamp = parts.find((part) => part.startsWith('t='))?.slice(2);
-  const signatures = parts
-    .filter((part) => part.startsWith('v1='))
-    .map((part) => part.slice(3));
-
+  const signatures = parts.filter((part) => part.startsWith('v1=')).map((part) => part.slice(3));
   if (!timestamp || signatures.length === 0) return false;
-
   const timestampNumber = Number(timestamp);
   if (!Number.isFinite(timestampNumber)) return false;
-
   const age = Math.abs(Math.floor(Date.now() / 1000) - timestampNumber);
   if (age > SIGNATURE_TOLERANCE_SECONDS) return false;
-
   const signedPayload = `${timestamp}.${rawBody.toString('utf8')}`;
-  const expected = crypto
-    .createHmac('sha256', secret)
-    .update(signedPayload, 'utf8')
-    .digest('hex');
-
+  const expected = crypto.createHmac('sha256', secret).update(signedPayload, 'utf8').digest('hex');
   return signatures.some((signature) => timingSafeHexEqual(signature, expected));
 }
 
@@ -114,12 +92,89 @@ function response(res, status, body) {
   res.end(JSON.stringify(body));
 }
 
+async function settlePayment(supabase, event) {
+  const object = event?.data?.object || {};
+  const metadata = object.metadata || {};
+
+  const checkoutPaid = event.type === 'checkout.session.async_payment_succeeded'
+    || (event.type === 'checkout.session.completed' && ['paid', 'no_payment_required'].includes(String(object.payment_status || '').toLowerCase()));
+
+  if (checkoutPaid) {
+    const paymentIntentId = typeof object.payment_intent === 'string' ? object.payment_intent : null;
+    const amountCents = Number(object.amount_total || 0);
+    const currency = String(object.currency || 'usd').toLowerCase();
+
+    if ((metadata.checkout_key || (metadata.live_kind && metadata.reference_id)) && !paymentIntentId) {
+      throw new Error('paid_checkout_missing_payment_intent');
+    }
+
+    if (metadata.checkout_key) {
+      const { error } = await supabase.rpc('rb_settle_store_payment', {
+        p_checkout_key: String(metadata.checkout_key),
+        p_payment_intent_id: paymentIntentId,
+        p_checkout_session_id: String(object.id),
+        p_amount_cents: amountCents,
+        p_currency: currency,
+        p_metadata: { stripe_event_id: event.id, processor: 'vercel-webhook' }
+      });
+      if (error) throw error;
+      return 'store';
+    }
+
+    if (metadata.live_kind && metadata.reference_id) {
+      const { error } = await supabase.rpc('rb_settle_live_payment', {
+        p_kind: String(metadata.live_kind),
+        p_reference_id: String(metadata.reference_id),
+        p_payment_intent_id: paymentIntentId,
+        p_checkout_session_id: String(object.id),
+        p_amount_cents: amountCents,
+        p_metadata: { stripe_event_id: event.id, processor: 'vercel-webhook' }
+      });
+      if (error) throw error;
+      return 'live';
+    }
+  }
+
+  if (event.type === 'payment_intent.succeeded') {
+    const amountCents = Number(object.amount_received || object.amount || 0);
+    const currency = String(object.currency || 'usd').toLowerCase();
+
+    if (metadata.checkout_key) {
+      const { error } = await supabase.rpc('rb_settle_store_payment', {
+        p_checkout_key: String(metadata.checkout_key),
+        p_payment_intent_id: String(object.id),
+        p_checkout_session_id: null,
+        p_amount_cents: amountCents,
+        p_currency: currency,
+        p_metadata: { stripe_event_id: event.id, processor: 'vercel-webhook' }
+      });
+      if (error) throw error;
+      return 'store';
+    }
+
+    if (metadata.live_kind && metadata.reference_id) {
+      const { error } = await supabase.rpc('rb_settle_live_payment', {
+        p_kind: String(metadata.live_kind),
+        p_reference_id: String(metadata.reference_id),
+        p_payment_intent_id: String(object.id),
+        p_checkout_session_id: null,
+        p_amount_cents: amountCents,
+        p_metadata: { stripe_event_id: event.id, processor: 'vercel-webhook' }
+      });
+      if (error) throw error;
+      return 'live';
+    }
+  }
+
+  return null;
+}
+
 export default async function handler(req, res) {
   if (req.method === 'GET') {
     return response(res, 200, {
       ok: true,
       service: 'rich-bizness-stripe-webhook',
-      mode: 'signature-required',
+      mode: 'signature-required-settlement-enabled',
       supported_event_count: PROCESSABLE_EVENTS.size
     });
   }
@@ -130,16 +185,11 @@ export default async function handler(req, res) {
   }
 
   const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
-  if (!webhookSecret) {
-    return response(res, 503, { ok: false, error: 'stripe_webhook_not_configured' });
-  }
+  if (!webhookSecret) return response(res, 503, { ok: false, error: 'stripe_webhook_not_configured' });
 
   let rawBody;
-  try {
-    rawBody = await readRawBody(req);
-  } catch {
-    return response(res, 400, { ok: false, error: 'invalid_request_body' });
-  }
+  try { rawBody = await readRawBody(req); }
+  catch { return response(res, 400, { ok: false, error: 'invalid_request_body' }); }
 
   const signatureHeader = req.headers['stripe-signature'];
   if (!verifyStripeSignature(rawBody, signatureHeader, webhookSecret)) {
@@ -147,21 +197,24 @@ export default async function handler(req, res) {
   }
 
   let event;
-  try {
-    event = JSON.parse(rawBody.toString('utf8'));
-  } catch {
-    return response(res, 400, { ok: false, error: 'invalid_json' });
-  }
+  try { event = JSON.parse(rawBody.toString('utf8')); }
+  catch { return response(res, 400, { ok: false, error: 'invalid_json' }); }
 
-  if (!event?.id || !event?.type) {
-    return response(res, 400, { ok: false, error: 'invalid_stripe_event' });
-  }
+  if (!event?.id || !event?.type) return response(res, 400, { ok: false, error: 'invalid_stripe_event' });
 
   let supabase;
-  try {
-    supabase = getSupabaseAdmin();
-  } catch (error) {
-    return response(res, 503, { ok: false, error: 'webhook_storage_not_configured' });
+  try { supabase = getSupabaseAdmin(); }
+  catch { return response(res, 503, { ok: false, error: 'webhook_storage_not_configured' }); }
+
+  const { data: existing } = await supabase
+    .from('api_webhook_events')
+    .select('id,status')
+    .eq('provider', 'stripe')
+    .eq('event_id', event.id)
+    .maybeSingle();
+
+  if (existing?.status === 'processed') {
+    return response(res, 200, { ok: true, duplicate: true, event_id: event.id });
   }
 
   const receivedPayload = {
@@ -174,32 +227,24 @@ export default async function handler(req, res) {
     }
   };
 
-  const { data: inserted, error: insertError } = await supabase
+  const { data: logRow, error: logError } = await supabase
     .from('api_webhook_events')
-    .insert({
+    .upsert({
       provider: 'stripe',
       event_type: event.type,
       event_id: event.id,
-      status: 'received',
-      payload: receivedPayload
-    })
+      status: 'processing',
+      payload: receivedPayload,
+      error_message: null,
+      updated_at: new Date().toISOString()
+    }, { onConflict: 'provider,event_id' })
     .select('id')
     .single();
 
-  if (insertError?.code === '23505') {
-    return response(res, 200, { ok: true, duplicate: true, event_id: event.id });
-  }
-
-  if (insertError || !inserted?.id) {
-    return response(res, 500, { ok: false, error: 'webhook_log_insert_failed' });
-  }
+  if (logError || !logRow?.id) return response(res, 500, { ok: false, error: 'webhook_log_failed' });
 
   try {
-    await supabase
-      .from('api_webhook_events')
-      .update({ status: 'processing', updated_at: new Date().toISOString() })
-      .eq('id', inserted.id);
-
+    const settlement = await settlePayment(supabase, event);
     const isProcessable = PROCESSABLE_EVENTS.has(event.type);
     const finalStatus = isProcessable ? 'processed' : 'ignored';
 
@@ -215,37 +260,23 @@ export default async function handler(req, res) {
           ingestion: {
             ...receivedPayload.ingestion,
             processable: isProcessable,
-            processor_stage: 'verified_ingestion'
+            settlement: settlement || null,
+            processor_stage: 'verified_and_settled'
           }
         }
       })
-      .eq('id', inserted.id);
+      .eq('id', logRow.id);
 
     if (finalizeError) throw finalizeError;
-
-    return response(res, 200, {
-      ok: true,
-      event_id: event.id,
-      event_type: event.type,
-      status: finalStatus
-    });
+    return response(res, 200, { ok: true, event_id: event.id, event_type: event.type, status: finalStatus, settlement });
   } catch (error) {
+    const message = String(error?.message || error).slice(0, 500);
     await supabase
       .from('api_webhook_events')
-      .update({
-        status: 'failed',
-        error_message: String(error?.message || error).slice(0, 500),
-        processed_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      })
-      .eq('id', inserted.id);
-
-    return response(res, 500, { ok: false, error: 'webhook_processing_failed' });
+      .update({ status: 'failed', error_message: message, updated_at: new Date().toISOString() })
+      .eq('id', logRow.id);
+    return response(res, 500, { ok: false, error: 'webhook_processing_failed', event_id: event.id });
   }
 }
 
-export const config = {
-  api: {
-    bodyParser: false
-  }
-};
+export const config = { api: { bodyParser: false } };
