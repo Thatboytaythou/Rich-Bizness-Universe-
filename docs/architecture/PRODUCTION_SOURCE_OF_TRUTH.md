@@ -1,19 +1,20 @@
 # Rich Bizness Universe — Production Source of Truth Lock
 
-**Status:** ACTIVE
-**Rule:** `main` is the canonical application. Do not use a rebuild/finish branch as the working application.
+**Status:** ACTIVE — FIRST-PRINCIPLES REBUILD
+**Rule:** `main` is the canonical application. No rebuild/finish branch is the working application.
 
 ## Verified repository
 
 - GitHub repository: `Thatboytaythou/Rich-Bizness-Universe-`
 - Default branch: `main`
-- Verified current main commit: `f6f730a53a37fad11a07b572dc412578add8d518`
+- Verified current main commit at lock update: `077a1b66ee19281aeb8a3ac1fbe763434c32d7d1`
 - `PR #85` is closed and is **not** the production working branch.
+- Master rebuild record: GitHub Issue #86.
 
 ## Runtime ownership
 
 - Frontend source: `apps/web`
-- Vercel server functions: `apps/api`
+- Server/API ownership: existing repository API contract; do not create a second backend owner
 - Shared packages: `packages/`
 - Runtime engines: `engines/`
 - Individual game ownership: `games/<slug>/`
@@ -56,12 +57,13 @@ HTML route files mount controllers; they do not become alternate backend/shared-
 
 The exact Git commit being served by the production alias must match the intended `main` commit before a fix is called production-certified.
 
-**Currently observed mismatch:**
+**Current synchronization state:**
 
-- Production Vercel deployment commit: `8d638a288fc53dc25ac9f0ebc6d04ae13e6d3a19`
-- Current GitHub `main`: `f6f730a53a37fad11a07b572dc412578add8d518`
+- GitHub `main`: `077a1b66ee19281aeb8a3ac1fbe763434c32d7d1`
+- Latest observed Vercel production deployment: `dpl_5WakX9XnRMTNaMVsdTcgpHAgtbhE`
+- Vercel production is not yet certified against the current main SHA.
 
-Therefore the deployment chain is **not synchronized yet**. Do not call a GitHub-only change a production fix.
+Do not call a GitHub-only change a production fix.
 
 ## Verified Supabase project
 
@@ -73,35 +75,38 @@ Therefore the deployment chain is **not synchronized yet**. Do not call a GitHub
 
 Supabase is the production source for Auth, Postgres data, RLS, Realtime, Storage metadata, secure RPCs, migrations, Edge Functions, XP processing, and operational state.
 
-## Release verification chain
+## First-principles rebuild rules
 
-A change is production-certified only after all of these point to the same intended version:
+1. Inspect before changing.
+2. Fix the owning implementation in place.
+3. Prefer one contract and one owner over compatibility layers.
+4. Never add a table, route, API, engine, or storage bucket without proving the existing contract cannot satisfy the requirement.
+5. Keep database schema, RLS, RPCs, frontend calls, server handlers, and UI behavior aligned.
+6. Remove proven duplication only when ownership and semantics are verified.
+7. Protect the homepage/index, portal foundation, and global visual system from unrelated changes.
+8. Performance, security, reliability, and mobile behavior are release requirements, not post-release polish.
+9. Every production claim requires deployment and runtime evidence.
+
+## Release verification chain
 
 ```text
 GitHub main
-  -> GitHub validation/build
+  -> validation/build
   -> Vercel deployment
   -> production domain
   -> production Supabase project
   -> real user action
   -> runtime/log verification
+  -> certification
 ```
-
-## Protected systems
-
-Do not rewrite or replace the existing homepage/index, portal foundation, global visual system, route architecture, Supabase client architecture, or shared engines merely to solve a local defect. Repair the owning implementation in place.
-
-## No parallel application rule
-
-Do not create or use another rebuild/finish architecture as the application source of truth. Temporary branches are allowed only for an isolated surgical repair and must branch from current `main` and return to `main` after verification.
 
 ## Current certification state
 
 - GitHub canonical branch identified: YES
-- Vercel project identified: YES
 - Supabase production project identified: YES
+- Vercel project identified: YES
 - Architecture ownership identified: YES
-- PR #85 removed from active workflow: YES
+- Master rebuild issue opened: YES (#86)
 - GitHub main -> Vercel production synchronization: **NOT YET**
 - Full visual/device certification: **NOT YET**
 - Full production release certification: **NOT YET**
