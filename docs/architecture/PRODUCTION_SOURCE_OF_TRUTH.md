@@ -7,7 +7,7 @@
 
 - GitHub repository: `Thatboytaythou/Rich-Bizness-Universe-`
 - Default branch: `main`
-- Verified current main commit at lock update: `5e0bbe6b6a9ab86a3272e50917a49e0034a2d011`
+- Verified current main commit at lock update: `0da0a4bc8fe1759838c082a64e10ab2bc5d239ae`
 - `PR #85` is closed and is **not** the production working branch.
 - Master rebuild record: GitHub Issue #86.
 
@@ -59,7 +59,7 @@ The exact Git commit being served by the production alias must match the intende
 
 **Current synchronization state:**
 
-- GitHub `main`: `5e0bbe6b6a9ab86a3272e50917a49e0034a2d011`
+- GitHub `main`: `0da0a4bc8fe1759838c082a64e10ab2bc5d239ae`
 - Latest observed Vercel production deployment: `dpl_5WakX9XnRMTNaMVsdTcgpHAgtbhE`
 - Vercel production is not yet certified against the current main SHA.
 - Current observed Vercel production state is `DEPLOYMENT_DISABLED`; this is an infrastructure/account state, not a GitHub build failure.
@@ -108,6 +108,9 @@ GitHub main
 - Vercel project identified: YES
 - Architecture ownership identified: YES
 - Master rebuild issue opened: YES (#86)
+- Canonical web route validation expanded to all 53 explicit HTML entry points plus home
+- Shared game route loader now registers all 28 game pages
+- Canonical bucket contract now includes the active `podcast-video` bucket
 - GitHub main -> Vercel production synchronization: **NOT YET**
 - Full visual/device certification: **NOT YET**
 - Full production release certification: **NOT YET**
