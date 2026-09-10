@@ -7,7 +7,7 @@
 
 - GitHub repository: `Thatboytaythou/Rich-Bizness-Universe-`
 - Default branch: `main`
-- Verified current main commit at lock update: `99e703fe97ac3261b5827445ecebfb38b34b82ed`
+- Verified current main commit at lock update: `bff2361c7b75b712375ca3d95be19b0d1a4a6acf`
 - `PR #85` is closed and is **not** the production working branch.
 - Master rebuild record: GitHub Issue #86.
 
@@ -59,7 +59,7 @@ The exact Git commit being served by the production alias must match the intende
 
 **Current synchronization state:**
 
-- GitHub `main`: `99e703fe97ac3261b5827445ecebfb38b34b82ed`
+- GitHub `main`: `bff2361c7b75b712375ca3d95be19b0d1a4a6acf`
 - Latest observed Vercel production deployment: `dpl_5WakX9XnRMTNaMVsdTcgpHAgtbhE`
 - Vercel production is not yet certified against the current main SHA.
 - Current observed Vercel production state is `DEPLOYMENT_DISABLED`; this is an infrastructure/account state, not a GitHub build failure.
@@ -78,10 +78,11 @@ Supabase is the production source for Auth, Postgres data, RLS, Realtime, Storag
 
 ## RPC contract audit lock
 
-- Production Supabase exposes **102 callable `public.rb_*`/`save_meta_avatar` functions** (trigger-only functions excluded).
+- Production Supabase exposes **102 callable public database functions** relevant to the app contract; trigger-only functions are excluded.
 - GitHub `apps/web/src/core/supabase/database.types.ts` was audited against that production function set.
 - The contract was corrected in place on `main` to cover all 102 callable functions, including the previously missing admin, creator, DM, feed, gallery, game, gaming, live, music, notifications, podcast, profile, radio, search, sports, store, upload, watch, and settlement RPCs.
-- Previously loose contracts for `rb_feed_snapshot`, `rb_record_game_move`, `save_meta_avatar`, and other RPC result/argument shapes were tightened to the production-generated contract.
+- Existing table/view type declarations were preserved; the fix is focused on the RPC contract.
+- Previously loose contracts for `rb_feed_snapshot`, `rb_record_game_move`, `save_meta_avatar`, and other RPC argument/result shapes were tightened to the production-generated contract.
 - The visual system and page CSS were not changed by this RPC contract fix.
 - A live SQL smoke check confirmed `rb_feed_snapshot()` and `rb_search_snapshot('rich', null, 5)` both return JSON objects.
 
