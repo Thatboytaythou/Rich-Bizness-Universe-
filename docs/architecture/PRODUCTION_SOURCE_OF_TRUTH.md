@@ -7,7 +7,7 @@
 
 - GitHub repository: `Thatboytaythou/Rich-Bizness-Universe-`
 - Default branch: `main`
-- Verified current main commit at lock update: `0da0a4bc8fe1759838c082a64e10ab2bc5d239ae`
+- Verified current main commit at lock update: `99e703fe97ac3261b5827445ecebfb38b34b82ed`
 - `PR #85` is closed and is **not** the production working branch.
 - Master rebuild record: GitHub Issue #86.
 
@@ -59,7 +59,7 @@ The exact Git commit being served by the production alias must match the intende
 
 **Current synchronization state:**
 
-- GitHub `main`: `0da0a4bc8fe1759838c082a64e10ab2bc5d239ae`
+- GitHub `main`: `99e703fe97ac3261b5827445ecebfb38b34b82ed`
 - Latest observed Vercel production deployment: `dpl_5WakX9XnRMTNaMVsdTcgpHAgtbhE`
 - Vercel production is not yet certified against the current main SHA.
 - Current observed Vercel production state is `DEPLOYMENT_DISABLED`; this is an infrastructure/account state, not a GitHub build failure.
@@ -75,6 +75,15 @@ Do not call a GitHub-only change a production fix.
 - API URL: `https://xfsrqomsiulswbalgknx.supabase.co`
 
 Supabase is the production source for Auth, Postgres data, RLS, Realtime, Storage metadata, secure RPCs, migrations, Edge Functions, XP processing, and operational state.
+
+## RPC contract audit lock
+
+- Production Supabase exposes **102 callable `public.rb_*`/`save_meta_avatar` functions** (trigger-only functions excluded).
+- GitHub `apps/web/src/core/supabase/database.types.ts` was audited against that production function set.
+- The contract was corrected in place on `main` to cover all 102 callable functions, including the previously missing admin, creator, DM, feed, gallery, game, gaming, live, music, notifications, podcast, profile, radio, search, sports, store, upload, watch, and settlement RPCs.
+- Previously loose contracts for `rb_feed_snapshot`, `rb_record_game_move`, `save_meta_avatar`, and other RPC result/argument shapes were tightened to the production-generated contract.
+- The visual system and page CSS were not changed by this RPC contract fix.
+- A live SQL smoke check confirmed `rb_feed_snapshot()` and `rb_search_snapshot('rich', null, 5)` both return JSON objects.
 
 ## First-principles rebuild rules
 
@@ -111,6 +120,7 @@ GitHub main
 - Canonical web route validation expanded to all 53 explicit HTML entry points plus home
 - Shared game route loader now registers all 28 game pages
 - Canonical bucket contract now includes the active `podcast-video` bucket
+- Production RPC contract synchronized to 102 callable database functions: YES
 - GitHub main -> Vercel production synchronization: **NOT YET**
 - Full visual/device certification: **NOT YET**
 - Full production release certification: **NOT YET**
