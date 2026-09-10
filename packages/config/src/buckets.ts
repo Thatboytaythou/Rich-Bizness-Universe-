@@ -14,6 +14,7 @@ export const BUCKETS = Object.freeze({
   musicCovers: 'music-covers',
   podcastAudio: 'podcast-audio',
   podcastCovers: 'podcast-covers',
+  podcastVideo: 'podcast-video',
   radioCovers: 'radio-covers',
   sportsMedia: 'sports-media',
   sportsClips: 'sports-clips',
