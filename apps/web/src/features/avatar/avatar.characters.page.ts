@@ -144,8 +144,9 @@ export async function mount(): Promise<void> {
       const rows=(data as Snapshot)?.inventory??[];
       equippedKeys=new Set(rows.filter(row=>row.equipped).map(row=>String(row.item?.item_key??'')));
       renderCatalog();showItem(key);
-      root.querySelector<HTMLElement>('#saveStatus')!.textContent='Saved equipment state. This item has no attached 3D mesh yet, so the model preview is unchanged.';
-      root.querySelector<HTMLElement>('#saveStatus')!.textContent=equipped?'Removed from outfit':'Item equipped and saved';
+      root.querySelector<HTMLElement>('#saveStatus')!.textContent=equipped
+        ? 'Item removed from your saved equipment state.'
+        : 'Equipment state saved. This item has no 3D mesh attached, so the character preview is unchanged.';
     });
   };
   root.querySelectorAll<HTMLButtonElement>('[data-tab]').forEach(button=>button.addEventListener('click',()=>{
