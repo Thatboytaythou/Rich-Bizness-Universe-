@@ -52,3 +52,7 @@ html,body{margin:0;min-height:100%;background:#e9f1ed;color:#0c1711;font-family:
  .ac-stage-copy{left:10px;bottom:54px}.ac-editor{padding:12px 10px}
 }
 @media(max-width:390px){.ac-stage{min-height:320px}.ac-item{min-height:120px}.ac-category small{font-size:.41rem}}
+
+/* Compact category strip remains tappable above Fashion and Closet content. */
+.ac-category-rail[hidden]{display:none!important}.ac-category-rail{position:relative;z-index:9;pointer-events:auto;touch-action:pan-x;}
+.ac-category{pointer-events:auto;touch-action:manipulation;}
