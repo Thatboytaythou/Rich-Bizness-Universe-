@@ -233,7 +233,7 @@ export async function mount(): Promise<void> {
   const modelMatchesGender = String(selectedModel?.body_type ?? '').toLowerCase() === expectedBody;
   try {
     avatarRuntime = await loadSkinnedAvatar({
-      modelUrl: resolveAvatarModelUrl({ model: modelMatchesGender ? selectedModel : null }, gender),
+      modelUrl: await resolveAvatarModelUrl({ model: modelMatchesGender ? selectedModel : null }, gender, abort.signal),
       animationUrl: String(selectedModel?.metadata?.animation_url ?? '') || null,
       targetHeight: gender === 'girl' ? 1.72 : 1.82,
       signal: abort.signal
