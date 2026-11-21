@@ -20,6 +20,7 @@ type Snapshot = {
   loadout?: Record<string, any>;
   model?: Record<string, any>;
   inventory?: Array<{ item: Record<string, any>; equipped: boolean }>;
+  product_unlocks?: Array<Record<string, any>>;
   items?: Array<Record<string, any>>;
   products?: StoreDrop[];
   presets?: Array<Record<string, any>>;
@@ -88,6 +89,7 @@ export async function mount(): Promise<void> {
   let category: CategoryKey = 'featured';
   let selectedItemKey = '';
   let ownedKeys = new Set((snap.inventory ?? []).map(row => String(row.item?.item_key ?? '')).filter(Boolean));
+  const unlockedProductIds = new Set((snap.product_unlocks ?? []).map(row => String(row.product_id ?? '')));
   let equippedKeys = new Set((snap.inventory ?? []).filter(row => row.equipped).map(row => String(row.item?.item_key ?? '')));
   let catalog = (snap.items ?? []).filter(item => item.is_active !== false);
   const categoryMarkup = () => (Object.keys(CATEGORY_LABELS) as CategoryKey[]).map(key =>
@@ -97,19 +99,20 @@ export async function mount(): Promise<void> {
     const types = CATEGORY_TYPES[category];
     const visible = catalog.filter(item => category==='featured' || types.includes(String(item.item_type ?? '').toLowerCase()))
       .filter(item => tab!=='closet' || ownedKeys.has(String(item.item_key)));
+    const drops = (snap.product_unlocks ?? []);
     const pieces = visible.map(item => {
       const key=String(item.item_key ?? ''), owned=ownedKeys.has(key), equipped=equippedKeys.has(key);
       const image=String(item.config?.image_url ?? item.config?.thumbnail_url ?? '');
       return '<button type="button" class="ac-item '+(selectedItemKey===key?'selected':'')+'" data-item="'+esc(key)+'" aria-pressed="'+(selectedItemKey===key)+'"><span class="ac-item-art">'+(image?'<img src="'+esc(image)+'" alt="">':GLYPHS[category])+'</span><span class="ac-item-title">'+esc(item.title)+'</span><small>'+esc(String(item.rarity ?? 'common').toUpperCase())+'</small><em>'+(equipped?'EQUIPPED':owned?'IN CLOSET':'PREVIEW')+'</em></button>';
     });
-    const linkedDrops = tab==='fashion' ? drops.filter(drop => visible.some(item => String(drop.avatar_item_key)===String(item.item_key))) : [];
+    const linkedDrops = tab==='closet' ? drops : [];
     const dropCards=linkedDrops.map(drop=>{
-      const item=visible.find(entry=>String(entry.item_key)===String(drop.avatar_item_key))!;
-      const image=drop.cover_url||drop.image_url||drop.preview_url||String(item.config?.image_url||'');
-      return '<article class="ac-drop-card"><div class="ac-drop-image">'+(image?'<img src="'+esc(image)+'" alt="">':'<span>RB</span>')+'<b>EXCLUSIVE DROP</b></div><div class="ac-drop-body"><strong>'+esc(drop.title)+'</strong><span>'+formatDropPrice(drop.price_cents,drop.currency)+'</span><small>'+esc(drop.seller_name||'Rich Bizness')+' · '+esc(item.rarity||'exclusive')+'</small><button type="button" data-drop="'+esc(drop.id)+'">VIEW IN STORE</button></div></article>';
+      const product=drop.product ?? {};
+      const image=product.cover_url||product.image_url||'';
+      return '<article class="ac-drop-card"><div class="ac-drop-image">'+(image?'<img src="'+esc(image)+'" alt="">':'<span>RB</span>')+'<b>UNLOCKED</b></div><div class="ac-drop-body"><strong>'+esc(product.title||'Exclusive Rich Bizness Drop')+'</strong><span>OWNED</span><small>Unlocked '+esc(new Date(String(drop.unlocked_at||'')).toLocaleDateString())+'</small><button type="button" data-drop="'+esc(drop.product_id)+'">VIEW DROP</button></div></article>';
     });
     const empty=!pieces.length&&!dropCards.length;
-    return (pieces.join('')+dropCards.join('')) || '<div class="ac-empty"><strong>'+ (tab==='closet'?'Your closet is waiting':'No exclusive drops in this lane yet') +'</strong><span>'+ (tab==='closet'?'Paid and earned pieces will be saved here.':'New collections will appear here when a product is linked to an avatar item.') +'</span></div>';
+    return (pieces.join('')+dropCards.join('')) || '<div class="ac-empty"><strong>'+ (tab==='closet'?'Your closet is waiting':'No exclusive drops in this lane yet') +'</strong><span>'+ (tab==='closet'?'Paid avatar unlocks and owned gear will show here.':'New collections will appear here when exclusive drops are released.') +'</span></div>';
   };
   const renderCatalog = () => {
     root.querySelector<HTMLElement>('#acCategories')!.innerHTML=categoryMarkup();
