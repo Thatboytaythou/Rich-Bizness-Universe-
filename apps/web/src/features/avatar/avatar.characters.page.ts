@@ -68,13 +68,11 @@ export async function mount(): Promise<void> {
 
   const user = getAuthSnapshot().user;
   if (!user) { location.replace('/tap-in.html?next=%2Favatar-characters.html'); return; }
-  const [{data,error},{data:dropData,error:dropError}] = await Promise.all([supabase.rpc('rb_avatar_runtime_snapshot', {}),supabase.rpc('rb_store_catalog',{p_limit:120})]);
+  const { data, error } = await supabase.rpc('rb_avatar_runtime_snapshot', {});
   if (error) throw error;
   if (!isCurrent()) return;
 
   const snap = (data ?? {}) as Snapshot;
-  const drops = ((dropData ?? []) as StoreDrop[]).filter(drop => Boolean(drop.avatar_item_key) && drop.is_digital !== false);
-  if (dropError) console.warn('Avatar drop catalog unavailable:',dropError.message);
   const current = snap.avatar ?? {};
   const loadout = snap.loadout ?? {};
   const outfit = loadout.outfit_config ?? current.metadata?.outfit ?? {};
@@ -92,6 +90,13 @@ export async function mount(): Promise<void> {
   const unlockedProductIds = new Set((snap.product_unlocks ?? []).map(row => String(row.product_id ?? '')));
   let equippedKeys = new Set((snap.inventory ?? []).filter(row => row.equipped).map(row => String(row.item?.item_key ?? '')));
   let catalog = (snap.items ?? []).filter(item => item.is_active !== false);
+  let drops: StoreDrop[] = [];
+  void supabase.rpc('rb_store_catalog',{p_limit:120}).then(({data:dropRows,error:dropError})=>{
+    if(!isCurrent()) return;
+    if(dropError){console.warn('Avatar drop catalog unavailable:',dropError.message);return;}
+    drops=(dropRows??[] as StoreDrop[]).filter((drop:StoreDrop)=>Boolean(drop.avatar_item_key)&&drop.is_digital!==false);
+    renderCatalog();
+  });
   const categoryMarkup = () => (Object.keys(CATEGORY_LABELS) as CategoryKey[]).map(key =>
     '<button type="button" class="ac-category '+(category===key?'active':'')+'" data-category="'+key+'"><span>'+GLYPHS[key]+'</span><small>'+CATEGORY_LABELS[key]+'</small></button>'
   ).join('');
