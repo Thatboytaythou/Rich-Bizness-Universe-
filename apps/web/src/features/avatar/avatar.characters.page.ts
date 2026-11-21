@@ -138,26 +138,66 @@ export async function mount(): Promise<void> {
   auraInput.value = ['Emerald Gold','Neon Phantom','Diamond Mist'].includes(initialAura) ? initialAura : 'Emerald Gold';
 
 
-  const itemByKey=(key:string)=>catalog.find(item=>String(item.item_key)===key);
-  const selectedPanel=root.querySelector<HTMLElement>('#acSelectedPanel')!;
-  const showItem=(key:string)=>{
-    selectedItemKey=key;
-    const item=itemByKey(key);
-    if (!item) { selectedPanel.innerHTML='<strong>Choose a wardrobe piece</strong><span>Choose a piece to see its details</span>'; return; }
-    const owned=ownedKeys.has(key),equipped=equippedKeys.has(key);
-    const meshPath=String(item.config?.asset?.mesh_path ?? '');
-    const hasCompatibleAsset=Boolean(meshPath && item.config?.asset?.rig_key);
-    selectedPanel.innerHTML='<strong>'+esc(item.title)+'</strong><span>'+esc(String(item.rarity??'common').toUpperCase())+' · '+(owned?'In your closet':'Preview only')+' · '+(hasCompatibleAsset?'3D asset linked':'3D asset pending')+'</span><button type="button" id="acEquip" '+(owned && hasCompatibleAsset?'':'disabled')+'>'+(equipped?'REMOVE ITEM':owned && hasCompatibleAsset?'WEAR ITEM':owned?'ASSET NOT READY':'NOT UNLOCKED')+'</button>';
-    selectedPanel.querySelector<HTMLButtonElement>('#acEquip')?.addEventListener('click',async()=>{
-      const btn=selectedPanel.querySelector<HTMLButtonElement>('#acEquip')!;btn.disabled=true;
-      const {data,error}=await supabase.rpc('rb_avatar_set_item',{p_item_key:key,p_equipped:!equipped});
-      if(error){root.querySelector<HTMLElement>('#saveStatus')!.textContent=error.message;btn.disabled=false;return;}
-      const rows=(data as Snapshot)?.inventory??[];
-      equippedKeys=new Set(rows.filter(row=>row.equipped).map(row=>String(row.item?.item_key??'')));
-      renderCatalog();showItem(key);
-      root.querySelector<HTMLElement>('#saveStatus')!.textContent=equipped
-        ? 'Item removed from your saved equipment state.'
-        : 'Equipment state saved. The production wearable mesh is not linked yet, so the character preview remains unchanged.';
+  const itemByKey = (key:string) => catalog.find(item => String(item.item_key) === key);
+  const selectedPanel = root.querySelector<HTMLElement>('#acSelectedPanel')!;
+  const expectedRigKey = () => String(modelForGender(gender)?.metadata?.rig_key ?? 'rb-humanoid-v1');
+  const showItem = (key:string) => {
+    selectedItemKey = key;
+    const item = itemByKey(key);
+    if (!item) {
+      selectedPanel.innerHTML = '<strong>Choose a wardrobe piece</strong><span>Choose a piece to see its details</span>';
+      return;
+    }
+    const owned = ownedKeys.has(key);
+    const equipped = equippedKeys.has(key);
+    const asset = (item.config?.asset ?? {}) as AvatarAssetDescriptor;
+    const tagged = Boolean(asset.mesh_path && asset.thumbnail_path && asset.rig_key);
+    const readyToAttempt = Boolean(owned && tagged && runtime && modelForGender(gender));
+    selectedPanel.innerHTML = '<strong>' + esc(item.title) + '</strong><span>' +
+      esc(String(item.rarity ?? 'common').toUpperCase()) + ' · ' + (owned ? 'In your closet' : 'Preview only') +
+      ' · ' + (tagged ? 'Asset metadata linked; GLB still validated on load' : '3D asset pending') +
+      '</span><button type="button" id="acEquip" ' + (readyToAttempt ? '' : 'disabled') + '>' +
+      (equipped ? 'REMOVE ITEM' : readyToAttempt ? 'WEAR ITEM' : owned ? 'ASSET NOT READY' : 'NOT UNLOCKED') +
+      '</button>';
+    selectedPanel.querySelector<HTMLButtonElement>('#acEquip')?.addEventListener('click', async () => {
+      const button = selectedPanel.querySelector<HTMLButtonElement>('#acEquip')!;
+      button.disabled = true;
+      const status = root.querySelector<HTMLElement>('#saveStatus')!;
+      try {
+        if (!runtime) throw new Error('Load a production Rich Bizness character before equipping wardrobe assets.');
+        if (!owned) throw new Error('Unlock this item before equipping it.');
+        if (!tagged) throw new Error('This catalog piece does not yet have a complete 3D wearable asset.');
+        if (equipped) {
+          const { error: saveError } = await supabase.rpc('rb_avatar_set_item', { p_item_key: key, p_equipped: false });
+          if (saveError) throw saveError;
+          removeSkinnedWearable(runtime, key);
+        } else {
+          const meshUrl = await resolveAvatarItemUrl(asset, abort.signal);
+          const wearable = await loadSkinnedWearable({ meshUrl, itemKey: key, signal: abort.signal });
+          attachSkinnedWearable(runtime, wearable, {
+            itemKey: key,
+            rigKey: String(asset.rig_key),
+            expectedRigKey: expectedRigKey(),
+            renderOrder: Number(asset.render_order ?? 0)
+          });
+          const { error: saveError } = await supabase.rpc('rb_avatar_set_item', { p_item_key: key, p_equipped: true });
+          if (saveError) {
+            removeSkinnedWearable(runtime, key);
+            throw saveError;
+          }
+        }
+        const { data: snapshotData, error: snapshotError } = await supabase.rpc('rb_avatar_runtime_snapshot', {});
+        if (snapshotError) throw snapshotError;
+        const snapshot = (snapshotData ?? {}) as Snapshot;
+        const rows = snapshot.inventory ?? [];
+        equippedKeys = new Set(rows.filter(row => row.equipped).map(row => String(row.item?.item_key ?? '')));
+        renderCatalog();
+        showItem(key);
+        status.textContent = equipped ? 'Wearable removed from character and saved loadout.' : 'Wearable GLB validated, attached to the live rig, and saved to your loadout.';
+      } catch (error) {
+        status.textContent = error instanceof Error ? error.message : 'Could not update wearable item.';
+        button.disabled = false;
+      }
     });
   };
   root.querySelectorAll<HTMLButtonElement>('[data-tab]').forEach(button=>button.addEventListener('click',()=>{
