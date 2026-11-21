@@ -54,6 +54,12 @@ function assertProductionHumanoid(root: THREE.Group, clips: THREE.AnimationClip[
   if (skinnedMeshes < 1) throw new Error('Avatar asset rejected: no skinned humanoid mesh found.');
   if (bones.size < 8) throw new Error(`Avatar asset rejected: incomplete skeleton (${bones.size} bones).`);
   if (clips.length < 1) throw new Error('Avatar asset rejected: no skeletal animation clips found.');
+  const names = clips.map((clip) => clip.name.trim().toLowerCase());
+  for (const required of ['idle', 'walk', 'run']) {
+    if (!names.some((name) => name.includes(required))) {
+      throw new Error(`Avatar asset rejected: required ${required} animation clip is missing.`);
+    }
+  }
 }
 
 function prepareModel(root: THREE.Group, targetHeight = 1.82): { bounds: THREE.Box3; height: number } {
@@ -98,8 +104,14 @@ function prepareModel(root: THREE.Group, targetHeight = 1.82): { bounds: THREE.B
 
 export function resolveAvatarModelUrl(snapshot: Record<string, any> | null | undefined, gender: AvatarGender): string {
   const candidate = String(snapshot?.model?.model_url ?? '').trim();
-  if (/^https:\/\//i.test(candidate)) return candidate;
-  return DEFAULT_MODEL_URLS[gender];
+  const isApprovedModel = Boolean(snapshot?.model?.is_active) &&
+    snapshot?.model?.is_realistic === true &&
+    snapshot?.model?.rig_type === 'skinned-humanoid' &&
+    /^https:\/\//i.test(candidate);
+  if (!isApprovedModel) {
+    throw new Error('No production Rich Bizness character model is assigned yet. The temporary demo models are disabled.');
+  }
+  return candidate;
 }
 
 export async function loadSkinnedAvatar(options: {
