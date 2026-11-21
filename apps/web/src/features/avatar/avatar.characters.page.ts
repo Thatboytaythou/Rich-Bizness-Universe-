@@ -21,12 +21,17 @@ type Snapshot = {
   model?: Record<string, any>;
   inventory?: Array<{ item: Record<string, any>; equipped: boolean }>;
   items?: Array<Record<string, any>>;
+  products?: StoreDrop[];
   presets?: Array<Record<string, any>>;
 };
 type CleanupHost = Window & { __rbPageCleanup?: (() => void | Promise<void>) | null };
 const OWNER = 'rich-bizness-avatar-characters-v1';
 const esc = (value: unknown) => String(value ?? '').replace(/[&<>"']/g, (c) => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c] ?? c));
 const auraColor = (aura: string) => aura === 'Neon Phantom' ? 0x765dff : aura === 'Diamond Mist' ? 0x76d8ff : 0x21df81;
+
+type StoreDrop = { id:string; title:string; description?:string|null; category?:string|null; product_type?:string|null; fulfillment_type?:string|null; price_cents?:number|null; currency?:string|null; image_url?:string|null; cover_url?:string|null; preview_url?:string|null; inventory_count?:number|null; is_digital?:boolean|null; is_featured?:boolean|null; avatar_item_key?:string|null; seller_name?:string|null };
+type AvatarCatalogSnapshot = { items?:Record<string,any>[]; inventory?:Array<{item:Record<string,any>;equipped:boolean}> };
+const formatDropPrice=(value:unknown,currency='usd')=>new Intl.NumberFormat('en-US',{style:'currency',currency:String(currency||'usd').toUpperCase()}).format(Number(value??0)/100);
 
 type TabKey = 'fashion' | 'closet' | 'avatar';
 type CategoryKey = 'featured' | 'head' | 'outfit' | 'bottom' | 'shoes' | 'face' | 'neck' | 'back' | 'hand' | 'aura';
@@ -62,11 +67,13 @@ export async function mount(): Promise<void> {
 
   const user = getAuthSnapshot().user;
   if (!user) { location.replace('/tap-in.html?next=%2Favatar-characters.html'); return; }
-  const { data, error } = await supabase.rpc('rb_avatar_runtime_snapshot', {});
+  const [{data,error},{data:dropData,error:dropError}] = await Promise.all([supabase.rpc('rb_avatar_runtime_snapshot', {}),supabase.rpc('rb_store_catalog',{p_limit:120})]);
   if (error) throw error;
   if (!isCurrent()) return;
 
   const snap = (data ?? {}) as Snapshot;
+  const drops = ((dropData ?? []) as StoreDrop[]).filter(drop => Boolean(drop.avatar_item_key) && drop.is_digital !== false);
+  if (dropError) console.warn('Avatar drop catalog unavailable:',dropError.message);
   const current = snap.avatar ?? {};
   const loadout = snap.loadout ?? {};
   const outfit = loadout.outfit_config ?? current.metadata?.outfit ?? {};
@@ -90,11 +97,19 @@ export async function mount(): Promise<void> {
     const types = CATEGORY_TYPES[category];
     const visible = catalog.filter(item => category==='featured' || types.includes(String(item.item_type ?? '').toLowerCase()))
       .filter(item => tab!=='closet' || ownedKeys.has(String(item.item_key)));
-    if (!visible.length) return '<div class="ac-empty"><strong>'+ (tab==='closet'?'Your closet is waiting':'New drops loading') +'</strong><span>'+ (tab==='closet'?'Items you unlock will be saved here.':'More Rich Bizness pieces are coming soon.') +'</span></div>';
-    return visible.map(item => {
+    const pieces = visible.map(item => {
       const key=String(item.item_key ?? ''), owned=ownedKeys.has(key), equipped=equippedKeys.has(key);
-      return '<button type="button" class="ac-item '+(selectedItemKey===key?'selected':'')+'" data-item="'+esc(key)+'" aria-pressed="'+(selectedItemKey===key)+'"><span class="ac-item-art">'+GLYPHS[category]+'</span><span class="ac-item-title">'+esc(item.title)+'</span><small>'+esc(String(item.rarity ?? 'common').toUpperCase())+'</small><em>'+(equipped?'EQUIPPED':owned?'IN CLOSET':'PREVIEW')+'</em></button>';
-    }).join('');
+      const image=String(item.config?.image_url ?? item.config?.thumbnail_url ?? '');
+      return '<button type="button" class="ac-item '+(selectedItemKey===key?'selected':'')+'" data-item="'+esc(key)+'" aria-pressed="'+(selectedItemKey===key)+'"><span class="ac-item-art">'+(image?'<img src="'+esc(image)+'" alt="">':GLYPHS[category])+'</span><span class="ac-item-title">'+esc(item.title)+'</span><small>'+esc(String(item.rarity ?? 'common').toUpperCase())+'</small><em>'+(equipped?'EQUIPPED':owned?'IN CLOSET':'PREVIEW')+'</em></button>';
+    });
+    const linkedDrops = tab==='fashion' ? drops.filter(drop => visible.some(item => String(drop.avatar_item_key)===String(item.item_key))) : [];
+    const dropCards=linkedDrops.map(drop=>{
+      const item=visible.find(entry=>String(entry.item_key)===String(drop.avatar_item_key))!;
+      const image=drop.cover_url||drop.image_url||drop.preview_url||String(item.config?.image_url||'');
+      return '<article class="ac-drop-card"><div class="ac-drop-image">'+(image?'<img src="'+esc(image)+'" alt="">':'<span>RB</span>')+'<b>EXCLUSIVE DROP</b></div><div class="ac-drop-body"><strong>'+esc(drop.title)+'</strong><span>'+formatDropPrice(drop.price_cents,drop.currency)+'</span><small>'+esc(drop.seller_name||'Rich Bizness')+' · '+esc(item.rarity||'exclusive')+'</small><button type="button" data-drop="'+esc(drop.id)+'">VIEW IN STORE</button></div></article>';
+    });
+    const empty=!pieces.length&&!dropCards.length;
+    return (pieces.join('')+dropCards.join('')) || '<div class="ac-empty"><strong>'+ (tab==='closet'?'Your closet is waiting':'No exclusive drops in this lane yet') +'</strong><span>'+ (tab==='closet'?'Paid and earned pieces will be saved here.':'New collections will appear here when a product is linked to an avatar item.') +'</span></div>';
   };
   const renderCatalog = () => {
     root.querySelector<HTMLElement>('#acCategories')!.innerHTML=categoryMarkup();
@@ -164,6 +179,11 @@ export async function mount(): Promise<void> {
     if(button)showItem(button.dataset.item??'');
   });
   renderCatalog();
+
+  root.querySelector<HTMLElement>('#acItems')!.addEventListener('click',event=>{
+    const button=(event.target as HTMLElement).closest<HTMLButtonElement>('[data-drop]');
+    if(button) location.href='/store.html?product='+encodeURIComponent(button.dataset.drop||'');
+  });
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(0xb9d4df);
   scene.fog = new THREE.Fog(0xb9d4df, 16, 42);
