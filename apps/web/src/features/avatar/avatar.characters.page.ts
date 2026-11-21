@@ -2,14 +2,20 @@ import * as THREE from 'three';
 import { getAuthSnapshot } from '../../core/auth/auth-store';
 import { supabase } from '../../core/supabase/client';
 import {
+  applyAvatarBodyShape,
+  attachSkinnedWearable,
   disposeSkinnedAvatar,
   loadSkinnedAvatar,
+  loadSkinnedWearable,
   qualityProfile,
+  removeSkinnedWearable,
+  resolveAvatarItemUrl,
   resolveAvatarModelUrl,
   setAvatarMotion,
   updateSkinnedAvatar,
   type AvatarGender,
   type AvatarMotion,
+  type AvatarAssetDescriptor,
   type SkinnedAvatarRuntime
 } from './avatar.skinned.runtime';
 import './avatar.characters.css';
@@ -32,10 +38,10 @@ const auraColor = (aura: string) => aura === 'Neon Phantom' ? 0x765dff : aura ==
 type StoreDrop = { id:string; title:string; description?:string|null; category?:string|null; product_type?:string|null; fulfillment_type?:string|null; price_cents?:number|null; currency?:string|null; image_url?:string|null; cover_url?:string|null; preview_url?:string|null; inventory_count?:number|null; is_digital?:boolean|null; is_featured?:boolean|null; avatar_item_key?:string|null; seller_name?:string|null };
 
 type TabKey = 'fashion' | 'closet' | 'avatar';
-type CategoryKey = 'featured' | 'head' | 'outfit' | 'bottom' | 'shoes' | 'face' | 'neck' | 'back' | 'hand' | 'aura';
-const CATEGORY_LABELS: Record<CategoryKey, string> = { featured:'Featured', head:'Headwear', outfit:'Tops', bottom:'Bottoms', shoes:'Shoes', face:'Face', neck:'Chains', back:'Back', hand:'Handheld', aura:'Auras' };
-const CATEGORY_TYPES: Record<CategoryKey, string[]> = { featured:[], head:['head'], outfit:['outfit'], bottom:['bottom'], shoes:['shoes'], face:['face','glasses'], neck:['neck','chain'], back:['back'], hand:['hand','weapon'], aura:['aura'] };
-const GLYPHS: Record<CategoryKey,string> = { featured:'✦',head:'♜',outfit:'T',bottom:'▤',shoes:'⌁',face:'◉',neck:'◇',back:'♧',hand:'⚔',aura:'✧' };
+type CategoryKey = 'featured' | 'hair' | 'head' | 'face' | 'neck' | 'outfit' | 'bottom' | 'shoes' | 'back' | 'hand' | 'aura';
+const CATEGORY_LABELS: Record<CategoryKey, string> = { featured:'Featured', hair:'Hair', head:'Headwear', face:'Face & Eyewear', neck:'Jewelry', outfit:'Tops & Jackets', bottom:'Bottoms', shoes:'Footwear', back:'Back', hand:'Handheld', aura:'Auras' };
+const CATEGORY_TYPES: Record<CategoryKey, string[]> = { featured:[], hair:['hair'], head:['head','hat'], face:['face','glasses','mask','eyewear','ear'], neck:['neck','chain','jewelry','bracelet','watch','ring'], outfit:['outfit','top','jacket','coat','hoodie','vest'], bottom:['bottom','pants','shorts','skirt'], shoes:['shoes','shoe','boots','slides'], back:['back','backpack','wings','cape'], hand:['hand','weapon','prop','glove'], aura:['aura'] };
+const GLYPHS: Record<CategoryKey,string> = { featured:'✦',hair:'♧',head:'♜',face:'◉',neck:'◇',outfit:'T',bottom:'▤',shoes:'⌁',back:'♧',hand:'⚔',aura:'✧' };
 
 export async function mount(): Promise<void> {
   const root = document.querySelector<HTMLElement>('#app');
