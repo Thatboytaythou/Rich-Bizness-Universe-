@@ -23,8 +23,7 @@ begin
   end if;
 end $$;
 
-create unique index if not exists user_product_unlocks_user_product_uidx
-  on public.user_product_unlocks(user_id, product_id);
+-- user_product_unlocks already has UNIQUE(user_id, product_id); reuse it for idempotency.
 
 alter table public.user_product_unlocks enable row level security;
 drop policy if exists user_product_unlocks_owner_read on public.user_product_unlocks;
