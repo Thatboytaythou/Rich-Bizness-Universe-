@@ -228,16 +228,11 @@ export async function mount(): Promise<void> {
   scene.add(rim);
   world = addStreetWorld(scene);
 
-  const models = (snap.models ?? []) as Array<Record<string, any>>;
-  const selectedModel = models.find(model =>
-    model.is_active === true &&
-    model.is_realistic === true &&
-    model.rig_type === 'skinned-humanoid' &&
-    String(model.body_type ?? '').toLowerCase() === (gender === 'girl' ? 'female' : 'male') &&
-    /^https:\/\//i.test(String(model.model_url ?? ''))
-  ) ?? null;
+  const selectedModel = snap.model ?? null;
+  const expectedBody = gender === 'girl' ? 'female' : 'male';
+  const modelMatchesGender = String(selectedModel?.body_type ?? '').toLowerCase() === expectedBody;
   avatarRuntime = await loadSkinnedAvatar({
-    modelUrl: resolveAvatarModelUrl({ model: selectedModel }, gender),
+    modelUrl: resolveAvatarModelUrl({ model: modelMatchesGender ? selectedModel : null }, gender),
     targetHeight: gender === 'girl' ? 1.72 : 1.82,
     signal: abort.signal
   });
