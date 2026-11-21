@@ -15,11 +15,6 @@ export type SkinnedAvatarRuntime = {
   currentAction: THREE.AnimationAction | null;
 };
 
-const DEFAULT_MODEL_URLS: Record<AvatarGender, string> = {
-  boy: 'https://raw.githubusercontent.com/mrdoob/three.js/r184/examples/models/gltf/Soldier.glb',
-  girl: 'https://raw.githubusercontent.com/mrdoob/three.js/r184/examples/models/gltf/Michelle.glb'
-};
-
 const MOTION_HINTS: Record<AvatarMotion, string[]> = {
   idle: ['idle', 'survey', 'stand', 'breath'],
   walk: ['walk', 'walking'],
@@ -102,7 +97,7 @@ function prepareModel(root: THREE.Group, targetHeight = 1.82): { bounds: THREE.B
   return { bounds, height };
 }
 
-export function resolveAvatarModelUrl(snapshot: Record<string, any> | null | undefined, gender: AvatarGender): string {
+export function resolveAvatarModelUrl(snapshot: Record<string, any> | null | undefined, _gender: AvatarGender): string {
   const candidate = String(snapshot?.model?.model_url ?? '').trim();
   const isApprovedModel = Boolean(snapshot?.model?.is_active) &&
     snapshot?.model?.is_realistic === true &&
