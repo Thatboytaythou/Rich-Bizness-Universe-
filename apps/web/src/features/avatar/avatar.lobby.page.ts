@@ -231,11 +231,18 @@ export async function mount(): Promise<void> {
   const selectedModel = snap.model ?? null;
   const expectedBody = gender === 'girl' ? 'female' : 'male';
   const modelMatchesGender = String(selectedModel?.body_type ?? '').toLowerCase() === expectedBody;
-  avatarRuntime = await loadSkinnedAvatar({
-    modelUrl: resolveAvatarModelUrl({ model: modelMatchesGender ? selectedModel : null }, gender),
-    targetHeight: gender === 'girl' ? 1.72 : 1.82,
-    signal: abort.signal
-  });
+  try {
+    avatarRuntime = await loadSkinnedAvatar({
+      modelUrl: resolveAvatarModelUrl({ model: modelMatchesGender ? selectedModel : null }, gender),
+      animationUrl: String(selectedModel?.metadata?.animation_url ?? '') || null,
+      targetHeight: gender === 'girl' ? 1.72 : 1.82,
+      signal: abort.signal
+    });
+  } catch (error) {
+    const loading = root.querySelector<HTMLElement>('#avatarLoading');
+    if (loading) loading.textContent = `RICH BIZNESS CHARACTER ASSET REQUIRED: ${error instanceof Error ? error.message : 'UNKNOWN ERROR'}`;
+    return;
+  }
   if (!isCurrent()) { disposeSkinnedAvatar(avatarRuntime); return; }
   avatarRuntime.root.position.set(0, 0, 1.6);
   scene.add(avatarRuntime.root);
