@@ -180,8 +180,11 @@ export function attachSkinnedWearable(runtime: SkinnedAvatarRuntime, wearableRoo
   for (const source of sources) {
     const normalizedBones = source.skeleton.bones.map((bone) => runtime.bones.get(normalizeAvatarBoneName(bone.name)));
     if (normalizedBones.some((bone) => !bone)) throw new Error('Wearable rejected: missing target skeleton joint.');
-    const sourceNames = source.skeleton.bones.map((bone) => normalizeAvatarBoneName(bone.name));
-    const targetInverses = normalizedBones.map((bone) => bone!.matrixWorld.clone().invert());
+    const targetInverses = source.skeleton.bones.map((bone) => {
+      const sourceInverse = source.skeleton.boneInverses[source.skeleton.bones.indexOf(bone)];
+      const targetBone = runtime.bones.get(normalizeAvatarBoneName(bone.name))!;
+      return sourceInverse.clone().multiply(targetBone.matrixWorld.clone().invert()).multiply(targetBone.matrixWorld);
+    });
     source.bind(new THREE.Skeleton(normalizedBones as THREE.Bone[], targetInverses), source.bindMatrix.clone());
     source.normalizeSkinWeights();
     source.frustumCulled = false;
