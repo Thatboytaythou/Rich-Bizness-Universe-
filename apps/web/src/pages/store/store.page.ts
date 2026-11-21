@@ -2,7 +2,7 @@ import { getAuthSnapshot } from '../../core/auth/auth-store';
 import { supabase } from '../../core/supabase/client';
 import './store.css';
 
-type Product={id:string;avatar_item_key?:string|null;seller_id:string|null;title:string;avatar_item_key?:string|null;description:string|null;category:string|null;product_type:string|null;fulfillment_type:string|null;price_cents:number|null;currency:string|null;image_url:string|null;cover_url:string|null;media_url:string|null;preview_url:string|null;inventory_count:number|null;is_digital:boolean|null;is_local:boolean|null;is_featured:boolean|null;city:string|null;state:string|null;location_label:string|null;views:number|null;likes:number|null;sales_count:number|null;marketing_emoji:string|null;created_at:string|null;seller_name:string|null;seller_avatar_url:string|null;seller_rank:string|null};
+type Product={id:string;seller_id:string|null;title:string;avatar_item_key?:string|null;avatar_item_key?:string|null;description:string|null;category:string|null;product_type:string|null;fulfillment_type:string|null;price_cents:number|null;currency:string|null;image_url:string|null;cover_url:string|null;media_url:string|null;preview_url:string|null;inventory_count:number|null;is_digital:boolean|null;is_local:boolean|null;is_featured:boolean|null;city:string|null;state:string|null;location_label:string|null;views:number|null;likes:number|null;sales_count:number|null;marketing_emoji:string|null;created_at:string|null;seller_name:string|null;seller_avatar_url:string|null;seller_rank:string|null};
 type CartRow={product_id:string;quantity:number;price_cents:number;currency:string};
 type Row=Record<string,any>;
 type Channel=ReturnType<typeof supabase.channel>;
