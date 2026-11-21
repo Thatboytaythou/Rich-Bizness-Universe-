@@ -161,6 +161,52 @@ export async function mountProfilePage(): Promise<void> {
     });
   }
 
+  // Private ownership data is loaded only for the signed-in profile owner.
+  // The underlying tables enforce auth.uid() ownership with RLS; visitor profiles never query these tables.
+  let ownedInventory: Array<{ item: JsonRow; equipped: boolean }> = [];
+  let productUnlocks: JsonRow[] = [];
+  if (isOwner) {
+    const [{ data: inventoryRows, error: inventoryError }, { data: unlockRows, error: unlockError }] = await Promise.all([
+      supabase.from('avatar_inventory').select('item_key,equipped,created_at,avatar_items(item_key,item_type,title,rarity,config)').order('created_at', { ascending: false }),
+      supabase.from('user_product_unlocks').select('product_id,unlocked_at,products(id,title,image_url,cover_url,avatar_item_key,product_type,category)').order('unlocked_at', { ascending: false }),
+    ]);
+    if (!isCurrent()) return;
+    if (inventoryError) console.warn('Profile collection inventory unavailable', inventoryError.message);
+    if (unlockError) console.warn('Profile product unlocks unavailable', unlockError.message);
+    ownedInventory = (inventoryRows ?? []).map((row: JsonRow) => ({
+      item: row.avatar_items ?? { item_key: row.item_key, title: row.item_key },
+      equipped: Boolean(row.equipped),
+    }));
+    productUnlocks = (unlockRows ?? []).map((row: JsonRow) => ({
+      ...(row.products ?? {}),
+      id: row.products?.id ?? row.product_id,
+      unlocked_at: row.unlocked_at,
+      type: 'PRODUCT UNLOCK',
+    }));
+  }
+
+  const collectionCards = [
+    ...ownedInventory.map(row => ({
+      id: String(row.item.item_key ?? ''),
+      title: String(row.item.title ?? row.item.item_key ?? 'Avatar item'),
+      image_url: row.item.config?.image_url ?? row.item.config?.thumbnail_url ?? '',
+      rarity: String(row.item.rarity ?? 'common'),
+      meta: row.equipped ? 'EQUIPPED · AVATAR GEAR' : 'OWNED · AVATAR GEAR',
+      href: '/avatar-characters.html',
+    })),
+    ...productUnlocks.map(item => ({
+      id: String(item.id ?? ''),
+      title: String(item.title ?? 'Digital collectible'),
+      image_url: item.image_url ?? item.cover_url ?? '',
+      rarity: 'UNLOCKED',
+      meta: 'OWNED · DIGITAL DROP',
+      href: item.id ? '/store.html?product=' + encodeURIComponent(String(item.id)) : '/store.html',
+    })),
+  ];
+  const collectionMarkup = collectionCards.length
+    ? collectionCards.map(item => `<a class="pu-collection-card" href="${esc(item.href)}"><div class="pu-collection-art">${item.image_url ? `<img src="${esc(item.image_url)}" alt="" loading="lazy" decoding="async">` : '<b>RB</b>'}</div><div><small>${esc(item.rarity)}</small><strong>${esc(item.title)}</strong><span>${esc(item.meta)}</span></div></a>`).join('')
+    : '<div class="pu-collection-empty"><strong>YOUR COLLECTION STARTS HERE</strong><span>Avatar gear and digital collectibles you own will appear here after they are unlocked.</span><a href="/store.html">EXPLORE RICH DROPS</a></div>';
+
   const xpCurrent = Number(level.xp_current ?? avatar.xp ?? 0);
   const xpNext = Math.max(Number(level.xp_next ?? 1000), 1);
   const xpPct = Math.min(100, Math.round((xpCurrent / xpNext) * 100));
@@ -214,6 +260,8 @@ export async function mountProfilePage(): Promise<void> {
     </section>
 
     ${isOwner ? `<section class="pu-owner-deck"><div>${ownerActions}</div></section>` : ''}
+
+    ${isOwner ? `<section class="pu-collection"><header><div><small>YOUR ACCOUNT OWNERSHIP</small><h2>MY COLLECTION</h2><p>Owned avatar pieces and purchased digital drops stay linked to this profile.</p></div><a href="/avatar-characters.html">OPEN AVATAR STUDIO →</a></header><div class="pu-collection-grid">${collectionMarkup}</div></section>` : ''}
 
     <section class="pu-metrics">${stat('FOLLOWERS', compact(counts.followers))}${stat('FOLLOWING', compact(counts.following))}${stat('DROPS', compact(counts.posts))}${stat('VIEWS', compact(counts.views))}</section>
 
