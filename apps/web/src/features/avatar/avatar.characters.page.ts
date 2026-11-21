@@ -95,8 +95,10 @@ export async function mount(): Promise<void> {
       .filter(item => tab!=='closet' || ownedKeys.has(String(item.item_key)));
     const pieces = visible.map(item => {
       const key=String(item.item_key ?? ''), owned=ownedKeys.has(key), equipped=equippedKeys.has(key);
-      const image=String(item.config?.image_url ?? item.config?.thumbnail_url ?? '');
-      return '<button type="button" class="ac-item '+(selectedItemKey===key?'selected':'')+'" data-item="'+esc(key)+'" aria-pressed="'+(selectedItemKey===key)+'"><span class="ac-item-art">'+(image?'<img src="'+esc(image)+'" alt="">':GLYPHS[category])+'</span><span class="ac-item-title">'+esc(item.title)+'</span><small>'+esc(String(item.rarity ?? 'common').toUpperCase())+'</small><em>'+(equipped?'EQUIPPED':owned?'IN CLOSET':'PREVIEW')+'</em></button>';
+      const image=String(item.config?.thumbnail_url ?? item.config?.image_url ?? '');
+      const slot=String(item.config?.asset?.slot ?? item.item_type ?? '');
+      const assetReady=Boolean(item.config?.asset?.mesh_path && item.config?.asset?.thumbnail_path && item.config?.asset?.rig_key);
+      return '<button type="button" class="ac-item '+(selectedItemKey===key?'selected':'')+'" data-item="'+esc(key)+'" aria-pressed="'+(selectedItemKey===key)+'"><span class="ac-item-art">'+(image?'<img src="'+esc(image)+'" alt="">':GLYPHS[category])+'</span><span class="ac-item-title">'+esc(item.title)+'</span><small>'+esc(String(item.rarity ?? 'common').toUpperCase())+'</small><em>'+(equipped?'EQUIPPED':owned?'IN CLOSET':assetReady?'PREVIEW':'ART PENDING')+'</em><i class="ac-item-slot">'+esc(slot.toUpperCase())+'</i></button>';
     });
     return pieces.join('') || '<div class="ac-empty"><strong>'+ (tab==='closet'?'Your closet is waiting':'No exclusive pieces in this lane yet') +'</strong><span>'+ (tab==='closet'?'Purchased avatar gear will appear here after payment clears.':'New collections will appear here when exclusive drops are released.') +'</span></div>';
   };
@@ -136,7 +138,9 @@ export async function mount(): Promise<void> {
     const item=itemByKey(key);
     if (!item) { selectedPanel.innerHTML='<strong>Choose a wardrobe piece</strong><span>Choose a piece to see its details</span>'; return; }
     const owned=ownedKeys.has(key),equipped=equippedKeys.has(key);
-    selectedPanel.innerHTML='<strong>'+esc(item.title)+'</strong><span>'+esc(String(item.rarity??'common').toUpperCase())+' · '+(owned?'In your closet':'Preview only')+'</span><button type="button" id="acEquip" '+(owned?'':'disabled')+'>'+(equipped?'REMOVE ITEM':owned?'WEAR ITEM':'NOT UNLOCKED')+'</button>';
+    const meshPath=String(item.config?.asset?.mesh_path ?? '');
+    const hasCompatibleAsset=Boolean(meshPath && item.config?.asset?.rig_key);
+    selectedPanel.innerHTML='<strong>'+esc(item.title)+'</strong><span>'+esc(String(item.rarity??'common').toUpperCase())+' · '+(owned?'In your closet':'Preview only')+' · '+(hasCompatibleAsset?'3D asset linked':'3D asset pending')+'</span><button type="button" id="acEquip" '+(owned && hasCompatibleAsset?'':'disabled')+'>'+(equipped?'REMOVE ITEM':owned && hasCompatibleAsset?'WEAR ITEM':owned?'ASSET NOT READY':'NOT UNLOCKED')+'</button>';
     selectedPanel.querySelector<HTMLButtonElement>('#acEquip')?.addEventListener('click',async()=>{
       const btn=selectedPanel.querySelector<HTMLButtonElement>('#acEquip')!;btn.disabled=true;
       const {data,error}=await supabase.rpc('rb_avatar_set_item',{p_item_key:key,p_equipped:!equipped});
@@ -146,7 +150,7 @@ export async function mount(): Promise<void> {
       renderCatalog();showItem(key);
       root.querySelector<HTMLElement>('#saveStatus')!.textContent=equipped
         ? 'Item removed from your saved equipment state.'
-        : 'Equipment state saved. This item has no 3D mesh attached, so the character preview is unchanged.';
+        : 'Equipment state saved. The production wearable mesh is not linked yet, so the character preview remains unchanged.';
     });
   };
   root.querySelectorAll<HTMLButtonElement>('[data-tab]').forEach(button=>button.addEventListener('click',()=>{
@@ -238,8 +242,11 @@ export async function mount(): Promise<void> {
       runtime = null;
     }
     try {
+      const selectedModel = modelForGender(gender);
+      const animationUrl = String(selectedModel?.metadata?.animation_url ?? '') || null;
       const next = await loadSkinnedAvatar({
-        modelUrl: resolveAvatarModelUrl({ model: modelForGender(gender) }, gender),
+        modelUrl: resolveAvatarModelUrl({ model: selectedModel }, gender),
+        animationUrl,
         targetHeight: gender === 'girl' ? 1.72 : 1.82,
         signal: abort.signal
       });
@@ -254,7 +261,7 @@ export async function mount(): Promise<void> {
     } catch (loadError) {
       if (!isCurrent()) return;
       const target = root.querySelector<HTMLElement>('#characterLoading');
-      if (target) target.textContent = `CHARACTER LOAD FAILED: ${loadError instanceof Error ? loadError.message : 'UNKNOWN ERROR'}`;
+      if (target) target.textContent = `RICH BIZNESS CHARACTER ASSET REQUIRED: ${loadError instanceof Error ? loadError.message : 'UNKNOWN ERROR'}`;
     }
   };
 
