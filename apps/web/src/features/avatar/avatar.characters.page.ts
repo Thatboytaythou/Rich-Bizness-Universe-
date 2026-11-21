@@ -22,7 +22,6 @@ type Snapshot = {
   inventory?: Array<{ item: Record<string, any>; equipped: boolean }>;
   product_unlocks?: Array<Record<string, any>>;
   items?: Array<Record<string, any>>;
-  products?: StoreDrop[];
   presets?: Array<Record<string, any>>;
 };
 type CleanupHost = Window & { __rbPageCleanup?: (() => void | Promise<void>) | null };
@@ -31,8 +30,6 @@ const esc = (value: unknown) => String(value ?? '').replace(/[&<>"']/g, (c) => (
 const auraColor = (aura: string) => aura === 'Neon Phantom' ? 0x765dff : aura === 'Diamond Mist' ? 0x76d8ff : 0x21df81;
 
 type StoreDrop = { id:string; title:string; description?:string|null; category?:string|null; product_type?:string|null; fulfillment_type?:string|null; price_cents?:number|null; currency?:string|null; image_url?:string|null; cover_url?:string|null; preview_url?:string|null; inventory_count?:number|null; is_digital?:boolean|null; is_featured?:boolean|null; avatar_item_key?:string|null; seller_name?:string|null };
-type AvatarCatalogSnapshot = { items?:Record<string,any>[]; inventory?:Array<{item:Record<string,any>;equipped:boolean}> };
-const formatDropPrice=(value:unknown,currency='usd')=>new Intl.NumberFormat('en-US',{style:'currency',currency:String(currency||'usd').toUpperCase()}).format(Number(value??0)/100);
 
 type TabKey = 'fashion' | 'closet' | 'avatar';
 type CategoryKey = 'featured' | 'head' | 'outfit' | 'bottom' | 'shoes' | 'face' | 'neck' | 'back' | 'hand' | 'aura';
@@ -87,16 +84,8 @@ export async function mount(): Promise<void> {
   let category: CategoryKey = 'featured';
   let selectedItemKey = '';
   let ownedKeys = new Set((snap.inventory ?? []).map(row => String(row.item?.item_key ?? '')).filter(Boolean));
-  const unlockedProductIds = new Set((snap.product_unlocks ?? []).map(row => String(row.product_id ?? '')));
   let equippedKeys = new Set((snap.inventory ?? []).filter(row => row.equipped).map(row => String(row.item?.item_key ?? '')));
   let catalog = (snap.items ?? []).filter(item => item.is_active !== false);
-  let drops: StoreDrop[] = [];
-  void supabase.rpc('rb_store_catalog',{p_limit:120}).then(({data:dropRows,error:dropError})=>{
-    if(!isCurrent()) return;
-    if(dropError){console.warn('Avatar drop catalog unavailable:',dropError.message);return;}
-    drops=(dropRows??[] as StoreDrop[]).filter((drop:StoreDrop)=>Boolean(drop.avatar_item_key)&&drop.is_digital!==false);
-    renderCatalog();
-  });
   const categoryMarkup = () => (Object.keys(CATEGORY_LABELS) as CategoryKey[]).map(key =>
     '<button type="button" class="ac-category '+(category===key?'active':'')+'" data-category="'+key+'"><span>'+GLYPHS[key]+'</span><small>'+CATEGORY_LABELS[key]+'</small></button>'
   ).join('');
@@ -104,20 +93,12 @@ export async function mount(): Promise<void> {
     const types = CATEGORY_TYPES[category];
     const visible = catalog.filter(item => category==='featured' || types.includes(String(item.item_type ?? '').toLowerCase()))
       .filter(item => tab!=='closet' || ownedKeys.has(String(item.item_key)));
-    const drops = (snap.product_unlocks ?? []);
     const pieces = visible.map(item => {
       const key=String(item.item_key ?? ''), owned=ownedKeys.has(key), equipped=equippedKeys.has(key);
       const image=String(item.config?.image_url ?? item.config?.thumbnail_url ?? '');
       return '<button type="button" class="ac-item '+(selectedItemKey===key?'selected':'')+'" data-item="'+esc(key)+'" aria-pressed="'+(selectedItemKey===key)+'"><span class="ac-item-art">'+(image?'<img src="'+esc(image)+'" alt="">':GLYPHS[category])+'</span><span class="ac-item-title">'+esc(item.title)+'</span><small>'+esc(String(item.rarity ?? 'common').toUpperCase())+'</small><em>'+(equipped?'EQUIPPED':owned?'IN CLOSET':'PREVIEW')+'</em></button>';
     });
-    const linkedDrops = tab==='closet' ? drops : [];
-    const dropCards=linkedDrops.map(drop=>{
-      const product=drop.product ?? {};
-      const image=product.cover_url||product.image_url||'';
-      return '<article class="ac-drop-card"><div class="ac-drop-image">'+(image?'<img src="'+esc(image)+'" alt="">':'<span>RB</span>')+'<b>UNLOCKED</b></div><div class="ac-drop-body"><strong>'+esc(product.title||'Exclusive Rich Bizness Drop')+'</strong><span>OWNED</span><small>Unlocked '+esc(new Date(String(drop.unlocked_at||'')).toLocaleDateString())+'</small><button type="button" data-drop="'+esc(drop.product_id)+'">VIEW DROP</button></div></article>';
-    });
-    const empty=!pieces.length&&!dropCards.length;
-    return (pieces.join('')+dropCards.join('')) || '<div class="ac-empty"><strong>'+ (tab==='closet'?'Your closet is waiting':'No exclusive drops in this lane yet') +'</strong><span>'+ (tab==='closet'?'Paid avatar unlocks and owned gear will show here.':'New collections will appear here when exclusive drops are released.') +'</span></div>';
+    return pieces.join('') || '<div class="ac-empty"><strong>'+ (tab==='closet'?'Your closet is waiting':'No exclusive pieces in this lane yet') +'</strong><span>'+ (tab==='closet'?'Purchased avatar gear will appear here after payment clears.':'New collections will appear here when exclusive drops are released.') +'</span></div>';
   };
   const renderCatalog = () => {
     root.querySelector<HTMLElement>('#acCategories')!.innerHTML=categoryMarkup();
@@ -188,10 +169,7 @@ export async function mount(): Promise<void> {
   });
   renderCatalog();
 
-  root.querySelector<HTMLElement>('#acItems')!.addEventListener('click',event=>{
-    const button=(event.target as HTMLElement).closest<HTMLButtonElement>('[data-drop]');
-    if(button) location.href='/store.html?product='+encodeURIComponent(button.dataset.drop||'');
-  });
+
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(0xb9d4df);
   scene.fog = new THREE.Fog(0xb9d4df, 16, 42);
