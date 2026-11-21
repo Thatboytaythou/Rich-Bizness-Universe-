@@ -33,6 +33,59 @@ create policy user_product_unlocks_owner_read
   for select to authenticated
   using ((select auth.uid()) = user_id);
 
+create or replace function public.rb_avatar_runtime_snapshot()
+returns jsonb
+language sql
+security invoker
+set search_path = public
+as $function$
+select jsonb_build_object(
+  'profile',to_jsonb(p),
+  'avatar',to_jsonb(a),
+  'loadout',to_jsonb(l),
+  'model',to_jsonb(m),
+  'controller',to_jsonb(c),
+  'motion',to_jsonb(s),
+  'inventory',coalesce((
+    select jsonb_agg(jsonb_build_object('item',to_jsonb(i),'equipped',inv.equipped))
+    from public.avatar_inventory inv
+    join public.avatar_items i on i.item_key=inv.item_key
+    where inv.user_id=auth.uid()
+  ),'[]'::jsonb),
+  'product_unlocks',coalesce((
+    select jsonb_agg(jsonb_build_object(
+      'id',u.id,'product_id',u.product_id,'order_id',u.order_id,
+      'unlocked_at',u.unlocked_at,'expires_at',u.expires_at,'metadata',u.metadata,
+      'product',jsonb_build_object('title',pr.title,'image_url',pr.image_url,'cover_url',pr.cover_url,'avatar_item_key',pr.avatar_item_key)
+    ) order by u.unlocked_at desc)
+    from public.user_product_unlocks u
+    join public.products pr on pr.id=u.product_id
+    where u.user_id=auth.uid() and (u.expires_at is null or u.expires_at>now())
+  ),'[]'::jsonb),
+  'presets',coalesce((
+    select jsonb_agg(to_jsonb(ap) order by ap.title)
+    from public.avatar_character_presets ap where ap.is_active
+  ),'[]'::jsonb),
+  'items',coalesce((
+    select jsonb_agg(to_jsonb(ai) order by ai.item_type,ai.title)
+    from public.avatar_items ai where ai.is_active
+  ),'[]'::jsonb),
+  'clips',coalesce((
+    select jsonb_agg(to_jsonb(ac) order by ac.state_group,ac.title)
+    from public.avatar_animation_clips ac where ac.is_active
+  ),'[]'::jsonb)
+)
+from public.profiles p
+left join public.meta_avatars a on a.user_id=p.id
+left join public.user_avatar_loadouts l on l.user_id=p.id
+left join public.avatar_models m on m.id=l.model_id
+left join public.avatar_controller_profiles c on c.id=l.controller_profile_id
+left join public.avatar_motion_state s on s.user_id=p.id
+where p.id=auth.uid();
+$function$;
+revoke all on function public.rb_avatar_runtime_snapshot() from public, anon;
+grant execute on function public.rb_avatar_runtime_snapshot() to authenticated;
+
 create or replace function public.rb_avatar_set_item(
   p_item_key text,
   p_equipped boolean default true
