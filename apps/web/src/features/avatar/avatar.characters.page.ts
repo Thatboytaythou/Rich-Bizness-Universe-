@@ -215,21 +215,16 @@ export async function mount(): Promise<void> {
   let dragStartYaw = 0;
 
   const modelForGender = (nextGender: AvatarGender) => {
-    const candidates = (snap.models ?? []) as Array<Record<string, any>>;
-    return candidates.find(model =>
-      model.is_active === true &&
-      model.is_realistic === true &&
-      model.rig_type === 'skinned-humanoid' &&
-      String(model.body_type ?? '').toLowerCase() === (nextGender === 'girl' ? 'female' : 'male') &&
-      /^https:\/\//i.test(String(model.model_url ?? ''))
-    ) ?? null;
+    const model = snap.model ?? null;
+    const expectedBody = nextGender === 'girl' ? 'female' : 'male';
+    if (!model || String(model.body_type ?? '').toLowerCase() !== expectedBody) return null;
+    return model;
   };
 
   const applyBuildScale = () => {
-    if (!runtime) return;
-    const xScale = buildInput.value === 'lean' ? .95 : buildInput.value === 'heroic' ? 1.035 : 1;
-    runtime.root.scale.x = xScale;
-    runtime.root.updateMatrixWorld(true);
+    // Body shape must be authored through actual rig morph targets, not global mesh stretching.
+    // The selector remains a saved preference until a production rig exposes supported morphs.
+    if (runtime) runtime.root.updateMatrixWorld(true);
   };
 
   const loadCharacter = async () => {
@@ -276,8 +271,8 @@ export async function mount(): Promise<void> {
     root.querySelectorAll<HTMLButtonElement>('[data-motion]').forEach(item=>item.classList.toggle('active',item===button));
     if(runtime)setAvatarMotion(runtime,motion);
   });
-  buildInput.onchange=()=>{applyBuildScale();root.querySelector<HTMLElement>('#previewStyle')!.textContent=buildInput.value.toUpperCase()+' · '+styleInput.value.toUpperCase()};
-  styleInput.onchange=()=>{root.querySelector<HTMLElement>('#previewStyle')!.textContent=buildInput.value.toUpperCase()+' · '+styleInput.value.toUpperCase()};
+  buildInput.onchange=()=>{applyBuildScale();root.querySelector<HTMLElement>('#previewStyle')!.textContent=buildInput.value.toUpperCase()+' · '+styleInput.value.toUpperCase();root.querySelector<HTMLElement>('#saveStatus')!.textContent='Body preference selected. Visible body shaping requires a production rig with morph targets.'};
+  styleInput.onchange=()=>{root.querySelector<HTMLElement>('#previewStyle')!.textContent=buildInput.value.toUpperCase()+' · '+styleInput.value.toUpperCase();root.querySelector<HTMLElement>('#saveStatus')!.textContent='Style preference selected. Visible outfits require matched 3D garment assets.'};
   auraInput.onchange=()=>auraLight.color.setHex(auraColor(auraInput.value));
   nameInput.oninput=()=>root.querySelector<HTMLElement>('#previewName')!.textContent=nameInput.value||'Rich Avatar';
   root.querySelector<HTMLButtonElement>('#randomize')!.onclick=async()=>{
@@ -296,7 +291,9 @@ export async function mount(): Promise<void> {
     status.textContent='Saving character…';button.disabled=true;
     try{
       const activeModel = modelForGender(gender);
-      if (!activeModel) throw new Error('No production Rich Bizness character model is assigned for this character type yet. Your saved settings were not changed.');
+      if (!activeModel || activeModel.is_realistic !== true || activeModel.is_active !== true || activeModel.rig_type !== 'skinned-humanoid') {
+        throw new Error('This character is still assigned to a temporary demo model. A Rich Bizness production rig must be installed before saving it as a finished character.');
+      }
       const {error:saveError}=await supabase.rpc('rb_save_avatar_studio',{
         p_display_name:nameInput.value||display,
         p_preset_key:gender==='girl'?'street_queen_hd':'street_king_hd',
