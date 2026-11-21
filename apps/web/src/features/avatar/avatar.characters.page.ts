@@ -97,14 +97,15 @@ export async function mount(): Promise<void> {
   ).join('');
   const itemMarkup = () => {
     const types = CATEGORY_TYPES[category];
-    const visible = catalog.filter(item => category==='featured' || types.includes(String(item.item_type ?? '').toLowerCase()))
+    const visible = catalog.filter(item => category==='featured' || types.includes(String(item.config?.asset?.slot ?? item.item_type ?? '').toLowerCase()) || types.includes(String(item.item_type ?? '').toLowerCase()))
       .filter(item => tab!=='closet' || ownedKeys.has(String(item.item_key)));
     const pieces = visible.map(item => {
       const key=String(item.item_key ?? ''), owned=ownedKeys.has(key), equipped=equippedKeys.has(key);
       const image=String(item.config?.thumbnail_url ?? item.config?.image_url ?? '');
       const slot=String(item.config?.asset?.slot ?? item.item_type ?? '');
-      const assetReady=Boolean(item.config?.asset?.mesh_path && item.config?.asset?.thumbnail_path && item.config?.asset?.rig_key);
-      return '<button type="button" class="ac-item '+(selectedItemKey===key?'selected':'')+'" data-item="'+esc(key)+'" aria-pressed="'+(selectedItemKey===key)+'"><span class="ac-item-art">'+(image?'<img src="'+esc(image)+'" alt="">':GLYPHS[category])+'</span><span class="ac-item-title">'+esc(item.title)+'</span><small>'+esc(String(item.rarity ?? 'common').toUpperCase())+'</small><em>'+(equipped?'EQUIPPED':owned?'IN CLOSET':assetReady?'PREVIEW':'ART PENDING')+'</em><i class="ac-item-slot">'+esc(slot.toUpperCase())+'</i></button>';
+      const assetTagged=Boolean(item.config?.asset?.mesh_path && item.config?.asset?.thumbnail_path && item.config?.asset?.rig_key);
+      const state=equipped?'SAVED LOADOUT':owned?'IN CLOSET':assetTagged?'ASSET TAGGED':'ART PENDING';
+      return '<button type="button" class="ac-item '+(selectedItemKey===key?'selected':'')+'" data-item="'+esc(key)+'" aria-pressed="'+(selectedItemKey===key)+'"><span class="ac-item-art">'+(image?'<img src="'+esc(image)+'" alt="">':GLYPHS[category])+'</span><span class="ac-item-title">'+esc(item.title)+'</span><small>'+esc(String(item.rarity ?? 'common').toUpperCase())+'</small><em>'+state+'</em><i class="ac-item-slot">'+esc(slot.toUpperCase())+'</i></button>';
     });
     return pieces.join('') || '<div class="ac-empty"><strong>'+ (tab==='closet'?'Your closet is waiting':'No exclusive pieces in this lane yet') +'</strong><span>'+ (tab==='closet'?'Purchased avatar gear will appear here after payment clears.':'New collections will appear here when exclusive drops are released.') +'</span></div>';
   };
