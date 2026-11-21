@@ -23,36 +23,50 @@ const MOTION_HINTS: Record<AvatarMotion, string[]> = {
   power: ['power', 'attack', 'dance', 'pose', 'action']
 };
 
-function actionForMotion(runtime: SkinnedAvatarRuntime, motion: AvatarMotion): THREE.AnimationAction | null {
-  const hints = MOTION_HINTS[motion];
-  for (const hint of hints) {
-    const hit = [...runtime.actions.entries()].find(([name]) => name.includes(hint));
-    if (hit) return hit[1];
-  }
-  if (motion === 'jump' || motion === 'power') return actionForMotion(runtime, 'idle');
-  if (motion === 'run') return actionForMotion(runtime, 'walk');
-  return runtime.actions.values().next().value ?? null;
-}
+const REQUIRED_HUMANOID_BONES = [
+  'hips', 'pelvis', 'spine', 'chest', 'neck', 'head',
+  'leftupleg', 'leftleg', 'leftfoot', 'rightupleg', 'rightleg', 'rightfoot',
+  'leftarm', 'leftforearm', 'lefthand', 'rightarm', 'rightforearm', 'righthand'
+];
 
-function assertProductionHumanoid(root: THREE.Group, clips: THREE.AnimationClip[]): void {
-  let skinnedMeshes = 0;
-  const bones = new Set<THREE.Bone>();
+const normalizeBoneName = (value: string) => value.toLowerCase().replace(/[^a-z0-9]/g, '');
 
+function getSkeleton(root: THREE.Object3D): THREE.Bone[] {
+  const bones = new Map<string, THREE.Bone>();
   root.traverse((object) => {
     const skinned = object as THREE.SkinnedMesh;
-    if (skinned.isSkinnedMesh) {
-      skinnedMeshes += 1;
-      for (const bone of skinned.skeleton?.bones ?? []) bones.add(bone);
-    }
+    if (!skinned.isSkinnedMesh) return;
+    for (const bone of skinned.skeleton?.bones ?? []) bones.set(normalizeBoneName(bone.name), bone);
+  });
+  return [...bones.values()];
+}
+
+function assertProductionHumanoid(root: THREE.Group): THREE.Bone[] {
+  let skinnedMeshes = 0;
+  root.traverse((object) => {
+    if ((object as THREE.SkinnedMesh).isSkinnedMesh) skinnedMeshes += 1;
   });
 
+  const bones = getSkeleton(root);
   if (skinnedMeshes < 1) throw new Error('Avatar asset rejected: no skinned humanoid mesh found.');
-  if (bones.size < 8) throw new Error(`Avatar asset rejected: incomplete skeleton (${bones.size} bones).`);
-  if (clips.length < 1) throw new Error('Avatar asset rejected: no skeletal animation clips found.');
+  if (bones.length < 18) throw new Error(\`Avatar asset rejected: incomplete humanoid skeleton (\${bones.length} unique bones).\`);
+
+  const names = new Set(bones.map((bone) => normalizeBoneName(bone.name)));
+  const missing = REQUIRED_HUMANOID_BONES.filter((required) => ![...names].some((name) =>
+    name === required || name.endsWith(required) || required.endsWith(name)
+  ));
+  if (missing.length) {
+    throw new Error(\`Avatar asset rejected: missing canonical humanoid bones (\${missing.join(', ')}).\`);
+  }
+  return bones;
+}
+
+function assertAnimationPack(clips: THREE.AnimationClip[]): void {
+  if (!clips.length) throw new Error('Avatar animation pack rejected: no animation clips found.');
   const names = clips.map((clip) => clip.name.trim().toLowerCase());
   for (const required of ['idle', 'walk', 'run']) {
     if (!names.some((name) => name.includes(required))) {
-      throw new Error(`Avatar asset rejected: required ${required} animation clip is missing.`);
+      throw new Error(\`Avatar animation pack rejected: required \${required} clip is missing.\`);
     }
   }
 }
@@ -91,17 +105,24 @@ function prepareModel(root: THREE.Group, targetHeight = 1.82): { bounds: THREE.B
   const height = bounds.getSize(new THREE.Vector3()).y;
   const groundError = Math.abs(bounds.min.y);
   if (!Number.isFinite(height) || Math.abs(height - targetHeight) > 0.04) {
-    throw new Error(`Avatar asset rejected: normalized height ${height.toFixed(3)}m is outside tolerance.`);
+    throw new Error(\`Avatar asset rejected: normalized height \${height.toFixed(3)}m is outside tolerance.\`);
   }
-  if (groundError > 0.025) throw new Error(`Avatar asset rejected: feet are ${groundError.toFixed(3)}m off ground.`);
+  if (groundError > 0.025) throw new Error(\`Avatar asset rejected: feet are \${groundError.toFixed(3)}m off ground.\`);
   return { bounds, height };
 }
 
 export function resolveAvatarModelUrl(snapshot: Record<string, any> | null | undefined, _gender: AvatarGender): string {
   const candidate = String(snapshot?.model?.model_url ?? '').trim();
+  const metadata = snapshot?.model?.metadata ?? {};
+  const modelKey = String(snapshot?.model?.model_key ?? '');
+  const isTemporaryDemo = metadata?.production_art_ready === false ||
+    metadata?.role === 'temporary-reference-skinned-model' ||
+    modelKey === 'rb-skinned-boy-v1' ||
+    modelKey === 'rb-skinned-girl-v1';
   const isApprovedModel = Boolean(snapshot?.model?.is_active) &&
     snapshot?.model?.is_realistic === true &&
     snapshot?.model?.rig_type === 'skinned-humanoid' &&
+    !isTemporaryDemo &&
     /^https:\/\//i.test(candidate);
   if (!isApprovedModel) {
     throw new Error('No production Rich Bizness character model is assigned yet. The temporary demo models are disabled.');
@@ -111,6 +132,7 @@ export function resolveAvatarModelUrl(snapshot: Record<string, any> | null | und
 
 export async function loadSkinnedAvatar(options: {
   modelUrl: string;
+  animationUrl?: string | null;
   targetHeight?: number;
   signal?: AbortSignal;
 }): Promise<SkinnedAvatarRuntime> {
@@ -121,12 +143,27 @@ export async function loadSkinnedAvatar(options: {
 
   const root = gltf.scene;
   root.name = 'rb-skinned-avatar';
-  assertProductionHumanoid(root, gltf.animations);
+  const bodyBones = assertProductionHumanoid(root);
+  let clips = [...gltf.animations];
+
+  if (options.animationUrl) {
+    const animationGltf = await loader.loadAsync(options.animationUrl);
+    if (options.signal?.aborted) throw new DOMException('Aborted', 'AbortError');
+    const animationBones = new Set(getSkeleton(animationGltf.scene).map((bone) => normalizeBoneName(bone.name)));
+    const incompatible = bodyBones.map((bone) => normalizeBoneName(bone.name)).filter((name) => !animationBones.has(name));
+    if (incompatible.length) {
+      throw new Error(\`Avatar animation pack rejected: skeleton mismatch (\${incompatible.slice(0, 6).join(', ')}).\`);
+    }
+    clips = [...clips, ...animationGltf.animations];
+  }
+
+  assertAnimationPack(clips);
   const { bounds, height } = prepareModel(root, options.targetHeight ?? 1.82);
   const mixer = new THREE.AnimationMixer(root);
   const actions = new Map<string, THREE.AnimationAction>();
-  for (const clip of gltf.animations) {
+  for (const clip of clips) {
     const key = clip.name.trim().toLowerCase();
+    if (actions.has(key)) continue;
     const action = mixer.clipAction(clip);
     action.enabled = true;
     action.clampWhenFinished = false;
@@ -137,7 +174,7 @@ export async function loadSkinnedAvatar(options: {
     root,
     mixer,
     actions,
-    clips: gltf.animations,
+    clips,
     bounds,
     height,
     currentMotion: 'idle',
@@ -149,7 +186,14 @@ export async function loadSkinnedAvatar(options: {
 
 export function setAvatarMotion(runtime: SkinnedAvatarRuntime, motion: AvatarMotion, fadeSeconds = 0.18): void {
   if (runtime.currentMotion === motion && runtime.currentAction?.isRunning()) return;
-  const next = actionForMotion(runtime, motion);
+  const hints = MOTION_HINTS[motion];
+  let next: THREE.AnimationAction | null = null;
+  for (const hint of hints) {
+    const hit = [...runtime.actions.entries()].find(([name]) => name.includes(hint));
+    if (hit) { next = hit[1]; break; }
+  }
+  if (!next && (motion === 'jump' || motion === 'power')) next = runtime.actions.get('idle') ?? null;
+  if (!next && motion === 'run') next = runtime.actions.get('walk') ?? null;
   if (!next) return;
 
   const previous = runtime.currentAction;
