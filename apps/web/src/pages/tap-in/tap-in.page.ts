@@ -1,5 +1,5 @@
 import { safeInternalRoute } from '@rb/config/routes';
-import { getAuthSnapshot } from '../../core/auth/auth-store';
+import { getAuthSnapshot, initializeAuth, subscribeAuth } from '../../core/auth/auth-store';
 import { supabase } from '../../core/supabase/client';
 import './tap-in.elite.css';
 
@@ -30,6 +30,7 @@ export async function mountTapInPage(): Promise<void> {
   const controller = new AbortController();
   const { signal } = controller;
   let redirectTimer = 0;
+  let unsubscribeAuth: (() => void) | null = null;
 
   app.innerHTML = `
     <main class="auth-shell" data-auth-state="ready">
@@ -90,6 +91,8 @@ export async function mountTapInPage(): Promise<void> {
     disposed = true;
     controller.abort();
     if (redirectTimer) window.clearTimeout(redirectTimer);
+    unsubscribeAuth?.();
+    unsubscribeAuth = null;
   };
   (window as Window & { __rbPageCleanup?: (() => void | Promise<void>) | null }).__rbPageCleanup = cleanup;
   window.addEventListener('pagehide', cleanup, { once: true });
@@ -125,6 +128,13 @@ export async function mountTapInPage(): Promise<void> {
     }, { signal });
     return;
   }
+
+  unsubscribeAuth = subscribeAuth((state) => {
+    if (!isCurrent() || recoveryMode || pending) return;
+    if (state.ready && state.session) location.replace(next);
+    else if (!state.ready) setStatus('RESTORING YOUR RICH ID SESSION…', false, true);
+  });
+  void initializeAuth();
 
   let mode: 'signin' | 'signup' = 'signin';
   let pending = false;
@@ -188,20 +198,24 @@ export async function mountTapInPage(): Promise<void> {
       const fallbackName = chosenName || String(user.user_metadata.display_name ?? user.email?.split('@')[0] ?? 'Rich Member');
       const existing = await supabase.from('profiles').select('id,display_name,username').eq('id', user.id).maybeSingle();
       if (!isCurrent()) return;
-      if (existing.error) return setStatus('YOU TAPPED IN, BUT PROFILE LOCK NEEDS A RETRY', true);
+      if (existing.error) {
+        setStatus('RICH ID VERIFIED — PROFILE SYNC WILL RETRY', false, true);
+      }
 
-      const profileResult = existing.data
-        ? await supabase.from('profiles').update({ online_status: 'online', updated_at: new Date().toISOString() }).eq('id', user.id)
-        : await supabase.from('profiles').insert({
-            id: user.id,
-            display_name: fallbackName,
-            username: usernameFrom(String(user.user_metadata.username ?? fallbackName)),
-            online_status: 'online',
-            has_avatar: false,
-            updated_at: new Date().toISOString()
-          });
-      if (!isCurrent()) return;
-      if (profileResult.error) return setStatus('YOU TAPPED IN, BUT PROFILE LOCK NEEDS A RETRY', true);
+      if (!existing.error) {
+        const profileResult = existing.data
+          ? await supabase.from('profiles').update({ online_status: 'online', updated_at: new Date().toISOString() }).eq('id', user.id)
+          : await supabase.from('profiles').insert({
+              id: user.id,
+              display_name: fallbackName,
+              username: usernameFrom(String(user.user_metadata.username ?? fallbackName)),
+              online_status: 'online',
+              has_avatar: false,
+              updated_at: new Date().toISOString()
+            });
+        if (!isCurrent()) return;
+        if (profileResult.error) setStatus('RICH ID VERIFIED — PROFILE SYNC WILL RETRY', false, true);
+      }
     }
 
     setStatus(`WELCOME BACK ${esc(chosenName || credentials.email.split('@')[0]).toUpperCase()} — VERIFIED`);
