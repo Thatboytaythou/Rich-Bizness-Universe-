@@ -19,11 +19,20 @@ type Snapshot = {
   avatar?: Record<string, any>;
   loadout?: Record<string, any>;
   model?: Record<string, any>;
+  inventory?: Array<{ item: Record<string, any>; equipped: boolean }>;
+  items?: Array<Record<string, any>>;
+  presets?: Array<Record<string, any>>;
 };
 type CleanupHost = Window & { __rbPageCleanup?: (() => void | Promise<void>) | null };
 const OWNER = 'rich-bizness-avatar-characters-v1';
 const esc = (value: unknown) => String(value ?? '').replace(/[&<>"']/g, (c) => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c] ?? c));
 const auraColor = (aura: string) => aura === 'Neon Phantom' ? 0x765dff : aura === 'Diamond Mist' ? 0x76d8ff : 0x21df81;
+
+type TabKey = 'fashion' | 'closet' | 'avatar';
+type CategoryKey = 'featured' | 'head' | 'outfit' | 'bottom' | 'shoes' | 'face' | 'neck' | 'back' | 'hand' | 'aura';
+const CATEGORY_LABELS: Record<CategoryKey, string> = { featured:'Featured', head:'Headwear', outfit:'Tops', bottom:'Bottoms', shoes:'Shoes', face:'Face', neck:'Chains', back:'Back', hand:'Handheld', aura:'Auras' };
+const CATEGORY_TYPES: Record<CategoryKey, string[]> = { featured:[], head:['head'], outfit:['outfit'], bottom:['bottom'], shoes:['shoes'], face:['face','glasses'], neck:['neck','chain'], back:['back'], hand:['hand','weapon'], aura:['aura'] };
+const GLYPHS: Record<CategoryKey,string> = { featured:'✦',head:'♜',outfit:'T',bottom:'▤',shoes:'⌁',face:'◉',neck:'◇',back:'♧',hand:'⚔',aura:'✧' };
 
 export async function mount(): Promise<void> {
   const root = document.querySelector<HTMLElement>('#app');
@@ -68,7 +77,33 @@ export async function mount(): Promise<void> {
   const initialStyle = String(outfit.style ?? 'street');
   const initialAura = String(current.aura ?? loadout.aura_config?.name ?? 'Emerald Gold');
 
-  root.innerHTML = `<main class="ac-shell"><header><a class="back" href="/profile.html">←</a><div><small>RICH BIZNESS CHARACTER GARAGE</small><h1>Choose Your Character</h1></div><a href="/avatar.html" class="enter">ENTER LOBBY</a></header><section class="ac-layout"><div class="ac-stage"><canvas id="characterCanvas"></canvas><div class="ac-stage-top"><span>SKINNED FULL BODY</span><b id="previewGender">${gender.toUpperCase()}</b></div><div class="ac-stage-copy"><strong id="previewName">${esc(display)}</strong><em id="previewStyle">${esc(initialBuild.toUpperCase())} · ${esc(initialStyle.toUpperCase())}</em></div><div class="ac-motion"><button data-motion="idle" class="active">IDLE</button><button data-motion="walk">WALK</button><button data-motion="run">RUN</button><button data-motion="power">POSE</button></div><div class="ac-loading" id="characterLoading">LOADING CHARACTER…</div></div><aside class="ac-editor"><div class="section-title"><span>CHARACTER</span></div><div class="seg"><button data-gender="boy" class="${gender === 'boy' ? 'active' : ''}">BOY</button><button data-gender="girl" class="${gender === 'girl' ? 'active' : ''}">GIRL</button></div><label>NAME<input id="nameInput" value="${esc(display)}" maxlength="28"/></label><div class="edit-grid"><label>BUILD<select id="buildInput"><option value="athletic">ATHLETIC</option><option value="lean">LEAN</option><option value="heroic">HEROIC</option></select></label><label>STYLE<select id="styleInput"><option value="street">STREET</option><option value="boss">BOSS</option><option value="tactical">TACTICAL</option><option value="cyber">CYBER</option></select></label></div><label>AURA<select id="auraInput"><option>Emerald Gold</option><option>Neon Phantom</option><option>Diamond Mist</option></select></label><div class="ac-actions"><button id="randomize">RANDOMIZE</button><button id="saveCharacter" class="primary">SAVE CHARACTER</button></div><p id="saveStatus">Save once the character, motion and proportions look right.</p></aside></section></main>`;
+  let tab: TabKey = 'fashion';
+  let category: CategoryKey = 'featured';
+  let selectedItemKey = '';
+  let ownedKeys = new Set((snap.inventory ?? []).map(row => String(row.item?.item_key ?? '')).filter(Boolean));
+  let equippedKeys = new Set((snap.inventory ?? []).filter(row => row.equipped).map(row => String(row.item?.item_key ?? '')));
+  let catalog = (snap.items ?? []).filter(item => item.is_active !== false);
+  const categoryMarkup = () => (Object.keys(CATEGORY_LABELS) as CategoryKey[]).map(key =>
+    '<button type="button" class="ac-category '+(category===key?'active':'')+'" data-category="'+key+'"><span>'+GLYPHS[key]+'</span><small>'+CATEGORY_LABELS[key]+'</small></button>'
+  ).join('');
+  const itemMarkup = () => {
+    const types = CATEGORY_TYPES[category];
+    const visible = catalog.filter(item => category==='featured' || types.includes(String(item.item_type ?? '').toLowerCase()))
+      .filter(item => tab!=='closet' || ownedKeys.has(String(item.item_key)));
+    if (!visible.length) return '<div class="ac-empty"><strong>'+ (tab==='closet'?'Your closet is waiting':'New drops loading') +'</strong><span>'+ (tab==='closet'?'Items you unlock will be saved here.':'More Rich Bizness pieces are coming soon.') +'</span></div>';
+    return visible.map(item => {
+      const key=String(item.item_key ?? ''), owned=ownedKeys.has(key), equipped=equippedKeys.has(key);
+      return '<button type="button" class="ac-item '+(selectedItemKey===key?'selected':'')+'" data-item="'+esc(key)+'" aria-pressed="'+(selectedItemKey===key)+'"><span class="ac-item-art">'+GLYPHS[category]+'</span><span class="ac-item-title">'+esc(item.title)+'</span><small>'+esc(String(item.rarity ?? 'common').toUpperCase())+'</small><em>'+(equipped?'EQUIPPED':owned?'IN CLOSET':'PREVIEW')+'</em></button>';
+    }).join('');
+  };
+  const renderCatalog = () => {
+    root.querySelector<HTMLElement>('#acCategories')!.innerHTML=categoryMarkup();
+    root.querySelector<HTMLElement>('#acItems')!.innerHTML=itemMarkup();
+    root.querySelector<HTMLElement>('#acCollectionTitle')!.textContent=tab==='closet'?'YOUR CLOSET':category==='featured'?'TRENDING NOW':CATEGORY_LABELS[category].toUpperCase();
+    root.querySelector<HTMLElement>('#acCollectionCount')!.textContent=String(catalog.filter(item=>tab!=='closet'||ownedKeys.has(String(item.item_key))).length)+' PIECES';
+  };
+
+  root.innerHTML = '<main class="ac-shell ac-studio"><header class="ac-appbar"><a class="back" href="/profile.html" aria-label="Back to profile">×</a><div><small>RICH BIZNESS AVATAR STUDIO</small><h1>Build Your Look</h1></div><button type="button" class="ac-save" id="saveCharacter">Save</button></header><section class="ac-layout"><div class="ac-stage"><canvas id="characterCanvas"></canvas><div class="ac-stage-top"><span>LIVE CHARACTER PREVIEW</span><b id="previewGender">'+gender.toUpperCase()+'</b></div><div class="ac-stage-copy"><strong id="previewName">'+esc(display)+'</strong><em id="previewStyle">'+esc(initialBuild.toUpperCase())+' · '+esc(initialStyle.toUpperCase())+'</em></div><div class="ac-motion"><button type="button" data-motion="idle" class="active">IDLE</button><button type="button" data-motion="walk">WALK</button><button type="button" data-motion="run">RUN</button><button type="button" data-motion="power">POSE</button></div><div class="ac-loading" id="characterLoading">LOADING CHARACTER…</div></div><div class="ac-wardrobe"><nav class="ac-main-tabs" role="tablist" aria-label="Avatar studio sections"><button type="button" data-tab="fashion" class="active"><span>♙</span>Fashion</button><button type="button" data-tab="closet"><span>♡</span>Closet</button><button type="button" data-tab="avatar"><span>◎</span>Avatar</button></nav><div class="ac-category-rail" id="acCategories">'+categoryMarkup()+'</div><div class="ac-collection-head"><span class="ac-brand-mark">RB</span><strong id="acCollectionTitle">TRENDING NOW</strong><small id="acCollectionCount"></small></div><div class="ac-grid" id="acItems">'+itemMarkup()+'</div><div class="ac-selected-panel" id="acSelectedPanel"><strong>Select a piece to preview it</strong><span>Tap an item to see its details and outfit options</span></div><div class="ac-editor"><div class="section-title"><span>YOUR CHARACTER</span></div><div class="seg"><button type="button" data-gender="boy" class="'+(gender==='boy'?'active':'')+'">BOY</button><button type="button" data-gender="girl" class="'+(gender==='girl'?'active':'')+'">GIRL</button></div><label>DISPLAY NAME<input id="nameInput" value="'+esc(display)+'" maxlength="28"/></label><div class="edit-grid"><label>BODY<select id="buildInput"><option value="athletic">ATHLETIC</option><option value="lean">LEAN</option><option value="heroic">HEROIC</option></select></label><label>STYLE<select id="styleInput"><option value="street">STREET</option><option value="boss">BOSS</option><option value="tactical">TACTICAL</option><option value="cyber">CYBER</option></select></label></div><label>AURA<select id="auraInput"><option>Emerald Gold</option><option>Neon Phantom</option><option>Diamond Mist</option></select></label><div class="ac-actions"><button type="button" id="randomize">SURPRISE ME</button><p id="saveStatus" role="status">Your changes appear on the character preview.</p></div></div></div></section></main>';
 
   const canvas = root.querySelector<HTMLCanvasElement>('#characterCanvas')!;
   const buildInput = root.querySelector<HTMLSelectElement>('#buildInput')!;
@@ -79,6 +114,46 @@ export async function mount(): Promise<void> {
   styleInput.value = ['street','boss','tactical','cyber'].includes(initialStyle) ? initialStyle : 'street';
   auraInput.value = ['Emerald Gold','Neon Phantom','Diamond Mist'].includes(initialAura) ? initialAura : 'Emerald Gold';
 
+
+  const itemByKey=(key:string)=>catalog.find(item=>String(item.item_key)===key);
+  const selectedPanel=root.querySelector<HTMLElement>('#acSelectedPanel')!;
+  const showItem=(key:string)=>{
+    selectedItemKey=key;
+    const item=itemByKey(key);
+    if (!item) { selectedPanel.innerHTML='<strong>Choose a wardrobe piece</strong><span>Live preview updates as you build</span>'; return; }
+    const owned=ownedKeys.has(key),equipped=equippedKeys.has(key);
+    selectedPanel.innerHTML='<strong>'+esc(item.title)+'</strong><span>'+esc(String(item.rarity??'common').toUpperCase())+' · '+(owned?'In your closet':'Preview only')+'</span><button type="button" id="acEquip" '+(owned?'':'disabled')+'>'+(equipped?'REMOVE ITEM':owned?'WEAR ITEM':'NOT UNLOCKED')+'</button>';
+    selectedPanel.querySelector<HTMLButtonElement>('#acEquip')?.addEventListener('click',async()=>{
+      const btn=selectedPanel.querySelector<HTMLButtonElement>('#acEquip')!;btn.disabled=true;
+      const {data,error}=await supabase.rpc('rb_avatar_set_item',{p_item_key:key,p_equipped:!equipped});
+      if(error){root.querySelector<HTMLElement>('#saveStatus')!.textContent=error.message;btn.disabled=false;return;}
+      const rows=(data as Snapshot)?.inventory??[];
+      equippedKeys=new Set(rows.filter(row=>row.equipped).map(row=>String(row.item?.item_key??'')));
+      renderCatalog();showItem(key);
+      root.querySelector<HTMLElement>('#saveStatus')!.textContent=equipped?'Removed from outfit':'Item equipped and saved';
+    });
+  };
+  root.querySelectorAll<HTMLButtonElement>('[data-tab]').forEach(button=>button.addEventListener('click',()=>{
+    tab=button.dataset.tab as TabKey;
+    root.querySelectorAll<HTMLButtonElement>('[data-tab]').forEach(el=>el.classList.toggle('active',el===button));
+    root.querySelector<HTMLElement>('.ac-editor')!.hidden=tab!=='avatar';
+    root.querySelector<HTMLElement>('#acCategories')!.hidden=tab==='closet';
+    selectedItemKey='';
+    selectedPanel.innerHTML='<strong>Select a wardrobe piece</strong><span>Owned items are ready to equip from your closet</span>';
+    renderCatalog();
+  }));
+  root.querySelector<HTMLElement>('#acCategories')!.addEventListener('click',event=>{
+    const button=(event.target as HTMLElement).closest<HTMLButtonElement>('[data-category]');
+    if(!button)return;
+    category=button.dataset.category as CategoryKey;tab='fashion';
+    root.querySelectorAll<HTMLButtonElement>('[data-tab]').forEach(el=>el.classList.toggle('active',el.dataset.tab==='fashion'));
+    renderCatalog();
+  });
+  root.querySelector<HTMLElement>('#acItems')!.addEventListener('click',event=>{
+    const button=(event.target as HTMLElement).closest<HTMLButtonElement>('[data-item]');
+    if(button)showItem(button.dataset.item??'');
+  });
+  renderCatalog();
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(0xb9d4df);
   scene.fog = new THREE.Fog(0xb9d4df, 16, 42);
@@ -167,64 +242,49 @@ export async function mount(): Promise<void> {
 
   await loadCharacter();
 
-  root.querySelectorAll<HTMLButtonElement>('[data-gender]').forEach((button) => {
-    button.onclick = async () => {
-      gender = button.dataset.gender === 'girl' ? 'girl' : 'boy';
-      root.querySelectorAll<HTMLButtonElement>('[data-gender]').forEach((item) => item.classList.toggle('active', item === button));
-      root.querySelector<HTMLElement>('#previewGender')!.textContent = gender.toUpperCase();
-      await loadCharacter();
-    };
+
+  root.querySelectorAll<HTMLButtonElement>('[data-gender]').forEach(button=>button.onclick=async()=>{
+    gender=button.dataset.gender==='girl'?'girl':'boy';
+    root.querySelectorAll<HTMLButtonElement>('[data-gender]').forEach(item=>item.classList.toggle('active',item===button));
+    root.querySelector<HTMLElement>('#previewGender')!.textContent=gender.toUpperCase();
+    await loadCharacter();
   });
-
-  root.querySelectorAll<HTMLButtonElement>('[data-motion]').forEach((button) => {
-    button.onclick = () => {
-      motion = (button.dataset.motion ?? 'idle') as AvatarMotion;
-      root.querySelectorAll<HTMLButtonElement>('[data-motion]').forEach((item) => item.classList.toggle('active', item === button));
-      if (runtime) setAvatarMotion(runtime, motion);
-    };
+  root.querySelectorAll<HTMLButtonElement>('[data-motion]').forEach(button=>button.onclick=()=>{
+    motion=(button.dataset.motion??'idle') as AvatarMotion;
+    root.querySelectorAll<HTMLButtonElement>('[data-motion]').forEach(item=>item.classList.toggle('active',item===button));
+    if(runtime)setAvatarMotion(runtime,motion);
   });
-
-  buildInput.onchange = () => {
-    applyBuildScale();
-    root.querySelector<HTMLElement>('#previewStyle')!.textContent = `${buildInput.value.toUpperCase()} · ${styleInput.value.toUpperCase()}`;
-  };
-  styleInput.onchange = () => {
-    root.querySelector<HTMLElement>('#previewStyle')!.textContent = `${buildInput.value.toUpperCase()} · ${styleInput.value.toUpperCase()}`;
-  };
-  auraInput.onchange = () => {
+  buildInput.onchange=()=>{applyBuildScale();root.querySelector<HTMLElement>('#previewStyle')!.textContent=buildInput.value.toUpperCase()+' · '+styleInput.value.toUpperCase()};
+  styleInput.onchange=()=>{root.querySelector<HTMLElement>('#previewStyle')!.textContent=buildInput.value.toUpperCase()+' · '+styleInput.value.toUpperCase()};
+  auraInput.onchange=()=>auraLight.color.setHex(auraColor(auraInput.value));
+  nameInput.oninput=()=>root.querySelector<HTMLElement>('#previewName')!.textContent=nameInput.value||'Rich Avatar';
+  root.querySelector<HTMLButtonElement>('#randomize')!.onclick=async()=>{
+    gender=Math.random()>.5?'girl':'boy';
+    buildInput.selectedIndex=Math.floor(Math.random()*buildInput.options.length);
+    styleInput.selectedIndex=Math.floor(Math.random()*styleInput.options.length);
+    auraInput.selectedIndex=Math.floor(Math.random()*auraInput.options.length);
     auraLight.color.setHex(auraColor(auraInput.value));
-  };
-  nameInput.oninput = () => {
-    root.querySelector<HTMLElement>('#previewName')!.textContent = nameInput.value || 'Rich Avatar';
-  };
-
-  root.querySelector<HTMLButtonElement>('#randomize')!.onclick = async () => {
-    gender = Math.random() > .5 ? 'girl' : 'boy';
-    buildInput.selectedIndex = Math.floor(Math.random() * buildInput.options.length);
-    styleInput.selectedIndex = Math.floor(Math.random() * styleInput.options.length);
-    auraInput.selectedIndex = Math.floor(Math.random() * auraInput.options.length);
-    auraLight.color.setHex(auraColor(auraInput.value));
-    root.querySelectorAll<HTMLButtonElement>('[data-gender]').forEach((item) => item.classList.toggle('active', item.dataset.gender === gender));
-    root.querySelector<HTMLElement>('#previewGender')!.textContent = gender.toUpperCase();
-    root.querySelector<HTMLElement>('#previewStyle')!.textContent = `${buildInput.value.toUpperCase()} · ${styleInput.value.toUpperCase()}`;
+    root.querySelectorAll<HTMLButtonElement>('[data-gender]').forEach(item=>item.classList.toggle('active',item.dataset.gender===gender));
+    root.querySelector<HTMLElement>('#previewGender')!.textContent=gender.toUpperCase();
+    root.querySelector<HTMLElement>('#previewStyle')!.textContent=buildInput.value.toUpperCase()+' · '+styleInput.value.toUpperCase();
     await loadCharacter();
   };
-
-  root.querySelector<HTMLButtonElement>('#saveCharacter')!.onclick = async () => {
-    const status = root.querySelector<HTMLElement>('#saveStatus')!;
-    status.textContent = 'Saving character…';
-    const presetKey = gender === 'girl' ? 'street_queen_hd' : 'street_king_hd';
-    const { error: saveError } = await supabase.rpc('rb_save_avatar_studio', {
-      p_display_name: nameInput.value || display,
-      p_preset_key: presetKey,
-      p_aura: auraInput.value,
-      p_outfit: { build: buildInput.value, style: styleInput.value, rig: 'skinned-humanoid-v1' },
-      p_accessories: {},
-      p_smoke: { mode: 'off' },
-      p_emotes: { idle: true, walk: true, run: true, jump: true, power: true },
-      p_character_type: gender === 'girl' ? 'female' : 'male'
-    });
-    status.textContent = saveError ? saveError.message : 'Saved. This character is now linked to your lobby loadout.';
+  root.querySelector<HTMLButtonElement>('#saveCharacter')!.onclick=async()=>{
+    const status=root.querySelector<HTMLElement>('#saveStatus')!,button=root.querySelector<HTMLButtonElement>('#saveCharacter')!;
+    status.textContent='Saving character…';button.disabled=true;
+    try{
+      const {error:saveError}=await supabase.rpc('rb_save_avatar_studio',{
+        p_display_name:nameInput.value||display,
+        p_preset_key:gender==='girl'?'street_queen_hd':'street_king_hd',
+        p_aura:auraInput.value,
+        p_outfit:{build:buildInput.value,style:styleInput.value,rig:'skinned-humanoid-v1'},
+        p_accessories:Object.fromEntries([...equippedKeys].map(key=>[key,true])),
+        p_smoke:{mode:'off'},p_emotes:{idle:true,walk:true,run:true,jump:true,power:true},
+        p_character_type:gender==='girl'?'female':'male'
+      });
+      status.textContent=saveError?saveError.message:'Saved. Your character and outfit are linked to your profile.';
+    }catch(error){status.textContent=error instanceof Error?error.message:'Could not save character'}
+    finally{button.disabled=false}
   };
 
   canvas.addEventListener('pointerdown', (event) => {
