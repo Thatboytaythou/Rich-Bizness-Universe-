@@ -144,6 +144,7 @@ export async function mount(): Promise<void> {
       const rows=(data as Snapshot)?.inventory??[];
       equippedKeys=new Set(rows.filter(row=>row.equipped).map(row=>String(row.item?.item_key??'')));
       renderCatalog();showItem(key);
+      root.querySelector<HTMLElement>('#saveStatus')!.textContent='Saved equipment state. This item has no attached 3D mesh yet, so the model preview is unchanged.';
       root.querySelector<HTMLElement>('#saveStatus')!.textContent=equipped?'Removed from outfit':'Item equipped and saved';
     });
   };
@@ -213,10 +214,15 @@ export async function mount(): Promise<void> {
   let dragStartX = 0;
   let dragStartYaw = 0;
 
-  const modelSnapshotFor = (nextGender: AvatarGender) => {
-    const modelBodyType = String(snap.model?.body_type ?? '').toLowerCase();
-    const matches = (nextGender === 'girl' && modelBodyType === 'female') || (nextGender === 'boy' && modelBodyType === 'male');
-    return matches ? snap as Record<string, any> : ({ model: null } as Record<string, any>);
+  const modelForGender = (nextGender: AvatarGender) => {
+    const candidates = (snap.models ?? []) as Array<Record<string, any>>;
+    return candidates.find(model =>
+      model.is_active === true &&
+      model.is_realistic === true &&
+      model.rig_type === 'skinned-humanoid' &&
+      String(model.body_type ?? '').toLowerCase() === (nextGender === 'girl' ? 'female' : 'male') &&
+      /^https:\/\//i.test(String(model.model_url ?? ''))
+    ) ?? null;
   };
 
   const applyBuildScale = () => {
@@ -237,7 +243,7 @@ export async function mount(): Promise<void> {
     }
     try {
       const next = await loadSkinnedAvatar({
-        modelUrl: resolveAvatarModelUrl(modelSnapshotFor(gender), gender),
+        modelUrl: resolveAvatarModelUrl({ model: modelForGender(gender) }, gender),
         targetHeight: gender === 'girl' ? 1.72 : 1.82,
         signal: abort.signal
       });
@@ -289,16 +295,18 @@ export async function mount(): Promise<void> {
     const status=root.querySelector<HTMLElement>('#saveStatus')!,button=root.querySelector<HTMLButtonElement>('#saveCharacter')!;
     status.textContent='Saving character…';button.disabled=true;
     try{
+      const activeModel = modelForGender(gender);
+      if (!activeModel) throw new Error('No production Rich Bizness character model is assigned for this character type yet. Your saved settings were not changed.');
       const {error:saveError}=await supabase.rpc('rb_save_avatar_studio',{
         p_display_name:nameInput.value||display,
         p_preset_key:gender==='girl'?'street_queen_hd':'street_king_hd',
         p_aura:auraInput.value,
-        p_outfit:{build:buildInput.value,style:styleInput.value,rig:'skinned-humanoid-v1'},
+        p_outfit:{build:buildInput.value,style:styleInput.value,rig:activeModel.rig_type,model_key:activeModel.model_key},
         p_accessories:Object.fromEntries([...equippedKeys].map(key=>[key,true])),
         p_smoke:{mode:'off'},p_emotes:{idle:true,walk:true,run:true,jump:true,power:true},
         p_character_type:gender==='girl'?'female':'male'
       });
-      status.textContent=saveError?saveError.message:'Saved. Your character and outfit are linked to your profile.';
+      status.textContent=saveError?saveError.message:'Saved. Your settings are linked to the selected production model.';
     }catch(error){status.textContent=error instanceof Error?error.message:'Could not save character'}
     finally{button.disabled=false}
   };
