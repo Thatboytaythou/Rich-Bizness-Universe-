@@ -265,9 +265,11 @@ export async function mount(): Promise<void> {
   };
 
   const applyBuildScale = () => {
-    // Body shape must be authored through actual rig morph targets, not global mesh stretching.
-    // The selector remains a saved preference until a production rig exposes supported morphs.
-    if (runtime) runtime.root.updateMatrixWorld(true);
+    if (!runtime) return;
+    const applied = applyAvatarBodyShape(runtime, buildInput.value as 'lean' | 'athletic' | 'heroic');
+    root.querySelector<HTMLElement>('#saveStatus')!.textContent = applied
+      ? 'Body shape applied to the live character.'
+      : 'Body shape selected; this character rig does not yet include the matching morph target.';
   };
 
   const loadCharacter = async () => {
@@ -283,7 +285,7 @@ export async function mount(): Promise<void> {
       const selectedModel = modelForGender(gender);
       const animationUrl = String(selectedModel?.metadata?.animation_url ?? '') || null;
       const next = await loadSkinnedAvatar({
-        modelUrl: resolveAvatarModelUrl({ model: selectedModel }, gender),
+        modelUrl: await resolveAvatarModelUrl({ model: selectedModel }, gender, abort.signal),
         animationUrl,
         targetHeight: gender === 'girl' ? 1.72 : 1.82,
         signal: abort.signal
