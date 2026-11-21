@@ -49,14 +49,14 @@ function assertProductionHumanoid(root: THREE.Group): THREE.Bone[] {
 
   const bones = getSkeleton(root);
   if (skinnedMeshes < 1) throw new Error('Avatar asset rejected: no skinned humanoid mesh found.');
-  if (bones.length < 18) throw new Error(\`Avatar asset rejected: incomplete humanoid skeleton (\${bones.length} unique bones).\`);
+  if (bones.length < 18) throw new Error(`Avatar asset rejected: incomplete humanoid skeleton (${bones.length} unique bones).`);
 
   const names = new Set(bones.map((bone) => normalizeBoneName(bone.name)));
   const missing = REQUIRED_HUMANOID_BONES.filter((required) => ![...names].some((name) =>
     name === required || name.endsWith(required) || required.endsWith(name)
   ));
   if (missing.length) {
-    throw new Error(\`Avatar asset rejected: missing canonical humanoid bones (\${missing.join(', ')}).\`);
+    throw new Error(`Avatar asset rejected: missing canonical humanoid bones (${missing.join(', ')}).`);
   }
   return bones;
 }
@@ -66,7 +66,7 @@ function assertAnimationPack(clips: THREE.AnimationClip[]): void {
   const names = clips.map((clip) => clip.name.trim().toLowerCase());
   for (const required of ['idle', 'walk', 'run']) {
     if (!names.some((name) => name.includes(required))) {
-      throw new Error(\`Avatar animation pack rejected: required \${required} clip is missing.\`);
+      throw new Error(`Avatar animation pack rejected: required ${required} clip is missing.`);
     }
   }
 }
@@ -105,9 +105,9 @@ function prepareModel(root: THREE.Group, targetHeight = 1.82): { bounds: THREE.B
   const height = bounds.getSize(new THREE.Vector3()).y;
   const groundError = Math.abs(bounds.min.y);
   if (!Number.isFinite(height) || Math.abs(height - targetHeight) > 0.04) {
-    throw new Error(\`Avatar asset rejected: normalized height \${height.toFixed(3)}m is outside tolerance.\`);
+    throw new Error(`Avatar asset rejected: normalized height ${height.toFixed(3)}m is outside tolerance.`);
   }
-  if (groundError > 0.025) throw new Error(\`Avatar asset rejected: feet are \${groundError.toFixed(3)}m off ground.\`);
+  if (groundError > 0.025) throw new Error(`Avatar asset rejected: feet are ${groundError.toFixed(3)}m off ground.`);
   return { bounds, height };
 }
 
@@ -152,7 +152,7 @@ export async function loadSkinnedAvatar(options: {
     const animationBones = new Set(getSkeleton(animationGltf.scene).map((bone) => normalizeBoneName(bone.name)));
     const incompatible = bodyBones.map((bone) => normalizeBoneName(bone.name)).filter((name) => !animationBones.has(name));
     if (incompatible.length) {
-      throw new Error(\`Avatar animation pack rejected: skeleton mismatch (\${incompatible.slice(0, 6).join(', ')}).\`);
+      throw new Error(`Avatar animation pack rejected: skeleton mismatch (${incompatible.slice(0, 6).join(', ')}).`);
     }
     clips = [...clips, ...animationGltf.animations];
   }
