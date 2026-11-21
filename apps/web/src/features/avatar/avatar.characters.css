@@ -56,3 +56,14 @@ html,body{margin:0;min-height:100%;background:#e9f1ed;color:#0c1711;font-family:
 /* Compact category strip remains tappable above Fashion and Closet content. */
 .ac-category-rail[hidden]{display:none!important}.ac-category-rail{position:relative;z-index:9;pointer-events:auto;touch-action:pan-x;}
 .ac-category{pointer-events:auto;touch-action:manipulation;}
+
+.ac-item-art img{width:100%;height:100%;object-fit:contain;padding:8px}
+.ac-drop-card{grid-column:1/-1;display:grid;grid-template-columns:96px 1fr;gap:12px;padding:10px;border:1px solid rgba(216,180,94,.4);border-radius:15px;background:linear-gradient(120deg,rgba(60,48,23,.7),rgba(21,21,21,.96))}
+.ac-drop-image{position:relative;display:grid;place-items:center;min-height:104px;border-radius:10px;background:radial-gradient(circle at 50% 40%,#7a6435,#272116 75%);overflow:hidden;color:#f5d98e;font-weight:1000}
+.ac-drop-image img{width:100%;height:100%;position:absolute;inset:0;object-fit:cover}
+.ac-drop-image b{position:absolute;left:5px;right:5px;bottom:5px;padding:4px;border-radius:5px;background:rgba(0,0,0,.72);font-size:.42rem;text-align:center;letter-spacing:.08em}
+.ac-drop-body{display:flex;flex-direction:column;align-items:flex-start;gap:4px;min-width:0;justify-content:center}
+.ac-drop-body strong{font-size:.72rem;color:#fff}.ac-drop-body>span{font-size:.68rem;color:#f1d18a;font-weight:900}
+.ac-drop-body small{font-size:.48rem;color:#a9a9a9}
+.ac-drop-body button{margin-top:3px;min-height:30px;padding:0 11px;border:1px solid rgba(224,191,115,.65);border-radius:99px;background:#342b19;color:#f6db9c;font-size:.5rem;font-weight:950}
+@media(max-width:420px){.ac-drop-card{grid-template-columns:82px 1fr}.ac-drop-image{min-height:90px}}
