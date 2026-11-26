@@ -15,14 +15,14 @@ export function createWorldPresence(scene:THREE.Scene,district:District,userId:s
   const root=new THREE.Group();root.name='rb-live-member-proxies';scene.add(root);
   const material=new THREE.MeshStandardMaterial({color:0x448873,roughness:.72});
   const accent=new THREE.MeshStandardMaterial({color:0xe0bc72,roughness:.55});
-  const sphere=new THREE.SphereGeometry(.13,12,10),body=new THREE.CapsuleGeometry(.19,.46,4,10),limb=new THREE.CapsuleGeometry(.075,.34,4,8);
+  const sphere=new THREE.SphereGeometry(.13,12,10),body=new THREE.CapsuleGeometry(.19,.46,4,10),limb=new THREE.CapsuleGeometry(.075,.34,4,8),ringGeo=new THREE.TorusGeometry(.37,.025,6,24);
   const marker=(row:Row):Peer=>{
     const group=new THREE.Group();group.position.set(row.x,row.y,row.z);
     const torso=new THREE.Mesh(body,material);torso.position.y=1.02;group.add(torso);
     const head=new THREE.Mesh(sphere,accent);head.position.y=1.53;group.add(head);
     const legs:THREE.Group[]=[];
     for(const side of [-1,1]){const pivot=new THREE.Group();pivot.position.set(side*.1,.72,0);const mesh=new THREE.Mesh(limb,material);mesh.position.y=-.26;pivot.add(mesh);group.add(pivot);legs.push(pivot);const arm=new THREE.Mesh(limb,material);arm.position.set(side*.29,1.06,0);group.add(arm);}
-    const ring=new THREE.Mesh(new THREE.TorusGeometry(.37,.025,6,24),accent);ring.rotation.x=-Math.PI/2;ring.position.y=.035;group.add(ring);root.add(group);
+    const ring=new THREE.Mesh(ringGeo,accent);ring.rotation.x=-Math.PI/2;ring.position.y=.035;group.add(ring);root.add(group);
     return {group,target:group.position.clone(),yaw:row.yaw,motion:row.motion,legs,seen:performance.now()};
   };
   const remove=(id:string)=>{const p=peers.get(id);if(p){root.remove(p.group);peers.delete(id);}};
@@ -59,5 +59,5 @@ export function createWorldPresence(scene:THREE.Scene,district:District,userId:s
     channel=supabase.channel('rb-world-'+district+'-'+session).on('postgres_changes',{event:'*',schema:'public',table:'rb_world_presence',filter:'district=eq.'+district},()=>void read()).subscribe(s=>{if(enabled&&s==='SUBSCRIBED')void read();});
     void publish();void read();timer=window.setInterval(()=>void publish(),1500);readTimer=window.setInterval(()=>void read(),5000);
   };
-  return {start,stop,tick:(dt:number,time:number)=>{for(const [id,p] of peers){if(performance.now()-p.seen>30000){remove(id);continue;}p.group.position.lerp(p.target,1-Math.exp(-5*dt));const d=Math.atan2(Math.sin(p.yaw-p.group.rotation.y),Math.cos(p.yaw-p.group.rotation.y));p.group.rotation.y+=d*(1-Math.exp(-7*dt));p.legs.forEach((l,i)=>{l.rotation.x=p.motion==='walk'||p.motion==='run'?Math.sin(time*(p.motion==='run'?10:6)+i*Math.PI)*.45:0;});}},dispose:()=>{stop();root.removeFromParent();sphere.dispose();body.dispose();limb.dispose();material.dispose();accent.dispose();}};
+  return {start,stop,tick:(dt:number,time:number)=>{for(const [id,p] of peers){if(performance.now()-p.seen>30000){remove(id);continue;}p.group.position.lerp(p.target,1-Math.exp(-5*dt));const d=Math.atan2(Math.sin(p.yaw-p.group.rotation.y),Math.cos(p.yaw-p.group.rotation.y));p.group.rotation.y+=d*(1-Math.exp(-7*dt));p.legs.forEach((l,i)=>{l.rotation.x=p.motion==='walk'||p.motion==='run'?Math.sin(time*(p.motion==='run'?10:6)+i*Math.PI)*.45:0;});}},dispose:()=>{stop();root.removeFromParent();sphere.dispose();body.dispose();limb.dispose();ringGeo.dispose();material.dispose();accent.dispose();}};
 }
