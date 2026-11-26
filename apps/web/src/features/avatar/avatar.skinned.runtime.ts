@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 
 export type AvatarGender = 'boy' | 'girl';
+export type AvatarExpression = 'neutral'|'smile'|'focused'|'surprised'|'confident';
 export type AvatarMotion = 'idle' | 'walk' | 'run' | 'jump' | 'power';
 
 export type SkinnedAvatarRuntime = {
@@ -13,6 +14,8 @@ export type SkinnedAvatarRuntime = {
   height: number;
   currentMotion: AvatarMotion;
   currentAction: THREE.AnimationAction | null;
+  expression?: (value: AvatarExpression, strength?:number) => void;
+  animateFace?: (dt:number) => void;
   dispose?: () => void;
 };
 
@@ -176,13 +179,15 @@ export function setAvatarMotion(runtime: SkinnedAvatarRuntime, motion: AvatarMot
     next.clampWhenFinished = false;
   }
   next.play();
-  if (previous && previous !== next) previous.crossFadeTo(next, Math.max(0.01, fadeSeconds), true);
+  if (previous && previous !== next) {
+    if(fadeSeconds<=0)previous.stop();else previous.crossFadeTo(next, fadeSeconds, false);
+  }
   runtime.currentAction = next;
   runtime.currentMotion = motion;
 }
 
 export function updateSkinnedAvatar(runtime: SkinnedAvatarRuntime, deltaSeconds: number): void {
-  runtime.mixer.update(Math.min(Math.max(deltaSeconds, 0), 0.05));
+  const dt=Math.min(Math.max(deltaSeconds,0),0.075);runtime.mixer.update(dt);runtime.animateFace?.(dt);
 }
 
 export function refreshAvatarBounds(runtime: SkinnedAvatarRuntime): THREE.Box3 {
