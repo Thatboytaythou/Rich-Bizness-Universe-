@@ -28,7 +28,8 @@ function removeStaleDocks():void{
 function placeDock(dock:HTMLElement,section:string):void{
   if(section==='avatar-characters'||section==='avatar'){
     const slot=document.getElementById(section==='avatar'?'alXpSlot':'acXpSlot');
-    if(slot){slot.append(dock);return;}
+    if(slot){dock.classList.add('rb-xp-dock--inline');slot.append(dock);return;}
+    dock.classList.add('rb-xp-dock--inline');(document.querySelector<HTMLElement>('#app')??document.body).prepend(dock);return;
   }
   if(section!=='profile'){
     document.body.append(dock);
