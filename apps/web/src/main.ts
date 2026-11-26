@@ -60,6 +60,9 @@ async function mountGlobalRuntime(page:string):Promise<void>{
       if(typeof cleanup==='function')cleanups.push(cleanup);
     }));
   }
+  if(page!=='home'&&page!=='portal'){
+    tasks.push(import('./core/section-update/runtime').then(({mountSectionUpdates})=>{cleanups.push(mountSectionUpdates(page));}).catch(error=>console.warn('[Rich Bizness Section Update]',error)));
+  }
   tasks.push(Promise.resolve(mountXpRuntime()).then((cleanup)=>{
     if(typeof cleanup==='function')cleanups.push(cleanup);
   }));
