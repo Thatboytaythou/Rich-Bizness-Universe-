@@ -102,3 +102,13 @@ body[data-page="avatar-characters"]{background:radial-gradient(ellipse at 50% 0%
 .ac-shell .ac-gestures{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;margin:8px 0}.ac-shell .ac-gestures button{min-height:44px;background:#142620;border-color:#52634e;font-size:11px}
 
 .ac-shell .ac-sculpt{max-height:none}.ac-shell .ac-sculpt label{padding:8px 4px;border-bottom:1px solid #2d4135}.ac-shell .ac-choices button{overflow-wrap:anywhere;min-height:48px}.ac-shell .ac-choices{grid-template-columns:repeat(auto-fit,minmax(94px,1fr))}
+
+/* V20: character navigation and XP each occupy a full independent flow row. */
+.ac-shell .ac-system-bar{grid-template-columns:minmax(0,1fr) minmax(0,1fr);align-items:start;overflow:visible}
+.ac-shell .ac-system-bar>div:first-child{grid-column:1/-1}
+.ac-shell #acXpSlot,.ac-shell #acOmniSlot{grid-column:1/-1;width:100%;min-width:0}
+.ac-shell #acXpSlot #rbXpDock{position:static!important;inset:auto!important;transform:none!important;max-width:100%;width:100%;display:block}
+.ac-shell #acXpSlot #rbXpPanel{position:static!important;inset:auto!important;transform:none!important;width:100%!important;max-width:none!important;max-height:none!important;margin:8px 0 0;overflow:visible!important}
+.ac-shell #acXpSlot #rbXpPanel[hidden],.ac-shell [hidden]{display:none!important}
+.ac-shell #acRetryAssets{min-height:44px;border:1px solid #c6a66c;background:#152820;color:#e8d1a1;border-radius:9px}
+.ac-shell{padding-bottom:calc(100px + env(safe-area-inset-bottom))}
