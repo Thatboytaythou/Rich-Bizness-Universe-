@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import {HumanAvatar,loadHumanPackage,type HumanPackage,type HumanConfig} from './vendor/humanforge/runtime';
-import {normalizeLook,type CharacterLook} from './avatar.character.config';
-import type {AvatarGender,SkinnedAvatarRuntime} from './avatar.skinned.runtime';
+import {normalizeLook,SCULPT_FIELDS,type CharacterLook} from './avatar.character.config';
+import type {AvatarGender,AvatarExpression,SkinnedAvatarRuntime} from './avatar.skinned.runtime';
 
 // Pinned upstream CC0 asset pack. Code is vendored under MIT; no user data is sent.
 const ASSETS='https://raw.githubusercontent.com/abdulrehman043/humanforge/v0.5.0/assets/human';
@@ -27,13 +27,14 @@ export function humanConfig(gender:AvatarGender,look:CharacterLook,build:string)
   const skinBase=look.skin==='deep'||look.skin==='warm'?'african':look.skin==='tan'?'asian':'caucasian';
   const outfit=male?({casual:'male_casualsuit02',sport:'male_casualsuit04',formal:'male_elegantsuit01',workwear:'male_worksuit01'} as Record<string,string>)[look.outfit]:({casual:'female_casualsuit01',sport:'female_sportsuit01',formal:'female_elegantsuit01',workwear:'female_casualsuit02'} as Record<string,string>)[look.outfit];
   const detail:Record<string,number>={jaw:look.jaw==='square'?.6:look.jaw==='narrow'?-.55:0,headSquare:look.face==='strong'?.45:0,headOval:look.face==='soft'?.45:0,cheekBones:look.face==='angular'?.40:0,eyeOpening:look.eyeShape==='open'?.45:look.eyeShape==='narrow'?-.4:0,noseWidth:look.nose==='wide'?.55:look.nose==='narrow'?-.55:0,noseDepth:look.nose==='prominent'?.65:0,mouthWidth:look.mouth==='wide'?.55:0,upperLip:look.mouth==='full'?.55:look.mouth==='thin'?-.55:0,lowerLip:look.mouth==='full'?.55:look.mouth==='thin'?-.55:0,browAngle:look.brows==='arched'?.45:look.brows==='straight'?-.35:0};
+  for(const key of SCULPT_FIELDS)detail[key]=Number(look[key])/100*.65;
   return {gender:male?1:0,age:.19,muscle:build==='heroic'?.85:build==='lean'?.3:.6,weight:look.weight==='heavy'?.72:look.weight==='slim'?.28:.5,height:look.height==='tall'?.75:look.height==='short'?.25:.5,detail,skin:'young_'+skinBase+'_'+sex,skinTint:look.skin==='deep'?'#d8c5b5':look.skin==='tan'?'#d8bd9e':'#ffffff',eyes:look.eyes==='hazel'?'brownlight':look.eyes,hair:hairIds[look.hair]??null,hairColor:colors[look.hairColor]??colors.black,eyebrowColor:colors[look.hairColor]??colors.black,eyebrows:'eyebrow001',eyelashes:'eyelashes01',clothes:[outfit,shoes[look.shoes]]};
 }
-export async function createTexturedAvatar(gender:AvatarGender,raw:unknown,build='athletic'):Promise<SkinnedAvatarRuntime>{
+export async function createTexturedAvatar(gender:AvatarGender,raw:unknown,build='athletic',quality:'auto'|'detail'='auto'):Promise<SkinnedAvatarRuntime>{
   const look=normalizeLook(raw),p=await pkg(),config=humanConfig(gender,look,build);
   // Refuse partial/unclothed assets. All required slots must exist and load.
   for(const id of config.clothes??[])if(!p.manifest.proxies.some(x=>x.kind==='clothes'&&x.id===id))throw Error('Wardrobe asset unavailable');
-  const avatar=new HumanAvatar(p);const mobile=matchMedia('(pointer:coarse),(max-width:860px)').matches;avatar.textureSize=mobile?'1k':'2k';avatar.anisotropy=mobile?2:4;avatar.normalMaps=!mobile;
+  const avatar=new HumanAvatar(p);const mobile=matchMedia('(pointer:coarse),(max-width:860px)').matches;avatar.textureSize=mobile&&quality!=='detail'?'1k':'2k';avatar.anisotropy=mobile&&quality!=='detail'?2:4;avatar.normalMaps=!mobile||quality==='detail';
   let mixer:THREE.AnimationMixer|undefined;
   try{
     await avatar.setConfig(config);
@@ -61,32 +62,88 @@ export async function createTexturedAvatar(gender:AvatarGender,raw:unknown,build
       const q=values.flatMap(v=>new THREE.Quaternion().setFromAxisAngle(localAxis,v).multiply(rest).toArray());
       return new THREE.QuaternionKeyframeTrack(b.uuid+'.quaternion',t,q);
     };
-    const clip=(name:string,duration:number,amp:number)=>{const t=Array.from({length:25},(_,i)=>duration*i/24),phase=t.map(v=>v/duration*Math.PI*2);const tracks:THREE.KeyframeTrack[]=[];
-      const add=(n:string,v:number[],axis?:THREE.Vector3)=>{const a=track(n,t,v,axis);if(a)tracks.push(a);};
-      for(const [i,side] of ['Left','Right'].entries()){
-        const p=phase.map(x=>x+i*Math.PI);
-        add(side+'UpLeg',p.map(x=>Math.sin(x)*amp));add(side+'Leg',p.map(x=>Math.max(0,-Math.sin(x-.3))*amp*.9));add(side+'Foot',p.map(x=>-.12*Math.sin(x)));
-        add(side+'Arm',p.map(x=>-Math.sin(x)*amp*.55));add(side+'ForeArm',p.map(x=>-.12-Math.max(0,Math.sin(x))*amp*.38));
+    // All clips bind the same joint set so a power pose cannot leave the elbows or legs frozen.
+    const jointNames=['Hips','Spine','Spine1','Spine2','Neck','Head',...['Left','Right'].flatMap(side=>['UpLeg','Leg','Foot','ToeBase','Shoulder','Arm','ForeArm','Hand'].map(j=>side+j))];
+    const makeClip=(name:string,duration:number,angles:(joint:string,p:number)=>[number,number,number],bob:(p:number)=>number=()=>0)=>{
+      const t=Array.from({length:33},(_,i)=>duration*i/32),tracks:THREE.KeyframeTrack[]=[];
+      for(const n of jointNames){
+        const b=bone(n);if(!b||!b.parent)continue;
+        const inverse=b.parent.getWorldQuaternion(new THREE.Quaternion()).invert(),rest=b.quaternion.clone();
+        const values=t.flatMap(time=>{const a=angles(n,time/duration);
+          const rotation=new THREE.Quaternion().setFromEuler(new THREE.Euler(a[0],a[1],a[2],'YXZ'));
+          return inverse.clone().multiply(rotation).multiply(inverse.clone().invert()).multiply(rest).toArray();});
+        tracks.push(new THREE.QuaternionKeyframeTrack(b.uuid+'.quaternion',t,values));
       }
-      add('Spine',phase.map(x=>.035*Math.sin(x)),new THREE.Vector3(0,0,1));
+      const hips=bone('Hips');
+      if(hips?.parent){const up=new THREE.Vector3(0,1,0).applyQuaternion(hips.parent.getWorldQuaternion(new THREE.Quaternion()).invert());
+        tracks.push(new THREE.VectorKeyframeTrack(hips.uuid+'.position',t,t.flatMap(time=>hips.position.clone().addScaledVector(up,bob(time/duration)).toArray())));}
       return new THREE.AnimationClip(name,duration,tracks);
     };
-    const actionClip=(name:string,duration:number,pose:'idle'|'jump'|'power')=>{
-      const tracks:THREE.KeyframeTrack[]=[],times=[0,duration*.45,duration];
-      for(const side of ['Left','Right']){
-        for(const [joint,values] of [['UpLeg',pose==='jump'?[0,-.4,0]:[0,0,0]],['Leg',pose==='jump'?[0,.8,0]:[0,0,0]],['Arm',pose==='power'?[0,-.8,-.5]:pose==='jump'?[0,-.4,0]:[0,0,0]],['ForeArm',pose==='power'?[0,-.8,-.5]:[0,0,0]]] as [string,number[]][]){const t=track(side+joint,times,values);if(t)tracks.push(t);}
-      }return new THREE.AnimationClip(name,duration,tracks);
+    const idle=makeClip('idle',5.2,(n,p)=>{
+      const a=p*Math.PI*2,s=Math.sin(a),c=Math.cos(a),side=n.startsWith('Left')?1:-1;
+      if(n==='Hips')return [0,.025*s,.025*c];
+      if(n==='Spine')return [.014*s,-.018*s,-.016*c];
+      if(n==='Spine1')return [.025*s,0,-.010*c];
+      if(n==='Head')return [.024*c,.06*s,.012*s];
+      if(n.endsWith('Arm')&&!n.endsWith('ForeArm'))return [.045+.025*s,0,side*.025*c];
+      if(n.endsWith('ForeArm'))return [-.12+.035*c,0,0];
+      if(n.endsWith('Hand'))return [0,.04*side,.035*side];
+      return [0,0,0];
+    },p=>.003*Math.sin(p*Math.PI*2));
+    const gait=(name:string,duration:number,run:boolean)=>makeClip(name,duration,(n,p)=>{
+      const a=p*Math.PI*2,side=n.startsWith('Left')?1:-1,q=a+(side===1?0:Math.PI),s=Math.sin(q),c=Math.cos(q),swing=Math.max(0,-s);
+      if(n==='Hips')return [run?.09:.025,.085*Math.sin(a),.035*Math.cos(a)];
+      if(n==='Spine')return [run?.13:.025,-.10*Math.sin(a),-.025*Math.cos(a)];
+      if(n==='Spine1')return [run?.055:0,-.035*Math.sin(a),0];
+      if(n==='Head')return [run?-.08:-.018,.02*Math.sin(a),.02*Math.cos(a)];
+      if(n.endsWith('UpLeg'))return [(run?.66:.43)*s-.035,0,side*.025];
+      if(n.endsWith('Leg'))return [.08+(run?1.15:.73)*Math.pow(swing,1.5),0,0];
+      if(n.endsWith('Foot'))return [-.18*s-.18*swing,0,0];
+      if(n.endsWith('ToeBase'))return [.15*Math.max(0,c),0,0];
+      if(n.endsWith('Arm')&&!n.endsWith('ForeArm'))return [-s*(run?.58:.27),0,side*.035];
+      if(n.endsWith('ForeArm'))return [-(run?.85:.15)-.18*Math.max(0,s),0,0];
+      if(n.endsWith('Hand'))return [.04*s,side*.035,0];
+      return [0,0,0];
+    },p=>(run?.034:.015)*(1-Math.cos(p*Math.PI*4))*.5);
+    const jump=makeClip('jump',.96,(n,p)=>{
+      const bend=Math.sin(Math.PI*p),side=n.startsWith('Left')?1:-1;
+      if(n.endsWith('UpLeg'))return [-.48*bend,0,0];
+      if(n.endsWith('Leg'))return [.92*bend,0,0];
+      if(n.endsWith('Foot'))return [-.3*bend,0,0];
+      if(n.endsWith('Arm')&&!n.endsWith('ForeArm'))return [-.65*bend,0,side*.15*bend];
+      if(n.endsWith('ForeArm'))return [-.36*bend,0,0];
+      if(n==='Spine')return [.16*bend,0,0];
+      return [0,0,0];
+    });
+    const power=makeClip('power pose',2.4,(n,p)=>{
+      const a=Math.sin(Math.PI*p)**2,side=n.startsWith('Left')?1:-1;
+      if(n==='Hips')return [0,.12*a,-.055*a];
+      if(n==='Spine')return [-.045*a,-.09*a,.035*a];
+      if(n==='Head')return [-.045*a,.10*a,0];
+      if(n.endsWith('Arm')&&!n.endsWith('ForeArm'))return [-.19*a,0,-side*.18*a];
+      if(n.endsWith('ForeArm'))return [-.4*a,0,0];
+      if(n.endsWith('Hand'))return [0,side*.12*a,0];
+      return [0,0,0];
+    });
+    const clips=[idle,gait('walk',1.08,false),gait('run',.72,true),jump,power];
+    // Real GPU morph targets from the licensed human asset. Expressions are transient.
+    const moods:Record<AvatarExpression,Record<string,number>>={
+      neutral:{},smile:{mouthSmile:.58,eyeSquintLeft:.15,eyeSquintRight:.15},
+      focused:{browDownLeft:.32,browDownRight:.32,eyeSquintLeft:.27,eyeSquintRight:.27,mouthPress:.2},
+      surprised:{jawOpen:.32,eyeWideLeft:.46,eyeWideRight:.46,browInnerUpLeft:.44,browInnerUpRight:.44},
+      confident:{mouthSmile:.25,browOuterUpLeft:.28,eyeSquintRight:.10}
     };
-    const idle=()=>{const duration=4.8,t=Array.from({length:17},(_,i)=>duration*i/16),phase=t.map(v=>v/duration*Math.PI*2),tracks:THREE.KeyframeTrack[]=[];
-      const add=(n:string,v:number[],axis?:THREE.Vector3)=>{const a=track(n,t,v,axis);if(a)tracks.push(a);};
-      add('Spine',phase.map(x=>.018*Math.sin(x)),new THREE.Vector3(0,0,1));
-      add('Spine1',phase.map(x=>.024*Math.sin(x)),new THREE.Vector3(1,0,0));
-      add('Head',phase.map(x=>.045*Math.sin(x)),new THREE.Vector3(0,1,0));
-      for(const [i,side] of ['Left','Right'].entries()){add(side+'Arm',phase.map(x=>.035*Math.sin(x+i*Math.PI)));add(side+'ForeArm',phase.map(x=>-.10+.025*Math.cos(x+i*Math.PI)));}
-      return new THREE.AnimationClip('idle',duration,tracks);
+    const names=avatar.expressionNames.filter(n=>Object.values(moods).some(m=>n in m)||n==='eyeBlinkLeft'||n==='eyeBlinkRight');
+    const weights:Record<string,number>={};let mood:AvatarExpression='neutral',strength=1,faceTime=0,nextBlink=2.7;
+    const expression=(value:AvatarExpression,intensity=1)=>{if(value in moods){mood=value;strength=THREE.MathUtils.clamp(intensity,0,1);}};
+    const animateFace=(dt:number)=>{
+      faceTime+=dt;
+      if(faceTime>nextBlink+.2)nextBlink=faceTime+2.5+Math.random()*2.5;
+      const blink=faceTime>=nextBlink?Math.sin(Math.PI*THREE.MathUtils.clamp((faceTime-nextBlink)/.2,0,1)):0;
+      for(const n of names){const target=n.startsWith('eyeBlink')?blink:(moods[mood][n]??0)*strength;
+        const w=THREE.MathUtils.lerp(weights[n]??0,target,1-Math.exp(-dt*(n.startsWith('eyeBlink')?35:9)));weights[n]=w;avatar.setExpression(n,w);}
     };
-    const clips=[idle(),clip('walk',1.1,.43),clip('run',.76,.68),actionClip('jump',.9,'jump'),actionClip('power pose',1.3,'power')];
     mixer=new THREE.AnimationMixer(root);const actions=new Map(clips.map(c=>[c.name,mixer!.clipAction(c)]));
-    return {root,mixer,actions,clips,bounds,height,currentMotion:'idle',currentAction:null,dispose:()=>{mixer?.stopAllAction();mixer?.uncacheRoot(root);const skeletons=new Set<THREE.Skeleton>();root.traverse(o=>{if((o as THREE.SkinnedMesh).isSkinnedMesh)skeletons.add((o as THREE.SkinnedMesh).skeleton);});avatar.dispose();skeletons.forEach(s=>s.dispose());root.clear();}};
+    return {root,mixer,actions,clips,bounds,height,currentMotion:'idle',currentAction:null,expression,animateFace,dispose:()=>{mixer?.stopAllAction();mixer?.uncacheRoot(root);const skeletons=new Set<THREE.Skeleton>();root.traverse(o=>{if((o as THREE.SkinnedMesh).isSkinnedMesh)skeletons.add((o as THREE.SkinnedMesh).skeleton);});avatar.dispose();skeletons.forEach(s=>s.dispose());root.clear();}};
   }catch(error){avatar.dispose();throw error;}
 }
