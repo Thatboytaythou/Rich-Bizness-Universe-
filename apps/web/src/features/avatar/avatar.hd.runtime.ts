@@ -12,7 +12,7 @@ export async function createHDCharacter(gender:AvatarGender,raw:unknown,build:st
  const hero=await createCharacter({kind:'ara-character',version:1,params:recipe.params},{detail,animations:[...HD_CLIPS],rootMotion:false,assetsUrl:new URL('/character-assets/ara-1.2.0/',location.origin).href});
  let mixer:THREE.AnimationMixer|undefined;let wearables:ReturnType<typeof originalWearables>|undefined;
  try{
-  const root=new THREE.Group();root.name='rb-hd-character-v26';root.add(hero.scene);
+  const root=new THREE.Group();root.name='rb-hd-character-v27';root.add(hero.scene);
   const bones=new Set<THREE.Bone>();let triangles=0,meshes=0,faceMorphs=0;
   root.traverse(o=>{const mesh=o as THREE.SkinnedMesh;if(!mesh.isSkinnedMesh)return;meshes++;mesh.skeleton.bones.forEach(b=>bones.add(b));triangles+=(mesh.geometry.index?.count??mesh.geometry.attributes.position.count)/3;faceMorphs+=Object.keys(mesh.morphTargetDictionary??{}).length;mesh.frustumCulled=false;mesh.castShadow=!mobile;});
   if(!meshes||bones.size<30||triangles<15000||triangles>(detail==='high'?220000:100000)||faceMorphs<5)throw Error('HD mesh failed anatomy/rig budget: '+Math.round(triangles)+' triangles, '+bones.size+' bones');
