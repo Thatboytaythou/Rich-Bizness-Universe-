@@ -27,6 +27,11 @@ export const CHARACTER_OPTIONS={
   hat:['none','fedora','tilted-fedora'],
   wristwear:['none','gold-cuff','silver-cuff','onyx-band'],
   stance:['relaxed','confident','alert'],
+  collection:['none','emerald-legacy','onyx-executive','omni-phantom'],
+  facialHair:['none','stubble','short_beard','full_beard','mustache','mustache_stubble'],
+  earrings:['none','studs','small_hoops','pearl_drops'],
+  tattooArt:['none','sleeve_r','forearm_l','face_marks'],
+  presence:['natural','editorial','energetic'],
   headHeight:SCULPT_STEPS,faceFat:SCULPT_STEPS,foreheadHeight:SCULPT_STEPS,chinWidth:SCULPT_STEPS,eyeSize:SCULPT_STEPS,eyeTilt:SCULPT_STEPS,eyeFold:SCULPT_STEPS,browHeight:SCULPT_STEPS,noseLength:SCULPT_STEPS,noseTip:SCULPT_STEPS,nostrils:SCULPT_STEPS,upperLip:SCULPT_STEPS,lowerLip:SCULPT_STEPS,earSize:SCULPT_STEPS,earAngle:SCULPT_STEPS,neckWidth:SCULPT_STEPS,chest:SCULPT_STEPS,hips:SCULPT_STEPS,
   headWidth:SCULPT_STEPS,cheekVolume:SCULPT_STEPS,chinProminence:SCULPT_STEPS,eyeSpacing:SCULPT_STEPS,noseBridge:SCULPT_STEPS,mouthDepth:SCULPT_STEPS,shoulders:SCULPT_STEPS,waist:SCULPT_STEPS
 } as const;
