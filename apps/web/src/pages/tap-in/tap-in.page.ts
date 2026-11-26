@@ -71,8 +71,9 @@ export async function mountTapInPage(): Promise<void> {
         `}
         <p id="authStatus" class="auth-status" role="status" aria-live="polite">${reason === 'session' ? 'YOUR SESSION EXPIRED — TAP BACK IN' : 'SECURE GATEWAY READY'}</p>
         <div style="display:grid;gap:8px;margin-top:14px;font-size:12px;color:#b9d3bd">
-          <small>ACCESS RELEASE • rich-id-isolated-3</small>
+          <small>ACCESS RELEASE • rich-id-single-layer-4</small>
           <small id="rbAccessNetwork" aria-live="polite">Connection: waiting for request</small>
+          <small id="rbAccessTouch">Touch: ready</small>
           ${recoveryMode?'':'<button type="button" id="rbResumeSession" class="auth-link">CONTINUE EXISTING SESSION</button>'}
           <a href="" style="color:#e3ce86">Reload secure gateway</a>
         </div>
@@ -84,12 +85,16 @@ export async function mountTapInPage(): Promise<void> {
   const status = app.querySelector<HTMLParagraphElement>('#authStatus');
   if (!shell || !status) throw new Error('Tap In gateway failed to mount');
 
-  const startup=document.getElementById('rb-access-startup');
-  if(startup)startup.hidden=true;
+  // The route owner replaces the in-flow startup panel; no overlay remains.
   const net=app.querySelector<HTMLElement>('#rbAccessNetwork');
   const showNetwork=()=>{if(net)net.textContent='Connection: '+(document.body.dataset.rbAccessNetwork??'waiting for request');};
   window.addEventListener('rb-access-network',showNetwork,{signal});
   showNetwork();
+  const touch=app.querySelector<HTMLElement>('#rbAccessTouch');
+  app.addEventListener('click',event=>{
+    const target=event.target instanceof Element?event.target.closest('button,a,input'):null;
+    if(touch&&target)touch.textContent='Touch: '+(target.id||target.tagName.toLowerCase())+' received';
+  },{capture:true,signal});
   const setStatus = (message: string, error = false, busy = false) => {
     if (!isCurrent()) return;
     status.textContent = message;
@@ -194,6 +199,7 @@ export async function mountTapInPage(): Promise<void> {
   form.addEventListener('submit', async (event) => {
     event.preventDefault();
     if (!isCurrent() || pending || !form.reportValidity()) return;
+    if(touch)touch.textContent='Touch: sign-in submitted';
     pending = true;
     submitButton.disabled = true;
     recoverButton.disabled = true;
