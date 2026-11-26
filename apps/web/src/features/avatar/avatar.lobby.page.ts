@@ -12,7 +12,7 @@ import {
   type AvatarMotion,
   type SkinnedAvatarRuntime
 } from './avatar.skinned.runtime';
-import { CHARACTER_RIG, createOriginalAvatar } from './avatar.original.runtime';
+import { createTexturedAvatar } from './avatar.textured.runtime';
 import {readCharacterIdentity,savedCharacter,hasSavedOriginal} from './avatar.identity';
 import './avatar.lobby.css';
 
@@ -232,9 +232,9 @@ export async function mount(): Promise<void> {
   scene.add(rim);
   world = addStreetWorld(scene);
 
-  avatarRuntime=createOriginalAvatar(gender,character.look,build);
+  try{avatarRuntime=await createTexturedAvatar(gender,character.look,build);}catch(error){if(isCurrent())failure('Textured character unavailable. Saved Rich ID is unchanged.');return;}
   setAvatarMotion(avatarRuntime,'idle',0);
-  canvas.dataset.rbModelState=original?'original-stylized':'unsaved-original';
+  canvas.dataset.rbModelState=original?'textured-human':'unsaved-textured-human';
   if (!isCurrent()) { disposeSkinnedAvatar(avatarRuntime); return; }
   avatarRuntime.root.position.set(0, 0, 1.6);
   scene.add(avatarRuntime.root);
