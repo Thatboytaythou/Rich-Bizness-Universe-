@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import {createTexturedAvatar} from './avatar.textured.runtime';
 import {disposeSkinnedAvatar,setAvatarMotion,updateSkinnedAvatar,type AvatarMotion,type AvatarExpression,type SkinnedAvatarRuntime} from './avatar.skinned.runtime';
 import type {CharacterConfig} from './avatar.identity';
+import {getExperience,resolveVisual,subscribeExperience,type Experience} from '../../core/experience/policy';
 
 export type StudioGraphics={expression:(value:AvatarExpression)=>void;quality:(value:'auto'|'detail')=>void;update:(config:CharacterConfig)=>void;motion:(value:AvatarMotion)=>void;rotate:(radians:number)=>void;zoom:(delta:number)=>void;face:(enabled:boolean)=>void;reset:()=>void;dispose:()=>void};
 const aura=(s:string)=>s==='Neon Phantom'?0x765dff:s==='Diamond Mist'?0x76d8ff:0x21df81;
@@ -13,7 +14,7 @@ export function createStudioGraphics(canvas:HTMLCanvasElement,initial:CharacterC
   renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.shadowMap.enabled=false;
   const scene=new THREE.Scene();scene.background=new THREE.Color(0x08100e);scene.fog=new THREE.FogExp2(0x08100e,.085);
   const camera=new THREE.PerspectiveCamera(34,1,.08,30);
-  scene.add(new THREE.HemisphereLight(0xe5efff,0x534337,1.35));
+  const hemi=new THREE.HemisphereLight(0xe5efff,0x534337,1.35);scene.add(hemi);
   const key=new THREE.DirectionalLight(0xffe6cc,3.1);key.position.set(3,4,5);scene.add(key);
   const fill=new THREE.DirectionalLight(0xb0ddff,1.65);fill.position.set(-4,2,2);scene.add(fill);const rim=new THREE.DirectionalLight(0xe9cb81,2.5);rim.position.set(0,3,-4);scene.add(rim);
   const floor=new THREE.Mesh(new THREE.CircleGeometry(2.8,40),new THREE.MeshStandardMaterial({color:0x16271f,roughness:.48,metalness:.18}));floor.rotation.x=-Math.PI/2;floor.position.y=-.025;scene.add(floor);
@@ -22,6 +23,7 @@ export function createStudioGraphics(canvas:HTMLCanvasElement,initial:CharacterC
   let yaw=0,zoom=1,face=false,active:AvatarMotion='idle',disposed=false,failed=false,raf=0,previous=0,deadline=0,dirty=true;
   let modelKey='',desired:CharacterConfig|null=null,loading=false;let revision=0;let quality:'auto'|'detail'='auto',mood:AvatarExpression='neutral',latest=initial;let expressionUntil=0;
   const controller=new AbortController(),signal=controller.signal;
+  let experience=getExperience();
   const fail=(message:string)=>{if(disposed||failed)return;failed=true;cancelAnimationFrame(raf);raf=0;onFailure(message);};
   const pose=()=>{
     if(!runtime)return;
@@ -48,13 +50,29 @@ export function createStudioGraphics(canvas:HTMLCanvasElement,initial:CharacterC
           const t=action?Math.min(1,action.time/action.getClip().duration):1;
           runtime.root.position.y=.38*4*t*(1-t);
         }
-        if(!anim&&active!=='idle'){active='idle';runtime.root.position.y=0;setAvatarMotion(runtime,'idle',.22);runtime.mixer.update(0);}
+        if(!anim&&active!=='idle'){if(experience.behavior!=='manual'){mood='neutral';runtime.expression?.(mood);}active='idle';runtime.root.position.y=0;setAvatarMotion(runtime,'idle',.22);runtime.mixer.update(0);}
       }
       renderer.render(scene,camera);dirty=false;if(runtime)onFrame();
       if(anim||living){dirty=true;schedule();}else previous=0;
     }catch(error){fail(error instanceof Error?error.message:'WebGL draw failed');}
   };
   const invalidate=()=>{dirty=true;schedule();};
+  const applyExperience=(value:Experience)=>{
+    experience=value;const mode=resolveVisual(value.visual,'avatar-characters');
+    canvas.dataset.rbVisualMode=mode;canvas.dataset.rbBehaviorMode=value.behavior;
+    const cinematic=mode==='cinematic',expressive=mode==='expressive';
+    renderer.toneMappingExposure=cinematic?1.05:expressive?1.18:1.12;
+    hemi.intensity=cinematic?1.35:expressive?2.0:1.25;
+    key.color.setHex(cinematic?0xffe6cc:expressive?0xfff2da:0xc3adff);key.intensity=expressive?2.4:3.1;
+    fill.color.setHex(mode==='fantasy'?0x9e74ff:0xb0ddff);fill.intensity=mode==='fantasy'?2.1:1.65;
+    rim.color.setHex(mode==='fantasy'?aura(latest.aura):0xe9cb81);rim.intensity=mode==='fantasy'?4.1:2.5;
+    (scene.background as THREE.Color).setHex(cinematic?0x08100e:expressive?0x1b2826:0x11152a);
+    (scene.fog as THREE.FogExp2).color.copy(scene.background as THREE.Color);
+    floor.material.color.setHex(cinematic?0x16271f:expressive?0x293d36:0x201c3b);
+    if(value.behavior==='manual'){mood='neutral';runtime?.expression?.(mood);expressionUntil=performance.now()+1000;}
+    invalidate();
+  };
+  const stopExperience=subscribeExperience(applyExperience);
   const resize=()=>{if(disposed||failed)return;const rect=canvas.getBoundingClientRect();if(rect.width<2||rect.height<2)return;const limit=mobile?(quality==='detail'?1152:900):1600;const scale=Math.min(quality==='detail'?1.5:1,limit/Math.max(rect.width,rect.height));renderer.setSize(Math.max(1,Math.round(rect.width*scale)),Math.max(1,Math.round(rect.height*scale)),false);camera.aspect=rect.width/rect.height;pose();invalidate();};
   const drain=async()=>{
     if(loading||disposed||failed)return;loading=true;
@@ -77,7 +95,7 @@ export function createStudioGraphics(canvas:HTMLCanvasElement,initial:CharacterC
     if(disposed||failed)return;
     latest=config;ring.material.color.setHex(aura(config.aura));const nextKey=JSON.stringify([config.gender,config.build,config.look,quality]);if(runtime&&nextKey===modelKey&&!loading){invalidate();return;}desired={...config,look:{...config.look}};revision++;void drain();
   };
-  const motion=(value:AvatarMotion)=>{if(!runtime||failed||disposed)return;active=value;runtime.root.position.y=0;setAvatarMotion(runtime,value,value==='idle'?0:.18);if(value==='idle')runtime.mixer.update(0);else{face=false;zoom=1;pose();}deadline=performance.now()+(value==='jump'?950:value==='power'?2500:5000);previous=0;invalidate();};
+  const motion=(value:AvatarMotion)=>{if(!runtime||failed||disposed)return;if(experience.behavior!=='manual'){mood=value==='power'?'confident':value==='run'?'focused':value==='jump'?'surprised':'neutral';runtime.expression?.(mood);}active=value;runtime.root.position.y=0;setAvatarMotion(runtime,value,value==='idle'?0:.18);if(value==='idle')runtime.mixer.update(0);else{face=false;zoom=1;pose();}deadline=performance.now()+(value==='jump'?950:value==='power'?2500:5000);previous=0;invalidate();};
   const rotate=(radians:number)=>{yaw+=radians;if(runtime)runtime.root.rotation.y=yaw;invalidate();};
   let pointer:number|null=null,lastX=0;
   canvas.addEventListener('pointerdown',e=>{pointer=e.pointerId;lastX=e.clientX;canvas.setPointerCapture(e.pointerId);},{signal});
@@ -86,7 +104,7 @@ export function createStudioGraphics(canvas:HTMLCanvasElement,initial:CharacterC
   canvas.addEventListener('webglcontextlost',event=>{event.preventDefault();fail('WebGL context lost');},{signal});
   document.addEventListener('visibilitychange',()=>{if(document.hidden){cancelAnimationFrame(raf);raf=0;previous=0;}else invalidate();},{signal});
   const observer=new ResizeObserver(resize);observer.observe(canvas);
-  const dispose=()=>{if(disposed)return;disposed=true;controller.abort();observer.disconnect();cancelAnimationFrame(raf);if(runtime){scene.remove(runtime.root);disposeSkinnedAvatar(runtime);runtime=null;}floor.geometry.dispose();floor.material.dispose();ring.geometry.dispose();ring.material.dispose();renderer.dispose();renderer.forceContextLoss();};
-  update(initial);resize();
+  const dispose=()=>{if(disposed)return;disposed=true;controller.abort();stopExperience();observer.disconnect();cancelAnimationFrame(raf);if(runtime){scene.remove(runtime.root);disposeSkinnedAvatar(runtime);runtime=null;}floor.geometry.dispose();floor.material.dispose();ring.geometry.dispose();ring.material.dispose();renderer.dispose();renderer.forceContextLoss();};
+  applyExperience(experience);update(initial);resize();
   return {expression:value=>{mood=value;runtime?.expression?.(value);expressionUntil=performance.now()+1000;face=true;zoom=1;pose();invalidate();},quality:value=>{if(quality===value)return;quality=value;resize();update(latest);},update,motion,rotate,zoom:delta=>{zoom=THREE.MathUtils.clamp(zoom+delta,.8,1.6);pose();invalidate();},face:enabled=>{face=enabled;zoom=1;pose();invalidate();},reset:()=>{yaw=0;zoom=1;face=false;if(runtime)runtime.root.rotation.y=0;pose();motion('idle');},dispose};
 }
