@@ -490,8 +490,12 @@ export class HumanAvatar {
     const sizes = this.pkg.manifest.textureSizes;
     const skin = this.texture(`skins/${c.skin}`, sizes.skin2k);
     const eyes = this.texture(`eyes/${c.eyes}`, sizes.eyes);
-    const loaded = await Promise.all(loads);
-    const [skinTex, eyeTex] = await Promise.all([skin, eyes]);
+    // Observe every pending promise immediately, even if a wardrobe file fails.
+    const results=await Promise.allSettled([...loads,skin,eyes]);
+    const failure=results.find(r=>r.status==='rejected');
+    if(failure){for(const r of results.slice(0,loads.length)){if(r.status==='fulfilled'){const item=r.value as Awaited<(typeof loads)[number]>;if(item?.[1]){const p=item[1];p.mesh.geometry.dispose();(p.mesh.material as Material).dispose();if(p.soft)(p.soft.material as Material).dispose();}}}throw failure.reason;}
+    const loaded=results.slice(0,loads.length).map(r=>(r as PromiseFulfilledResult<Awaited<(typeof loads)[number]>>).value);
+    const skinTex=(results[loads.length] as PromiseFulfilledResult<Texture>).value,eyeTex=(results[loads.length+1] as PromiseFulfilledResult<Texture>).value;
     if (v !== this.version) return; // a newer setConfig superseded this one
     for (const slot of [...this.proxies.keys()]) if (!wanted.has(slot)) this.removeProxy(slot);
     for (const entry of loaded) {
@@ -567,6 +571,7 @@ export class HumanAvatar {
     if (!p) {
       p = this.pkg.fetchBinary(`${this.pkg.baseUrl}/${meta.file}`).then(readGlb);
       this.pkg.proxyCache.set(fullId, p);
+      const pending=p;void pending.catch(()=>{if(this.pkg.proxyCache.get(fullId)===pending)this.pkg.proxyCache.delete(fullId);});
     }
     const [prim, map, normalMap] = await Promise.all([
       p,
