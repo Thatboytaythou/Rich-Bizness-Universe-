@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 
 export type AvatarGender = 'boy' | 'girl';
-export type AvatarExpression = 'neutral'|'smile'|'focused'|'surprised'|'confident';
+export type AvatarExpression = 'neutral'|'smile'|'focused'|'surprised'|'confident'|'laugh'|'sad'|'angry';
 export type AvatarMotion = 'idle' | 'walk' | 'run' | 'jump' | 'power';
 
 export type SkinnedAvatarRuntime = {
