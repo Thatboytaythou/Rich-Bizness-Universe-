@@ -2,10 +2,10 @@ import {supabase} from '../../core/supabase/client';
 import {getAuthSnapshot} from '../../core/auth/auth-store';
 import {CHARACTER_RIG,normalizeLook,type CharacterLook} from './avatar.character.config';
 
-import {normalizeRoutine} from './avatar.motion.design';
+import {normalizeRoutine,normalizeTimeline,type MotionStep} from './avatar.motion.design';
 type Row=Record<string,any>;
 export type CharacterIdentity={profile:Row;avatar:Row;loadout:Row;controller:Row;model:Row};
-export type CharacterConfig={name:string;gender:'boy'|'girl';build:string;style:string;aura:string;look:CharacterLook;routine?:string[]};
+export type CharacterConfig={name:string;gender:'boy'|'girl';build:string;style:string;aura:string;look:CharacterLook;routine?:string[];timeline?:MotionStep[]};
 const row=(v:unknown):Row=>v&&typeof v==='object'?v as Row:{};
 function fail(message:string):never{throw new Error(message);}
 export async function readCharacterIdentity(userId:string,signal?:AbortSignal):Promise<CharacterIdentity>{
@@ -30,7 +30,7 @@ export async function readCharacterIdentity(userId:string,signal?:AbortSignal):P
 export function savedCharacter(snap:Partial<CharacterIdentity>):CharacterConfig{
   const l=row(snap.loadout),a=row(snap.avatar),p=row(snap.profile),o=row(l.outfit_config??a.metadata?.outfit);
   const type=o.character_type??a.character_type;
-  return {name:String(l.display_name??a.display_name??p.display_name??p.username??'Rich Avatar'),gender:type==='female'?'girl':'boy',build:['athletic','lean','heroic'].includes(o.build)?o.build:'athletic',style:['street','boss','tactical','cyber'].includes(o.style)?o.style:'street',aura:['Emerald Gold','Diamond Mist','Neon Phantom'].includes(l.aura_config?.name??a.aura)?l.aura_config?.name??a.aura:'Emerald Gold',look:normalizeLook(o.appearance),routine:normalizeRoutine(o.elite_routine)};
+  return {name:String(l.display_name??a.display_name??p.display_name??p.username??'Rich Avatar'),gender:type==='female'?'girl':'boy',build:['athletic','lean','heroic'].includes(o.build)?o.build:'athletic',style:['street','boss','tactical','cyber'].includes(o.style)?o.style:'street',aura:['Emerald Gold','Diamond Mist','Neon Phantom'].includes(l.aura_config?.name??a.aura)?l.aura_config?.name??a.aura:'Emerald Gold',look:normalizeLook(o.appearance),routine:normalizeRoutine(o.elite_routine),timeline:normalizeTimeline(o.elite_timeline,o.elite_routine)};
 }
 export function hasSavedOriginal(snap:Partial<CharacterIdentity>):boolean{
   return row(snap.loadout).outfit_config?.rig===CHARACTER_RIG;
@@ -45,7 +45,7 @@ export async function saveCharacterIdentity(userId:string,config:CharacterConfig
   try{
     const result=await Promise.race([supabase.rpc('rb_save_avatar_studio',{
       p_display_name:name,p_preset_key:type==='female'?'street_queen_hd':'street_king_hd',p_aura:config.aura,
-      p_outfit:{...o,rig:CHARACTER_RIG,character_type:type,appearance,elite_routine:normalizeRoutine(config.routine),build:config.build,style:config.style},
+      p_outfit:{...o,rig:CHARACTER_RIG,character_type:type,appearance,elite_routine:normalizeTimeline(config.timeline,config.routine).map(x=>x.clip),elite_timeline:normalizeTimeline(config.timeline,config.routine),build:config.build,style:config.style},
       p_accessories:row(l.accessory_config??a.metadata?.accessories),
       p_smoke:row(l.smoke_config??a.metadata?.smoke??{mode:'off'}),
       p_emotes:{...row(l.emote_config),idle:true,walk:true,run:true,jump:true,power:true},
@@ -56,6 +56,6 @@ export async function saveCharacterIdentity(userId:string,config:CharacterConfig
   }finally{clearTimeout(timer);}
   const verified=await readCharacterIdentity(userId);
   const actual=savedCharacter(verified);
-  if(!hasSavedOriginal(verified)||verified.profile.preferred_avatar_loadout_id!==verified.loadout.id||verified.avatar.active_loadout_id!==verified.loadout.id||actual.name!==name||actual.gender!==config.gender||actual.build!==config.build||actual.style!==config.style||actual.aura!==config.aura||JSON.stringify(actual.routine)!==JSON.stringify(normalizeRoutine(config.routine))||Object.keys(appearance).some(key=>actual.look[key as keyof CharacterLook]!==appearance[key as keyof CharacterLook]))fail('Save returned, but the identity readback did not match. Retry before leaving.');
+  if(!hasSavedOriginal(verified)||verified.profile.preferred_avatar_loadout_id!==verified.loadout.id||verified.avatar.active_loadout_id!==verified.loadout.id||actual.name!==name||actual.gender!==config.gender||actual.build!==config.build||actual.style!==config.style||actual.aura!==config.aura||JSON.stringify(actual.timeline)!==JSON.stringify(normalizeTimeline(config.timeline,config.routine))||Object.keys(appearance).some(key=>actual.look[key as keyof CharacterLook]!==appearance[key as keyof CharacterLook]))fail('Save returned, but the identity readback did not match. Retry before leaving.');
   return verified;
 }
