@@ -6,7 +6,7 @@ import {getExperience,resolveVisual,subscribeExperience,type Experience} from '.
 
 export type StudioGraphics={gesture:(name:string)=>void;expression:(value:AvatarExpression)=>void;quality:(value:'auto'|'detail')=>void;update:(config:CharacterConfig)=>void;motion:(value:AvatarMotion)=>void;rotate:(radians:number)=>void;zoom:(delta:number)=>void;face:(enabled:boolean)=>void;reset:()=>void;dispose:()=>void};
 const aura=(s:string)=>s==='Neon Phantom'?0x765dff:s==='Diamond Mist'?0x76d8ff:0x21df81;
-export function createStudioGraphics(canvas:HTMLCanvasElement,initial:CharacterConfig,onFrame:()=>void,onFailure:(reason:string)=>void):StudioGraphics{
+export function createStudioGraphics(canvas:HTMLCanvasElement,initial:CharacterConfig,onFrame:()=>void,onFailure:(reason:string)=>void,onAssetStatus:(status:'loading'|'ready'|'error',message:string)=>void=()=>{}):StudioGraphics{
   const mobile=matchMedia('(pointer:coarse),(max-width:860px)').matches;
   const reduced=matchMedia('(prefers-reduced-motion: reduce)');
   const renderer=new THREE.WebGLRenderer({canvas,antialias:!mobile,powerPreference:'low-power',alpha:false});
@@ -63,11 +63,11 @@ export function createStudioGraphics(canvas:HTMLCanvasElement,initial:CharacterC
     experience=value;const mode=resolveVisual(value.visual,'avatar-characters');
     canvas.dataset.rbVisualMode=mode;canvas.dataset.rbBehaviorMode=value.behavior;
     const cinematic=mode==='cinematic',expressive=mode==='expressive';
-    renderer.toneMappingExposure=cinematic?1.05:expressive?1.18:1.12;
-    hemi.intensity=cinematic?1.35:expressive?2.0:1.25;
-    key.color.setHex(cinematic?0xffe6cc:expressive?0xfff2da:0xc3adff);key.intensity=expressive?2.4:3.1;
-    fill.color.setHex(mode==='fantasy'?0x9e74ff:0xb0ddff);fill.intensity=mode==='fantasy'?2.1:1.65;
-    rim.color.setHex(mode==='fantasy'?aura(latest.aura):0xe9cb81);rim.intensity=mode==='fantasy'?4.1:2.5;
+    renderer.toneMappingExposure=cinematic?.98:expressive?1.05:1.0;
+    hemi.intensity=cinematic?1.15:expressive?1.6:1.05;
+    key.color.setHex(cinematic?0xffe6cc:expressive?0xfff2da:0xc3adff);key.intensity=expressive?2.1:2.65;
+    fill.color.setHex(mode==='fantasy'?0x9e74ff:0xb0ddff);fill.intensity=mode==='fantasy'?1.6:1.4;
+    rim.color.setHex(mode==='fantasy'?aura(latest.aura):0xe9cb81);rim.intensity=mode==='fantasy'?2.8:1.65;
     (scene.background as THREE.Color).setHex(cinematic?0x08100e:expressive?0x1b2826:0x11152a);
     (scene.fog as THREE.FogExp2).color.copy(scene.background as THREE.Color);
     floor.material.color.setHex(cinematic?0x16271f:expressive?0x293d36:0x201c3b);
@@ -82,20 +82,22 @@ export function createStudioGraphics(canvas:HTMLCanvasElement,initial:CharacterC
       while(desired&&!disposed&&!failed){
         const config=desired;desired=null;const generation=revision;
         const key=JSON.stringify([config.gender,config.build,config.look,quality]);
-        if(runtime&&key===modelKey){pose();invalidate();continue;}
-        // Release old GPU mesh before constructing another full skinned body.
-        if(runtime){scene.remove(runtime.root);disposeSkinnedAvatar(runtime);runtime=null;}
-        const next=await createTexturedAvatar(config.gender,config.look,config.build,quality);
+        if(runtime&&key===modelKey){pose();invalidate();onAssetStatus('ready','Selected fitted wardrobe loaded');continue;}
+        onAssetStatus('loading','Fitting selected human mesh and wardrobe…');
+        let next:SkinnedAvatarRuntime;
+        try{next=await createTexturedAvatar(config.gender,config.look,config.build,quality);}catch(error){if(generation===revision&&!disposed&&!failed){onAssetStatus('error',(error instanceof Error?error.message:'Asset load failed')+(runtime?' • previous verified appearance retained':''));}continue;}
         if(disposed||failed||generation!==revision){disposeSkinnedAvatar(next);continue;}
+        // Swap only after the new complete fitted mesh exists; keep old render on a failed download.
+        if(runtime){scene.remove(runtime.root);disposeSkinnedAvatar(runtime);}
         runtime=next;runtime.expression?.(mood);expressionUntil=performance.now()+1000;runtime.root.rotation.y=yaw;setAvatarMotion(runtime,'idle',0);runtime.mixer.update(0);
-        scene.add(runtime.root);modelKey=key;active='idle';previous=0;pose();invalidate();
+        scene.add(runtime.root);modelKey=key;active='idle';previous=0;pose();invalidate();onAssetStatus('ready','Selected fitted wardrobe loaded');
       }
     }catch(error){if(!disposed)fail(error instanceof Error?error.message:'Textured human asset failed');}
     finally{loading=false;if(desired&&!disposed&&!failed)void drain();}
   };
   const update=(config:CharacterConfig)=>{
     if(disposed||failed)return;
-    latest=config;ring.material.color.setHex(aura(config.aura));const nextKey=JSON.stringify([config.gender,config.build,config.look,quality]);if(runtime&&nextKey===modelKey&&!loading){invalidate();return;}desired={...config,look:{...config.look}};revision++;void drain();
+    latest=config;ring.material.color.setHex(aura(config.aura));const nextKey=JSON.stringify([config.gender,config.build,config.look,quality]);if(runtime&&nextKey===modelKey&&!loading){invalidate();onAssetStatus('ready','Selected fitted wardrobe loaded');return;}desired={...config,look:{...config.look}};revision++;onAssetStatus('loading','Applying selected appearance…');void drain();
   };
   const motion=(value:AvatarMotion)=>{if(!runtime||failed||disposed)return;if(experience.behavior!=='manual'){mood=value==='power'?'confident':value==='run'?'focused':value==='jump'?'surprised':'neutral';runtime.expression?.(mood);}active=value;runtime.root.position.y=0;setAvatarMotion(runtime,value,value==='idle'?0:.18);if(value==='idle')runtime.mixer.update(0);else{face=false;zoom=1;pose();}deadline=performance.now()+(value==='jump'?950:value==='power'?2500:5000);previous=0;invalidate();};
   const rotate=(radians:number)=>{yaw+=radians;if(runtime)runtime.root.rotation.y=yaw;invalidate();};
