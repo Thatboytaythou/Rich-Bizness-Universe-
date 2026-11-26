@@ -1,0 +1,9 @@
+# Elite Atelier 02 (V23)
+- Five included collections, two new fitted outfits from the pinned Ara asset catalog. Heritage Crown and Midnight Motion are original styling recipes, not original bespoke garment geometry. Each collection is exported and checked by the production asset gate.
+- Private reference comparison uses a consent checkbox and a temporary object URL. No biometric processing, photo persistence, photo upload or automatic likeness claim. The saved identity remains the user-authored appearance configuration.
+- Human presence uses existing idle animation, bounded gaze and restrained timed expressions in contextual modes; no autonomous emotional inference.
+- Motion & Dance Studio sequences real skeletal clips on the existing rig; routines are built-in, not user-authored choreography or exportable media. Twenty-one source clips; some captured and some authored. See V21 provenance.
+- Human/cinematic/phantom options change materials on the same rig. No alternate anime mesh or morph transition animation.
+- Free collection claims use existing avatar_items and avatar_inventory, owner RLS and readback. Claim records are not required to preview/equip an included collection. No paid listings, no prices, no Stripe mutation. Current inventory self-insert policy is unsuitable for enforcing paid entitlements; repair server-side fulfillment and authorization before paid launch.
+- Studio reports measured fitting time. World scenes now adapt render scale using observed frame cadence. No guaranteed FPS or hardware-certified performance.
+- No changes to homepage, full portal, shared route architecture or identity RPC. Validate actual iPhone rendering and authenticated claims separately.
