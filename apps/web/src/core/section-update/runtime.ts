@@ -1,4 +1,6 @@
-// One shared, non-destructive section update bus. No user data or credentials are transmitted.
+// One shared, non-destructive section update bus. Broadcasts contain no credentials or identity data.
+import {getAuthSnapshot} from '../auth/auth-store';
+import {supabase} from '../supabase/client';
 const CHANNEL='rb-section-updates-v1',KEY='rb.section.update.v1';
 const consumers:Record<string,string[]>={'avatar-characters':['profile','avatar','meta','avatar-free-roam']};
 type Notice={section:string;at:number};
@@ -17,11 +19,11 @@ export function mountSectionUpdates(page:string):()=>void{
     document.body.dataset.rbSectionFreshness='update-available';
     if(notice)return;
     notice=document.createElement('aside');notice.setAttribute('role','status');
-    notice.style.cssText='position:fixed;bottom:calc(env(safe-area-inset-bottom) + 76px);left:12px;right:12px;max-width:440px;margin:auto;z-index:90;padding:12px;background:#14271d;color:#f4eed7;border:1px solid #b8a66b;border-radius:12px;display:flex;gap:10px;align-items:center;font:13px system-ui;box-shadow:0 4px 20px #0006';
+    notice.style.cssText='position:relative;max-width:680px;margin:10px auto;padding:12px;background:#14271d;color:#f4eed7;border:1px solid #b8a66b;border-radius:12px;display:flex;flex-wrap:wrap;gap:10px;align-items:center;font:13px system-ui;box-shadow:0 4px 20px #0006';
     const label=document.createElement('span');label.textContent=message;
     const refresh=document.createElement('button');refresh.type='button';refresh.textContent='Refresh';refresh.onclick=()=>location.reload();
     const dismiss=document.createElement('button');dismiss.type='button';dismiss.textContent='×';dismiss.setAttribute('aria-label','Dismiss update');dismiss.onclick=()=>{notice?.remove();notice=undefined;};
-    notice.append(label,refresh,dismiss);document.body.append(notice);
+    notice.append(label,refresh,dismiss);(document.querySelector('#app')??document.body).prepend(notice);
   };
   const receive=(value:unknown)=>{
     if(!value||typeof value!=='object')return;
@@ -41,12 +43,30 @@ export function mountSectionUpdates(page:string):()=>void{
       else if(data.release!==release)show('A new Rich Bizness release is available. Refresh when ready.');
     }catch{}finally{checking=false;}
   };
-  const timer=window.setInterval(()=>void check(),120000);
-  document.addEventListener('visibilitychange',()=>void check(),{signal});
-  void check();
+  // Cross-device check compares only the signed-in member's saved appearance; no data enters browser storage.
+  let baseline:string|undefined,baselineUser='',identityChecking=false;
+  const checkIdentity=async()=>{
+    if(!consumers['avatar-characters'].includes(page)||identityChecking||signal.aborted||document.hidden)return;
+    const user=getAuthSnapshot().user;if(!user)return;identityChecking=true;
+    const request=new AbortController(),cancel=()=>request.abort();signal.addEventListener('abort',cancel,{once:true});
+    const timeout=window.setTimeout(cancel,8000);
+    try{
+      const {data,error}=await supabase.from('user_avatar_loadouts').select('id,display_name,outfit_config,aura_config').eq('user_id',user.id).maybeSingle().abortSignal(request.signal);
+      if(error||signal.aborted||getAuthSnapshot().user?.id!==user.id)return;
+      const value=JSON.stringify(data??null);
+      if(baselineUser!==user.id){baseline=undefined;baselineUser=user.id;}
+      if(baseline!==undefined&&baseline!==value)show('Your saved character changed on another session. Refresh when ready.');
+      baseline=value;document.body.dataset.rbIdentityCheck='read-complete';
+    }catch{}finally{clearTimeout(timeout);signal.removeEventListener('abort',cancel);identityChecking=false;}
+  };
+  const checkAll=()=>{void check();void checkIdentity();};
+  const timer=window.setInterval(checkAll,120000);
+  document.addEventListener('visibilitychange',checkAll,{signal});
+  window.addEventListener('focus',checkAll,{signal});
+  checkAll();
   try{bus=new BroadcastChannel(CHANNEL);bus.onmessage=e=>receive(e.data);}catch{}
   window.addEventListener('storage',e=>{if(e.key===KEY&&e.newValue){try{receive(JSON.parse(e.newValue));}catch{}}},{signal});
-  document.body.dataset.rbSectionUpdate='v1';
+  document.body.dataset.rbSectionUpdate='v2';
   document.body.dataset.rbSectionFreshness='current-session';
   return ()=>{controller.abort();clearInterval(timer);bus?.close();notice?.remove();};
 }
