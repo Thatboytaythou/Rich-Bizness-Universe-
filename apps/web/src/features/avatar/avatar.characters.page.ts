@@ -12,6 +12,7 @@ import {
   type AvatarMotion,
   type SkinnedAvatarRuntime
 } from './avatar.skinned.runtime';
+import { CHARACTER_RIG, CHARACTER_OPTIONS, normalizeLook, createOriginalAvatar, type CharacterLook } from './avatar.original.runtime';
 import './avatar.characters.css';
 
 type Snapshot = {
@@ -21,7 +22,7 @@ type Snapshot = {
   model?: Record<string, any>;
 };
 type CleanupHost = Window & { __rbPageCleanup?: (() => void | Promise<void>) | null };
-const RELEASE = "avatar-studio-controls-5";
+const RELEASE = "avatar-original-system-6";
 const OWNER = 'rich-bizness-avatar-characters-v1';
 const esc = (value: unknown) => String(value ?? '').replace(/[&<>"']/g, (c) => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c] ?? c));
 const auraColor = (aura: string) => aura === 'Neon Phantom' ? 0x765dff : aura === 'Diamond Mist' ? 0x76d8ff : 0x21df81;
@@ -86,10 +87,12 @@ export async function mount(): Promise<void> {
   let gender: AvatarGender = currentKind === 'female' ? 'girl' : 'boy';
   const initialBuild = String(outfit.build ?? 'athletic');
   const initialStyle = String(outfit.style ?? 'street');
+  let look=normalizeLook(outfit.appearance);
+  const appearanceFields=Object.entries(CHARACTER_OPTIONS).map(([key,values])=>`<label>${key.toUpperCase()}<select data-appearance="${key}">${values.map(value=>`<option value="${value}" ${look[key as keyof CharacterLook]===value?'selected':''}>${value.toUpperCase()}</option>`).join('')}</select></label>`).join('');
   const initialAura = String(current.aura ?? loadout.aura_config?.name ?? 'Emerald Gold');
 
   root.dataset.rbStudioRelease=RELEASE;
-  root.innerHTML = `<main class="ac-shell"><header><a class="back" href="/profile.html">←</a><div><small>RICH BIZNESS CHARACTER GARAGE</small><h1>Avatar Studio</h1></div><a href="/avatar.html" class="enter">ENTER LOBBY</a></header><div class="ac-system-bar"><div><small>RICH ID • STUDIO</small><strong>${esc(display)}</strong></div><div id="acXpSlot"></div><div id="acOmniSlot"></div></div><section class="ac-layout"><div class="ac-stage"><div class="ac-viewport"><canvas id="characterCanvas"></canvas><div class="ac-stage-top"><span>SKINNED FULL BODY</span><b id="previewGender">${gender.toUpperCase()}</b></div><div class="ac-stage-copy"><strong id="previewName">${esc(display)}</strong><em id="previewStyle">${esc(initialBuild.toUpperCase())} · ${esc(initialStyle.toUpperCase())}</em></div><div class="ac-loading" id="characterLoading">LOADING CHARACTER…</div></div><div class="ac-stage-controls"><div class="ac-motion"><button data-motion="idle" class="active">IDLE</button><button data-motion="walk">WALK</button><button data-motion="run">RUN</button><button data-motion="power">POSE</button></div><div class="ac-camera"><button type="button" id="acFront">FRONT</button><button type="button" id="acBack">BACK</button><button type="button" id="acZoomOut" aria-label="Zoom out">−</button><button type="button" id="acZoomIn" aria-label="Zoom in">+</button><button type="button" id="acReset">RESET</button></div><small id="acMotionStatus" role="status">Drag to rotate • Zoom to inspect</small></div></div><aside class="ac-editor"><div class="section-title"><span>CHARACTER LAB</span><small>BUILD · STYLE · FX</small></div><div class="seg"><button data-gender="boy" class="${gender === 'boy' ? 'active' : ''}">BOY</button><button data-gender="girl" class="${gender === 'girl' ? 'active' : ''}">GIRL</button></div><label>NAME<input id="nameInput" value="${esc(display)}" maxlength="28"/></label><div class="edit-grid"><label>BUILD<select id="buildInput"><option value="athletic">ATHLETIC</option><option value="lean">LEAN</option><option value="heroic">HEROIC</option></select></label><label>STYLE<select id="styleInput"><option value="street">STREET</option><option value="boss">BOSS</option><option value="tactical">TACTICAL</option><option value="cyber">CYBER</option></select></label></div><label>AURA<select id="auraInput"><option>Emerald Gold</option><option>Neon Phantom</option><option>Diamond Mist</option></select></label><div class="ac-actions"><button id="randomize">RANDOMIZE</button><button id="saveCharacter" class="primary">SAVE CHARACTER</button></div><p id="saveStatus">${snapshotFailure ? 'Saved identity unavailable. Reference view only; no changes will be saved.' : 'Save once the character, motion and proportions look right.'}</p>${snapshotFailure ? '<button type="button" id="acRetryIdentity">Retry saved identity</button>' : ''}<small class="ac-release">STUDIO RELEASE • ${RELEASE}</small></aside></section></main>`;
+  root.innerHTML = `<main class="ac-shell"><header><a class="back" href="/profile.html">←</a><div><small>RICH BIZNESS CHARACTER GARAGE</small><h1>Avatar Studio</h1></div><a href="/avatar.html" class="enter">ENTER LOBBY</a></header><div class="ac-system-bar"><div><small>RICH ID • STUDIO</small><strong>${esc(display)}</strong></div><div id="acXpSlot"></div><div id="acOmniSlot"></div></div><section class="ac-layout"><div class="ac-stage"><div class="ac-viewport"><canvas id="characterCanvas"></canvas><div class="ac-stage-top"><span>SKINNED FULL BODY</span><b id="previewGender">${gender.toUpperCase()}</b></div><div class="ac-stage-copy"><strong id="previewName">${esc(display)}</strong><em id="previewStyle">${esc(initialBuild.toUpperCase())} · ${esc(initialStyle.toUpperCase())}</em></div><div class="ac-loading" id="characterLoading">LOADING CHARACTER…</div></div><div class="ac-stage-controls"><div class="ac-motion"><button data-motion="idle" class="active">IDLE</button><button data-motion="walk">WALK</button><button data-motion="run">RUN</button><button data-motion="jump">JUMP</button><button data-motion="power">POSE</button></div><div class="ac-camera"><button type="button" id="acFront">FRONT</button><button type="button" id="acBack">BACK</button><button type="button" id="acZoomOut" aria-label="Zoom out">−</button><button type="button" id="acZoomIn" aria-label="Zoom in">+</button><button type="button" id="acReset">RESET</button></div><small id="acMotionStatus" role="status">Drag to rotate • Zoom to inspect</small></div></div><aside class="ac-editor"><div class="section-title"><span>CHARACTER LAB</span><small>BUILD · STYLE · FX</small></div><div class="seg"><button data-gender="boy" class="${gender === 'boy' ? 'active' : ''}">BOY</button><button data-gender="girl" class="${gender === 'girl' ? 'active' : ''}">GIRL</button></div><label>NAME<input id="nameInput" value="${esc(display)}" maxlength="28"/></label><div class="edit-grid"><label>BUILD<select id="buildInput"><option value="athletic">ATHLETIC</option><option value="lean">LEAN</option><option value="heroic">HEROIC</option></select></label><label>STYLE<select id="styleInput"><option value="street">STREET</option><option value="boss">BOSS</option><option value="tactical">TACTICAL</option><option value="cyber">CYBER</option></select></label></div><div class="section-title"><span>APPEARANCE</span><small>ORIGINAL CHARACTER</small></div><div class="ac-appearance">${appearanceFields}</div><label>AURA<select id="auraInput"><option>Emerald Gold</option><option>Neon Phantom</option><option>Diamond Mist</option></select></label><div class="ac-actions"><button id="randomize">RANDOMIZE</button><button id="saveCharacter" class="primary">SAVE CHARACTER</button></div><p id="saveStatus">${snapshotFailure ? 'Saved identity unavailable. Reference view only; no changes will be saved.' : 'Save once the character, motion and proportions look right.'}</p>${snapshotFailure ? '<button type="button" id="acRetryIdentity">Retry saved identity</button>' : ''}<small class="ac-release">STUDIO RELEASE • ${RELEASE}</small></aside></section></main>`;
 
   root.querySelector<HTMLButtonElement>('#acRetryIdentity')?.addEventListener('click',()=>location.reload());
   root.dataset.rbStudioIdentity=snapshotFailure?'unavailable':'loaded';
@@ -165,15 +168,15 @@ export async function mount(): Promise<void> {
 
   let motion: AvatarMotion = 'idle';
   let loadGeneration = 0;
-  let userYaw = Math.PI;
+  let userYaw = 0;
   let zoom=1;
   const setZoom=(value:number)=>{zoom=THREE.MathUtils.clamp(value,.8,1.65);camera.zoom=zoom;camera.updateProjectionMatrix();stageDirty=true;};
   const setYaw=(value:number)=>{userYaw=value;if(runtime)runtime.root.rotation.y=value;stageDirty=true;};
-  root.querySelector<HTMLButtonElement>("#acFront")!.onclick=()=>setYaw(Math.PI);
-  root.querySelector<HTMLButtonElement>("#acBack")!.onclick=()=>setYaw(0);
+  root.querySelector<HTMLButtonElement>("#acFront")!.onclick=()=>setYaw(0);
+  root.querySelector<HTMLButtonElement>("#acBack")!.onclick=()=>setYaw(Math.PI);
   root.querySelector<HTMLButtonElement>("#acZoomIn")!.onclick=()=>setZoom(zoom+.15);
   root.querySelector<HTMLButtonElement>("#acZoomOut")!.onclick=()=>setZoom(zoom-.15);
-  root.querySelector<HTMLButtonElement>("#acReset")!.onclick=()=>{setYaw(Math.PI);setZoom(1);};
+  root.querySelector<HTMLButtonElement>("#acReset")!.onclick=()=>{setYaw(0);setZoom(1);};
   let dragging = false;
   let dragStartX = 0;
   let dragStartYaw = 0;
@@ -219,7 +222,7 @@ export async function mount(): Promise<void> {
       runtime = null;
     }
     const model=modelSnapshotFor(gender).model;
-    const approved=!snapshotFailure&&model?.is_active===true&&model?.is_realistic===true&&model?.rig_type==='skinned-humanoid'&&model?.metadata?.production_art_ready===true&&model?.metadata?.role!=='temporary-reference-skinned-model'&&!String(model?.model_key??'').startsWith('rb-skinned-');
+    const approved=outfit.rig!==CHARACTER_RIG&&!snapshotFailure&&model?.is_active===true&&model?.is_realistic===true&&model?.rig_type==='skinned-humanoid'&&model?.metadata?.production_art_ready===true&&model?.metadata?.role!=='temporary-reference-skinned-model'&&!String(model?.model_key??'').startsWith('rb-skinned-');
     const timer=window.setTimeout(()=>{
       selectionAbort.abort();
       if(isCurrent()&&generation===loadGeneration&&!contextLost){
@@ -240,25 +243,21 @@ export async function mount(): Promise<void> {
         }
       }
       if(selectionAbort.signal.aborted)throw new Error('Character load timed out.');
-      const next=await loadSkinnedAvatar({
-        modelUrl,
-        targetHeight: gender === 'girl' ? 1.72 : 1.82,
-        signal: selectionAbort.signal
-      });
+      const next=approved?await loadSkinnedAvatar({modelUrl,targetHeight:gender==='girl'?1.72:1.82,signal:selectionAbort.signal}):createOriginalAvatar(gender,look,buildInput.value);
       if (!isCurrent() || generation !== loadGeneration || contextLost || selectionAbort.signal.aborted) { disposeSkinnedAvatar(next); return; }
       runtime = next;
       // Preserve the grounded transform established by the loader.
       runtime.root.rotation.y = userYaw;
-      applyBuildScale();
+      if(approved)applyBuildScale();
       scene.add(runtime.root);
       setAvatarMotion(runtime, motion, 0);
-      canvas.dataset.rbModelState=approved?'approved-model':'reference-model';
+      canvas.dataset.rbModelState=approved?'approved-model':'original-stylized';
       applyStylePreview();
       const poseButton=root.querySelector<HTMLButtonElement>('[data-motion="power"]')!;
       const hasPose=next.clips.some(clip=>/power|attack|dance|pose|action/i.test(clip.name));poseButton.disabled=!hasPose;poseButton.title=hasPose?'Play pose clip':'This asset has no pose animation';if(!hasPose&&motion==='power'){motion='idle';setAvatarMotion(next,'idle',0);root.querySelectorAll<HTMLButtonElement>('[data-motion]').forEach(item=>item.classList.toggle('active',item.dataset.motion==='idle'));}
       canvas.dataset.rbRenderState='awaiting-frame';loading.hidden=true;
-      root.querySelector<HTMLElement>('.ac-stage-top span')!.textContent=approved?'RICH BIZNESS CHARACTER':'TEMPORARY REFERENCE • NOT PRODUCTION ART';
-      root.querySelector<HTMLElement>('#saveStatus')!.textContent=snapshotFailure?'Saved identity unavailable. Reference only; saving is disabled.':approved?'Ready to save your approved character.':'Reference only. Saving is locked until approved character art is available.';
+      root.querySelector<HTMLElement>('.ac-stage-top span')!.textContent=approved?'RICH BIZNESS CHARACTER':'RB ORIGINAL • STYLIZED V1';
+      root.querySelector<HTMLElement>('#saveStatus')!.textContent=snapshotFailure?'Saved identity unavailable; saving is disabled.':approved?'Ready to save your approved character.':'Original stylized character. Save to use this appearance in your lobby.';
     } catch (error) {
       if(!isCurrent()||generation!==loadGeneration||contextLost)return;
       lastFailure=error instanceof Error?error.message:'Unknown model error';
@@ -287,13 +286,18 @@ export async function mount(): Promise<void> {
   });
 
   buildInput.onchange = () => {
-    applyBuildScale();
+    if(canvas.dataset.rbModelState==='original-stylized')void loadCharacter();else applyBuildScale();
     root.querySelector<HTMLElement>('#previewStyle')!.textContent = `${buildInput.value.toUpperCase()} · ${styleInput.value.toUpperCase()}`;
   };
   styleInput.onchange = () => {
-    applyStylePreview();
+    if(canvas.dataset.rbModelState==='original-stylized'){
+      const presets:Record<string,Partial<CharacterLook>>={street:{top:'hoodie',pants:'cargo',shoes:'sneakers'},boss:{top:'jacket',pants:'tailored',shoes:'boots',gear:'chain'},tactical:{top:'vest',pants:'cargo',shoes:'boots'},cyber:{top:'vest',pants:'denim',shoes:'high-tops',color:'ice',gear:'shades'}};
+      look=normalizeLook({...look,...presets[styleInput.value]});syncLook();void loadCharacter();
+    }else applyStylePreview();
     root.querySelector<HTMLElement>('#previewStyle')!.textContent = `${buildInput.value.toUpperCase()} · ${styleInput.value.toUpperCase()}`;
   };
+  const syncLook=()=>root.querySelectorAll<HTMLSelectElement>('[data-appearance]').forEach(el=>{el.value=look[el.dataset.appearance as keyof CharacterLook];});
+  root.querySelectorAll<HTMLSelectElement>('[data-appearance]').forEach(el=>el.onchange=()=>{look=normalizeLook({...look,[el.dataset.appearance!]:el.value});void loadCharacter();});
   auraInput.onchange = () => {
     applyAura();
   };
@@ -307,28 +311,35 @@ export async function mount(): Promise<void> {
     styleInput.selectedIndex = Math.floor(Math.random() * styleInput.options.length);
     auraInput.selectedIndex = Math.floor(Math.random() * auraInput.options.length);
     applyAura();
+    look=normalizeLook(Object.fromEntries(Object.entries(CHARACTER_OPTIONS).map(([key,values])=>[key,values[Math.floor(Math.random()*values.length)]])));syncLook();
     root.querySelectorAll<HTMLButtonElement>('[data-gender]').forEach((item) => item.classList.toggle('active', item.dataset.gender === gender));
     root.querySelector<HTMLElement>('#previewGender')!.textContent = gender.toUpperCase();
     root.querySelector<HTMLElement>('#previewStyle')!.textContent = `${buildInput.value.toUpperCase()} · ${styleInput.value.toUpperCase()}`;
     await loadCharacter();
   };
 
+  let saving=false;
   root.querySelector<HTMLButtonElement>('#saveCharacter')!.onclick = async () => {
     const status = root.querySelector<HTMLElement>('#saveStatus')!;
-    if(snapshotFailure||!runtime||contextLost||canvas.dataset.rbModelState!=='approved-model'||canvas.dataset.rbRenderState!=='frame-rendered'){status.textContent='Approved character required before saving.';return;}
+    if(saving)return;
+    if(snapshotFailure||!runtime||contextLost||canvas.dataset.rbModelState!=='original-stylized'||canvas.dataset.rbRenderState!=='frame-rendered'){status.textContent='A rendered original character and verified identity are required before saving.';return;}
+    saving=true;saveButton.disabled=true;
     status.textContent = 'Saving character…';
     const presetKey = gender === 'girl' ? 'street_queen_hd' : 'street_king_hd';
-    const { error: saveError } = await supabase.rpc('rb_save_avatar_studio', {
+    try {
+    const { data: saved, error: saveError } = await supabase.rpc('rb_save_avatar_studio', {
       p_display_name: nameInput.value || display,
       p_preset_key: presetKey,
       p_aura: auraInput.value,
-      p_outfit: { build: buildInput.value, style: styleInput.value, rig: 'skinned-humanoid-v1' },
-      p_accessories: {},
-      p_smoke: { mode: 'off' },
-      p_emotes: { idle: true, walk: true, run: true, jump: true, power: true },
+      p_outfit: { ...outfit, build: buildInput.value, style: styleInput.value, rig: CHARACTER_RIG, appearance: {...look} },
+      p_accessories: { ...(loadout.accessory_config??current.metadata?.accessories??{}) },
+      p_smoke: { ...(loadout.smoke_config??current.metadata?.smoke??{mode:'off'}) },
+      p_emotes: { ...(loadout.emote_config??{}), idle: true, walk: true, run: true, jump: true, power: true },
       p_character_type: gender === 'girl' ? 'female' : 'male'
     });
-    status.textContent = saveError ? saveError.message : 'Saved. This character is now linked to your lobby loadout.';
+    if(!isCurrent())return;
+    status.textContent = saveError ? saveError.message : (saved as any)?.saved===true?'Saved to Rich ID. Open the lobby to use this appearance.':'Save not confirmed. Retry before leaving.';
+    }catch{if(isCurrent())status.textContent='Save interrupted. Retry.';}finally{saving=false;if(isCurrent())saveButton.disabled=snapshotFailure||canvas.dataset.rbModelState!=='original-stylized'||canvas.dataset.rbRenderState!=='frame-rendered';}
   };
 
   canvas.addEventListener('pointerdown', (event) => {
@@ -378,7 +389,7 @@ export async function mount(): Promise<void> {
       }
       renderer.render(scene,camera);stageDirty=false;
       if(runtime&&canvas.dataset.rbRenderState==='awaiting-frame'){
-        canvas.dataset.rbRenderState='frame-rendered';saveButton.disabled=canvas.dataset.rbModelState!=='approved-model';
+        canvas.dataset.rbRenderState='frame-rendered';saveButton.disabled=saving||snapshotFailure||canvas.dataset.rbModelState!=='original-stylized';
       }
     } catch (error) {
       console.warn('[Avatar Studio] Frame failed',error);
