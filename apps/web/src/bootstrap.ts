@@ -19,8 +19,11 @@ export async function bootstrap(): Promise<void> {
   if(!app)throw new Error('Missing #app mount');
 
   const routeKey=currentRouteKey();
-  const bootEpoch=String(Number(sessionStorage.getItem(BOOT_EPOCH_KEY)??'0')+1);
-  sessionStorage.setItem(BOOT_EPOCH_KEY,bootEpoch);
+  let bootEpoch=String(Date.now());
+  try {
+    bootEpoch=String(Number(sessionStorage.getItem(BOOT_EPOCH_KEY)??'0')+1);
+    sessionStorage.setItem(BOOT_EPOCH_KEY,bootEpoch);
+  } catch { /* private browsing/storage restrictions must not stop startup */ }
 
   // Bootstrap only guards route/auth/module loading. Route-loader alone owns
   // #app pageOwner/pageMounted/pageEpoch and the shared __rbPageCleanup lifecycle.
@@ -30,9 +33,23 @@ export async function bootstrap(): Promise<void> {
 
   const isCurrentBoot=()=>app.dataset.bootEpoch===bootEpoch&&app.dataset.routeKey===routeKey;
 
-  if (registration.auth !== 'public') {
+  if(page==='tap-in'){
+    // Render the access form immediately. Its auth subscription handles a late session.
+    void initializeAuth().catch(error=>console.warn('[Rich ID] session check failed',error));
+  } else if (registration.auth !== 'public') {
     const auth = await initializeAuth();
     if(!isCurrentBoot())return;
+    if(registration.auth==='required'&&!auth.ready){
+      // A network timeout is not a sign-out. Never mount private routes without auth.
+      const panel=document.createElement('main');
+      panel.setAttribute('role','status');
+      panel.style.cssText='min-height:100svh;display:grid;place-content:center;gap:14px;padding:24px;color:#eff9ef;background:#07140d;font:16px/1.5 system-ui';
+      const title=document.createElement('h1');title.textContent='Reconnecting your Rich ID';
+      const info=document.createElement('p');info.textContent='The session check timed out. Your account and saved data have not been changed.';
+      const retry=document.createElement('button');retry.type='button';retry.textContent='Retry connection';retry.style.cssText='padding:14px;border-radius:12px;background:#d5b961;color:#08130c;font-weight:800';retry.onclick=()=>location.reload();
+      const signIn=document.createElement('a');signIn.textContent='Return to Tap In';signIn.href='/tap-in.html?next='+encodeURIComponent(location.pathname+location.search+location.hash);
+      panel.append(title,info,retry,signIn);app.replaceChildren(panel);return;
+    }
     if (registration.auth === 'required' && !auth.user) {
       const next = encodeURIComponent(`${location.pathname}${location.search}${location.hash}`);
       location.replace(`/tap-in.html?next=${next}`);
