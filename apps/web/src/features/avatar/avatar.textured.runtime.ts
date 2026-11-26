@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import {hdRecipe} from './avatar.hd.recipe';
 import {bakeGroundedGait} from './avatar.contact-motion';
 import {capturedMotion} from './avatar.captured-motion';
 import {attachCharacterDetail} from './avatar.surface-detail';
@@ -36,7 +37,7 @@ export function humanConfig(gender:AvatarGender,look:CharacterLook,build:string)
   const headwear=look.hat==='fedora'?'fedora01':look.hat==='tilted-fedora'?'fedora_cocked':null;
   return {gender:male?1:0,age:look.maturity==='older'?.72:look.maturity==='mature'?.40:.19,muscle:build==='heroic'?.85:build==='lean'?.3:.6,weight:look.weight==='heavy'?.72:look.weight==='slim'?.28:.5,height:look.height==='tall'?.75:look.height==='short'?.25:.5,detail,skin:maturity+'_'+skinBase+'_'+sex,skinTint:skinTint[look.skin]??'#ffffff',eyes:look.eyes==='hazel'?'brownlight':look.eyes,hair:hairIds[look.hair]??null,hairColor:colors[look.hairColor]??colors.black,eyebrowColor:colors[look.hairColor]??colors.black,eyebrows:look.browStyle==='natural'?'eyebrow001':'eyebrow00'+look.browStyle.slice(-1),eyelashes:'eyelashes01',clothes:[outfit,shoes[look.shoes],...(headwear?[headwear]:[])]};
 }
-export async function createTexturedAvatar(gender:AvatarGender,raw:unknown,build='athletic',quality:'auto'|'detail'='auto'):Promise<SkinnedAvatarRuntime>{
+async function createLegacyTexturedAvatar(gender:AvatarGender,raw:unknown,build='athletic',quality:'auto'|'detail'='auto'):Promise<SkinnedAvatarRuntime>{
   const look=normalizeLook(raw),p=await pkg(),config=humanConfig(gender,look,build);
   // Refuse partial/unclothed assets. All required slots must exist and load.
   for(const id of config.clothes??[])if(!p.manifest.proxies.some(x=>x.kind==='clothes'&&x.id===id))throw Error('Wardrobe asset unavailable');
@@ -196,4 +197,11 @@ export async function createTexturedAvatar(gender:AvatarGender,raw:unknown,build
     mixer=new THREE.AnimationMixer(root);const actions=new Map(clips.map(c=>[c.name,mixer!.clipAction(c)]));
     runtime={root,mixer,actions,clips,bounds,height,currentMotion:'idle',currentAction:null,expression,animateFace,locomotionSpeed:{walk:walk.speed,run:run.speed},dispose:()=>{mixer?.stopAllAction();mixer?.uncacheRoot(root);const skeletons=new Set<THREE.Skeleton>();root.traverse(o=>{if((o as THREE.SkinnedMesh).isSkinnedMesh)skeletons.add((o as THREE.SkinnedMesh).skeleton);});for(const a of accessories){a.removeFromParent();a.geometry.dispose();(a.material as THREE.Material).dispose();}surface?.dispose();avatar.dispose();skeletons.forEach(s=>s.dispose());root.clear();}};return runtime;
   }catch(error){for(const a of accessories){a.removeFromParent();a.geometry.dispose();(a.material as THREE.Material).dispose();}surface?.dispose();avatar.dispose();throw error;}
+}
+
+// Shared by Studio, Profile and every district. Never rewrite a saved look to force compatibility.
+export async function createTexturedAvatar(gender:AvatarGender,raw:unknown,build='athletic',quality:'auto'|'detail'='auto'):Promise<SkinnedAvatarRuntime>{
+ const recipe=hdRecipe(gender,raw,build);
+ if(recipe.params){const {createHDCharacter}=await import('./avatar.hd.runtime');return createHDCharacter(gender,raw,build,quality);}
+ const legacy=await createLegacyTexturedAvatar(gender,raw,build,quality);legacy.assetLabel='Compatibility mesh · HD unavailable for '+recipe.unsupported.join(', ');return legacy;
 }
