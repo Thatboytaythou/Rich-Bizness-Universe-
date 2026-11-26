@@ -49,7 +49,7 @@ export async function mount():Promise<void>{
     root.querySelectorAll<HTMLButtonElement>('[data-gender]').forEach(e=>e.classList.toggle('active',e.dataset.gender===config.gender));
     graphics?.update(config);
   };
-  const changed=()=>{dirty=true;root.dataset.rbIdentitySync='dirty';report(identityReady?'Unsaved changes • save to Rich ID':'Unsaved configuration • reconnect Rich ID to save');renderConfig();};
+  const changed=()=>{dirty=true;root.dataset.rbIdentitySync='dirty';report(identityReady?'Unsaved changes • save to Rich ID':'Unsaved configuration • reconnect Rich ID to save');renderConfig();controls();};
   const read=async()=>{
     if(reading||saving)return;reading=true;controls();report('Reading Rich ID…');
     try{identity=await readCharacterIdentity(user.id,signal);if(!current())return;identityReady=true;if(!dirty){config=savedCharacter(identity);dirty=!hasSavedOriginal(identity);renderConfig();}$('#acIdentityName').textContent=identity.profile.display_name??identity.profile.username??config.name;root.dataset.rbStudioIdentity='loaded';report(dirty?'Ready to save configuration':'Saved character loaded');}
@@ -74,7 +74,7 @@ export async function mount():Promise<void>{
   };
   start.onclick=()=>void enable();stop.onclick=()=>pause();retry.onclick=()=>void read();
   saveButtons.forEach(b=>b.onclick=()=>void save(b.id==='acSaveEnter'));
-  name.oninput=()=>{config.name=name.value;dirty=true;$('#acPreviewName').textContent=name.value;report(identityReady?'Unsaved changes • save to Rich ID':'Reconnect Rich ID to save');};
+  name.oninput=()=>{config.name=name.value;dirty=true;$('#acPreviewName').textContent=name.value;report(identityReady?'Unsaved changes • save to Rich ID':'Reconnect Rich ID to save');controls();};
   build.onchange=()=>{config.build=build.value;changed();};style.onchange=()=>{config.style=style.value;config.look=normalizeLook({...config.look,...presets[style.value]});changed();};aura.onchange=()=>{config.aura=aura.value;changed();};
   root.querySelectorAll<HTMLButtonElement>('[data-gender]').forEach(b=>b.onclick=()=>{config.gender=b.dataset.gender==='girl'?'girl':'boy';changed();});
   root.querySelectorAll<HTMLSelectElement>('[data-appearance]').forEach(e=>e.onchange=()=>{config.look=normalizeLook({...config.look,[e.dataset.appearance!]:e.value});changed();});
