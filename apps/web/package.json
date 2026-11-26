@@ -11,7 +11,9 @@
   "dependencies": {
     "@supabase/supabase-js": "^2.57.4",
     "livekit-client": "^2.15.7",
-    "three": "^0.179.1"
+    "three": "^0.179.1",
+    "ara3d": "0.19.0",
+    "ara3d-data": "1.2.0"
   },
   "devDependencies": {
     "vite": "^7.1.7"
