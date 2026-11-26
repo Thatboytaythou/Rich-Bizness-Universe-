@@ -12,7 +12,37 @@
   <title>Avatar Characters • Rich Bizness</title>
 </head>
 <body data-page="avatar-characters">
+  <style>
+    #rb-avatar-recovery{min-height:100vh;min-height:100svh;display:grid;place-content:center;padding:24px;background:radial-gradient(ellipse at 50% 25%,#164b2d,#07140d 62%);color:#eff9ef;font:16px/1.5 system-ui,-apple-system,sans-serif}
+    #rb-avatar-recovery[hidden]{display:none!important}
+    #rb-avatar-recovery section{max-width:420px;padding:24px;border:1px solid #a58b4c;border-radius:24px;background:#0b1c14}
+    #rb-avatar-recovery small{color:#e6c679;font-weight:800;letter-spacing:.12em}
+    #rb-avatar-recovery h1{font-size:32px;line-height:1.1;margin:12px 0;color:#f3f8ef}
+    #rb-avatar-recovery a{display:inline-block;padding:10px 14px;margin:5px 5px 0 0;border:1px solid #749d7c;border-radius:12px;color:#eff9ef;text-decoration:none}
+    #rb-avatar-recovery a:first-of-type{background:#d5b961;color:#08130c;font-weight:800}
+    #app:empty{min-height:0}
+  </style>
   <div id="app" aria-live="polite"></div>
+  <main id="rb-avatar-recovery" data-release="avatar-visible-recovery-2">
+    <section><small>RICH BIZNESS • AVATAR STUDIO</small><h1>Opening your character studio</h1>
+      <p id="rb-avatar-boot-status" role="status">Connecting your Rich ID and graphics engine. Your saved character is not being changed.</p>
+      <a href="/avatar-characters">Reload studio</a><a href="/profile">Profile</a><a href="/portal">Full Omni Portal</a>
+      <noscript>JavaScript is required for interactive 3D. Navigation remains available.</noscript>
+    </section>
+  </main>
+  <script>
+    (function(){
+      var app=document.getElementById('app'), recovery=document.getElementById('rb-avatar-recovery'), status=document.getElementById('rb-avatar-boot-status');
+      function sync(){recovery.hidden=!!app.firstElementChild;}
+      function failed(){if(!app.firstElementChild){recovery.hidden=false;status.textContent='Studio startup did not complete. Reload to retry, or return to your Profile or Full Omni Portal. Your saved data is unchanged.';}}
+      new MutationObserver(sync).observe(app,{childList:true});
+      window.addEventListener('error',failed,true);
+      window.addEventListener('unhandledrejection',failed);
+      window.setTimeout(failed,12000);
+      window.addEventListener('pageshow',function(event){if(event.persisted)location.reload();});
+      sync();
+    })();
+  </script>
   <script type="module" src="/src/main.ts"></script>
 </body>
 </html>
