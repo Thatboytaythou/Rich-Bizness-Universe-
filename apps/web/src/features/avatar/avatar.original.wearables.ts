@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import {mantleGeometry,animateMantle} from './avatar.atlas.art.ts';
 // Original Rich Bizness "Aegis" swept feather profiles and Crown Sigil wearable.
 // Units: metres at adult scale. Closed cross-sections, mirrored at the wing hinge.
 export function aegisGeometry(){
@@ -44,9 +45,9 @@ export function regaliaTextile(style:string,size=128){
  return data;
 }
 
-export function originalWearables(root:THREE.Group,bones:Set<THREE.Bone>,height:number,look:{signature:string;wings:string;regalia?:string}){
- const parts:THREE.Mesh[]=[],hinges:THREE.Group[]=[];const anchors:THREE.Group[]=[];const textures:THREE.Texture[]=[];let time=0;
- if(look.signature==='none'&&look.wings==='none'&&(!look.regalia||look.regalia==='none'))return {tick:(_dt:number)=>{},dispose:()=>{},width:0};
+export function originalWearables(root:THREE.Group,bones:Set<THREE.Bone>,height:number,look:{signature:string;wings:string;regalia?:string;mantle?:string}){
+ const parts:THREE.Mesh[]=[],hinges:THREE.Group[]=[];const anchors:THREE.Group[]=[];const textures:THREE.Texture[]=[];let time=0,lastMantle=0;let mantle:THREE.BufferGeometry|undefined,mantleBase:Float32Array|undefined;
+ if(look.signature==='none'&&look.wings==='none'&&(!look.regalia||look.regalia==='none')&&(!look.mantle||look.mantle==='none'))return {tick:(_dt:number)=>{},dispose:()=>{},width:0};
  const chest=[...bones].find(b=>/^(spine2|spine02|spine03|chest|upperchest|mixamorig:spine2)$/i.test(b.name))??[...bones].find(b=>/spine/i.test(b.name));
  if(!chest)throw Error('Original wearables require a torso bone');
  root.updateMatrixWorld(true);
@@ -59,9 +60,14 @@ export function originalWearables(root:THREE.Group,bones:Set<THREE.Bone>,height:
   const mount=attach(0,height*.73,height*.046);const tex=new THREE.DataTexture(regaliaTextile(look.regalia),128,128,THREE.RGBAFormat);tex.colorSpace=THREE.SRGBColorSpace;tex.wrapS=tex.wrapT=THREE.RepeatWrapping;tex.repeat.set(2,2);tex.magFilter=THREE.LinearFilter;tex.minFilter=THREE.LinearMipmapLinearFilter;tex.generateMipmaps=true;tex.needsUpdate=true;textures.push(tex);
   const m=new THREE.Mesh(regaliaGeometry(),new THREE.MeshStandardMaterial({map:tex,metalness:.22,roughness:.53,side:THREE.DoubleSide}));mount.add(m);parts.push(m);
  }
+ if(look.mantle&&look.mantle!=='none'){
+  const mount=attach(0,height*.82,-height*.095);mantle=mantleGeometry();mantleBase=new Float32Array(mantle.getAttribute('position').array);
+  const tex=new THREE.DataTexture(regaliaTextile(look.mantle),128,128,THREE.RGBAFormat);tex.colorSpace=THREE.SRGBColorSpace;tex.wrapS=tex.wrapT=THREE.RepeatWrapping;tex.repeat.set(3,4);tex.needsUpdate=true;textures.push(tex);
+  const m=new THREE.Mesh(mantle,new THREE.MeshStandardMaterial({map:tex,roughness:.79,side:THREE.DoubleSide}));mount.add(m);parts.push(m);
+ }
  if(look.wings!=='none'){
   const mount=attach(0,height*.76,-height*.10);
   for(const side of [-1,1]){const hinge=new THREE.Group();hinge.position.x=side*.105;hinge.scale.x=side;mount.add(hinge);const m=new THREE.Mesh(aegisGeometry(),metal(look.wings==='celestial-aegis'?0xc9bd9d:0x253341));m.material.emissive.setHex(look.wings==='celestial-aegis'?0x57418a:0x0c5d52);m.material.emissiveIntensity=.2;hinge.add(m);parts.push(m);hinges.push(hinge);}
  }
- return {width:look.wings==='none'?0:height*1.22,tick:(dt:number)=>{time+=Math.min(.075,dt);hinges.forEach((h,i)=>{h.rotation.y=(i?1:-1)*(.18+.13*Math.sin(time*1.7));h.rotation.z=(i?1:-1)*.045*Math.sin(time*1.7+.6);});},dispose:()=>{for(const p of parts){p.geometry.dispose();(p.material as THREE.Material).dispose();}textures.forEach(t=>t.dispose());anchors.forEach(a=>a.removeFromParent());}};
+ return {width:look.wings==='none'?0:height*1.22,tick:(dt:number)=>{time+=Math.min(.075,dt);if(mantle&&mantleBase&&time-lastMantle>.067){lastMantle=time;animateMantle(mantle,mantleBase,time);}hinges.forEach((h,i)=>{h.rotation.y=(i?1:-1)*(.18+.13*Math.sin(time*1.7));h.rotation.z=(i?1:-1)*.045*Math.sin(time*1.7+.6);});},dispose:()=>{for(const p of parts){p.geometry.dispose();(p.material as THREE.Material).dispose();}textures.forEach(t=>t.dispose());anchors.forEach(a=>a.removeFromParent());}};
 }
