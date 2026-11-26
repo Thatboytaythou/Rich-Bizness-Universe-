@@ -17,6 +17,7 @@ export type SkinnedAvatarRuntime = {
   expression?: (value: AvatarExpression, strength?:number) => void;
   animateFace?: (dt:number) => void;
   assetLabel?:string;
+  accessoryWidth?:number;
   lookAt?:(target:THREE.Vector3|null)=>void;
   locomotionSpeed?: {walk:number;run:number};
   dispose?: () => void;
@@ -190,8 +191,8 @@ export function setAvatarMotion(runtime: SkinnedAvatarRuntime, motion: AvatarMot
   runtime.currentMotion = motion;
 }
 
-export function playAvatarGesture(runtime:SkinnedAvatarRuntime,name:string):number{
-  const next=runtime.actions.get(name);if(!next)return 0;const previous=runtime.currentAction;next.reset().setEffectiveWeight(1).setEffectiveTimeScale(1).setLoop(THREE.LoopOnce,1);next.clampWhenFinished=true;next.play();if(previous&&previous!==next)previous.crossFadeTo(next,.2,false);runtime.currentAction=next;runtime.currentMotion='power';return next.getClip().duration;
+export function playAvatarGesture(runtime:SkinnedAvatarRuntime,name:string,speed=1,blend=.2):number{
+  const next=runtime.actions.get(name);if(!next)return 0;const previous=runtime.currentAction;const rate=THREE.MathUtils.clamp(speed,.5,1.5);next.reset().setEffectiveWeight(1).setEffectiveTimeScale(rate).setLoop(THREE.LoopOnce,1);next.clampWhenFinished=true;next.play();if(previous&&previous!==next)previous.crossFadeTo(next,THREE.MathUtils.clamp(blend,.05,.65),false);runtime.currentAction=next;runtime.currentMotion='power';return next.getClip().duration/rate;
 }
 
 export function updateSkinnedAvatar(runtime: SkinnedAvatarRuntime, deltaSeconds: number): void {
