@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import {DISTRICTS,type District,type WorldAction,type Bounds} from './world.catalog';
 
-export type DistrictScene={group:THREE.Group;obstacles:Bounds[];markers:Map<string,THREE.Group>;setFurnishing:(value:string)=>void;tick:(time:number)=>void};
+export type DistrictScene={group:THREE.Group;obstacles:Bounds[];markers:Map<string,THREE.Group>;setFurnishing:(value:string)=>void;tick:(time:number,active?:string,cameraRotation?:THREE.Quaternion)=>void};
 export function createDistrictScene(district:District):DistrictScene{
   const group=new THREE.Group();group.name='rb-district-'+district;
   const obstacles:Bounds[]=[],markers=new Map<string,THREE.Group>();
@@ -29,12 +29,15 @@ export function createDistrictScene(district:District):DistrictScene{
     const pad=new THREE.Mesh(new THREE.CylinderGeometry(.65,.72,.08,32),mat(palette.black));pad.position.y=.04;marker.add(pad);
     const ring=new THREE.Mesh(new THREE.TorusGeometry(.61,.025,8,40),new THREE.MeshBasicMaterial({color:0xcbb57b}));ring.rotation.x=-Math.PI/2;ring.position.y=.092;marker.add(ring);
     const beacon=new THREE.Mesh(new THREE.OctahedronGeometry(.17),new THREE.MeshBasicMaterial({color:0x97e5b1}));beacon.position.y=1.1;marker.add(beacon);
-    const title=sign(action.label,1.8,.45);title.position.y=1.65;marker.add(title);group.add(marker);markers.set(action.id,marker);
+    const title=sign(action.label,1.65,.42);title.position.y=1.55;title.visible=false;marker.add(title);group.add(marker);markers.set(action.id,marker);
   };
   if(district==='personal'){
     plane(0,-3,12,18,palette.wood);
     // Open-front interior lets the third-person camera see the actual avatar.
     box(0,1.8,-12,12,3.6,.25,palette.stone);
+    // Deep ceiling perimeter closes the sky gap without occluding the follow camera.
+    box(0,3.72,-10.8,12,.24,2.4,palette.black);for(const x of [-5.4,5.4])box(x,3.72,-3,1.2,.24,18,palette.black);
+    box(0,1.45,-11.84,6.2,1.8,.09,palette.black);for(const x of [-3.1,3.1])box(x,1.45,-11.75,.06,1.84,.06,palette.brass);
     box(-6,1.8,-3,.22,3.6,18,palette.stone);box(6,1.8,-3,.22,3.6,18,palette.stone);
     for(let i=0;i<8;i++){box(-5.85,1.9,4-i*2.15,.08,2.7,1.8,palette.glass);box(-5.76,1.9,4-i*2.15,.07,2.8,.05,palette.brass);}
     // Lounge: sofa, cushions, table, media cabinet and textured architectural details.
@@ -68,7 +71,7 @@ export function createDistrictScene(district:District):DistrictScene{
     for(const z of [-12,-28,-44]){for(const x of [-6.2,6.2]){box(x,1.35,z,.1,2.7,.1,palette.black);const lamp=new THREE.Mesh(new THREE.BoxGeometry(.26,.32,.24),new THREE.MeshBasicMaterial({color:0xe4b665}));lamp.position.set(x,2.8,z);group.add(lamp);lightBeacons.push(lamp);}for(let x=-5;x<=5;x+=.8)box(x,.016,z,.42,.025,1.4,palette.cream);}
   }
   DISTRICTS[district].actions.forEach(portal);
-  return {group,obstacles,markers,setFurnishing:value=>{mat(palette.leather).color.setHex(value==='onyx'?0x26292e:value==='cognac'?0x92592f:0x275d48);},tick:time=>{lightBeacons.forEach((lamp,i)=>lamp.material.color.setHex(Math.floor(time/8+i/2)%2===0?0x6fcd8a:0xdba85c));for(const marker of markers.values()){const beacon=marker.children[2];if(beacon){beacon.rotation.y=time*.7;beacon.position.y=1.1+Math.sin(time*1.8)*.06;}}}};
+  return {group,obstacles,markers,setFurnishing:value=>{mat(palette.leather).color.setHex(value==='onyx'?0x26292e:value==='cognac'?0x92592f:0x275d48);},tick:(time,active,cameraRotation)=>{lightBeacons.forEach((lamp,i)=>lamp.material.color.setHex(Math.floor(time/8+i/2)%2===0?0x6fcd8a:0xdba85c));for(const [id,marker] of markers){const beacon=marker.children[2],title=marker.children[3];if(beacon){beacon.rotation.y=time*.7;beacon.position.y=.8+Math.sin(time*1.8)*.06;}if(title){title.visible=id===active;if(cameraRotation)title.quaternion.copy(cameraRotation);}}}};
 }
 export function moveWithinWorld(x:number,z:number,dx:number,dz:number,b:Bounds,obstacles:Bounds[]):[number,number]{
   const clamp=(v:number,a:number,c:number)=>Math.max(a,Math.min(c,v));
