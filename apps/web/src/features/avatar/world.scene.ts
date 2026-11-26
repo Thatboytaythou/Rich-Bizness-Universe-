@@ -11,7 +11,9 @@ export function createDistrictScene(district:District):DistrictScene{
   const texture=(c:number)=>{const canvas=document.createElement('canvas');canvas.width=canvas.height=256;const ctx=canvas.getContext('2d')!;ctx.fillStyle='#bcbcbc';ctx.fillRect(0,0,256,256);let state=12345+c;const random=()=>{state=(Math.imul(state,1664525)+1013904223)>>>0;return state/4294967296;};for(let i=0;i<2200;i++){const v=130+Math.floor(random()*115);ctx.fillStyle='rgba('+v+','+v+','+v+',.24)';ctx.fillRect(random()*256,random()*256,c===palette.wood?24:2,c===palette.wood?1:2);}if(c===palette.wood){for(let y=0;y<256;y+=32){ctx.fillStyle='#646464';ctx.fillRect(0,y,256,1);}}else if(c===palette.stone){ctx.strokeStyle='#9a9a9a';ctx.lineWidth=1;for(let n=0;n<256;n+=64){ctx.strokeRect(n,0,64,128);ctx.strokeRect(n,128,64,128);}}const t=new THREE.CanvasTexture(canvas);t.colorSpace=THREE.SRGBColorSpace;t.wrapS=t.wrapT=THREE.RepeatWrapping;surfaces.set(c,t);return t;};
   const mat=(c:number)=>{let m=materials.get(c);if(!m){m=new THREE.MeshStandardMaterial({color:c,roughness:c===palette.brass?.32:.74,metalness:c===palette.brass?.55:.05});if([palette.wood,palette.stone,palette.leather].includes(c))m.map=surfaces.get(c)??texture(c);materials.set(c,m);}return m;};
   const box=(x:number,y:number,z:number,w:number,h:number,d:number,c:number,collision=false,parent:THREE.Object3D=group)=>{
-    const mesh=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),mat(c));mesh.position.set(x,y,z);mesh.receiveShadow=true;parent.add(mesh);
+    const geometry=new THREE.BoxGeometry(w,h,d);
+    if([palette.wood,palette.stone,palette.leather].includes(c)){const uv=geometry.attributes.uv;const scales=[[d,h],[d,h],[w,d],[w,d],[w,h],[w,h]];for(let face=0;face<6;face++)for(let i=face*4;i<face*4+4;i++){uv.setXY(i,uv.getX(i)*Math.max(1,scales[face][0]/1.25),uv.getY(i)*Math.max(1,scales[face][1]/1.25));}uv.needsUpdate=true;}
+    const mesh=new THREE.Mesh(geometry,mat(c));mesh.position.set(x,y,z);mesh.receiveShadow=true;parent.add(mesh);
     if(collision)obstacles.push({minX:x-w/2,maxX:x+w/2,minZ:z-d/2,maxZ:z+d/2});
     return mesh;
   };
@@ -84,15 +86,4 @@ export function nearbyAction(actions:WorldAction[],x:number,z:number):WorldActio
   for(const a of actions){const d=Math.hypot(x-a.x,z-a.z);if(d<distance){best=a;distance=d;}}return best;
 }
 
-// Clip the orbit ray against expanded solid obstacles to keep the follow camera on the avatar's side.
-export function cameraClearance(x:number,z:number,tx:number,tz:number,obstacles:Bounds[]):number{
- const dx=tx-x,dz=tz-z;let fraction=1;
- for(const b of obstacles){let lo=0,hi=1;
-  for(const [start,delta,min,max] of [[x,dx,b.minX-.12,b.maxX+.12],[z,dz,b.minZ-.12,b.maxZ+.12]]){
-   if(Math.abs(delta)<1e-6){if(start<min||start>max){lo=2;break;}continue;}
-   const a=(min-start)/delta,c=(max-start)/delta;lo=Math.max(lo,Math.min(a,c));hi=Math.min(hi,Math.max(a,c));
-  }
-  if(lo<=hi&&lo>=0&&lo<=1)fraction=Math.min(fraction,Math.max(.08,lo-.06));
- }
- return fraction;
-}
+export {cameraClearance} from './world.camera';
