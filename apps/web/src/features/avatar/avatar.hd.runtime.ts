@@ -18,7 +18,7 @@ export async function createHDCharacter(gender:AvatarGender,raw:unknown,build:st
   root.updateMatrixWorld(true);const bounds=new THREE.Box3().setFromObject(root),height=hero.height;
   if(!Number.isFinite(height)||height<1||height>2.5||!Number.isFinite(bounds.min.y))throw Error('HD mesh invalid size');
   hero.scene.position.y-=bounds.min.y;root.updateMatrixWorld(true);bounds.setFromObject(root);
-  const clips:THREE.AnimationClip[]=[];const names:Record<string,string>={idle:'idle',walk:'walk',run:'run',jump:'jump',power:'cheer',wave:'wave','look around':'look_around',nod:'bow',stretch:'talk_gestures'};
+  const clips:THREE.AnimationClip[]=[];const names:Record<string,string>={idle:'idle',walk:'walk',run:'run',jump:'jump',power:'cheer',wave:'wave','look around':'look_around',bow:'bow','talk gestures':'talk_gestures'};
   mixer=new THREE.AnimationMixer(root);const actions=new Map<string,THREE.AnimationAction>();
   for(const [name,id] of Object.entries(names)){const src=hero.clip(id);if(!src||!src.tracks.length||!Number.isFinite(src.duration)||src.duration<=0)throw Error('Missing retargeted clip: '+id);const clip=src.clone();clip.name=name;clips.push(clip);actions.set(name,mixer.clipAction(clip,hero.scene));}
   const look=normalizeLook(raw);root.traverse(o=>{const m=o as THREE.Mesh;if(!m.isMesh)return;for(const mat of Array.isArray(m.material)?m.material:[m.material]){if((mat as THREE.MeshStandardMaterial).isMeshStandardMaterial&&/skin|body/i.test(mat.name)){(mat as THREE.MeshStandardMaterial).roughness=look.skinFinish==='matte'?.76:look.skinFinish==='soft-glow'?.49:.64;}}});
