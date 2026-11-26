@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import {nextRenderScale} from './avatar.render.budget';
 import {createCharacterLightMap} from './avatar.light-map';
 import { getAuthSnapshot } from '../../core/auth/auth-store';
 import { supabase } from '../../core/supabase/client';
@@ -40,6 +41,7 @@ function disposeObject(root: THREE.Object3D): void {
   root.traverse((object) => {
     const mesh = object as THREE.Mesh;
     if (!mesh.isMesh) return;
+    if((mesh as THREE.InstancedMesh).isInstancedMesh)(mesh as THREE.InstancedMesh).dispose();
     if(mesh.geometry)geometries.add(mesh.geometry);
     for (const material of (Array.isArray(mesh.material)?mesh.material:[mesh.material])){if(!material)continue;materials.add(material);for(const v of Object.values(material))if((v as THREE.Texture|undefined)?.isTexture)textures.add(v as THREE.Texture);}
   });textures.forEach(t=>t.dispose());materials.forEach(m=>m.dispose());geometries.forEach(g=>g.dispose());
@@ -125,6 +127,14 @@ function addStreetWorld(scene: THREE.Scene): THREE.Group {
     }
   }
 
+  // Original street planting: repeated branch silhouettes and faceted foliage in three GPU batches.
+  const treeTrunks:THREE.Matrix4[]=[],treeBranches:THREE.Matrix4[]=[],treeCanopies:THREE.Matrix4[]=[];
+  const plant=new THREE.Object3D();const place=(list:THREE.Matrix4[],x:number,y:number,z:number,sx:number,sy:number,sz:number,tilt=0)=>{plant.position.set(x,y,z);plant.rotation.set(0,0,tilt);plant.scale.set(sx,sy,sz);plant.updateMatrix();list.push(plant.matrix.clone());};
+  for(const x of [-10.1,10.1])for(let z=-9;z>=-81;z-=9){place(treeTrunks,x,1.55,z,.15,2.8,.15);for(const side of [-1,1]){place(treeBranches,x+side*.28,2.45,z,.07,1.1,.07,-side*.56);place(treeCanopies,x+side*.43,3.0,z+.14,.84,.93,.78);}place(treeCanopies,x,3.65,z,1.0,1.05,.88);}
+  const plants=(geometry:THREE.BufferGeometry,mat:THREE.Material,matrices:THREE.Matrix4[])=>{const mesh=new THREE.InstancedMesh(geometry,mat,matrices.length);matrices.forEach((m,i)=>mesh.setMatrixAt(i,m));mesh.instanceMatrix.needsUpdate=true;mesh.computeBoundingSphere();world.add(mesh);};
+  plants(new THREE.CylinderGeometry(.65,1,1,9),new THREE.MeshStandardMaterial({color:0x574231,roughness:.96}),treeTrunks);
+  plants(new THREE.CylinderGeometry(.38,1,1,7),new THREE.MeshStandardMaterial({color:0x604735,roughness:.9}),treeBranches);
+  plants(new THREE.IcosahedronGeometry(1,2),new THREE.MeshStandardMaterial({color:0x36583e,roughness:.86,flatShading:true}),treeCanopies);
   const carPositions = [
     [-4.9, -17, 0], [4.9, -31, Math.PI], [-4.9, -50, 0], [4.9, -67, Math.PI]
   ] as const;
@@ -389,7 +399,7 @@ export async function mount(): Promise<void> {
     raf=requestAnimationFrame(loop);
     if(document.hidden||!worldVisible){lastFrame=0;return;}if(now-lastFrame<(mobile?32:16))return;
     const interval=lastFrame?now-lastFrame:0;lastFrame=now;if(interval>0&&interval<250){averageFrame+=(interval-averageFrame)*.08;frameSamples++;}
-    if(frameSamples>30&&now-lastAdapt>3000){lastAdapt=now;const next=averageFrame>(mobile?48:32)?Math.max(.65,renderScale-.10):averageFrame<(mobile?37:21)?Math.min(1,renderScale+.06):renderScale;if(Math.abs(next-renderScale)>.01){renderScale=next;resize();}}
+    if(frameSamples>30&&now-lastAdapt>3000){lastAdapt=now;const next=nextRenderScale(renderScale,averageFrame,frameSamples,mobile);if(Math.abs(next-renderScale)>.01){renderScale=next;resize();}}
     if(now-lastTelemetry>1000){lastTelemetry=now;const status=root.querySelector<HTMLElement>('#alPerformance');if(status)status.textContent='~'+Math.round(1000/averageFrame)+' fps · '+Math.round(renderScale*100)+'% render scale';}
     const dt = Math.min(clock.getDelta(), .075);
     try{
