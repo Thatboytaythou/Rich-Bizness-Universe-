@@ -29,3 +29,26 @@ html,body{margin:0;min-height:100%;background:#dfeae4;color:#0c1711;font-family:
 .al-life button:disabled{opacity:.45}.al-life .al-presence{display:flex;align-items:center;gap:10px;min-height:44px}.al-presence input{width:22px;height:22px;accent-color:#c9b77e}
 .al-recording{display:grid;gap:10px;padding:12px;border:1px solid #425749;border-radius:12px;background:#0a1711}.al-record-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px}.al-recording audio{width:100%}.al-recording [hidden]{display:none!important}.al-recording a{color:#dfcb92}
 .al-shell .al-id,.al-shell .al-mode,.al-shell .al-aura,.al-shell .joystick,.al-shell .actions button{backdrop-filter:none;background:rgba(13,30,22,.92);color:#e6e8da;border:1px solid #58715e}.al-shell .al-id strong,.al-shell .al-id em{color:#e6e8da}.al-shell .actions button.active{background:#b6c786;color:#102019}
+
+/* V18: scene, identity strip and controls are distinct layout regions. */
+body[data-page="avatar"]{background:#080f0e;color:#e9eee9}
+.al-shell{padding-bottom:calc(100px + env(safe-area-inset-bottom))}
+.al-shell header{flex-wrap:wrap}
+.al-shell header nav{flex-wrap:wrap}
+.al-shell header nav a:nth-child(n){display:inline-flex;align-items:center;min-height:36px}
+.al-shell .al-play{width:min(1180px,100%);margin:auto;border:1px solid #40584a;background:#102019;border-radius:16px;overflow:hidden;display:grid;gap:0}
+.al-shell .al-hud{position:relative;inset:auto;display:flex;flex-wrap:wrap;align-items:center;gap:6px;pointer-events:auto;padding:9px 10px;z-index:auto;background:#102019}
+.al-shell .al-id,.al-shell .al-mode,.al-shell .al-aura{position:static;max-width:100%;box-shadow:none;border:0;padding:4px 6px;background:transparent}
+.al-shell .al-id{order:-1;flex:1 1 100px;min-width:0}
+.al-shell .al-id strong{overflow-wrap:anywhere;font-size:14px}
+.al-shell .al-mode,.al-shell .al-aura{font-size:9px;color:#d0bc8a}
+.al-shell .al-stage{position:relative;isolation:isolate;min-height:0;height:clamp(300px,54dvh,650px);width:100%;border-radius:0;box-shadow:none;background:#141d19}
+.al-shell .al-camera-tools{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;padding:8px;border-top:1px solid #40584a}
+.al-shell .al-camera-tools button{min-height:44px;border:1px solid #58715e;border-radius:9px;background:#142620;color:#e6e8da;font-size:10px;font-weight:800}
+.al-shell .al-camera-tools button[aria-pressed="true"]{background:#b6c786;color:#102019}
+.al-shell .al-controls{position:relative;inset:auto;z-index:auto;display:grid;grid-template-columns:82px minmax(0,1fr);align-items:center;padding:8px 10px 12px;gap:10px;pointer-events:auto}
+.al-shell .al-controls .joystick{width:78px;height:78px;box-shadow:none}
+.al-shell .al-controls .actions{grid-template-columns:repeat(2,minmax(0,1fr))}
+.al-shell .al-controls .actions button{min-height:44px;box-shadow:none}
+.al-shell .al-loading{max-width:90%;white-space:normal;border-radius:12px;text-align:center;line-height:1.5;background:#12291e;color:#e5eee3}
+@media(max-width:760px){.al-shell .al-stage{height:clamp(285px,48dvh,475px)}.al-shell .al-controls{grid-template-columns:76px minmax(0,1fr)}.al-shell .al-controls .joystick{width:72px;height:72px}.al-shell .al-id{flex:1 1 100%}.al-shell .al-districts a{font-size:11px}.al-shell header nav a{font-size:10px}}
