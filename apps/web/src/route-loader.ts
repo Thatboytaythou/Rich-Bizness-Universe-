@@ -99,8 +99,9 @@ const gameRegistration = (slug: string): PageRegistration => {
     'golf-green-gold': () => import('./pages/games/golf-green-gold.page'),
     'gym-grind-reps': () => import('./pages/games/gym-grind-reps.page'),
     'cash-rain-catcher': () => import('./pages/games/cash-rain-catcher.page'),
-    'portal-dash': () => import('./pages/games/portal-dash.page'),
-    'bizness-party-room': () => import('./pages/games/bizness-party-room.page'),
+    // Portal Dash has a dedicated standalone entry at /portal-dash.html.
+    // It is intentionally not registered through the generic game mount loader.
+    // Bizness Party Room has no mounted page module yet; keep its standalone entry out of the SPA loader.
     'rich-color-clash': () => import('./pages/games/rich-color-clash.page'),
     'rich-spades-royale': () => import('./pages/games/rich-spades-royale.page'),
     'rich-checkers-elite': () => import('./pages/games/rich-checkers-elite.page'),

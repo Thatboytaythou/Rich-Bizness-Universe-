@@ -8,6 +8,7 @@ const AUTH_TIMEOUT_MS = 4_000;
 
 let snapshot: AuthSnapshot = Object.freeze({ session: null, user: null, ready: false });
 let initializePromise: Promise<AuthSnapshot> | null = null;
+let authEventRevision = 0;
 const listeners = new Set<Listener>();
 
 function publish(next: AuthSnapshot): AuthSnapshot {
@@ -43,26 +44,34 @@ export function subscribeAuth(listener: Listener): () => void {
 }
 
 async function resolveVerifiedSession(): Promise<AuthSnapshot> {
+  const startingRevision = authEventRevision;
   const current = await withTimeout(
     supabase.auth.getSession(),
     { data: { session: null }, error: null }
   );
+
+  if (authEventRevision !== startingRevision) return snapshot;
 
   const session = current.data.session;
   if (current.error || !session) {
     return publish({ session: null, user: null, ready: true });
   }
 
-  const verified = await withTimeout(
+  const verification = await withTimeout(
     supabase.auth.getUser(session.access_token),
     { data: { user: null }, error: null }
   );
 
-  if (!verified.data.user) {
-    return publish({ session: null, user: null, ready: true });
+  if (authEventRevision !== startingRevision) return snapshot;
+
+  if (!verification.data.user) {
+    // Do not equate a timed-out request with an invalid persisted session.
+    // The SDK auth listener remains authoritative and can settle the state.
+    if (!verification.error) return snapshot;
+    return publish({ session, user: session.user, ready: true });
   }
 
-  return publish({ session, user: verified.data.user, ready: true });
+  return publish({ session, user: verification.data.user, ready: true });
 }
 
 export function initializeAuth(): Promise<AuthSnapshot> {
@@ -76,5 +85,6 @@ export function initializeAuth(): Promise<AuthSnapshot> {
 }
 
 supabase.auth.onAuthStateChange((_event, session) => {
+  authEventRevision += 1;
   publish({ session, user: session?.user ?? null, ready: true });
 });

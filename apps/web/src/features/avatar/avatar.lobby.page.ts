@@ -228,11 +228,21 @@ export async function mount(): Promise<void> {
   scene.add(rim);
   world = addStreetWorld(scene);
 
-  avatarRuntime = await loadSkinnedAvatar({
-    modelUrl: resolveAvatarModelUrl(snap as Record<string, any>, gender),
-    targetHeight: gender === 'girl' ? 1.72 : 1.82,
-    signal: abort.signal
-  });
+  const selectedModel = snap.model ?? null;
+  const expectedBody = gender === 'girl' ? 'female' : 'male';
+  const modelMatchesGender = String(selectedModel?.body_type ?? '').toLowerCase() === expectedBody;
+  try {
+    avatarRuntime = await loadSkinnedAvatar({
+      modelUrl: await resolveAvatarModelUrl({ model: modelMatchesGender ? selectedModel : null }, gender, abort.signal),
+      animationUrl: String(selectedModel?.metadata?.animation_url ?? '') || null,
+      targetHeight: gender === 'girl' ? 1.72 : 1.82,
+      signal: abort.signal
+    });
+  } catch (error) {
+    const loading = root.querySelector<HTMLElement>('#avatarLoading');
+    if (loading) loading.textContent = `RICH BIZNESS CHARACTER ASSET REQUIRED: ${error instanceof Error ? error.message : 'UNKNOWN ERROR'}`;
+    return;
+  }
   if (!isCurrent()) { disposeSkinnedAvatar(avatarRuntime); return; }
   avatarRuntime.root.position.set(0, 0, 1.6);
   scene.add(avatarRuntime.root);

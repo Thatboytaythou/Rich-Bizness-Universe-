@@ -1,4 +1,4 @@
-import { getAuthSnapshot } from '../../core/auth/auth-store';
+import { getAuthSnapshot, initializeAuth, subscribeAuth } from '../../core/auth/auth-store';
 import './home.css';
 
 const BACKGROUND='/images/0E886281-8F03-4288-B3CA-C45369B7B58E.png';
@@ -12,9 +12,9 @@ export async function mountHomePage():Promise<void>{
   const isCurrent=()=>!disposed&&app.dataset.pageEpoch===mountEpoch&&app.dataset.pageOwner===HOME_OWNER;
   if(!isCurrent())return;
 
-  const signedIn=Boolean(getAuthSnapshot().user);
-  const primaryHref=signedIn?'/portal.html':'/tap-in.html?next=%2Fportal.html';
-  const primaryLabel=signedIn?'ENTER UNIVERSE':'TAP IN';
+  const initialAuth=getAuthSnapshot();
+  const primaryHref=initialAuth.ready&&initialAuth.user?'/portal.html':'/tap-in.html?next=%2Fportal.html';
+  const primaryLabel=initialAuth.ready?(initialAuth.user?'ENTER UNIVERSE':'TAP IN'):'CHECKING RICH ID…';
 
   app.innerHTML=`<main class="rb-home" style="--rb-home-bg:url('${BACKGROUND}')">
     <div class="rb-home__bg" aria-hidden="true"></div>
@@ -48,7 +48,10 @@ export async function mountHomePage():Promise<void>{
     </section>
   </main>`;
 
-  const cleanup=()=>{if(disposed)return;disposed=true;};
+  const renderAuth=(state=getAuthSnapshot())=>{if(!isCurrent())return;const href=state.ready&&state.user?'/portal.html':'/tap-in.html?next=%2Fportal.html';const label=!state.ready?'CHECKING RICH ID…':state.user?'ENTER UNIVERSE':'TAP IN';app.querySelectorAll<HTMLAnchorElement>('.rb-home__enter,.rb-home__actions .primary,.rb-home__gateway').forEach(link=>{link.href=href;const target=link.querySelector('small')??link;target.textContent=label;link.setAttribute('aria-label',label);});};
+  const unsubscribe=subscribeAuth(renderAuth);
+  void initializeAuth().then(renderAuth);
+  const cleanup=()=>{if(disposed)return;disposed=true;unsubscribe();};
   (window as Window&{__rbPageCleanup?:(()=>void|Promise<void>)|null}).__rbPageCleanup=cleanup;
   window.addEventListener('pagehide',cleanup,{once:true});
   window.addEventListener('beforeunload',cleanup,{once:true});
