@@ -14,7 +14,7 @@
     "build": "npm run validate && npm run build --workspace @rich-bizness/web",
     "preview": "npm run preview --workspace @rich-bizness/web",
     "typecheck": "tsc -p tsconfig.base.json --noEmit",
-    "validate": "node scripts/validate-env.mjs && node scripts/validate-routes.mjs && node scripts/validate-packages.mjs && node scripts/validate-section-updates.mjs",
+    "validate": "node scripts/validate-env.mjs && node scripts/validate-routes.mjs && node scripts/validate-packages.mjs && node scripts/validate-section-updates.mjs && node scripts/validate-character-motion.mjs",
     "validate:packages": "node scripts/validate-packages.mjs",
     "test": "npm run typecheck"
   },
