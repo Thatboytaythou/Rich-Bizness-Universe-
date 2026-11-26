@@ -181,7 +181,7 @@ async function createLegacyTexturedAvatar(gender:AvatarGender,raw:unknown,build=
       neutral:{},smile:{mouthSmile:.58,eyeSquintLeft:.15,eyeSquintRight:.15},
       focused:{browDownLeft:.32,browDownRight:.32,eyeSquintLeft:.27,eyeSquintRight:.27,mouthPress:.2},
       surprised:{jawOpen:.32,eyeWideLeft:.46,eyeWideRight:.46,browInnerUpLeft:.44,browInnerUpRight:.44},
-      confident:{mouthSmile:.25,browOuterUpLeft:.28,eyeSquintRight:.10}
+      confident:{mouthSmile:.25,browOuterUpLeft:.28,eyeSquintRight:.10},laugh:{mouthSmile:.8,jawOpen:.36,eyeSquintLeft:.35,eyeSquintRight:.35},sad:{browInnerUpLeft:.35,browInnerUpRight:.35,mouthFrownLeft:.45,mouthFrownRight:.45},angry:{browDownLeft:.65,browDownRight:.65,mouthPress:.45,eyeSquintLeft:.32,eyeSquintRight:.32}
     };
     const names=avatar.expressionNames.filter(n=>Object.values(moods).some(m=>n in m)||n==='eyeBlinkLeft'||n==='eyeBlinkRight');
     const weights:Record<string,number>={};let mood:AvatarExpression='neutral',strength=1,faceTime=0,nextBlink=2.7;
