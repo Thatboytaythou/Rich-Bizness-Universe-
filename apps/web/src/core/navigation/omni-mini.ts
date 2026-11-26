@@ -33,6 +33,13 @@ const pages = new Set<string>(destinations.map(([key]) => key));
 pages.delete('portal');
 const HOST_ID = 'rb-omni-mini';
 const css = `
+:host([data-character-flow]){position:relative!important;inset:auto!important;z-index:auto!important;display:flex!important;flex-wrap:wrap;justify-content:space-between;gap:8px;max-width:100%;padding:6px 0;background:transparent;border:0}
+:host([data-character-flow]) .trigger{order:0;float:none;flex:0 0 auto;margin-left:auto}
+:host([data-character-flow]) .panel{position:static!important;inset:auto!important;order:1;width:100%;max-height:none;box-shadow:none;border-radius:12px;flex:1 1 100%}
+:host([data-character-flow]) .panel[hidden]{display:none!important}
+:host([data-character-flow]) .dock-label{align-self:center}
+:host([data-character-flow]) .journey-links{grid-template-columns:repeat(3,minmax(0,1fr))}
+
 :host([data-docked]){position:relative;right:auto;bottom:auto;z-index:70;display:flex;justify-content:flex-end;align-items:center;gap:10px;min-height:54px;padding:6px 12px;background:#0b1913;border-bottom:1px solid #385243;pointer-events:auto}
 :host([data-docked]) .trigger{width:44px;height:44px;float:none;box-shadow:none}
 :host([data-docked]) .panel,:host([data-inline]) .panel{position:fixed;inset:auto 12px max(16px,env(safe-area-inset-bottom)) auto;z-index:1000;width:min(370px,calc(100vw - 24px));max-height:75dvh}
@@ -65,6 +72,7 @@ export function mountOmniMini(page: string, failure = false): void {
   if (existing) { if (failure) existing.dataset.bootFailed = 'true'; return; }
   const host = document.createElement('div');
   host.id = HOST_ID;
+  if(page==='avatar'||page==='avatar-characters')host.dataset.characterFlow='true';
   if (failure) host.dataset.bootFailed = 'true';
   const shadow = host.attachShadow({mode:'open'});
   const style = document.createElement('style'); style.textContent = css;
