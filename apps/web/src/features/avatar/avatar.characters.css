@@ -53,3 +53,23 @@ body[data-page="avatar-characters"] .ac-shell{min-height:100dvh;max-width:1280px
 
 /* V10: one touch-friendly selection surface for the actual textured human. */
 .ac-picker{border:1px solid #385b41;border-radius:12px;background:#0a1a10;min-width:0}.ac-picker summary{min-height:44px;display:flex;align-items:center;padding:8px 12px;color:#e6c679;font-size:12px;font-weight:800;cursor:pointer;list-style:none}.ac-picker summary::-webkit-details-marker{display:none}.ac-picker summary::after{content:'+';margin-left:auto}.ac-picker[open] summary::after{content:'−'}.ac-choice-grid{display:grid;gap:12px;padding:8px 10px 12px}.ac-choice-grid fieldset{border:0;padding:0;margin:0;min-width:0}.ac-choice-grid legend{font-size:11px;text-transform:uppercase;color:#b3c9b7;font-weight:800;margin-bottom:6px}.ac-choices{display:grid;grid-template-columns:repeat(auto-fit,minmax(86px,1fr));gap:6px}.ac-shell .ac-choices button{display:flex;align-items:center;justify-content:center;gap:5px;padding:7px;line-height:1.2;text-transform:capitalize;font-size:11px;min-height:44px}.ac-swatch{width:17px;height:17px;border-radius:50%;border:1px solid #b9d3bd;flex-shrink:0}.ac-shell .ac-asset-note{font-size:11px;line-height:1.45;color:#a9c5ad}.ac-shell .ac-viewport{background:#10251a}@media(max-width:860px){.ac-shell .ac-viewport{height:clamp(285px,45dvh,440px)}}
+
+/* V11 hybrid character atelier — scoped to Avatar Studio. */
+body[data-page="avatar-characters"]{background:radial-gradient(ellipse at 50% 0%,#183128 0%,#080f0e 58%);}
+.ac-shell .ac-stage,.ac-shell .ac-editor{background:linear-gradient(155deg,#14241f,#0a1412 68%);border-color:#425247;box-shadow:0 14px 40px #0004}
+.ac-shell .ac-viewport{background:#08100e;height:clamp(320px,56dvh,690px)}
+.ac-shell .ac-viewport::after{content:"RICH BIZNESS / CHARACTER ATELIER";position:absolute;top:12px;left:12px;font-size:9px;font-weight:800;letter-spacing:.15em;color:#d8c28b;pointer-events:none}
+.ac-shell .ac-stage-controls{padding:12px;gap:8px}
+.ac-shell .ac-style-cards{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.ac-shell .ac-style-cards button{display:grid;justify-items:start;align-content:space-between;min-height:94px;text-align:left;padding:12px;background:linear-gradient(140deg,#25352d,#101b17);border:1px solid #4c5b4a}
+.ac-shell .ac-style-cards button i{font-style:normal;font-size:21px;color:#d7bd7a}
+.ac-shell .ac-style-cards button strong{font-size:12px}.ac-shell .ac-style-cards button small{font-size:10px;font-weight:500;color:#b7c6ba}
+.ac-shell .ac-style-cards button.active{border-color:#f2d281;background:linear-gradient(140deg,#3d5032,#1c3027);color:#fff4d8;box-shadow:inset 0 0 0 1px #b5c17c}
+.ac-shell .ac-category-tabs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
+.ac-shell .ac-category-tabs button[aria-pressed="true"]{background:#c5d797;color:#102019;border-color:#e0d9a0}
+.ac-shell .ac-picker{background:#0b1714;border-color:#35483c}
+.ac-shell .ac-choices button{min-height:52px;background:#142620;border-color:#3d5145}
+.ac-shell .ac-choices button.active{background:#c5d797;color:#102019;border-color:#e0d9a0}
+.ac-shell .ac-swatch{width:24px;height:24px}
+.ac-shell .ac-picker legend{letter-spacing:.07em}
+@media(max-width:860px){.ac-shell .ac-viewport{height:clamp(300px,48dvh,465px)}.ac-shell .ac-editor{padding:13px}.ac-shell .ac-stage-controls{padding:9px}}
