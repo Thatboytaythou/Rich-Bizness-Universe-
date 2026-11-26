@@ -13,6 +13,7 @@ export type SkinnedAvatarRuntime = {
   height: number;
   currentMotion: AvatarMotion;
   currentAction: THREE.AnimationAction | null;
+  dispose?: () => void;
 };
 
 const DEFAULT_MODEL_URLS: Record<AvatarGender, string> = {
@@ -192,6 +193,7 @@ export function refreshAvatarBounds(runtime: SkinnedAvatarRuntime): THREE.Box3 {
 }
 
 export function disposeSkinnedAvatar(runtime: SkinnedAvatarRuntime): void {
+  if(runtime.dispose){runtime.dispose();return;}
   runtime.mixer.stopAllAction();runtime.mixer.uncacheRoot(runtime.root);
   const geometries=new Set<THREE.BufferGeometry>(),materials=new Set<THREE.Material>(),textures=new Set<THREE.Texture>(),skeletons=new Set<THREE.Skeleton>();
   runtime.root.traverse(object=>{
