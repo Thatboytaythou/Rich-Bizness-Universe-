@@ -33,6 +33,9 @@ pages.delete('portal');
 const HOST_ID = 'rb-omni-mini';
 const css = `
 :host{all:initial;position:fixed;right:max(10px,env(safe-area-inset-right));bottom:calc(max(72px,env(safe-area-inset-bottom) + 56px));z-index:850;display:block;color:#f5f8f0;font:13px/1.4 system-ui,-apple-system,sans-serif;pointer-events:none}
+:host([data-inline]){position:relative;right:auto;bottom:auto;z-index:auto;display:block}
+:host([data-inline]) .trigger{width:46px;height:46px;float:none;box-shadow:none}
+:host([data-inline]) .panel{bottom:auto;top:calc(100% + 8px);z-index:20;max-height:60dvh}
 *,*::before,*::after{box-sizing:border-box}
 button,a{font:inherit;color:inherit;cursor:pointer;-webkit-tap-highlight-color:transparent}
 button:focus-visible,a:focus-visible{outline:2px solid #f6d17d;outline-offset:3px}
@@ -84,7 +87,7 @@ export function mountOmniMini(page: string, failure = false): void {
     const canvas=app?.querySelector<HTMLCanvasElement>('canvas');
     const render=canvas?.dataset.rbRenderState ?? (canvas?'Canvas present (not verified)':'No canvas on this page');
     report.textContent=[
-      'Release: avatar-live-recovery-1','Section: '+page,'Path: '+location.pathname,
+      'Release: '+(app?.dataset.rbStudioRelease??'avatar-live-recovery-1'),'Section: '+page,'Path: '+location.pathname,
       'Page: '+(host.dataset.bootFailed==='true'?'Bootstrap error':app?.dataset.pageMounted==='true'?'Controller mounted':'Not confirmed'),
       'Owner: '+(app?.dataset.pageOwner??'not assigned'),
       'Identity: '+(!auth.ready?'checking':auth.user?'signed in':'guest'),
@@ -109,5 +112,14 @@ export function mountOmniMini(page: string, failure = false): void {
   window.addEventListener('resize',refresh);
   window.addEventListener('online',refresh);window.addEventListener('offline',refresh);
   window.addEventListener('pagehide',(event)=>{if(event.persisted)return;unsubscribe();window.removeEventListener('resize',refresh);window.removeEventListener('online',refresh);window.removeEventListener('offline',refresh);host.remove();});
-  shadow.append(style,panel,trigger);document.body.append(host);update();
+  shadow.append(style,panel,trigger);
+  document.body.append(host);
+  let slotObserver:MutationObserver|undefined;
+  if(page==='avatar-characters'){
+    const place=()=>{const slot=document.getElementById('acOmniSlot');if(slot&&host.parentElement!==slot){host.dataset.inline='true';slot.append(host);}};
+    place();
+    if(!host.dataset.inline){slotObserver=new MutationObserver(()=>{place();if(host.dataset.inline)slotObserver?.disconnect();});slotObserver.observe(document.getElementById('app')??document.body,{childList:true,subtree:true});}
+    window.addEventListener('pagehide',()=>slotObserver?.disconnect(),{once:true});
+  }
+  update();
 }
