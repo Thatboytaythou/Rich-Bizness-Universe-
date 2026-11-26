@@ -203,6 +203,6 @@ async function createLegacyTexturedAvatar(gender:AvatarGender,raw:unknown,build=
 export async function createTexturedAvatar(gender:AvatarGender,raw:unknown,build='athletic',quality:'auto'|'detail'='auto'):Promise<SkinnedAvatarRuntime>{
  const recipe=hdRecipe(gender,raw,build);
  if(recipe.params){const {createHDCharacter}=await import('./avatar.hd.runtime');return createHDCharacter(gender,raw,build,quality);}
- const look=normalizeLook(raw);if(look.collection!=='none'||look.facialHair!=='none'||look.earrings!=='none'||look.tattooArt!=='none'||look.presence!=='natural')throw Error('Elite requires HD-compatible selections: '+recipe.unsupported.join(', '));
+ const look=normalizeLook(raw);if(look.collection!=='none'||look.facialHair!=='none'||look.earrings!=='none'||look.tattooArt!=='none'||look.presence!=='natural'||look.eliteJewelry!=='collection'||look.identityMode!=='human')throw Error('Elite requires HD-compatible selections: '+recipe.unsupported.join(', '));
  const legacy=await createLegacyTexturedAvatar(gender,raw,build,quality);legacy.assetLabel='Compatibility mesh · HD unavailable for '+recipe.unsupported.join(', ');return legacy;
 }
