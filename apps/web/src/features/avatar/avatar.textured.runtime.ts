@@ -1,5 +1,7 @@
 import * as THREE from 'three';
 import {bakeGroundedGait} from './avatar.contact-motion';
+import {capturedMotion} from './avatar.captured-motion';
+import {attachCharacterDetail} from './avatar.surface-detail';
 import {HumanAvatar,loadHumanPackage,type HumanPackage,type HumanConfig} from './vendor/humanforge/runtime';
 import {normalizeLook,SCULPT_FIELDS,type CharacterLook} from './avatar.character.config';
 import type {AvatarGender,AvatarExpression,SkinnedAvatarRuntime} from './avatar.skinned.runtime';
@@ -20,7 +22,7 @@ const pkg=()=>packagePromise??=loadHumanPackage(ASSETS,{
     try{return await new THREE.TextureLoader().loadAsync(local);}finally{URL.revokeObjectURL(local);}
   }
 }).catch(error=>{packagePromise=null;throw error;});
-const hairIds:Record<string,string|null>={fade:'short01',curls:'afro01',braids:'braid01',long:'long01',bald:null};
+const hairIds:Record<string,string|null>={fade:'short01',curls:'afro01',braids:'braid01',long:'long01',bald:null,'short-crop':'short04','short-swept':'short02','short-classic':'short03',ponytail:'ponytail01',bob:'bob02','blunt-bangs':'cortu_straight_bangs',bun:'rehmanpolanski_hair_bun_brown','natural-volume':'culturalibre_hair_01'};
 const colors:Record<string,string>={black:'#1a1412','dark-brown':'#34251e',brown:'#69452b',blond:'#b89b67',silver:'#a6a3a2'};
 const shoes:Record<string,string>={sneakers:'shoes01',boots:'shoes03','high-tops':'shoes02'};
 export function humanConfig(gender:AvatarGender,look:CharacterLook,build:string):Partial<HumanConfig>{
@@ -28,18 +30,21 @@ export function humanConfig(gender:AvatarGender,look:CharacterLook,build:string)
   const skinBase=look.skin==='deep'||look.skin==='warm'?'african':look.skin==='tan'?'asian':'caucasian';
   const outfit=male?({casual:'male_casualsuit02',sport:'male_casualsuit04',formal:'male_elegantsuit01',workwear:'male_worksuit01'} as Record<string,string>)[look.outfit]:({casual:'female_casualsuit01',sport:'female_sportsuit01',formal:'female_elegantsuit01',workwear:'female_casualsuit02'} as Record<string,string>)[look.outfit];
   const detail:Record<string,number>={jaw:look.jaw==='square'?.6:look.jaw==='narrow'?-.55:0,headSquare:look.face==='strong'?.45:0,headOval:look.face==='soft'?.45:0,cheekBones:look.face==='angular'?.40:0,eyeOpening:look.eyeShape==='open'?.45:look.eyeShape==='narrow'?-.4:0,noseWidth:look.nose==='wide'?.55:look.nose==='narrow'?-.55:0,noseDepth:look.nose==='prominent'?.65:0,mouthWidth:look.mouth==='wide'?.55:0,upperLip:look.mouth==='full'?.55:look.mouth==='thin'?-.55:0,lowerLip:look.mouth==='full'?.55:look.mouth==='thin'?-.55:0,browAngle:look.brows==='arched'?.45:look.brows==='straight'?-.35:0};
-  for(const key of SCULPT_FIELDS)detail[key]=Number(look[key])/100*.65;
-  return {gender:male?1:0,age:.19,muscle:build==='heroic'?.85:build==='lean'?.3:.6,weight:look.weight==='heavy'?.72:look.weight==='slim'?.28:.5,height:look.height==='tall'?.75:look.height==='short'?.25:.5,detail,skin:'young_'+skinBase+'_'+sex,skinTint:look.skin==='deep'?'#d8c5b5':look.skin==='tan'?'#d8bd9e':'#ffffff',eyes:look.eyes==='hazel'?'brownlight':look.eyes,hair:hairIds[look.hair]??null,hairColor:colors[look.hairColor]??colors.black,eyebrowColor:colors[look.hairColor]??colors.black,eyebrows:'eyebrow001',eyelashes:'eyelashes01',clothes:[outfit,shoes[look.shoes]]};
+  for(const key of SCULPT_FIELDS){const value=Number(look[key])/100*.65;detail[key]=THREE.MathUtils.clamp((detail[key]??0)+value,-1,1);}
+  const maturity=look.maturity==='older'?'old':look.maturity==='mature'?'middleage':'young';
+  const headwear=look.hat==='fedora'?'fedora01':look.hat==='tilted-fedora'?'fedora_cocked':null;
+  return {gender:male?1:0,age:look.maturity==='older'?.72:look.maturity==='mature'?.40:.19,muscle:build==='heroic'?.85:build==='lean'?.3:.6,weight:look.weight==='heavy'?.72:look.weight==='slim'?.28:.5,height:look.height==='tall'?.75:look.height==='short'?.25:.5,detail,skin:maturity+'_'+skinBase+'_'+sex,skinTint:look.skin==='deep'?'#d8c5b5':look.skin==='tan'?'#d8bd9e':'#ffffff',eyes:look.eyes==='hazel'?'brownlight':look.eyes,hair:hairIds[look.hair]??null,hairColor:colors[look.hairColor]??colors.black,eyebrowColor:colors[look.hairColor]??colors.black,eyebrows:look.browStyle==='natural'?'eyebrow001':'eyebrow00'+look.browStyle.slice(-1),eyelashes:'eyelashes01',clothes:[outfit,shoes[look.shoes],...(headwear?[headwear]:[])]};
 }
 export async function createTexturedAvatar(gender:AvatarGender,raw:unknown,build='athletic',quality:'auto'|'detail'='auto'):Promise<SkinnedAvatarRuntime>{
   const look=normalizeLook(raw),p=await pkg(),config=humanConfig(gender,look,build);
   // Refuse partial/unclothed assets. All required slots must exist and load.
   for(const id of config.clothes??[])if(!p.manifest.proxies.some(x=>x.kind==='clothes'&&x.id===id))throw Error('Wardrobe asset unavailable');
   const avatar=new HumanAvatar(p);const mobile=matchMedia('(pointer:coarse),(max-width:860px)').matches;avatar.textureSize=mobile&&quality!=='detail'?'1k':'2k';avatar.anisotropy=mobile&&quality!=='detail'?2:4;avatar.normalMaps=!mobile||quality==='detail';
-  let mixer:THREE.AnimationMixer|undefined;
+  let mixer:THREE.AnimationMixer|undefined;let surface:ReturnType<typeof attachCharacterDetail>|undefined;
   try{
     await avatar.setConfig(config);
     for(const id of config.clothes??[])if(!avatar.group.getObjectByName('clothes-'+id))throw Error('Wardrobe did not load completely');
+    surface=attachCharacterDetail(avatar.group,look,quality==='detail'||!mobile);
     const root=new THREE.Group();root.name='rb-textured-human';root.add(avatar.group);root.updateMatrixWorld(true);
     const bone=(name:string)=>avatar.bones.find(b=>b.name.endsWith(':'+name));
     // Fit relaxed arm pose in world space, preserving the skeleton's bind transforms.
@@ -71,6 +76,8 @@ export async function createTexturedAvatar(gender:AvatarGender,raw:unknown,build
         const b=bone(n);if(!b||!b.parent)continue;
         const inverse=b.parent.getWorldQuaternion(new THREE.Quaternion()).invert(),rest=b.quaternion.clone();
         const values=t.flatMap(time=>{const a=angles(n,time/duration);
+          const captured=name==='walk'||name==='run'?capturedMotion(name,n,time/duration):null;
+          if(captured)for(let axis=0;axis<3;axis++)a[axis]=a[axis]*.52+captured[axis]*.48;
           if(/Hand(Index|Middle|Ring|Pinky|Thumb)[123]$/.test(n)){
             const amount=(/Thumb/.test(n)?.065:.16)+.055*Math.sin(time/duration*Math.PI*2);const sign=n.startsWith('Left')?1:-1;
             return rest.clone().multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1,0,0),sign*amount)).toArray();
@@ -86,8 +93,8 @@ export async function createTexturedAvatar(gender:AvatarGender,raw:unknown,build
     };
     const idle=makeClip('idle',5.2,(n,p)=>{
       const a=p*Math.PI*2,s=Math.sin(a),c=Math.cos(a),side=n.startsWith('Left')?1:-1;
-      if(n==='Hips')return [0,.025*s,.025*c];
-      if(n==='Spine')return [.014*s,-.018*s,-.016*c];
+      if(n==='Hips')return [0,.025*s,.024+.025*c];
+      if(n==='Spine')return [.014*s,-.018*s,-.012-.016*c];
       if(n==='Spine1')return [.025*s,0,-.010*c];
       if(n==='Head')return [.024*c,.06*s,.012*s];
       if(n.endsWith('Arm')&&!n.endsWith('ForeArm'))return [.045+.025*s,0,side*.025*c];
@@ -162,13 +169,14 @@ export async function createTexturedAvatar(gender:AvatarGender,raw:unknown,build
     const weights:Record<string,number>={};let mood:AvatarExpression='neutral',strength=1,faceTime=0,nextBlink=2.7;
     const expression=(value:AvatarExpression,intensity=1)=>{if(value in moods){mood=value;strength=THREE.MathUtils.clamp(intensity,0,1);}};
     const animateFace=(dt:number)=>{
-      faceTime+=dt;
+      faceTime+=dt;surface?.tick(dt,currentMotion());
       if(faceTime>nextBlink+.2)nextBlink=faceTime+2.5+Math.random()*2.5;
       const blink=faceTime>=nextBlink?Math.sin(Math.PI*THREE.MathUtils.clamp((faceTime-nextBlink)/.2,0,1)):0;
       for(const n of names){const target=n.startsWith('eyeBlink')?blink:(moods[mood][n]??0)*strength;
         const w=THREE.MathUtils.lerp(weights[n]??0,target,1-Math.exp(-dt*(n.startsWith('eyeBlink')?35:9)));if(Math.abs(w-(weights[n]??0))>.001){weights[n]=w;avatar.setExpression(n,w);}}
     };
+    let runtime:SkinnedAvatarRuntime;const currentMotion=()=>runtime?.currentMotion??'idle';
     mixer=new THREE.AnimationMixer(root);const actions=new Map(clips.map(c=>[c.name,mixer!.clipAction(c)]));
-    return {root,mixer,actions,clips,bounds,height,currentMotion:'idle',currentAction:null,expression,animateFace,locomotionSpeed:{walk:walk.speed,run:run.speed},dispose:()=>{mixer?.stopAllAction();mixer?.uncacheRoot(root);const skeletons=new Set<THREE.Skeleton>();root.traverse(o=>{if((o as THREE.SkinnedMesh).isSkinnedMesh)skeletons.add((o as THREE.SkinnedMesh).skeleton);});avatar.dispose();skeletons.forEach(s=>s.dispose());root.clear();}};
-  }catch(error){avatar.dispose();throw error;}
+    runtime={root,mixer,actions,clips,bounds,height,currentMotion:'idle',currentAction:null,expression,animateFace,locomotionSpeed:{walk:walk.speed,run:run.speed},dispose:()=>{mixer?.stopAllAction();mixer?.uncacheRoot(root);const skeletons=new Set<THREE.Skeleton>();root.traverse(o=>{if((o as THREE.SkinnedMesh).isSkinnedMesh)skeletons.add((o as THREE.SkinnedMesh).skeleton);});surface?.dispose();avatar.dispose();skeletons.forEach(s=>s.dispose());root.clear();}};return runtime;
+  }catch(error){surface?.dispose();avatar.dispose();throw error;}
 }
