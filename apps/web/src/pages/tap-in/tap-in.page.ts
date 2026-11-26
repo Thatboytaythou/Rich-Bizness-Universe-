@@ -1,12 +1,12 @@
 import { safeInternalRoute } from '@rb/config/routes';
-import { getAuthSnapshot } from '../../core/auth/auth-store';
+import { getAuthSnapshot, subscribeAuth } from '../../core/auth/auth-store';
 import { supabase } from '../../core/supabase/client';
 import './tap-in.elite.css';
 
 const OWNER = 'rich-bizness-tap-in-v2';
-const esc = (value: string | null | undefined) => (value ?? '').replace(/[&<>"']/g, (char) => ({
-  '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
-}[char] ?? char));
+async function authDeadline<T>(request: PromiseLike<T>,ms=15000):Promise<T>{
+ let timer=0;try{return await Promise.race([request,new Promise<never>((_,reject)=>{timer=window.setTimeout(()=>reject(new Error('Connection took too long. Check your connection and try again.')),ms);})]);}finally{window.clearTimeout(timer);}
+}
 const usernameFrom = (value: string) => value.trim().toLowerCase().replace(/[^a-z0-9_]+/g, '_').replace(/^_+|_+$/g, '').slice(0, 32) || 'rich_member';
 
 export async function mountTapInPage(): Promise<void> {
@@ -18,11 +18,13 @@ export async function mountTapInPage(): Promise<void> {
   if (app.dataset.pageOwner !== OWNER) return;
 
   const params = new URLSearchParams(location.search);
-  const next = safeInternalRoute(params.get('next'));
+  const rawNext=safeInternalRoute(params.get('next'));
+  const target=new URL(rawNext,location.origin);
+  const next=target.origin===location.origin&&!/^\/tap-in(?:\.html)?\/?$/i.test(target.pathname)?target.pathname+target.search+target.hash:'/portal.html';
   const recoveryMode = params.get('mode') === 'recovery';
   const reason = params.get('reason');
   const auth = getAuthSnapshot();
-  if (auth.session && !recoveryMode) {
+  if (auth.session && !recoveryMode && reason !== 'session') {
     location.replace(next);
     return;
   }
@@ -30,6 +32,8 @@ export async function mountTapInPage(): Promise<void> {
   const controller = new AbortController();
   const { signal } = controller;
   let redirectTimer = 0;
+  let unsubscribeAuth: (()=>void)|undefined;
+  let navigating=false;
 
   app.innerHTML = `
     <main class="auth-shell" data-auth-state="ready">
@@ -90,6 +94,7 @@ export async function mountTapInPage(): Promise<void> {
     disposed = true;
     controller.abort();
     if (redirectTimer) window.clearTimeout(redirectTimer);
+    unsubscribeAuth?.();
   };
   (window as Window & { __rbPageCleanup?: (() => void | Promise<void>) | null }).__rbPageCleanup = cleanup;
   window.addEventListener('pagehide', cleanup, { once: true });
@@ -116,12 +121,8 @@ export async function mountTapInPage(): Promise<void> {
       if (!isCurrent() || !form.reportValidity()) return;
       submit.disabled = true;
       setStatus('LOCKIN’ YOUR NEW ACCESS...', false, true);
-      const { error } = await supabase.auth.updateUser({ password: password.value });
-      if (!isCurrent()) return;
-      submit.disabled = false;
-      if (error) return setStatus(error.message, true);
-      setStatus('ACCESS LOCKED — YOU TAPPED IN');
-      redirectTimer = window.setTimeout(() => { if (isCurrent()) location.replace(next || '/profile.html'); }, 500);
+      try {const {error}=await authDeadline(supabase.auth.updateUser({password:password.value}));if(!isCurrent())return;if(error)return setStatus(error.message,true);setStatus('ACCESS LOCKED — YOU TAPPED IN');redirectTimer=window.setTimeout(()=>{if(isCurrent())location.replace(next);},500);}
+      catch(error){setStatus(error instanceof Error?error.message:'Unable to update password. Try again.',true);}finally{if(isCurrent())submit.disabled=false;}
     }, { signal });
     return;
   }
@@ -137,6 +138,13 @@ export async function mountTapInPage(): Promise<void> {
   const recoverButton = app.querySelector<HTMLButtonElement>('#recoverButton');
   if (!form || !email || !password || !displayName || !displayNameLabel || !submitButton || !recoverButton) throw new Error('Tap In form failed to mount');
 
+  const enter=()=>{
+    if(!isCurrent()||navigating)return;
+    navigating=true;setStatus('RICH ID VERIFIED — ENTERING YOUR UNIVERSE');
+    submitButton.disabled=true;recoverButton.disabled=true;
+    redirectTimer=window.setTimeout(()=>{if(isCurrent())location.replace(next);},150);
+  };
+  unsubscribeAuth=subscribeAuth((current)=>{if(current.session&&current.user&&reason!=='session'&&!pending)enter();});
   app.querySelectorAll<HTMLButtonElement>('[data-auth-mode]').forEach((button) => {
     button.addEventListener('click', () => {
       if (!isCurrent() || pending) return;
@@ -165,47 +173,26 @@ export async function mountTapInPage(): Promise<void> {
     const credentials = { email: email.value.trim().toLowerCase(), password: password.value };
     const chosenName = displayName.value.trim();
     const username = usernameFrom(chosenName || credentials.email.split('@')[0]);
-    const result = mode === 'signup'
-      ? await supabase.auth.signUp({
-          ...credentials,
-          options: {
-            emailRedirectTo: `${location.origin}/tap-in.html?next=${encodeURIComponent(next)}`,
-            data: { display_name: chosenName, username }
-          }
-        })
-      : await supabase.auth.signInWithPassword(credentials);
-
-    if (!isCurrent()) return;
-    pending = false;
-    submitButton.disabled = false;
-    recoverButton.disabled = false;
-    if (result.error) return setStatus(result.error.message, true);
-    if (mode === 'signup' && !result.data.session) return setStatus('CHECK YOUR EMAIL — THEN TAP BACK IN');
-
-    const activeSession = result.data.session;
-    if (activeSession) {
-      const user = activeSession.user;
-      const fallbackName = chosenName || String(user.user_metadata.display_name ?? user.email?.split('@')[0] ?? 'Rich Member');
-      const existing = await supabase.from('profiles').select('id,display_name,username').eq('id', user.id).maybeSingle();
-      if (!isCurrent()) return;
-      if (existing.error) return setStatus('YOU TAPPED IN, BUT PROFILE LOCK NEEDS A RETRY', true);
-
-      const profileResult = existing.data
-        ? await supabase.from('profiles').update({ online_status: 'online', updated_at: new Date().toISOString() }).eq('id', user.id)
-        : await supabase.from('profiles').insert({
-            id: user.id,
-            display_name: fallbackName,
-            username: usernameFrom(String(user.user_metadata.username ?? fallbackName)),
-            online_status: 'online',
-            has_avatar: false,
-            updated_at: new Date().toISOString()
-          });
-      if (!isCurrent()) return;
-      if (profileResult.error) return setStatus('YOU TAPPED IN, BUT PROFILE LOCK NEEDS A RETRY', true);
-    }
-
-    setStatus(`WELCOME BACK ${esc(chosenName || credentials.email.split('@')[0]).toUpperCase()} — VERIFIED`);
-    redirectTimer = window.setTimeout(() => { if (isCurrent()) location.replace(next); }, 300);
+    try {
+      const result=await authDeadline(mode==='signup'
+        ? supabase.auth.signUp({...credentials,options:{emailRedirectTo:`${location.origin}/tap-in.html?next=${encodeURIComponent(next)}`,data:{display_name:chosenName,username}}})
+        : supabase.auth.signInWithPassword(credentials));
+      if(!isCurrent())return;
+      if(result.error)return setStatus(result.error.message,true);
+      if(!result.data.session)return setStatus(mode==='signup'?'CHECK YOUR EMAIL — THEN TAP BACK IN':'No verified session returned. Please try again.',mode!=='signup');
+      // Existing auth.users trigger owns profile creation. Presence is not an access gate.
+      const user=result.data.session.user;
+      try{
+        const abort=new AbortController(),timer=window.setTimeout(()=>abort.abort(),1200);
+        try{await authDeadline(supabase.from('profiles').update({online_status:'online',updated_at:new Date().toISOString()}).eq('id',user.id).abortSignal(abort.signal),1400);}
+        finally{window.clearTimeout(timer);}
+      }catch{/* presence can refresh later */}
+      enter();
+    }catch(error){
+      if(!isCurrent())return;
+      if(getAuthSnapshot().session&&getAuthSnapshot().user){enter();return;}
+      setStatus(error instanceof Error?error.message:'Unable to connect. Please try again.',true);
+    }finally{pending=false;if(isCurrent()&&!navigating){submitButton.disabled=false;recoverButton.disabled=false;}}
   }, { signal });
 
   recoverButton.addEventListener('click', async () => {
@@ -216,11 +203,6 @@ export async function mountTapInPage(): Promise<void> {
     submitButton.disabled = true;
     setStatus('SENDING YOUR GET-BACK-IN LINK...', false, true);
     const redirect = `${location.origin}/tap-in.html?mode=recovery&next=${encodeURIComponent(next)}`;
-    const { error } = await supabase.auth.resetPasswordForEmail(email.value.trim().toLowerCase(), { redirectTo: redirect });
-    if (!isCurrent()) return;
-    pending = false;
-    recoverButton.disabled = false;
-    submitButton.disabled = false;
-    setStatus(error?.message ?? 'CHECK YOUR EMAIL — YOUR LINK ON THE WAY', Boolean(error));
+    try{const {error}=await authDeadline(supabase.auth.resetPasswordForEmail(email.value.trim().toLowerCase(),{redirectTo:redirect}));if(isCurrent())setStatus(error?.message??'CHECK YOUR EMAIL — YOUR LINK ON THE WAY',Boolean(error));}catch(error){setStatus(error instanceof Error?error.message:'Unable to send recovery link. Try again.',true);}finally{pending=false;if(isCurrent()&&!navigating){recoverButton.disabled=false;submitButton.disabled=false;}}
   }, { signal });
 }
