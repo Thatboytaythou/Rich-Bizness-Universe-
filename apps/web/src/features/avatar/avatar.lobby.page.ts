@@ -162,7 +162,7 @@ export async function mount(): Promise<void> {
     window.removeEventListener('resize', resize);
     if (avatarRuntime) disposeSkinnedAvatar(avatarRuntime);
     if (world) disposeObject(world);
-    renderer?.dispose();
+    renderer?.dispose();renderer?.forceContextLoss();
     const host = window as CleanupHost;
     if (host.__rbPageCleanup === cleanup) host.__rbPageCleanup = null;
   };
@@ -206,7 +206,9 @@ export async function mount(): Promise<void> {
   const baseHeight = Math.max(1.5, Number(cameraConfig.height ?? 2.2));
 
   const mobile=matchMedia('(pointer:coarse),(max-width:860px)').matches;
-  renderer = new THREE.WebGLRenderer({ canvas, antialias: !mobile, powerPreference: mobile?'low-power':'high-performance' });
+  const failure=(message:string)=>{cancelAnimationFrame(raf);root.querySelector<HTMLElement>('#avatarLoading')?.remove();const panel=document.createElement('div');panel.className='al-loading';panel.setAttribute('role','status');panel.textContent=message+' ';const link=document.createElement('a');link.href='/avatar-characters.html';link.textContent='Return to Avatar Studio';panel.append(link);canvas.parentElement?.append(panel);root.querySelectorAll<HTMLButtonElement>('[data-action]').forEach(button=>button.disabled=true);};
+  try{renderer = new THREE.WebGLRenderer({ canvas, antialias: !mobile, powerPreference: mobile?'low-power':'high-performance' });}catch{failure('3D graphics unavailable. Your saved Rich ID is unchanged.');return;}
+  canvas.addEventListener('webglcontextlost',event=>{event.preventDefault();failure('3D graphics paused. Your saved Rich ID is unchanged.');},{signal:abort.signal,once:true});
   renderer.setPixelRatio(mobile?1:quality.dpr);
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -303,7 +305,7 @@ export async function mount(): Promise<void> {
   resize = () => {
     if (!renderer) return;
     const rect = canvas.getBoundingClientRect();
-    renderer.setSize(Math.max(1, rect.width), Math.max(1, rect.height), false);
+    const limit=mobile?720:1280;const scale=Math.min(1,limit/Math.max(1,rect.width,rect.height));renderer.setSize(Math.max(1,Math.round(rect.width*scale)),Math.max(1,Math.round(rect.height*scale)),false);
     camera.aspect = rect.width / Math.max(1, rect.height);
     camera.updateProjectionMatrix();
   };
@@ -318,9 +320,14 @@ export async function mount(): Promise<void> {
   let sampleFrames = 0;
   let pixelRatio = mobile?1:quality.dpr;
 
-  const loop = () => {
+  let lastFrame=0;
+  const loop = (now=0) => {
     if (disposed || !avatarRuntime || !renderer) return;
-    const dt = Math.min(clock.getDelta(), .04);
+    raf=requestAnimationFrame(loop);
+    if(document.hidden||now-lastFrame<(mobile?42:16))return;
+    lastFrame=now;
+    const dt = Math.min(clock.getDelta(), .05);
+    try{
     const inputMagnitude = Math.min(1, Math.hypot(joyX, joyY));
     const moving = inputMagnitude > .10;
     const topSpeed = sprint ? sprintSpeed : moveSpeed;
@@ -389,7 +396,7 @@ export async function mount(): Promise<void> {
     }
 
     renderer.render(scene, camera);
-    raf = requestAnimationFrame(loop);
+    }catch(error){failure('Graphics stopped. Saved appearance is unchanged.');console.warn('[Avatar Lobby]',error);}
   };
-  loop();
+  raf=requestAnimationFrame(loop);
 }
