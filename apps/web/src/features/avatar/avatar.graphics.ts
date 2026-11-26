@@ -2,10 +2,11 @@ import * as THREE from 'three';
 import {createCharacterLightMap} from './avatar.light-map';
 import {createTexturedAvatar} from './avatar.textured.runtime';
 import {disposeSkinnedAvatar,setAvatarMotion,updateSkinnedAvatar,playAvatarGesture,type AvatarMotion,type AvatarExpression,type SkinnedAvatarRuntime} from './avatar.skinned.runtime';
+import {normalizeTimeline,type MotionStep} from './avatar.motion.design';
 import type {CharacterConfig} from './avatar.identity';
 import {getExperience,resolveVisual,subscribeExperience,type Experience} from '../../core/experience/policy';
 
-export type StudioGraphics={routine:(names:readonly string[])=>boolean;gesture:(name:string)=>boolean;expression:(value:AvatarExpression)=>void;quality:(value:'auto'|'detail')=>void;update:(config:CharacterConfig)=>void;motion:(value:AvatarMotion)=>void;rotate:(radians:number)=>void;zoom:(delta:number)=>void;face:(enabled:boolean)=>void;reset:()=>void;dispose:()=>void};
+export type StudioGraphics={routine:(names:readonly (string|MotionStep)[])=>boolean;gesture:(name:string)=>boolean;expression:(value:AvatarExpression)=>void;quality:(value:'auto'|'detail')=>void;update:(config:CharacterConfig)=>void;motion:(value:AvatarMotion)=>void;rotate:(radians:number)=>void;zoom:(delta:number)=>void;face:(enabled:boolean)=>void;reset:()=>void;dispose:()=>void};
 const aura=(s:string)=>s==='Neon Phantom'?0x765dff:s==='Diamond Mist'?0x76d8ff:0x21df81;
 export function createStudioGraphics(canvas:HTMLCanvasElement,initial:CharacterConfig,onFrame:()=>void,onFailure:(reason:string)=>void,onAssetStatus:(status:'loading'|'ready'|'error',message:string)=>void=()=>{}):StudioGraphics{
   const mobile=matchMedia('(pointer:coarse),(max-width:860px)').matches;
@@ -24,7 +25,7 @@ export function createStudioGraphics(canvas:HTMLCanvasElement,initial:CharacterC
   const ring=new THREE.Mesh(new THREE.TorusGeometry(.83,.013,6,48),new THREE.MeshBasicMaterial({color:aura(initial.aura)}));ring.rotation.x=-Math.PI/2;ring.position.y=.008;scene.add(ring);
   let runtime:SkinnedAvatarRuntime|null=null;
   let yaw=0,zoom=1,face=false,active:AvatarMotion='idle',disposed=false,failed=false,raf=0,previous=0,deadline=0,dirty=true;
-  let modelKey='',desired:CharacterConfig|null=null,loading=false,awaitingFrame=false,shaderError=false;let revision=0;let quality:'auto'|'detail'='auto',mood:AvatarExpression='neutral',latest=initial;let expressionUntil=0;let sequence:string[]=[];let routineActive=false,bodyTime=0,expressionClock=0;let loadStarted=0;let frameScale=1,frameAverage=mobile?33:17,measured=0,lastAdapt=0,lastTelemetry=0,visible=true;
+  let modelKey='',desired:CharacterConfig|null=null,loading=false,awaitingFrame=false,shaderError=false;let revision=0;let quality:'auto'|'detail'='auto',mood:AvatarExpression='neutral',latest=initial;let expressionUntil=0;let sequence:MotionStep[]=[];let routineActive=false,bodyTime=0,expressionClock=0;let loadStarted=0;let frameScale=1,frameAverage=mobile?33:17,measured=0,lastAdapt=0,lastTelemetry=0,visible=true;
   const controller=new AbortController(),signal=controller.signal;
   let experience=getExperience();
   renderer.debug.checkShaderErrors=true;renderer.debug.onShaderError=()=>{shaderError=true;};
@@ -34,7 +35,7 @@ export function createStudioGraphics(canvas:HTMLCanvasElement,initial:CharacterC
     const h=runtime.height, aspect=Math.max(.25,camera.aspect),fov=face?32:35;
     const targetY=h*(face?.88:.52);
     // Fit both axes; reserve headroom and feet. Face mode includes neck and shoulders.
-    const viewHeight=h*(face?.48:1.19),viewWidth=h*(face?.39:.64);
+    const viewHeight=h*(face?.48:1.19),viewWidth=face?h*.39:Math.max(h*.64,runtime.accessoryWidth??0);
     const distance=Math.max(viewHeight,viewWidth/aspect)/(2*Math.tan(THREE.MathUtils.degToRad(fov/2)));
     camera.position.set(0,targetY,distance);camera.fov=fov;camera.zoom=zoom;
     camera.updateProjectionMatrix();camera.lookAt(0,targetY,0);
@@ -51,7 +52,7 @@ export function createStudioGraphics(canvas:HTMLCanvasElement,initial:CharacterC
         runtime.lookAt?.(experience.behavior!=='manual'&&active==='idle'&&!reduced.matches?camera.position:null);
         if(anim||living)updateSkinnedAvatar(runtime,dt);
         if(active==='idle'&&living&&experience.behavior!=='manual'&&!reduced.matches){bodyTime+=dt;expressionClock+=dt;if(expressionClock>6.5){expressionClock=0;runtime.expression?.(Math.floor(bodyTime/6.5)%3===1?'confident':'neutral',.25);}}
-        if(routineActive&&runtime.currentAction&&runtime.currentAction.time>=runtime.currentAction.getClip().duration-.012){const next=sequence.shift();if(next){beginGesture(next);}else{routineActive=false;active='idle';setAvatarMotion(runtime,'idle',.22);runtime.expression?.('neutral');}}
+        if(routineActive&&runtime.currentAction&&runtime.currentAction.time>=runtime.currentAction.getClip().duration-.012){const next=sequence.shift();if(next){beginGesture(next.clip,next.speed,next.blend);}else{routineActive=false;active='idle';setAvatarMotion(runtime,'idle',.22);runtime.expression?.('neutral');}}
         if(active==='jump'){
           const action=runtime.currentAction;
           const t=action?Math.min(1,action.time/action.getClip().duration):1;
@@ -106,7 +107,7 @@ export function createStudioGraphics(canvas:HTMLCanvasElement,initial:CharacterC
     latest=config;ring.material.color.setHex(aura(config.aura));const nextKey=JSON.stringify([config.gender,config.build,config.look,quality]);if(runtime&&nextKey===modelKey&&!loading){awaitingFrame=true;invalidate();return;}desired={...config,look:{...config.look}};revision++;awaitingFrame=false;onAssetStatus('loading','Applying selected appearance…');void drain();
   };
   const motion=(value:AvatarMotion)=>{if(!runtime||failed||disposed)return;sequence=[];routineActive=false;if(experience.behavior!=='manual'){mood=value==='power'?'confident':value==='run'?'focused':value==='jump'?'surprised':'neutral';runtime.expression?.(mood);}active=value;runtime.root.position.y=0;setAvatarMotion(runtime,value,value==='idle'?0:.18);if(value==='idle')runtime.mixer.update(0);else{face=false;zoom=1;pose();}deadline=performance.now()+((value==='jump'||value==='power')?(runtime.currentAction?.getClip().duration??1)*1000+120:5000);previous=0;invalidate();};
-  const beginGesture=(name:string)=>{if(!runtime||failed||disposed)return false;const duration=playAvatarGesture(runtime,name);if(!duration)return false;active='power';runtime.root.position.y=0;face=false;zoom=1;pose();if(experience.behavior!=='manual')runtime.expression?.(['wave','soft laugh','laugh','groove','bounce'].includes(name)?'smile':'neutral');deadline=performance.now()+duration*1000+180;invalidate();return true;};
+  const beginGesture=(name:string,speed=1,blend=.2)=>{if(!runtime||failed||disposed)return false;const duration=playAvatarGesture(runtime,name,speed,blend);if(!duration)return false;active='power';runtime.root.position.y=0;face=false;zoom=1;pose();if(experience.behavior!=='manual')runtime.expression?.(['wave','soft laugh','laugh','groove','bounce'].includes(name)?'smile':'neutral');deadline=performance.now()+duration*1000+180;invalidate();return true;};
   const rotate=(radians:number)=>{yaw+=radians;if(runtime)runtime.root.rotation.y=yaw;invalidate();};
   let pointer:number|null=null,lastX=0;
   canvas.addEventListener('pointerdown',e=>{pointer=e.pointerId;lastX=e.clientX;canvas.setPointerCapture(e.pointerId);},{signal});
@@ -117,5 +118,5 @@ export function createStudioGraphics(canvas:HTMLCanvasElement,initial:CharacterC
   const observer=new ResizeObserver(resize);observer.observe(canvas);const visibility=new IntersectionObserver(entries=>{visible=entries[0]?.isIntersecting??true;if(!visible){cancelAnimationFrame(raf);raf=0;previous=0;}else invalidate();},{threshold:.05});visibility.observe(canvas);
   const dispose=()=>{if(disposed)return;disposed=true;controller.abort();stopExperience();observer.disconnect();visibility.disconnect();cancelAnimationFrame(raf);if(runtime){scene.remove(runtime.root);disposeSkinnedAvatar(runtime);runtime=null;}floor.geometry.dispose();floor.material.dispose();contact.geometry.dispose();contact.material.dispose();contactMap.dispose();ring.geometry.dispose();ring.material.dispose();lightMap?.dispose();renderer.dispose();renderer.forceContextLoss();};
   applyExperience(experience);update(initial);resize();
-  return {routine:names=>{if(!runtime||!names.length||!names.every(n=>runtime!.actions.has(n)))return false;sequence=names.slice(1);routineActive=true;const ok=beginGesture(names[0]);if(!ok){routineActive=false;sequence=[];}return ok;},gesture:name=>{sequence=[];routineActive=false;return beginGesture(name);},expression:value=>{mood=value;runtime?.expression?.(value);expressionUntil=performance.now()+1000;face=true;zoom=1;pose();invalidate();},quality:value=>{if(quality===value)return;quality=value;frameScale=1;measured=0;resize();update(latest);},update,motion,rotate,zoom:delta=>{zoom=THREE.MathUtils.clamp(zoom+delta,.8,1.6);pose();invalidate();},face:enabled=>{face=enabled;zoom=1;pose();invalidate();},reset:()=>{yaw=0;zoom=1;face=false;if(runtime)runtime.root.rotation.y=0;pose();motion('idle');},dispose};
+  return {routine:names=>{const steps=normalizeTimeline([...names]);if(!runtime||!steps.length||steps.length!==names.length||!steps.every(n=>runtime!.actions.has(n.clip)))return false;sequence=steps.slice(1);routineActive=true;const ok=beginGesture(steps[0].clip,steps[0].speed,steps[0].blend);if(!ok){routineActive=false;sequence=[];}return ok;},gesture:name=>{sequence=[];routineActive=false;return beginGesture(name);},expression:value=>{mood=value;runtime?.expression?.(value);expressionUntil=performance.now()+1000;face=true;zoom=1;pose();invalidate();},quality:value=>{if(quality===value)return;quality=value;frameScale=1;measured=0;resize();update(latest);},update,motion,rotate,zoom:delta=>{zoom=THREE.MathUtils.clamp(zoom+delta,.8,1.6);pose();invalidate();},face:enabled=>{face=enabled;zoom=1;pose();invalidate();},reset:()=>{yaw=0;zoom=1;face=false;if(runtime)runtime.root.rotation.y=0;pose();motion('idle');},dispose};
 }
