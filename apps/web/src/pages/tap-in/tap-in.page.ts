@@ -1,5 +1,5 @@
 import { safeInternalRoute } from '@rb/config/routes';
-import { getAuthSnapshot, subscribeAuth } from '../../core/auth/auth-store';
+import { getAuthSnapshot, subscribeAuth, initializeAuth } from '../../core/auth/auth-store';
 import { supabase } from '../../core/supabase/client';
 import './tap-in.elite.css';
 
@@ -23,11 +23,7 @@ export async function mountTapInPage(): Promise<void> {
   const next=target.origin===location.origin&&!/^\/tap-in(?:\.html)?\/?$/i.test(target.pathname)?target.pathname+target.search+target.hash:'/portal.html';
   const recoveryMode = params.get('mode') === 'recovery';
   const reason = params.get('reason');
-  const auth = getAuthSnapshot();
-  if (auth.session && !recoveryMode && reason !== 'session') {
-    location.replace(next);
-    return;
-  }
+  // Render the gateway before attempting any navigation.
 
   const controller = new AbortController();
   const { signal } = controller;
@@ -68,12 +64,18 @@ export async function mountTapInPage(): Promise<void> {
           <form id="authForm" class="auth-form">
             <label id="displayNameLabel" hidden>WHAT THEY CALL YOU?<div class="auth-input"><input id="displayName" name="displayName" autocomplete="name" maxlength="80" placeholder="ThatboyTayThou"></div></label>
             <label>EMAIL<div class="auth-input"><input id="email" name="email" type="email" inputmode="email" autocomplete="email" autocapitalize="none" spellcheck="false" required placeholder="you@example.com"></div></label>
-            <label>PASSWORD<div class="auth-input"><input id="password" name="password" type="password" minlength="8" required autocomplete="current-password" placeholder="8 characters minimum"><button type="button" data-toggle-password="password">SHOW</button></div></label>
+            <label>PASSWORD<div class="auth-input"><input id="password" name="password" type="password" required autocomplete="current-password" placeholder="8 characters minimum"><button type="button" data-toggle-password="password">SHOW</button></div></label>
             <button id="submitButton" class="auth-primary" type="submit">TAP IN</button>
             <button id="recoverButton" class="auth-link" type="button">I CAN’T GET IN</button>
           </form>
         `}
         <p id="authStatus" class="auth-status" role="status" aria-live="polite">${reason === 'session' ? 'YOUR SESSION EXPIRED — TAP BACK IN' : 'SECURE GATEWAY READY'}</p>
+        <div style="display:grid;gap:8px;margin-top:14px;font-size:12px;color:#b9d3bd">
+          <small>ACCESS RELEASE • rich-id-isolated-3</small>
+          <small id="rbAccessNetwork" aria-live="polite">Connection: waiting for request</small>
+          ${recoveryMode?'':'<button type="button" id="rbResumeSession" class="auth-link">CONTINUE EXISTING SESSION</button>'}
+          <a href="" style="color:#e3ce86">Reload secure gateway</a>
+        </div>
         <footer><span>PROFILE LOCK</span><i></i><span>VERIFIED SESSION</span><i></i><span>RICH LEVEL</span><i></i><span>EMPIRE</span></footer>
       </section>
     </main>`;
@@ -82,6 +84,12 @@ export async function mountTapInPage(): Promise<void> {
   const status = app.querySelector<HTMLParagraphElement>('#authStatus');
   if (!shell || !status) throw new Error('Tap In gateway failed to mount');
 
+  const startup=document.getElementById('rb-access-startup');
+  if(startup)startup.hidden=true;
+  const net=app.querySelector<HTMLElement>('#rbAccessNetwork');
+  const showNetwork=()=>{if(net)net.textContent='Connection: '+(document.body.dataset.rbAccessNetwork??'waiting for request');};
+  window.addEventListener('rb-access-network',showNetwork,{signal});
+  showNetwork();
   const setStatus = (message: string, error = false, busy = false) => {
     if (!isCurrent()) return;
     status.textContent = message;
@@ -98,7 +106,7 @@ export async function mountTapInPage(): Promise<void> {
   };
   (window as Window & { __rbPageCleanup?: (() => void | Promise<void>) | null }).__rbPageCleanup = cleanup;
   window.addEventListener('pagehide', cleanup, { once: true });
-  window.addEventListener('beforeunload', cleanup, { once: true });
+  // Do not dispose on beforeunload; cancelled navigation must leave the form functional.
 
   app.querySelectorAll<HTMLButtonElement>('[data-toggle-password]').forEach((button) => {
     button.addEventListener('click', () => {
@@ -142,9 +150,29 @@ export async function mountTapInPage(): Promise<void> {
     if(!isCurrent()||navigating)return;
     navigating=true;setStatus('RICH ID VERIFIED — ENTERING YOUR UNIVERSE');
     submitButton.disabled=true;recoverButton.disabled=true;
+    // Keep an actual link available even if Safari defers automatic navigation.
+    const link=document.createElement('a');link.href=next;link.textContent='ENTER YOUR UNIVERSE';link.className='auth-primary';link.style.cssText='display:grid;place-items:center;margin-top:12px';status.after(link);
     redirectTimer=window.setTimeout(()=>{if(isCurrent())location.replace(next);},150);
   };
-  unsubscribeAuth=subscribeAuth((current)=>{if(current.session&&current.user&&reason!=='session'&&!pending)enter();});
+  const resume=app.querySelector<HTMLButtonElement>('#rbResumeSession');
+  resume?.addEventListener('click',async()=>{
+    if(!isCurrent()||pending||navigating)return;
+    pending=true;resume.disabled=true;submitButton.disabled=true;recoverButton.disabled=true;
+    setStatus('CHECKING EXISTING RICH ID...',false,true);
+    try{
+      const current=await authDeadline(initializeAuth(),12000);
+      if(!isCurrent())return;
+      if(!current.session||!current.user){setStatus('No verified session found. Tap in with your email and password.',true);return;}
+      const verified=await authDeadline(supabase.auth.getUser(current.session.access_token),10000);
+      if(verified.error||!verified.data.user){setStatus('Session could not be verified. Sign in again.',true);return;}
+      enter();
+    }catch{setStatus('Session check timed out. Reload this gateway or sign in again.',true);}
+    finally{pending=false;if(isCurrent()&&!navigating){resume.disabled=false;submitButton.disabled=false;recoverButton.disabled=false;}}
+  },{signal});
+  unsubscribeAuth=subscribeAuth((current)=>{
+    // Never redirect within an SDK auth event callback.
+    if(current.session&&current.user&&reason!=='session'&&!pending)window.setTimeout(()=>{if(!pending&&getAuthSnapshot().session)enter();},0);
+  });
   app.querySelectorAll<HTMLButtonElement>('[data-auth-mode]').forEach((button) => {
     button.addEventListener('click', () => {
       if (!isCurrent() || pending) return;
@@ -157,6 +185,7 @@ export async function mountTapInPage(): Promise<void> {
       displayNameLabel.hidden = mode !== 'signup';
       displayName.required = mode === 'signup';
       password.autocomplete = mode === 'signup' ? 'new-password' : 'current-password';
+      password.minLength=mode==='signup'?8:0;
       submitButton.textContent = mode === 'signup' ? 'BUILD MY RICH ID' : 'TAP IN';
       setStatus(mode === 'signup' ? 'BUILD YOUR VERIFIED PROFILE LOCK' : 'SECURE GATEWAY READY');
     }, { signal });
@@ -180,18 +209,12 @@ export async function mountTapInPage(): Promise<void> {
       if(!isCurrent())return;
       if(result.error)return setStatus(result.error.message,true);
       if(!result.data.session)return setStatus(mode==='signup'?'CHECK YOUR EMAIL — THEN TAP BACK IN':'No verified session returned. Please try again.',mode!=='signup');
-      // Existing auth.users trigger owns profile creation. Presence is not an access gate.
-      const user=result.data.session.user;
-      try{
-        const abort=new AbortController(),timer=window.setTimeout(()=>abort.abort(),1200);
-        try{await authDeadline(supabase.from('profiles').update({online_status:'online',updated_at:new Date().toISOString()}).eq('id',user.id).abortSignal(abort.signal),1400);}
-        finally{window.clearTimeout(timer);}
-      }catch{/* presence can refresh later */}
+      // No database, XP or profile request belongs in the login critical path.
+      setStatus('RICH ID ACCEPTED — OPENING DESTINATION');
       enter();
     }catch(error){
       if(!isCurrent())return;
-      if(getAuthSnapshot().session&&getAuthSnapshot().user){enter();return;}
-      setStatus(error instanceof Error?error.message:'Unable to connect. Please try again.',true);
+      setStatus('Sign-in did not complete. '+(document.body.dataset.rbAccessNetwork??'No auth request reached the browser network layer.')+' — retry or continue an existing session.',true);
     }finally{pending=false;if(isCurrent()&&!navigating){submitButton.disabled=false;recoverButton.disabled=false;}}
   }, { signal });
 
