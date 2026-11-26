@@ -16,6 +16,7 @@ export type SkinnedAvatarRuntime = {
   currentAction: THREE.AnimationAction | null;
   expression?: (value: AvatarExpression, strength?:number) => void;
   animateFace?: (dt:number) => void;
+  assetLabel?:string;
   locomotionSpeed?: {walk:number;run:number};
   dispose?: () => void;
 };
