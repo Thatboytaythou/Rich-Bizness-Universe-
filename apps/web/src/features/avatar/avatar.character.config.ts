@@ -9,7 +9,16 @@ export const CHARACTER_OPTIONS={
   shoes:['sneakers','boots','high-tops'],
   tattoo:['none','bands','geometric'],
   gear:['none','chain','shades','chain-shades'],
-  color:['emerald','onyx','gold','ice']
+  color:['emerald','onyx','gold','ice'],
+  outfit:['casual','sport','formal','workwear'],
+  hairColor:['black','dark-brown','brown','blond','silver'],
+  nose:['balanced','narrow','wide','prominent'],
+  mouth:['balanced','full','thin','wide'],
+  jaw:['balanced','narrow','square'],
+  eyeShape:['balanced','open','narrow'],
+  brows:['natural','straight','arched'],
+  height:['average','short','tall'],
+  weight:['average','slim','heavy']
 } as const;
 export type CharacterLook=Record<keyof typeof CHARACTER_OPTIONS,string>;
 export function normalizeLook(input:unknown):CharacterLook{
