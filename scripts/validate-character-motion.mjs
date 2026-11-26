@@ -82,3 +82,13 @@ assert.equal(evolved.params.modifiers['eyes/eye-scale'],.28);
 assert.equal(normalizeLook({}).designerCut,'collection');
 assert.equal(normalizeLook({}).evolution,'none');
 console.log('V24: custom fitted recipes, preserved collection source, evolution and personal choreography bounds verified');
+
+import {normalizeTimeline} from '../apps/web/src/features/avatar/avatar.motion.design.ts';
+import {aegisGeometry,crownGeometry,originalWearables} from '../apps/web/src/features/avatar/avatar.original.wearables.ts';
+assert.deepEqual(normalizeTimeline(undefined,['wave','bow']),[{clip:'wave',speed:1,blend:.2},{clip:'bow',speed:1,blend:.2}]);
+assert.deepEqual(normalizeTimeline([{clip:'wave',speed:9,blend:-1},{clip:'bad'},'groove']),[{clip:'wave',speed:1.5,blend:.05},{clip:'groove',speed:1,blend:.2}]);
+assert.equal(normalizeTimeline(Array(15).fill('bow')).length,12);
+for(const g of [aegisGeometry(),crownGeometry()]){assert.ok(g.getAttribute('position').count>100);assert.ok([...g.getAttribute('normal').array].every(Number.isFinite));g.dispose();}
+const artRoot=new THREE.Group(),chestBone=new THREE.Bone();chestBone.name='Spine2';chestBone.position.y=1.2;artRoot.add(chestBone);const art=originalWearables(artRoot,new Set([chestBone]),1.78,{signature:'gold-crown',wings:'celestial-aegis'});assert.ok(art.width>2);assert.equal(chestBone.children.length,2);art.tick(.05);art.dispose();assert.equal(chestBone.children.length,0);
+assert.equal(normalizeLook({}).signature,'none');assert.equal(normalizeLook({}).wings,'none');
+console.log('V25: original geometry, torso attachment/disposal and bounded timeline verified');
