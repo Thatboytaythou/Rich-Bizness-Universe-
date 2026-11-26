@@ -2,23 +2,23 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <meta name="theme-color" content="#020402" />
   <meta name="description" content="Secure Rich ID access for the Rich Bizness Universe." />
   <meta name="robots" content="noindex,nofollow" />
   <title>Tap In • Rich Bizness</title>
 </head>
-<body data-page="tap-in" data-rb-access-release="rich-id-isolated-3">
-  <div id="app" aria-live="polite"></div>
-  <section id="rb-access-startup" style="position:fixed;inset:0;z-index:10000;background:#07140d;color:#f6f8ee;display:grid;align-content:center;gap:16px;padding:24px;font:16px/1.5 system-ui" hidden>
+<body data-page="tap-in" data-rb-access-release="rich-id-single-layer-4">
+  <div id="app">
+  <section id="rb-access-startup" style="max-width:480px;margin:0 auto;padding:32px 20px;color:#f6f8ee;font:16px/1.5 system-ui">
     <h1 style="color:#d7bd66">Rich ID • Tap In</h1>
-    <p role="status">Access screen is taking longer than expected. Reload to reconnect.</p>
+    <p role="status">Opening the secure gateway…</p>
     <a href="" style="color:#e8d27c">Reload access screen</a><a href="/" style="color:#e8d27c">Back to Omni</a>
-    <small>Access release: rich-id-isolated-3</small>
+    <small>Access release: rich-id-single-layer-4</small>
   </section>
-  <style>#rb-access-startup[hidden]{display:none!important}</style>
+  </div>
   <script>
-    window.setTimeout(function(){if(!document.querySelector('#app .auth-shell')&&!document.querySelector('#app')?.dataset.pageMounted)document.getElementById('rb-access-startup').hidden=false;},12000);
+    window.setTimeout(function(){var app=document.getElementById("app");var status=app&&app.querySelector("#rb-access-startup [role=status]");if(status)status.textContent="Access is taking longer than expected. Reload to reconnect.";},12000);
   </script>
   <script type="module" src="/src/pages/tap-in/tap-in.entry.ts"></script>
 </body>
