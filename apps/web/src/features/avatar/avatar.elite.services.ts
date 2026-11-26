@@ -28,7 +28,7 @@ export function mountPrivateReference(container:HTMLElement,signal:AbortSignal){
 export async function listVerifiedPurchases(signal:AbortSignal){const {data,error}=await supabase.rpc('rb_elite_verified_purchases').abortSignal(signal);if(error)throw Error(error.message);return Array.isArray(data)?data.length:0;}
 
 import {normalizeLook,type CharacterLook} from './avatar.character.config';
-const designKeys=['collection','designerCut','designerPalette','designerAccent','designerFootwear','signature','wings','regalia'] as const;
+const designKeys=['collection','designerCut','designerPalette','designerAccent','designerFootwear','signature','wings','regalia','mantle'] as const;
 export type PublishedDesign={owner_id:string;title:string;recipe:Partial<CharacterLook>;published:boolean;updated_at:string};
 export function designRecipe(look:CharacterLook){return Object.fromEntries(designKeys.map(k=>[k,look[k]]));}
 export async function readDesigns(userId:string,signal:AbortSignal){
