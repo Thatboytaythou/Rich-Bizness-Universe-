@@ -128,21 +128,29 @@ function addStreetWorld(scene: THREE.Scene): THREE.Group {
   const carPositions = [
     [-4.9, -17, 0], [4.9, -31, Math.PI], [-4.9, -50, 0], [4.9, -67, Math.PI]
   ] as const;
+  // Shared original automotive shell: curved longitudinal sections, no stock cube cabin.
+  const shell=(sections:number[][])=>{const vertices:number[]=[],indices:number[]=[];for(const [z,w,bottom,top] of sections){for(let i=0;i<12;i++){const a=i/12*Math.PI*2;vertices.push(Math.cos(a)*w,(bottom+top)/2+Math.sin(a)*(top-bottom)/2,z);}}for(let i=0;i<sections.length-1;i++)for(let k=0;k<12;k++){const a=i*12+k,b=i*12+(k+1)%12;indices.push(a,b,a+12,b,b+12,a+12);}for(let i=1;i<11;i++){indices.push(0,i+1,i);const n=(sections.length-1)*12;indices.push(n,n+i,n+i+1);}const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(vertices,3));g.setIndex(indices);g.computeVertexNormals();return g;};
+  const bodyShell=shell([[-1.68,.62,.35,.55],[-1.38,.86,.28,.7],[-.6,.91,.25,.77],[.65,.91,.25,.73],[1.38,.83,.28,.58],[1.67,.62,.35,.49]]);
+  const roofShell=shell([[-.97,.59,.60,.71],[-.52,.67,.63,1.15],[.40,.66,.63,1.17],[.95,.62,.61,.72]]);
+  const wheelGeo=new THREE.CylinderGeometry(.29,.29,.20,22),rimGeo=new THREE.CylinderGeometry(.18,.18,.212,16);
+  const rimMat=new THREE.MeshStandardMaterial({color:0x8b9a9e,metalness:.82,roughness:.25}),headMat=new THREE.MeshBasicMaterial({color:0xffebc9}),tailMat=new THREE.MeshBasicMaterial({color:0xbe273b});
+  const lampGeo=new THREE.BoxGeometry(.34,.095,.045);
   carPositions.forEach(([x, z, rotation], index) => {
     const car = new THREE.Group();
-    const body = new THREE.Mesh(new THREE.BoxGeometry(1.75, .46, 3.3), carMats[index % carMats.length]);
-    body.position.y = .47;
+    const body = new THREE.Mesh(bodyShell, carMats[index % carMats.length]);
+    body.position.y = 0;
     body.castShadow = true;
     car.add(body);
-    const cabin = new THREE.Mesh(new THREE.BoxGeometry(1.38, .44, 1.5), glass);
-    cabin.position.set(0, .83, -.08);
+    const cabin = new THREE.Mesh(roofShell, glass);
+    cabin.position.set(0, 0, 0);
     car.add(cabin);
     for (const sx of [-.74, .74]) for (const sz of [-1.08, 1.08]) {
-      const wheel = new THREE.Mesh(new THREE.CylinderGeometry(.26, .26, .17, 18), tire);
+      const wheel = new THREE.Mesh(wheelGeo, tire);
       wheel.rotation.z = Math.PI / 2;
-      wheel.position.set(sx, .26, sz);
-      car.add(wheel);
+      wheel.position.set(sx, .29, sz);
+      car.add(wheel);const rim=new THREE.Mesh(rimGeo,rimMat);rim.rotation.z=Math.PI/2;rim.position.copy(wheel.position);car.add(rim);
     }
+    for(const x of [-.42,.42]){const front=new THREE.Mesh(lampGeo,headMat);front.position.set(x,.48,1.67);car.add(front);const rear=new THREE.Mesh(lampGeo,tailMat);rear.position.set(x,.51,-1.68);car.add(rear);}
     car.position.set(x, 0, z);
     car.rotation.y = rotation;
     world.add(car);
@@ -161,7 +169,7 @@ export async function mount(): Promise<void> {
   let avatarRuntime: SkinnedAvatarRuntime | null = null;
   let world: THREE.Group | null = null;
   let raf = 0;
-  let renderScale=1,averageFrame=32,frameSamples=0,lastAdapt=0,lastTelemetry=0;let resize = () => {};let observer:ResizeObserver|undefined;let stopExperience=()=>{};let stopLife=()=>{};
+  let renderScale=1,averageFrame=32,frameSamples=0,lastAdapt=0,lastTelemetry=0;let resize = () => {};let observer:ResizeObserver|undefined;let worldVisibility:IntersectionObserver|undefined;let worldVisible=true;let stopExperience=()=>{};let stopLife=()=>{};
   const abort = new AbortController();
   const isCurrent = () => !disposed && root.dataset.pageEpoch === epoch && root.dataset.pageOwner === OWNER;
 
@@ -170,7 +178,7 @@ export async function mount(): Promise<void> {
     disposed = true;
     abort.abort();stopExperience();stopLife();
     cancelAnimationFrame(raf);
-    window.removeEventListener('resize', resize);observer?.disconnect();
+    window.removeEventListener('resize', resize);observer?.disconnect();worldVisibility?.disconnect();
     if (avatarRuntime) disposeSkinnedAvatar(avatarRuntime);
     if (world) disposeObject(world);
     lightMap?.dispose();renderer?.dispose();renderer?.forceContextLoss();
@@ -358,7 +366,7 @@ export async function mount(): Promise<void> {
     camera.aspect = rect.width / Math.max(1, rect.height);
     camera.updateProjectionMatrix();
   };
-  window.addEventListener('resize', resize);observer=new ResizeObserver(resize);observer.observe(canvas);
+  window.addEventListener('resize', resize);observer=new ResizeObserver(resize);observer.observe(canvas);worldVisibility=new IntersectionObserver(entries=>{worldVisible=entries[0]?.isIntersecting??true;},{threshold:.02});worldVisibility.observe(canvas);
   resize();
   cameraTools.forEach(b=>b.onclick=()=>{if(b.dataset.camera==='turn'){cameraYaw=(cameraYaw+Math.PI/2)%(Math.PI*2);return;}cameraMode=b.dataset.camera==='wide'?'wide':'close';cameraTools.forEach(t=>{if(t.dataset.camera!=='turn')t.setAttribute('aria-pressed',String(t===b));});});
 
@@ -379,7 +387,7 @@ export async function mount(): Promise<void> {
   const loop = (now=0) => {
     if (disposed || !avatarRuntime || !renderer) return;
     raf=requestAnimationFrame(loop);
-    if(document.hidden||now-lastFrame<(mobile?32:16))return;
+    if(document.hidden||!worldVisible){lastFrame=0;return;}if(now-lastFrame<(mobile?32:16))return;
     const interval=lastFrame?now-lastFrame:0;lastFrame=now;if(interval>0&&interval<250){averageFrame+=(interval-averageFrame)*.08;frameSamples++;}
     if(frameSamples>30&&now-lastAdapt>3000){lastAdapt=now;const next=averageFrame>(mobile?48:32)?Math.max(.65,renderScale-.10):averageFrame<(mobile?37:21)?Math.min(1,renderScale+.06):renderScale;if(Math.abs(next-renderScale)>.01){renderScale=next;resize();}}
     if(now-lastTelemetry>1000){lastTelemetry=now;const status=root.querySelector<HTMLElement>('#alPerformance');if(status)status.textContent='~'+Math.round(1000/averageFrame)+' fps · '+Math.round(renderScale*100)+'% render scale';}
