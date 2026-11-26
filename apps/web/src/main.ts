@@ -98,6 +98,9 @@ const miniTask=currentPage==='avatar-characters'
   : Promise.resolve();
 void bootstrap().then(async()=>{
   const page=document.body.dataset.page??'';
+  if(page!=='home'&&page!=='portal'&&page!=='tap-in'){
+    await import('./core/navigation/omni-mini').then(({mountOmniMini})=>mountOmniMini(page)).catch(error=>console.warn('[Rich Bizness Mini Omni]',error));
+  }
   await mountGlobalRuntime(page);
 }).catch(error=>{
   console.error('[Rich Bizness bootstrap]',error);
