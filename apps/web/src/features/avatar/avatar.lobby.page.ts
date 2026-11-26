@@ -15,6 +15,8 @@ import {
 import { createTexturedAvatar } from './avatar.textured.runtime';
 import {getExperience,resolveVisual,subscribeExperience,type Experience} from '../../core/experience/policy';
 import {readCharacterIdentity,savedCharacter,hasSavedOriginal} from './avatar.identity';
+import {DISTRICTS,resolveDistrict,districtHref} from './world.catalog';
+import {createDistrictScene,moveWithinWorld,nearbyAction} from './world.scene';
 import './avatar.lobby.css';
 
 type CleanupHost = Window & { __rbPageCleanup?: (() => void | Promise<void>) | null };
@@ -30,13 +32,13 @@ const OWNER = 'rich-bizness-avatar-lobby-v1';
 const esc = (value: unknown) => String(value ?? '').replace(/[&<>"']/g, (c) => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c] ?? c));
 
 function disposeObject(root: THREE.Object3D): void {
+  const geometries=new Set<THREE.BufferGeometry>(),materials=new Set<THREE.Material>(),textures=new Set<THREE.Texture>();
   root.traverse((object) => {
     const mesh = object as THREE.Mesh;
     if (!mesh.isMesh) return;
-    mesh.geometry?.dispose();
-    const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
-    for (const material of materials) material?.dispose();
-  });
+    if(mesh.geometry)geometries.add(mesh.geometry);
+    for (const material of (Array.isArray(mesh.material)?mesh.material:[mesh.material])){if(!material)continue;materials.add(material);for(const v of Object.values(material))if((v as THREE.Texture|undefined)?.isTexture)textures.add(v as THREE.Texture);}
+  });textures.forEach(t=>t.dispose());materials.forEach(m=>m.dispose());geometries.forEach(g=>g.dispose());
 }
 
 function addStreetWorld(scene: THREE.Scene): THREE.Group {
@@ -171,8 +173,9 @@ export async function mount(): Promise<void> {
   window.addEventListener('pagehide', cleanup, { once: true });
   window.addEventListener('beforeunload', cleanup, { once: true });
 
+  const district=resolveDistrict(new URLSearchParams(location.search).get('district')),definition=DISTRICTS[district];
   const user = getAuthSnapshot().user;
-  if (!user) { location.replace('/tap-in.html?next=%2Favatar.html'); return; }
+  if (!user) { location.replace('/tap-in.html?next='+encodeURIComponent(districtHref(district))); return; }
   let snap;
   try{snap=await readCharacterIdentity(user.id,abort.signal);}
   catch(error){if(isCurrent())root.innerHTML='<main class="al-shell"><header><h1>Rich ID unavailable</h1><a href="/avatar-characters.html">RETURN TO STUDIO</a></header><p>Saved character could not be loaded. Reopen the lobby to retry.</p></main>';return;}
@@ -195,9 +198,16 @@ export async function mount(): Promise<void> {
   const deceleration = Number(controller.deceleration ?? 16);
   const turnSpeed = Number(controller.turn_speed ?? 8);
 
-  root.innerHTML = `<main class="al-shell"><header><h1>Street District</h1><nav><a href="/avatar-characters.html">CUSTOMIZE</a><a href="/profile.html">PROFILE</a><a href="/meta.html">WORLDS</a></nav></header><div class="al-experience"><span id="alExperienceMode"></span><span id="alGuide" role="status" hidden></span><a href="/meta.html">Explore worlds ↗</a></div><section class="al-stage"><canvas id="lobbyCanvas"></canvas><div class="al-hud"><span class="al-mode">${original?'RICH ID • SAVED':'UNSAVED DEFAULT • CUSTOMIZE'}</span><span class="al-aura">${esc(aura)}</span><div class="al-id"><strong>${esc(name)}</strong><em>${esc(build.toUpperCase())} · ${esc(style.toUpperCase())}</em></div></div><div class="al-controls"><div class="joystick" id="joystick"><div id="stick"></div></div><div class="actions"><button data-action="jump">JUMP</button><button data-action="run">SPRINT</button><button data-action="power">POWER</button><button data-action="idle">RESET</button></div></div><div class="al-loading" id="avatarLoading">LOADING CHARACTER…</div></section></main>`;
+  root.innerHTML = `<main class="al-shell"><header><h1>${definition.title}</h1><nav><a href="/avatar-characters.html">CUSTOMIZE</a><a href="/profile.html">PROFILE</a><a href="/meta.html">WORLDS</a></nav></header><div class="al-experience"><span id="alExperienceMode"></span><span id="alGuide" role="status" hidden></span><a href="/meta.html">World Exchange ↗</a></div><nav class="al-districts" aria-label="Travel between districts">${(Object.keys(DISTRICTS) as Array<keyof typeof DISTRICTS>).map(key=>`<a href="${districtHref(key)}" ${key===district?'aria-current="page"':''}>${DISTRICTS[key].title}</a>`).join("")}</nav><section class="al-stage"><canvas id="lobbyCanvas"></canvas><div class="al-hud"><span class="al-mode">${original?'RICH ID • SAVED':'UNSAVED DEFAULT • CUSTOMIZE'}</span><span class="al-aura">${esc(aura)}</span><div class="al-id"><strong>${esc(name)}</strong><em>${esc(build.toUpperCase())} · ${esc(style.toUpperCase())}</em></div></div><div class="al-controls"><div class="joystick" id="joystick"><div id="stick"></div></div><div class="actions"><button data-action="jump">JUMP</button><button data-action="run">SPRINT</button><button data-action="power">POWER</button><button data-action="idle">RESET</button></div></div><div class="al-loading" id="avatarLoading">LOADING CHARACTER…</div></section><section class="al-interaction" aria-label="District interactions"><div><small id="alWorldStatus">Connecting world entry…</small><h2 id="alActionTitle">Explore the environment</h2><p id="alActionDescription">${definition.description}</p></div><button id="alInteract" disabled type="button">MOVE TO A MARKER</button></section><div class="al-destinations">${definition.actions.filter(a=>a.href).map(a=>`<a href="${a.href}"><strong>${a.label}</strong><small>${a.description}</small></a>`).join("")}</div></main>`;
 
+  const worldStatus=root.querySelector<HTMLElement>('#alWorldStatus')!;
+  const interaction=root.querySelector<HTMLButtonElement>('#alInteract')!;
+  let activeAction:typeof definition.actions[number]|undefined;
+  let evening=false;const lightingKey='rb.residence.lighting.'+user.id;
+  try{evening=localStorage.getItem(lightingKey)==='evening';}catch{}
   const canvas = root.querySelector<HTMLCanvasElement>('#lobbyCanvas')!;
+  // Only the public catalog template is entered; personal room geometry is local to this session.
+  void (async()=>{try{const {data,error}=await supabase.from('meta_worlds').select('id,access_type').eq('slug',definition.slug).eq('status','active').eq('access_type','public').maybeSingle().abortSignal(abort.signal);if(!isCurrent())return;if(error||!data){worldStatus.textContent='Catalog entry unavailable • local exploration';return;}if(!original){worldStatus.textContent='Preview identity • save a character to link visits';return;}const entered=await supabase.rpc('rb_enter_meta_world',{p_world_id:data.id}).abortSignal(abort.signal);if(!isCurrent())return;worldStatus.textContent=!entered.error&&(entered.data as any)?.entered===true?'Rich ID world entry confirmed':'World entry not confirmed • local exploration';}catch{if(isCurrent())worldStatus.textContent='World service unavailable • local exploration';}})();
   const quality = qualityProfile();
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(0xa9c9d8);
@@ -231,12 +241,15 @@ export async function mount(): Promise<void> {
   const rim = new THREE.DirectionalLight(0x80ffc0, .7);
   rim.position.set(4, 4, -6);
   scene.add(rim);
-  world = addStreetWorld(scene);
+  world=district==='city'?addStreetWorld(scene):new THREE.Group();if(district!=='city')scene.add(world);
+  const districtScene=createDistrictScene(district);world.add(districtScene.group);
   let experience=getExperience();
   const applyExperience=(value:Experience)=>{experience=value;const mode=resolveVisual(value.visual,'avatar');canvas.dataset.rbVisualMode=mode;canvas.dataset.rbBehaviorMode=value.behavior;
     const fantasy=mode==='fantasy',expressive=mode==='expressive';
     (scene.background as THREE.Color).setHex(fantasy?0x292645:expressive?0xc7dbe3:0xa9c9d8);(scene.fog as THREE.Fog).color.copy(scene.background as THREE.Color);
     sun.color.setHex(fantasy?0xc6b4ff:0xfff2d9);sun.intensity=fantasy?2.0:3.2;hemi.intensity=expressive?3.1:fantasy?1.6:2.5;rim.color.setHex(fantasy?0x9e86ff:0x80ffc0);rim.intensity=fantasy?3.1:.7;
+    if(district==='personal'&&evening){sun.intensity=.75;hemi.intensity=.75;rim.color.setHex(0xffbd72);rim.intensity=3.4;}
+    if(district==='creative'){sun.intensity=1.8;hemi.intensity=1.6;rim.color.setHex(0x57c8a5);rim.intensity=2.7;}
     if(renderer)renderer.toneMappingExposure=expressive?1.16:1.08;
     root.querySelector<HTMLElement>('#alExperienceMode')!.textContent=mode+' · '+value.behavior;
     const guide=root.querySelector<HTMLElement>('#alGuide')!;guide.hidden=value.behavior!=='guided';guide.textContent='Use joystick to move. Sprint, jump or pose, then explore a world.';
@@ -248,7 +261,7 @@ export async function mount(): Promise<void> {
   setAvatarMotion(avatarRuntime,'idle',0);
   canvas.dataset.rbModelState=original?'textured-human':'unsaved-textured-human';
   if (!isCurrent()) { disposeSkinnedAvatar(avatarRuntime); return; }
-  avatarRuntime.root.position.set(0, 0, 1.6);
+  avatarRuntime.root.position.set(definition.spawn[0],0,definition.spawn[1]);
   scene.add(avatarRuntime.root);
   root.querySelector<HTMLElement>('#avatarLoading')?.remove();
 
@@ -289,7 +302,11 @@ export async function mount(): Promise<void> {
     stick.style.transform = 'translate(0,0)';
   };
   joystick.onpointerup = release;
-  joystick.onpointercancel = release;
+  joystick.onpointercancel = release;joystick.onlostpointercapture=release;
+  const keys=new Set<string>();const updateKeys=()=>{joyX=Number(keys.has('d')||keys.has('arrowright'))-Number(keys.has('a')||keys.has('arrowleft'));joyY=Number(keys.has('s')||keys.has('arrowdown'))-Number(keys.has('w')||keys.has('arrowup'));};
+  window.addEventListener('keydown',e=>{if((e.target as HTMLElement)?.matches('input,textarea,select,button'))return;const k=e.key.toLowerCase();if(['w','a','s','d','arrowup','arrowdown','arrowleft','arrowright'].includes(k)){e.preventDefault();keys.add(k);updateKeys();}if(k==='e'&&activeAction){e.preventDefault();interaction.click();}},{signal:abort.signal});
+  window.addEventListener('keyup',e=>{if(keys.delete(e.key.toLowerCase()))updateKeys();},{signal:abort.signal});window.addEventListener('blur',()=>{keys.clear();release();},{signal:abort.signal});
+  interaction.onclick=()=>{if(!activeAction||!avatarRuntime)return;const a=nearbyAction(definition.actions,avatarRuntime.root.position.x,avatarRuntime.root.position.z);if(!a||a.id!==activeAction.id)return;if(a.effect==='lighting'){evening=!evening;try{localStorage.setItem(lightingKey,evening?'evening':'daylight');}catch{}applyExperience(experience);interaction.textContent=evening?'SWITCH TO DAYLIGHT':'SWITCH TO EVENING';}else if(a.href)location.assign(a.href);};
 
   root.querySelectorAll<HTMLButtonElement>('[data-action]').forEach((button) => {
     button.onclick = () => {
@@ -353,8 +370,8 @@ export async function mount(): Promise<void> {
       velocity.lerp(new THREE.Vector3(), blend);
     }
 
-    avatarRuntime.root.position.x = THREE.MathUtils.clamp(avatarRuntime.root.position.x + velocity.x * dt, -5.8, 5.8);
-    avatarRuntime.root.position.z = THREE.MathUtils.clamp(avatarRuntime.root.position.z + velocity.z * dt, -78, 5.5);
+    const position=avatarRuntime.root.position;const [nx,nz]=moveWithinWorld(position.x,position.z,velocity.x*dt,velocity.z*dt,definition.bounds,districtScene.obstacles);position.x=nx;position.z=nz;
+    const nearby=nearbyAction(definition.actions,nx,nz);if(nearby?.id!==activeAction?.id){activeAction=nearby;root.querySelector<HTMLElement>('#alActionTitle')!.textContent=nearby?.label??'Explore the environment';root.querySelector<HTMLElement>('#alActionDescription')!.textContent=nearby?.description??definition.description;interaction.disabled=!nearby;interaction.textContent=nearby?(nearby.effect==='lighting'?(evening?'SWITCH TO DAYLIGHT':'SWITCH TO EVENING'):'OPEN '+nearby.label.toUpperCase()):'MOVE TO A MARKER';}
     if (velocity.lengthSq() > .03) {
       const targetYaw = Math.atan2(velocity.x, velocity.z);
       const turnBlend = 1-Math.exp(-turnSpeed*dt);
@@ -387,6 +404,7 @@ export async function mount(): Promise<void> {
       avatarRuntime.root.position.y + baseHeight,
       avatarRuntime.root.position.z + baseDistance
     );
+    if(district!=='city'){targetCamera.z=Math.min(9,targetCamera.z);targetCamera.x=THREE.MathUtils.clamp(targetCamera.x,-4.9,4.9);}
     camera.position.lerp(targetCamera, 1 - Math.exp(-6.5 * dt));
     cameraLook.set(
       avatarRuntime.root.position.x,
