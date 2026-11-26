@@ -13,6 +13,7 @@ import {
   type SkinnedAvatarRuntime
 } from './avatar.skinned.runtime';
 import { createTexturedAvatar } from './avatar.textured.runtime';
+import {getExperience,resolveVisual,subscribeExperience,type Experience} from '../../core/experience/policy';
 import {readCharacterIdentity,savedCharacter,hasSavedOriginal} from './avatar.identity';
 import './avatar.lobby.css';
 
@@ -150,14 +151,14 @@ export async function mount(): Promise<void> {
   let avatarRuntime: SkinnedAvatarRuntime | null = null;
   let world: THREE.Group | null = null;
   let raf = 0;
-  let resize = () => {};
+  let resize = () => {};let stopExperience=()=>{};
   const abort = new AbortController();
   const isCurrent = () => !disposed && root.dataset.pageEpoch === epoch && root.dataset.pageOwner === OWNER;
 
   const cleanup = () => {
     if (disposed) return;
     disposed = true;
-    abort.abort();
+    abort.abort();stopExperience();
     cancelAnimationFrame(raf);
     window.removeEventListener('resize', resize);
     if (avatarRuntime) disposeSkinnedAvatar(avatarRuntime);
@@ -194,7 +195,7 @@ export async function mount(): Promise<void> {
   const deceleration = Number(controller.deceleration ?? 16);
   const turnSpeed = Number(controller.turn_speed ?? 8);
 
-  root.innerHTML = `<main class="al-shell"><header><h1>Avatar Lobby</h1><nav><a href="/avatar-characters.html">CUSTOMIZE</a><a href="/profile.html">PROFILE</a><a href="/meta.html">META</a></nav></header><section class="al-stage"><canvas id="lobbyCanvas"></canvas><div class="al-hud"><span class="al-mode">${original?'RICH ID • SAVED':'UNSAVED DEFAULT • CUSTOMIZE'}</span><span class="al-aura">${esc(aura)}</span><div class="al-id"><strong>${esc(name)}</strong><em>${esc(build.toUpperCase())} · ${esc(style.toUpperCase())}</em></div></div><div class="al-controls"><div class="joystick" id="joystick"><div id="stick"></div></div><div class="actions"><button data-action="jump">JUMP</button><button data-action="run">SPRINT</button><button data-action="power">POWER</button><button data-action="idle">RESET</button></div></div><div class="al-loading" id="avatarLoading">LOADING CHARACTER…</div></section></main>`;
+  root.innerHTML = `<main class="al-shell"><header><h1>Street District</h1><nav><a href="/avatar-characters.html">CUSTOMIZE</a><a href="/profile.html">PROFILE</a><a href="/meta.html">WORLDS</a></nav></header><div class="al-experience"><span id="alExperienceMode"></span><span id="alGuide" role="status" hidden></span><a href="/meta.html">Explore worlds ↗</a></div><section class="al-stage"><canvas id="lobbyCanvas"></canvas><div class="al-hud"><span class="al-mode">${original?'RICH ID • SAVED':'UNSAVED DEFAULT • CUSTOMIZE'}</span><span class="al-aura">${esc(aura)}</span><div class="al-id"><strong>${esc(name)}</strong><em>${esc(build.toUpperCase())} · ${esc(style.toUpperCase())}</em></div></div><div class="al-controls"><div class="joystick" id="joystick"><div id="stick"></div></div><div class="actions"><button data-action="jump">JUMP</button><button data-action="run">SPRINT</button><button data-action="power">POWER</button><button data-action="idle">RESET</button></div></div><div class="al-loading" id="avatarLoading">LOADING CHARACTER…</div></section></main>`;
 
   const canvas = root.querySelector<HTMLCanvasElement>('#lobbyCanvas')!;
   const quality = qualityProfile();
@@ -216,7 +217,7 @@ export async function mount(): Promise<void> {
   renderer.shadowMap.enabled = !mobile;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
-  scene.add(new THREE.HemisphereLight(0xf3fbff, 0x5d675f, 2.7));
+  const hemi=new THREE.HemisphereLight(0xf3fbff,0x5d675f,2.7);scene.add(hemi);
   const sun = new THREE.DirectionalLight(0xfff2d9, 3.2);
   sun.position.set(8, 13, 6);
   sun.castShadow = true;
@@ -231,6 +232,17 @@ export async function mount(): Promise<void> {
   rim.position.set(4, 4, -6);
   scene.add(rim);
   world = addStreetWorld(scene);
+  let experience=getExperience();
+  const applyExperience=(value:Experience)=>{experience=value;const mode=resolveVisual(value.visual,'avatar');canvas.dataset.rbVisualMode=mode;canvas.dataset.rbBehaviorMode=value.behavior;
+    const fantasy=mode==='fantasy',expressive=mode==='expressive';
+    (scene.background as THREE.Color).setHex(fantasy?0x292645:expressive?0xc7dbe3:0xa9c9d8);(scene.fog as THREE.Fog).color.copy(scene.background as THREE.Color);
+    sun.color.setHex(fantasy?0xc6b4ff:0xfff2d9);sun.intensity=fantasy?2.0:3.2;hemi.intensity=expressive?3.1:fantasy?1.6:2.5;rim.color.setHex(fantasy?0x9e86ff:0x80ffc0);rim.intensity=fantasy?3.1:.7;
+    if(renderer)renderer.toneMappingExposure=expressive?1.16:1.08;
+    root.querySelector<HTMLElement>('#alExperienceMode')!.textContent=mode+' · '+value.behavior;
+    const guide=root.querySelector<HTMLElement>('#alGuide')!;guide.hidden=value.behavior!=='guided';guide.textContent='Use joystick to move. Sprint, jump or pose, then explore a world.';
+    if(value.behavior==='manual')avatarRuntime?.expression?.('neutral');
+  };
+  applyExperience(experience);stopExperience=subscribeExperience(applyExperience);
 
   try{avatarRuntime=await createTexturedAvatar(gender,character.look,build);}catch(error){if(isCurrent())failure('Textured character unavailable. Saved Rich ID is unchanged.');return;}
   setAvatarMotion(avatarRuntime,'idle',0);
@@ -324,7 +336,7 @@ export async function mount(): Promise<void> {
   const loop = (now=0) => {
     if (disposed || !avatarRuntime || !renderer) return;
     raf=requestAnimationFrame(loop);
-    if(document.hidden||now-lastFrame<(mobile?42:16))return;
+    if(document.hidden||now-lastFrame<(mobile?32:16))return;
     lastFrame=now;
     const dt = Math.min(clock.getDelta(), .05);
     try{
@@ -364,6 +376,8 @@ export async function mount(): Promise<void> {
     if (nextMotion !== activeMotion) {
       activeMotion = nextMotion;
       setAvatarMotion(avatarRuntime, nextMotion);
+      if(experience.behavior!=='manual')avatarRuntime.expression?.(nextMotion==='power'?'confident':nextMotion==='jump'?'surprised':nextMotion==='run'?'focused':'neutral');
+      if(experience.behavior==='guided')root.querySelector<HTMLElement>('#alGuide')!.textContent=nextMotion==='run'?'Sprint active. Release sprint to walk.':nextMotion==='jump'?'Landing returns you to movement.':nextMotion==='power'?'Pose active. You remain in control.':nextMotion==='walk'?'Explore the district or enter Worlds.':'Choose a direction or open Worlds.';
     }
     if(nextMotion==='walk'||nextMotion==='run'){avatarRuntime.currentAction?.setEffectiveTimeScale(THREE.MathUtils.clamp(velocity.length()/(nextMotion==='run'?3.8:1.9),.45,1.3));}
     updateSkinnedAvatar(avatarRuntime, dt);
@@ -395,7 +409,7 @@ export async function mount(): Promise<void> {
       sampleFrames = 0;
     }
 
-    renderer.render(scene, camera);
+    renderer.render(scene, camera);canvas.dataset.rbRenderState='frame-rendered';
     }catch(error){failure('Graphics stopped. Saved appearance is unchanged.');console.warn('[Avatar Lobby]',error);}
   };
   raf=requestAnimationFrame(loop);
