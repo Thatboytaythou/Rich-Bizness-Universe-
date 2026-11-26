@@ -19,6 +19,7 @@ const vendorChunk = (id: string): string | undefined => {
     return 'vendor-livekit-core';
   }
   if (id.includes('/@livekit/')) return 'vendor-livekit-shared';
+  if (id.includes('/ara3d/')) return 'vendor-character-hd';
   if (id.includes('/three/')) return 'vendor-three';
   if (id.includes('/@supabase/realtime-js/')) return 'vendor-supabase-realtime';
   if (id.includes('/@supabase/postgrest-js/')) return 'vendor-supabase-postgrest';
