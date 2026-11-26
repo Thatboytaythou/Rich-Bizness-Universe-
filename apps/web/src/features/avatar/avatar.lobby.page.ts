@@ -12,6 +12,7 @@ import {
   type AvatarMotion,
   type SkinnedAvatarRuntime
 } from './avatar.skinned.runtime';
+import { CHARACTER_RIG, createOriginalAvatar } from './avatar.original.runtime';
 import './avatar.lobby.css';
 
 type CleanupHost = Window & { __rbPageCleanup?: (() => void | Promise<void>) | null };
@@ -204,12 +205,13 @@ export async function mount(): Promise<void> {
   const baseDistance = Math.max(3.8, Number(cameraConfig.distance ?? 5.4));
   const baseHeight = Math.max(1.5, Number(cameraConfig.height ?? 2.2));
 
-  renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
-  renderer.setPixelRatio(quality.dpr);
+  const mobile=matchMedia('(pointer:coarse),(max-width:860px)').matches;
+  renderer = new THREE.WebGLRenderer({ canvas, antialias: !mobile, powerPreference: mobile?'low-power':'high-performance' });
+  renderer.setPixelRatio(mobile?1:quality.dpr);
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.toneMappingExposure = 1.08;
-  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.enabled = !mobile;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
   scene.add(new THREE.HemisphereLight(0xf3fbff, 0x5d675f, 2.7));
@@ -228,11 +230,13 @@ export async function mount(): Promise<void> {
   scene.add(rim);
   world = addStreetWorld(scene);
 
-  avatarRuntime = await loadSkinnedAvatar({
-    modelUrl: resolveAvatarModelUrl(snap as Record<string, any>, gender),
-    targetHeight: gender === 'girl' ? 1.72 : 1.82,
-    signal: abort.signal
+  const original=outfit.rig===CHARACTER_RIG;
+  avatarRuntime=original?createOriginalAvatar(gender,outfit.appearance,build):await loadSkinnedAvatar({
+    modelUrl:resolveAvatarModelUrl(snap as Record<string, any>,gender),
+    targetHeight:gender==='girl'?1.72:1.82,signal:abort.signal
   });
+  setAvatarMotion(avatarRuntime,'idle',0);
+  canvas.dataset.rbModelState=original?'original-stylized':'legacy-reference';
   if (!isCurrent()) { disposeSkinnedAvatar(avatarRuntime); return; }
   avatarRuntime.root.position.set(0, 0, 1.6);
   scene.add(avatarRuntime.root);
@@ -316,7 +320,7 @@ export async function mount(): Promise<void> {
   let activeMotion: AvatarMotion = 'idle';
   let sampleTime = 0;
   let sampleFrames = 0;
-  let pixelRatio = quality.dpr;
+  let pixelRatio = mobile?1:quality.dpr;
 
   const loop = () => {
     if (disposed || !avatarRuntime || !renderer) return;
@@ -375,7 +379,7 @@ export async function mount(): Promise<void> {
 
     sampleTime += dt;
     sampleFrames += 1;
-    if (sampleTime >= 2.2) {
+    if (sampleTime >= 2.2 && !mobile) {
       const averageFrame = sampleTime / Math.max(sampleFrames, 1);
       const nextRatio = averageFrame > .027 ? Math.max(1.15, pixelRatio - .2) : averageFrame < .019 ? Math.min(quality.dpr, pixelRatio + .1) : pixelRatio;
       if (Math.abs(nextRatio - pixelRatio) > .04) {
