@@ -143,6 +143,8 @@ export async function mountProfilePage(): Promise<void> {
   const level = snap.level ?? {};
   const avatar = snap.avatar ?? {};
   const isOwner = Boolean(viewer.is_owner);
+  const characterOutfit=snap.loadout?.outfit_config??avatar.metadata?.outfit??{};
+  const hasOriginal=isOwner&&characterOutfit.rig==='rb-original-human-v1';
   const isAdmin = Boolean(adminData);
   const display = profile.display_name ?? profile.username ?? avatar.display_name ?? 'Rich Member';
   const avatarUrl = profile.avatar_url ?? avatar.avatar_url ?? '/brand/icons/profile-placeholder.svg';
@@ -220,7 +222,7 @@ export async function mountProfilePage(): Promise<void> {
     ${!isOwner ? `<nav class="pu-actions" aria-label="Profile actions"><button type="button" id="followButton" class="primary">${viewer.following ? 'FOLLOWING' : 'FOLLOW'}</button><a href="/messages.html?to=${profileId}">MESSAGE</a><a href="/creator.html?id=${profileId}">CREATOR</a><a href="/store.html?seller=${profileId}">STORE</a><button type="button" id="shareButton">SHARE</button></nav>` : ''}
 
     <section class="pu-command">
-      <article class="pu-command__avatar"><div><small>CHARACTER</small><h2>${esc((avatar.character_type ?? 'CUSTOM').toUpperCase())}</h2><p>${esc(avatar.aura ?? 'Emerald Gold')} · ${avatar.is_controllable ? 'Realtime controllable' : 'Ready'}</p></div><div class="pu-character-links"><a href="/avatar.html">CHOOSE</a><a href="/avatar-characters.html">3D LOBBY</a></div></article>
+      <article class="pu-command__avatar"><div><small>CHARACTER</small>${hasOriginal?'<img id="rbOriginalPortrait" hidden alt="Your saved Rich Bizness character" style="width:96px;height:116px;object-fit:contain;border-radius:12px;background:#10251a">':''}<h2>${esc((avatar.character_type ?? 'CUSTOM').toUpperCase())}</h2><p>${esc(avatar.aura ?? 'Emerald Gold')} · ${hasOriginal?'Original stylized character':avatar.is_controllable ? 'Realtime controllable' : 'Ready'}${hasOriginal?' · '+esc(characterOutfit.style??'street'):''}</p></div><div class="pu-character-links"><a href="/avatar-characters.html">CUSTOMIZE</a><a href="/avatar.html">3D LOBBY</a></div></article>
       ${stat('BALANCE', money(profile.balance_cents))}${stat('CREATOR', snap.creator ? 'ACTIVE' : '—')}${stat('GAMER', snap.gamer?.rank_title ?? '—')}
     </section>
 
@@ -229,6 +231,23 @@ export async function mountProfilePage(): Promise<void> {
     <section class="pu-library"><header><div><small>CONTENT</small><h2>PROFILE DROPS</h2></div><div class="pu-tabs" role="tablist">${tabs.map(([key, label, items]) => `<button type="button" role="tab" data-tab="${key}">${label}<span>${compact(items.length)}</span></button>`).join('')}</div></header>${tabs.map(([key, label, items]) => `<div class="pu-panel" data-panel="${key}">${items.length ? items.map(item => contentCard(item, label)).join('') : `<p class="pu-empty">NO ${label} YET</p>`}</div>`).join('')}</section>
   </main>`;
 
+  // Render one still from the same saved runtime; no continuous WebGL context on Profile.
+  if(hasOriginal)void (async()=>{
+    const [{createOriginalAvatar},{disposeSkinnedAvatar,setAvatarMotion},THREE]=await Promise.all([import('../../features/avatar/avatar.original.runtime'),import('../../features/avatar/avatar.skinned.runtime'),import('three')]);
+    if(!isCurrent())return;
+    const portrait=root.querySelector<HTMLImageElement>('#rbOriginalPortrait');if(!portrait)return;
+    let renderer:InstanceType<typeof THREE.WebGLRenderer>|undefined;
+    let runtime:ReturnType<typeof createOriginalAvatar>|undefined;
+    try{
+      runtime=createOriginalAvatar(avatar.character_type==='female'?'girl':'boy',characterOutfit.appearance,characterOutfit.build);
+      setAvatarMotion(runtime,'idle',0);
+      const scene=new THREE.Scene();scene.background=new THREE.Color(0x10251a);scene.add(runtime.root);
+      scene.add(new THREE.HemisphereLight(0xffffff,0x384b3b,2.3));const key=new THREE.DirectionalLight(0xffe4b5,2.6);key.position.set(3,4,5);scene.add(key);
+      const camera=new THREE.PerspectiveCamera(32,240/288,.1,15);camera.position.set(0,runtime.height*.75,3.6);camera.lookAt(0,runtime.height*.53,0);
+      renderer=new THREE.WebGLRenderer({antialias:false,preserveDrawingBuffer:true,powerPreference:'low-power'});renderer.setSize(240,288);renderer.render(scene,camera);
+      if(isCurrent()){portrait.src=renderer.domElement.toDataURL('image/png');portrait.hidden=false;}
+    }finally{if(runtime)disposeSkinnedAvatar(runtime);renderer?.dispose();renderer?.forceContextLoss();}
+  })().catch(()=>{});
   const buttons = [...root.querySelectorAll<HTMLButtonElement>('[data-tab]')];
   const setTab = (tab: string) => {
     buttons.forEach(button => {
