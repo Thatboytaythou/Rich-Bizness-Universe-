@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import {bakeGroundedGait} from './avatar.contact-motion';
 import {HumanAvatar,loadHumanPackage,type HumanPackage,type HumanConfig} from './vendor/humanforge/runtime';
 import {normalizeLook,SCULPT_FIELDS,type CharacterLook} from './avatar.character.config';
 import type {AvatarGender,AvatarExpression,SkinnedAvatarRuntime} from './avatar.skinned.runtime';
@@ -63,13 +64,17 @@ export async function createTexturedAvatar(gender:AvatarGender,raw:unknown,build
       return new THREE.QuaternionKeyframeTrack(b.uuid+'.quaternion',t,q);
     };
     // All clips bind the same joint set so a power pose cannot leave the elbows or legs frozen.
-    const jointNames=['Hips','Spine','Spine1','Spine2','Neck','Head',...['Left','Right'].flatMap(side=>['UpLeg','Leg','Foot','ToeBase','Shoulder','Arm','ForeArm','Hand'].map(j=>side+j))];
+    const jointNames=['Hips','Spine','Spine1','Spine2','Neck','Head',...['Left','Right'].flatMap(side=>['UpLeg','Leg','Foot','ToeBase','Shoulder','Arm','ForeArm','Hand',...['Index','Middle','Ring','Pinky','Thumb'].flatMap(f=>[1,2,3].map(i=>'Hand'+f+i))].map(j=>side+j))];
     const makeClip=(name:string,duration:number,angles:(joint:string,p:number)=>[number,number,number],bob:(p:number)=>number=()=>0)=>{
       const t=Array.from({length:33},(_,i)=>duration*i/32),tracks:THREE.KeyframeTrack[]=[];
       for(const n of jointNames){
         const b=bone(n);if(!b||!b.parent)continue;
         const inverse=b.parent.getWorldQuaternion(new THREE.Quaternion()).invert(),rest=b.quaternion.clone();
         const values=t.flatMap(time=>{const a=angles(n,time/duration);
+          if(/Hand(Index|Middle|Ring|Pinky|Thumb)[123]$/.test(n)){
+            const amount=(/Thumb/.test(n)?.065:.16)+.055*Math.sin(time/duration*Math.PI*2);const sign=n.startsWith('Left')?1:-1;
+            return rest.clone().multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1,0,0),sign*amount)).toArray();
+          }
           const rotation=new THREE.Quaternion().setFromEuler(new THREE.Euler(a[0],a[1],a[2],'YXZ'));
           return inverse.clone().multiply(rotation).multiply(inverse.clone().invert()).multiply(rest).toArray();});
         tracks.push(new THREE.QuaternionKeyframeTrack(b.uuid+'.quaternion',t,values));
@@ -125,7 +130,27 @@ export async function createTexturedAvatar(gender:AvatarGender,raw:unknown,build
       if(n.endsWith('Hand'))return [0,side*.12*a,0];
       return [0,0,0];
     });
-    const clips=[idle,gait('walk',1.08,false),gait('run',.72,true),jump,power];
+    const walk=bakeGroundedGait(root,avatar.bones,gait('walk',1.08,false),false);
+    const run=bakeGroundedGait(root,avatar.bones,gait('run',.72,true),true);
+    const gesture=(name:string,duration:number)=>makeClip(name,duration,(n,p)=>{
+      const a=Math.sin(Math.PI*p)**2,side=n.startsWith('Left')?1:-1;
+      if(n==='Hips')return [0,.065*a,-.035*a];
+      if(n==='Spine')return [.025*a,-.065*a,.03*a];
+      if(n==='Head')return [name==='nod'?.16*Math.sin(p*Math.PI*4)*a:0,name==='look around'?.42*Math.sin(p*Math.PI*2):.065*a,0];
+      if(n==='Neck')return [name==='nod'?.04*Math.sin(p*Math.PI*4)*a:0,name==='look around'?.13*Math.sin(p*Math.PI*2):0,0];
+      if(name==='wave'){
+        if(n==='RightArm')return [-.28*a,0,-1.05*a];
+        if(n==='RightForeArm')return [-1.05*a,0,-.20*a];
+        if(n==='RightHand')return [0,0,.25*Math.sin(p*Math.PI*8)*a];
+      }
+      if(name==='stretch'){
+        if(n.endsWith('Arm')&&!n.endsWith('ForeArm'))return [-1.1*a,0,side*.22*a];
+        if(n.endsWith('ForeArm'))return [-.18*a,0,0];
+      }
+      if(n.endsWith('ForeArm'))return [-.13*a,0,0];
+      return [0,0,0];
+    });
+    const clips=[idle,walk.clip,run.clip,jump,power,gesture('wave',2.8),gesture('look around',3.6),gesture('nod',2.1),gesture('stretch',3.5)];
     // Real GPU morph targets from the licensed human asset. Expressions are transient.
     const moods:Record<AvatarExpression,Record<string,number>>={
       neutral:{},smile:{mouthSmile:.58,eyeSquintLeft:.15,eyeSquintRight:.15},
@@ -141,9 +166,9 @@ export async function createTexturedAvatar(gender:AvatarGender,raw:unknown,build
       if(faceTime>nextBlink+.2)nextBlink=faceTime+2.5+Math.random()*2.5;
       const blink=faceTime>=nextBlink?Math.sin(Math.PI*THREE.MathUtils.clamp((faceTime-nextBlink)/.2,0,1)):0;
       for(const n of names){const target=n.startsWith('eyeBlink')?blink:(moods[mood][n]??0)*strength;
-        const w=THREE.MathUtils.lerp(weights[n]??0,target,1-Math.exp(-dt*(n.startsWith('eyeBlink')?35:9)));weights[n]=w;avatar.setExpression(n,w);}
+        const w=THREE.MathUtils.lerp(weights[n]??0,target,1-Math.exp(-dt*(n.startsWith('eyeBlink')?35:9)));if(Math.abs(w-(weights[n]??0))>.001){weights[n]=w;avatar.setExpression(n,w);}}
     };
     mixer=new THREE.AnimationMixer(root);const actions=new Map(clips.map(c=>[c.name,mixer!.clipAction(c)]));
-    return {root,mixer,actions,clips,bounds,height,currentMotion:'idle',currentAction:null,expression,animateFace,dispose:()=>{mixer?.stopAllAction();mixer?.uncacheRoot(root);const skeletons=new Set<THREE.Skeleton>();root.traverse(o=>{if((o as THREE.SkinnedMesh).isSkinnedMesh)skeletons.add((o as THREE.SkinnedMesh).skeleton);});avatar.dispose();skeletons.forEach(s=>s.dispose());root.clear();}};
+    return {root,mixer,actions,clips,bounds,height,currentMotion:'idle',currentAction:null,expression,animateFace,locomotionSpeed:{walk:walk.speed,run:run.speed},dispose:()=>{mixer?.stopAllAction();mixer?.uncacheRoot(root);const skeletons=new Set<THREE.Skeleton>();root.traverse(o=>{if((o as THREE.SkinnedMesh).isSkinnedMesh)skeletons.add((o as THREE.SkinnedMesh).skeleton);});avatar.dispose();skeletons.forEach(s=>s.dispose());root.clear();}};
   }catch(error){avatar.dispose();throw error;}
 }
