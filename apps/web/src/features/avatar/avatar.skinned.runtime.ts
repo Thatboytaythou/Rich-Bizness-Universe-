@@ -192,20 +192,21 @@ export function refreshAvatarBounds(runtime: SkinnedAvatarRuntime): THREE.Box3 {
 }
 
 export function disposeSkinnedAvatar(runtime: SkinnedAvatarRuntime): void {
-  runtime.mixer.stopAllAction();
-  runtime.mixer.uncacheRoot(runtime.root);
-  runtime.root.traverse((object) => {
-    const mesh = object as THREE.Mesh;
-    if (!mesh.isMesh) return;
-    mesh.geometry?.dispose();
-    const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
-    for (const material of materials) {
-      for (const value of Object.values(material)) {
-        if ((value as THREE.Texture | undefined)?.isTexture) (value as THREE.Texture).dispose();
-      }
-      material.dispose();
+  runtime.mixer.stopAllAction();runtime.mixer.uncacheRoot(runtime.root);
+  const geometries=new Set<THREE.BufferGeometry>(),materials=new Set<THREE.Material>(),textures=new Set<THREE.Texture>(),skeletons=new Set<THREE.Skeleton>();
+  runtime.root.traverse(object=>{
+    const mesh=object as THREE.Mesh;if(!mesh.isMesh)return;
+    if(mesh.geometry)geometries.add(mesh.geometry);
+    for(const material of(Array.isArray(mesh.material)?mesh.material:[mesh.material])){
+      materials.add(material);
+      for(const value of Object.values(material))if((value as THREE.Texture|undefined)?.isTexture)textures.add(value as THREE.Texture);
     }
+    if((mesh as THREE.SkinnedMesh).isSkinnedMesh)skeletons.add((mesh as THREE.SkinnedMesh).skeleton);
   });
+  for(const skeleton of skeletons)skeleton.dispose();
+  for(const texture of textures)texture.dispose();
+  for(const material of materials)material.dispose();
+  for(const geometry of geometries)geometry.dispose();
 }
 
 export function qualityProfile() {
