@@ -7,6 +7,8 @@ import {normalizeLook} from './avatar.character.config';
 export {CHARACTER_RIG,CHARACTER_OPTIONS,normalizeLook,type CharacterLook} from './avatar.character.config';
 export function createOriginalAvatar(gender:AvatarGender,raw:unknown,build='athletic'):SkinnedAvatarRuntime{
   const look=normalizeLook(raw),female=gender==='girl';
+  const mobile=typeof window!=='undefined'&&window.matchMedia('(pointer:coarse),(max-width:860px)').matches;
+  const radial=mobile?12:24;const sphereGeo=new THREE.SphereGeometry(1,mobile?14:28,mobile?10:20);
   const root=new THREE.Group();root.name='rb-original-human';
   const mat=(color:number,roughness=.65,metalness=0)=>new THREE.MeshStandardMaterial({color,roughness,metalness});
   const skin=mat(({deep:0x754631,warm:0xad7352,tan:0xc88f68,light:0xe5b294} as Record<string,number>)[look.skin],.72);
@@ -15,12 +17,12 @@ export function createOriginalAvatar(gender:AvatarGender,raw:unknown,build='athl
   const trim=mat(0x151d20,.83),denim=mat(look.pants==='denim'?0x31455e:look.pants==='tailored'?0x22232c:0x465044,.91),sole=mat(0xc9c5b8),gold=mat(0xe2b84e,.28,.82),ink=mat(0x242f2a,.9);
   const group=(p:THREE.Object3D,name:string,x=0,y=0,z=0)=>{const g=new THREE.Group();g.name=name;g.position.set(x,y,z);p.add(g);return g;};
   const mesh=(p:THREE.Object3D,geometry:THREE.BufferGeometry,m:THREE.Material,x=0,y=0,z=0)=>{const o=new THREE.Mesh(geometry,m);o.position.set(x,y,z);o.castShadow=true;o.receiveShadow=true;p.add(o);return o;};
-  const ell=(p:THREE.Object3D,m:THREE.Material,x:number,y:number,z:number,rx:number,ry:number,rz:number)=>{const o=mesh(p,new THREE.SphereGeometry(1,28,20),m,x,y,z);o.scale.set(rx,ry,rz);return o;};
-  const tube=(p:THREE.Object3D,m:THREE.Material,x:number,y:number,z:number,rt:number,rb:number,h:number,sz=1)=>{const o=mesh(p,new THREE.CylinderGeometry(rt,rb,h,16),m,x,y,z);o.scale.z=sz;return o;};
+  const ell=(p:THREE.Object3D,m:THREE.Material,x:number,y:number,z:number,rx:number,ry:number,rz:number)=>{const o=mesh(p,sphereGeo,m,x,y,z);o.scale.set(rx,ry,rz);return o;};
+  const tube=(p:THREE.Object3D,m:THREE.Material,x:number,y:number,z:number,rt:number,rb:number,h:number,sz=1)=>{const o=mesh(p,new THREE.CylinderGeometry(rt,rb,h,mobile?10:16),m,x,y,z);o.scale.z=sz;return o;};
   const box=(p:THREE.Object3D,m:THREE.Material,x:number,y:number,z:number,w:number,h:number,d:number)=>mesh(p,new THREE.BoxGeometry(w,h,d),m,x,y,z);
-  const ring=(p:THREE.Object3D,m:THREE.Material,x:number,y:number,z:number,r:number,t:number)=>{const o=mesh(p,new THREE.TorusGeometry(r,t,7,32),m,x,y,z);return o;};
+  const ring=(p:THREE.Object3D,m:THREE.Material,x:number,y:number,z:number,r:number,t:number)=>{const o=mesh(p,new THREE.TorusGeometry(r,t,6,mobile?16:32),m,x,y,z);return o;};
   const buildWidth=build==='lean'?.85:build==='heroic'?1.18:1;
-  const limb=(p:THREE.Object3D,m:THREE.Material,points:number[][],y=0,depth=1)=>{const o=mesh(p,new THREE.LatheGeometry(points.map(([x,h])=>new THREE.Vector2(x,h)),24),m,0,y,0);o.scale.z=depth;return o;};
+  const limb=(p:THREE.Object3D,m:THREE.Material,points:number[][],y=0,depth=1)=>{const o=mesh(p,new THREE.LatheGeometry(points.map(([x,h])=>new THREE.Vector2(x,h)),radial),m,0,y,0);o.scale.z=depth;return o;};
   const pelvis=group(root,'rbPelvis',0,.91,0);
   const hip=(female?.164:.145)*(build==='heroic'?1.08:build==='lean'?.93:1),shoulder=(female?.17:.205)*buildWidth;
   ell(pelvis,denim,0,.015,0,hip,.13,.11);
@@ -37,7 +39,7 @@ export function createOriginalAvatar(gender:AvatarGender,raw:unknown,build='athl
   const head=group(neck,'rbHead',0,.13,0);
   const jaw=look.face==='strong'?1.12:look.face==='soft'?.9:1;
   // Continuous shaped face surface instead of an overlapping ball and jaw.
-  const faceGeo=new THREE.SphereGeometry(1,40,28);const pos=faceGeo.attributes.position;
+  const faceGeo=new THREE.SphereGeometry(1,mobile?24:40,mobile?16:28);const pos=faceGeo.attributes.position;
   for(let i=0;i<pos.count;i++){const x=pos.getX(i),y=pos.getY(i),z=pos.getZ(i);const taper=y<-.18?1-(Math.abs(y)-.18)*.30+(jaw-1)*.65:1;const front=Math.max(0,z);pos.setXYZ(i,x*.102*taper,y*.137+.012,z*.095+front*Math.max(0,-y)*.020);}
   faceGeo.computeVertexNormals();mesh(head,faceGeo,skin);
   for(const s of[-1,1]){
