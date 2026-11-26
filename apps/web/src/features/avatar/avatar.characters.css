@@ -13,7 +13,7 @@ body[data-page="avatar-characters"] .ac-shell{min-height:100dvh;max-width:1280px
 .ac-system-bar #rbXpDock>button{min-width:60px;min-height:46px;padding:6px 9px;border-radius:12px;box-shadow:none}
 .ac-system-bar #rbXpDock section{position:absolute;left:auto;right:0;top:calc(100% + 8px);bottom:auto;z-index:12;width:min(330px,calc(100vw - 34px));max-height:60dvh;overflow:auto}
 .ac-system-bar #rbXpDock section[hidden]{display:none!important}
-.ac-layout{display:grid;grid-template-columns:minmax(0,1fr) minmax(280px,360px);gap:14px;align-items:start}
+.ac-layout{display:grid;grid-template-columns:minmax(0,1fr);gap:14px;align-items:start}
 .ac-stage{min-width:0;display:grid;gap:0;border:1px solid #385b41;border-radius:20px;background:#0e2116}
 .ac-viewport{position:relative;height:clamp(310px,53dvh,640px);overflow:hidden;border-radius:19px 19px 0 0;background:#081910;isolation:isolate}
 .ac-viewport canvas{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:pan-y}
@@ -121,3 +121,59 @@ body[data-page="avatar-characters"]{background:radial-gradient(ellipse at 50% 0%
 .ac-shell #acSequence{display:grid;gap:6px;list-style:none;margin:0;padding:0}.ac-shell #acSequence li{display:grid;grid-template-columns:minmax(0,1fr) 40px 40px 64px;gap:4px;align-items:center;background:#17271e;border-radius:8px;padding:5px}.ac-shell #acSequence li span{font-size:12px;overflow-wrap:anywhere}.ac-shell #acSequence li button{min-width:0;padding:4px;min-height:44px;font-size:11px}.ac-shell #acCreator select{width:100%;min-height:44px}.ac-shell #acCreator h3{font-size:16px}
 
 .ac-shell .ac-step-settings{grid-column:1/-1;display:grid;grid-template-columns:1fr 1fr;gap:8px}.ac-step-settings label{font-size:11px}.ac-step-settings select{min-height:44px;width:100%}
+
+/* V27.1: mobile-first, intrinsic-width-safe Studio only. */
+body[data-page="avatar-characters"] #app{width:100%;min-width:0;max-width:100%;overflow-x:clip}
+body[data-page="avatar-characters"] .ac-shell{width:100%;min-width:0;max-width:1280px;grid-template-columns:minmax(0,1fr);padding-inline:max(10px,env(safe-area-inset-left)) max(10px,env(safe-area-inset-right));}
+body[data-page="avatar-characters"] .ac-shell :is(.ac-layout,.ac-stage,.ac-stage-controls,.ac-editor,.ac-workspace-panel,.ac-fold-content,.ac-elite,.ac-elite-sub,.ac-system-bar,.ac-choice-grid,.ac-picker,.ac-sculpt){min-width:0;max-width:100%}
+body[data-page="avatar-characters"] .ac-shell :is(.ac-stage,.ac-stage-controls,.ac-editor,.ac-workspace-panel,.ac-fold-content,.ac-elite,.ac-elite-sub,.ac-choice-grid){grid-template-columns:minmax(0,1fr)}
+body[data-page="avatar-characters"] .ac-shell .ac-layout{width:100%;grid-template-columns:minmax(0,1fr)}
+body[data-page="avatar-characters"] .ac-shell .ac-editor{width:100%;padding:12px;gap:10px;scroll-margin-top:12px}
+.ac-shell .ac-workspace-tabs,.ac-shell .ac-workspace-actions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
+.ac-shell .ac-workspace-tabs button{font-size:13px;min-height:46px;font-weight:750;line-height:1.2;padding:8px;white-space:normal}
+.ac-shell .ac-workspace-tabs button[aria-pressed="true"]{background:#c5d797;border-color:#e0d9a0;color:#102019}
+.ac-shell .ac-workspace-panel,.ac-shell .ac-fold-content{display:grid;gap:10px}
+.ac-shell .ac-tool-fold{min-width:0;padding:0 10px;border:1px solid #405346;border-radius:12px;background:#0b1714}
+.ac-shell .ac-tool-fold>summary{min-height:44px;display:flex;align-items:center;gap:6px;cursor:pointer;color:#e6cf94;font-size:13px;font-weight:750;list-style:none}
+.ac-shell .ac-tool-fold>summary::-webkit-details-marker{display:none}
+.ac-shell .ac-tool-fold>summary::after{content:'+';margin-left:auto}
+.ac-shell .ac-tool-fold[open]>summary::after{content:'−'}
+.ac-shell .ac-tool-fold:not([open])>:not(summary),.ac-shell details.ac-elite-sub:not([open])>:not(summary){display:none!important}
+.ac-shell .ac-tool-fold[open]>.ac-fold-content{padding-bottom:10px}
+.ac-shell .ac-expression-lab[open]{padding-bottom:10px}
+.ac-shell .ac-workspace-panel .ac-elite{margin:0;padding:12px}
+.ac-shell .ac-workspace-panel .ac-elite-sub{padding:10px}
+.ac-shell .ac-edit-jump{display:grid;place-items:center;min-height:44px;border:1px solid #a38c55;border-radius:10px;color:#e6cf94;font-size:12px;font-weight:800;text-align:center;padding:8px}
+.ac-shell #acFitStatus,.ac-shell #saveStatus{overflow-wrap:anywhere}
+.ac-shell #acFitStatus{margin:0;font-size:12px;color:#c3d8c7}
+.ac-shell :is(button,select,input,fieldset,nav,details,summary,a){min-width:0;max-width:100%}
+.ac-shell :is(button,summary,a){overflow-wrap:anywhere;white-space:normal}
+.ac-shell .ac-category-tabs{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
+.ac-shell .ac-category-tabs button{font-size:12px;min-height:44px;padding:6px}
+.ac-shell .ac-choices{grid-template-columns:repeat(auto-fit,minmax(min(100%,94px),1fr))}
+.ac-shell .ac-choices button{font-size:12px;padding:6px;min-height:44px}
+.ac-shell .ac-elite-collections button{min-height:86px;padding:10px}
+.ac-shell .ac-elite-sub input[type=file]{width:100%;max-width:100%;overflow:hidden}
+.ac-shell .ac-stage-controls>.ac-actions{grid-template-columns:minmax(0,1fr)}
+.ac-shell .ac-stage-controls>.ac-actions:has(#acRetryIdentity:not([hidden])){grid-template-columns:repeat(2,minmax(0,1fr))}
+.ac-shell #acSequence li{grid-template-columns:minmax(0,1fr) 36px 36px 60px}
+.ac-shell .ac-step-settings{grid-template-columns:repeat(2,minmax(0,1fr))}
+.ac-shell .ac-workspace-panel [hidden],.ac-shell [hidden]{display:none!important}
+.ac-shell .ac-viewport{height:clamp(250px,41dvh,440px)}
+.ac-shell #acViewport{scroll-margin-top:12px}
+@media(max-width:420px),(any-pointer:coarse){
+  body[data-page="avatar-characters"] .ac-shell{gap:9px}
+  .ac-shell .ac-stage-controls{padding:9px}
+  .ac-shell .ac-elite p,.ac-shell .ac-elite-sub p,.ac-shell .ac-editor p{font-size:13px}
+  .ac-shell .ac-motion,.ac-shell .ac-camera{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .ac-shell .ac-stage-top span,.ac-shell .ac-stage-top b{max-width:50%;overflow-wrap:anywhere}
+  .ac-shell .ac-system-bar strong{font-size:14px}
+}
+/* Desktop layout is opt-in only, never triggered by a coarse-touch phone in desktop-site mode. */
+@media(min-width:1100px) and (hover:hover) and (pointer:fine){
+  body[data-page="avatar-characters"] .ac-shell .ac-layout{grid-template-columns:minmax(0,1fr) minmax(0,460px)}
+  body[data-page="avatar-characters"] .ac-shell .ac-viewport{height:clamp(360px,56dvh,690px)}
+}
+@media(any-pointer:coarse){
+  body[data-page="avatar-characters"] .ac-shell .ac-layout{grid-template-columns:minmax(0,1fr)}
+}
