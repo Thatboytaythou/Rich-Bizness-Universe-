@@ -22,12 +22,21 @@ export function createStudioGraphics(canvas:HTMLCanvasElement,initial:CharacterC
   let modelKey='';
   const controller=new AbortController(),signal=controller.signal;
   const fail=(message:string)=>{if(disposed||failed)return;failed=true;cancelAnimationFrame(raf);raf=0;onFailure(message);};
-  const pose=()=>{if(!runtime)return;const aspect=camera.aspect;camera.position.set(0,runtime.height*(face?.9:.69),face?1.20:4.2*Math.max(1,.62/aspect));camera.fov=face?29:34;camera.zoom=zoom;camera.updateProjectionMatrix();camera.lookAt(0,runtime.height*(face?.90:.52),0);};
+  const pose=()=>{
+    if(!runtime)return;
+    const h=runtime.height, aspect=Math.max(.25,camera.aspect),fov=face?32:35;
+    const targetY=h*(face?.88:.52);
+    // Fit both axes; reserve headroom and feet. Face mode includes neck and shoulders.
+    const viewHeight=h*(face?.48:1.19),viewWidth=h*(face?.39:.64);
+    const distance=Math.max(viewHeight,viewWidth/aspect)/(2*Math.tan(THREE.MathUtils.degToRad(fov/2)));
+    camera.position.set(0,targetY,distance);camera.fov=fov;camera.zoom=zoom;
+    camera.updateProjectionMatrix();camera.lookAt(0,targetY,0);
+  };
   const schedule=()=>{if(!disposed&&!failed&&!raf&&!document.hidden)raf=requestAnimationFrame(draw);};
   const draw=(now:number)=>{
     raf=0;if(disposed||failed||document.hidden)return;
     const anim=active!=='idle'&&now<deadline;
-    if(!dirty&&!anim)return;
+    if(!dirty&&!anim&&active==='idle')return;
     if(previous&&now-previous<(mobile?42:32)){schedule();return;}
     const dt=previous?Math.min((now-previous)/1000,.05):0;previous=now;
     try{
@@ -61,7 +70,7 @@ export function createStudioGraphics(canvas:HTMLCanvasElement,initial:CharacterC
     }
     pose();invalidate();
   };
-  const motion=(value:AvatarMotion)=>{if(!runtime||failed||disposed)return;active=value;runtime.root.position.y=0;setAvatarMotion(runtime,value,0.18);deadline=performance.now()+(value==='jump'?950:value==='power'?1500:5000);previous=0;invalidate();};
+  const motion=(value:AvatarMotion)=>{if(!runtime||failed||disposed)return;active=value;runtime.root.position.y=0;setAvatarMotion(runtime,value,value==='idle'?0:.18);if(value==='idle')runtime.mixer.update(0);else{face=false;zoom=1;pose();}deadline=performance.now()+(value==='jump'?950:value==='power'?1500:5000);previous=0;invalidate();};
   const rotate=(radians:number)=>{yaw+=radians;if(runtime)runtime.root.rotation.y=yaw;invalidate();};
   let pointer:number|null=null,lastX=0;
   canvas.addEventListener('pointerdown',e=>{pointer=e.pointerId;lastX=e.clientX;canvas.setPointerCapture(e.pointerId);},{signal});
