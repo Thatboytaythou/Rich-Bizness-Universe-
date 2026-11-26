@@ -3,16 +3,14 @@ import { getAuthSnapshot } from '../../core/auth/auth-store';
 import { supabase } from '../../core/supabase/client';
 import {
   disposeSkinnedAvatar,
-  loadSkinnedAvatar,
   qualityProfile,
-  resolveAvatarModelUrl,
   setAvatarMotion,
   updateSkinnedAvatar,
   type AvatarGender,
   type AvatarMotion,
   type SkinnedAvatarRuntime
 } from './avatar.skinned.runtime';
-import { CHARACTER_RIG, CHARACTER_OPTIONS, normalizeLook, createOriginalAvatar, type CharacterLook } from './avatar.original.runtime';
+import { CHARACTER_OPTIONS, normalizeLook, createOriginalAvatar, type CharacterLook } from './avatar.original.runtime';
 import { readCharacterIdentity, saveCharacterIdentity, savedCharacter, hasSavedOriginal, type CharacterIdentity } from './avatar.identity';
 import './avatar.characters.css';
 
@@ -67,8 +65,6 @@ export async function mount(): Promise<void> {
   let identityError='';
   try{identity=await readCharacterIdentity(user.id,abort.signal);}catch(error){snapshotFailure=true;identityError=error instanceof Error?error.message:'Identity read failed.';}
   if(!isCurrent())return;
-  const snap=identity;
-  const outfit=identity.loadout.outfit_config??identity.avatar.metadata?.outfit??{};
   const initial=savedCharacter(identity);
   const display=initial.name;
   let gender:AvatarGender=initial.gender;
@@ -181,32 +177,6 @@ export async function mount(): Promise<void> {
   let dragStartX = 0;
   let dragStartYaw = 0;
 
-  const modelSnapshotFor = (nextGender: AvatarGender) => {
-    const modelBodyType = String(snap.model?.body_type ?? '').toLowerCase();
-    const matches = (nextGender === 'girl' && modelBodyType === 'female') || (nextGender === 'boy' && modelBodyType === 'male');
-    return matches ? snap as Record<string, any> : ({ model: null } as Record<string, any>);
-  };
-
-  const applyBuildScale = () => {
-    if (!runtime) return;
-    const xScale = buildInput.value === 'lean' ? .95 : buildInput.value === 'heroic' ? 1.035 : 1;
-    runtime.root.scale.x = runtime.root.scale.y * xScale;
-    runtime.root.updateMatrixWorld(true);
-  };
-
-  const materialColors=new Map<THREE.MeshStandardMaterial,THREE.Color>();
-  const applyStylePreview=()=>{
-    if(!runtime||canvas.dataset.rbModelState!=='reference-model')return;
-    const tint=styleInput.value==='boss'?0xf3c95f:styleInput.value==='cyber'?0x7da8ff:styleInput.value==='tactical'?0x74897c:0xffffff;
-    runtime.root.traverse(object=>{
-      const mesh=object as THREE.Mesh;if(!mesh.isMesh)return;
-      for(const mat of(Array.isArray(mesh.material)?mesh.material:[mesh.material])){
-        const m=mat as THREE.MeshStandardMaterial;if(!m.isMeshStandardMaterial)continue;
-        if(!materialColors.has(m))materialColors.set(m,m.color.clone());
-        m.color.copy(materialColors.get(m)!).multiply(new THREE.Color(tint));
-      }
-    });stageDirty=true;
-  };
   const applyAura=()=>{const color=auraColor(auraInput.value);auraLight.color.setHex(color);halo.material.color.setHex(color);stageDirty=true;};
   const loadCharacter = async () => {
     const generation = ++loadGeneration;
@@ -218,7 +188,6 @@ export async function mount(): Promise<void> {
     if (runtime) {
       scene.remove(runtime.root);
       disposeSkinnedAvatar(runtime);
-      materialColors.clear();
       runtime = null;
     }
     try {
@@ -230,7 +199,6 @@ export async function mount(): Promise<void> {
       scene.add(runtime.root);
       setAvatarMotion(runtime, motion, 0);
       canvas.dataset.rbModelState='original-stylized';
-      applyStylePreview();
       const poseButton=root.querySelector<HTMLButtonElement>('[data-motion="power"]')!;
       const hasPose=next.clips.some(clip=>/power|attack|dance|pose|action/i.test(clip.name));poseButton.disabled=!hasPose;poseButton.title=hasPose?'Play pose clip':'This asset has no pose animation';if(!hasPose&&motion==='power'){motion='idle';setAvatarMotion(next,'idle',0);root.querySelectorAll<HTMLButtonElement>('[data-motion]').forEach(item=>item.classList.toggle('active',item.dataset.motion==='idle'));}
       canvas.dataset.rbRenderState='awaiting-frame';loading.hidden=true;
@@ -259,19 +227,19 @@ export async function mount(): Promise<void> {
     button.onclick = () => {
       motion = (button.dataset.motion ?? 'idle') as AvatarMotion;
       root.querySelectorAll<HTMLButtonElement>('[data-motion]').forEach((item) => item.classList.toggle('active', item === button));
-      if (runtime) {setAvatarMotion(runtime, motion);root.querySelector<HTMLElement>('#acMotionStatus')!.textContent='Motion: '+motion.toUpperCase()+' • '+(runtime.currentAction?.getClip().name??'unavailable');}
+      if (runtime) {runtime.root.position.y=0;setAvatarMotion(runtime, motion);root.querySelector<HTMLElement>('#acMotionStatus')!.textContent='Motion: '+motion.toUpperCase()+' • '+(runtime.currentAction?.getClip().name??'unavailable');}
     };
   });
 
   buildInput.onchange = () => {markDirty();
-    if(canvas.dataset.rbModelState==='original-stylized')void loadCharacter();else applyBuildScale();
+    void loadCharacter();
     root.querySelector<HTMLElement>('#previewStyle')!.textContent = `${buildInput.value.toUpperCase()} · ${styleInput.value.toUpperCase()}`;
   };
   styleInput.onchange = () => {markDirty();
-    if(canvas.dataset.rbModelState==='original-stylized'){
+    {
       const presets:Record<string,Partial<CharacterLook>>={street:{top:'hoodie',pants:'cargo',shoes:'sneakers'},boss:{top:'jacket',pants:'tailored',shoes:'boots',gear:'chain'},tactical:{top:'vest',pants:'cargo',shoes:'boots'},cyber:{top:'vest',pants:'denim',shoes:'high-tops',color:'ice',gear:'shades'}};
       look=normalizeLook({...look,...presets[styleInput.value]});syncLook();void loadCharacter();
-    }else applyStylePreview();
+    }
     root.querySelector<HTMLElement>('#previewStyle')!.textContent = `${buildInput.value.toUpperCase()} · ${styleInput.value.toUpperCase()}`;
   };
   const syncLook=()=>root.querySelectorAll<HTMLSelectElement>('[data-appearance]').forEach(el=>{el.value=look[el.dataset.appearance as keyof CharacterLook];});
@@ -331,6 +299,7 @@ export async function mount(): Promise<void> {
   const stopDrag = () => { dragging = false; };
   canvas.addEventListener('pointerup', stopDrag);
   canvas.addEventListener('pointercancel', stopDrag);
+  canvas.addEventListener('lostpointercapture',stopDrag);
 
   resize = () => {
     if (!renderer) return;
@@ -359,6 +328,12 @@ export async function mount(): Promise<void> {
     try {
       if (runtime) {
         updateSkinnedAvatar(runtime, dt);
+        if(motion==='jump'){
+          const action=runtime.currentAction;
+          const progress=action?Math.min(1,action.time/action.getClip().duration):1;
+          runtime.root.position.y=.42*4*progress*(1-progress);
+          if(progress>=.999){runtime.root.position.y=0;motion='idle';setAvatarMotion(runtime,'idle');root.querySelectorAll<HTMLButtonElement>('[data-motion]').forEach(button=>button.classList.toggle('active',button.dataset.motion==='idle'));root.querySelector<HTMLElement>('#acMotionStatus')!.textContent='Motion: IDLE';}
+        }else runtime.root.position.y=0;
         target.set(0,runtime.height*(faceView?.90:.52),0);
         if(faceView)camera.position.y=runtime.height*.9;
         camera.lookAt(target);
