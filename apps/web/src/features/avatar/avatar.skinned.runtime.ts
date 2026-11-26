@@ -16,6 +16,7 @@ export type SkinnedAvatarRuntime = {
   currentAction: THREE.AnimationAction | null;
   expression?: (value: AvatarExpression, strength?:number) => void;
   animateFace?: (dt:number) => void;
+  locomotionSpeed?: {walk:number;run:number};
   dispose?: () => void;
 };
 
@@ -167,9 +168,11 @@ export function setAvatarMotion(runtime: SkinnedAvatarRuntime, motion: AvatarMot
   if (!next) return;
 
   const previous = runtime.currentAction;
+  const phase=(previous&&['walk','run'].includes(runtime.currentMotion)&&['walk','run'].includes(motion))?previous.time/previous.getClip().duration:0;
   next.reset();
   next.enabled = true;
-  next.setEffectiveTimeScale(motion === 'run' ? 1.12 : 1);
+  next.setEffectiveTimeScale(1);
+  if(phase>0)next.time=(phase%1)*next.getClip().duration;
   next.setEffectiveWeight(1);
   if (motion === 'jump' || motion === 'power') {
     next.setLoop(THREE.LoopOnce, 1);
@@ -184,6 +187,10 @@ export function setAvatarMotion(runtime: SkinnedAvatarRuntime, motion: AvatarMot
   }
   runtime.currentAction = next;
   runtime.currentMotion = motion;
+}
+
+export function playAvatarGesture(runtime:SkinnedAvatarRuntime,name:string):number{
+  const next=runtime.actions.get(name);if(!next)return 0;const previous=runtime.currentAction;next.reset().setEffectiveWeight(1).setEffectiveTimeScale(1).setLoop(THREE.LoopOnce,1);next.clampWhenFinished=true;next.play();if(previous&&previous!==next)previous.crossFadeTo(next,.2,false);runtime.currentAction=next;runtime.currentMotion='power';return next.getClip().duration;
 }
 
 export function updateSkinnedAvatar(runtime: SkinnedAvatarRuntime, deltaSeconds: number): void {
