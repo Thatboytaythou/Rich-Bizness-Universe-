@@ -5,7 +5,7 @@ import {disposeSkinnedAvatar,setAvatarMotion,updateSkinnedAvatar,playAvatarGestu
 import type {CharacterConfig} from './avatar.identity';
 import {getExperience,resolveVisual,subscribeExperience,type Experience} from '../../core/experience/policy';
 
-export type StudioGraphics={gesture:(name:string)=>void;expression:(value:AvatarExpression)=>void;quality:(value:'auto'|'detail')=>void;update:(config:CharacterConfig)=>void;motion:(value:AvatarMotion)=>void;rotate:(radians:number)=>void;zoom:(delta:number)=>void;face:(enabled:boolean)=>void;reset:()=>void;dispose:()=>void};
+export type StudioGraphics={gesture:(name:string)=>boolean;expression:(value:AvatarExpression)=>void;quality:(value:'auto'|'detail')=>void;update:(config:CharacterConfig)=>void;motion:(value:AvatarMotion)=>void;rotate:(radians:number)=>void;zoom:(delta:number)=>void;face:(enabled:boolean)=>void;reset:()=>void;dispose:()=>void};
 const aura=(s:string)=>s==='Neon Phantom'?0x765dff:s==='Diamond Mist'?0x76d8ff:0x21df81;
 export function createStudioGraphics(canvas:HTMLCanvasElement,initial:CharacterConfig,onFrame:()=>void,onFailure:(reason:string)=>void,onAssetStatus:(status:'loading'|'ready'|'error',message:string)=>void=()=>{}):StudioGraphics{
   const mobile=matchMedia('(pointer:coarse),(max-width:860px)').matches;
@@ -57,7 +57,7 @@ export function createStudioGraphics(canvas:HTMLCanvasElement,initial:CharacterC
         if(!anim&&active!=='idle'){if(experience.behavior!=='manual'){mood='neutral';runtime.expression?.(mood);}active='idle';runtime.root.position.y=0;setAvatarMotion(runtime,'idle',.22);runtime.mixer.update(0);}
       }
       if(runtime){contact.material.opacity=Math.max(.14,1-runtime.root.position.y*1.6);contact.scale.setScalar(1+runtime.root.position.y*.6);}
-      renderer.render(scene,camera);if(shaderError){fail('Material shader compilation failed');return;}dirty=false;if(runtime){if(awaitingFrame){awaitingFrame=false;onAssetStatus('ready','Selected fitted wardrobe rendered');}onFrame();}
+      renderer.render(scene,camera);if(shaderError){fail('Material shader compilation failed');return;}dirty=false;if(runtime){if(awaitingFrame){awaitingFrame=false;onAssetStatus('ready',runtime.assetLabel??'Selected fitted wardrobe rendered');}onFrame();}
       if(anim||living){dirty=true;schedule();}else previous=0;
     }catch(error){fail(error instanceof Error?error.message:'WebGL draw failed');}
   };
@@ -113,5 +113,5 @@ export function createStudioGraphics(canvas:HTMLCanvasElement,initial:CharacterC
   const observer=new ResizeObserver(resize);observer.observe(canvas);
   const dispose=()=>{if(disposed)return;disposed=true;controller.abort();stopExperience();observer.disconnect();cancelAnimationFrame(raf);if(runtime){scene.remove(runtime.root);disposeSkinnedAvatar(runtime);runtime=null;}floor.geometry.dispose();floor.material.dispose();contact.geometry.dispose();contact.material.dispose();contactMap.dispose();ring.geometry.dispose();ring.material.dispose();lightMap?.dispose();renderer.dispose();renderer.forceContextLoss();};
   applyExperience(experience);update(initial);resize();
-  return {gesture:name=>{if(!runtime||failed||disposed)return;const duration=playAvatarGesture(runtime,name);if(!duration)return;active='power';runtime.root.position.y=0;face=false;zoom=1;pose();if(experience.behavior!=='manual')runtime.expression?.(name==='wave'?'smile':'neutral');deadline=performance.now()+duration*1000+180;previous=0;invalidate();},expression:value=>{mood=value;runtime?.expression?.(value);expressionUntil=performance.now()+1000;face=true;zoom=1;pose();invalidate();},quality:value=>{if(quality===value)return;quality=value;resize();update(latest);},update,motion,rotate,zoom:delta=>{zoom=THREE.MathUtils.clamp(zoom+delta,.8,1.6);pose();invalidate();},face:enabled=>{face=enabled;zoom=1;pose();invalidate();},reset:()=>{yaw=0;zoom=1;face=false;if(runtime)runtime.root.rotation.y=0;pose();motion('idle');},dispose};
+  return {gesture:name=>{if(!runtime||failed||disposed)return false;const duration=playAvatarGesture(runtime,name);if(!duration)return false;active='power';runtime.root.position.y=0;face=false;zoom=1;pose();if(experience.behavior!=='manual')runtime.expression?.(name==='wave'?'smile':'neutral');deadline=performance.now()+duration*1000+180;previous=0;invalidate();return true;},expression:value=>{mood=value;runtime?.expression?.(value);expressionUntil=performance.now()+1000;face=true;zoom=1;pose();invalidate();},quality:value=>{if(quality===value)return;quality=value;resize();update(latest);},update,motion,rotate,zoom:delta=>{zoom=THREE.MathUtils.clamp(zoom+delta,.8,1.6);pose();invalidate();},face:enabled=>{face=enabled;zoom=1;pose();invalidate();},reset:()=>{yaw=0;zoom=1;face=false;if(runtime)runtime.root.rotation.y=0;pose();motion('idle');},dispose};
 }
