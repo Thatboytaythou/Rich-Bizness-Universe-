@@ -52,3 +52,15 @@ const legacyV18=normalizeLook({outfit:'formal',shoes:'boots',skin:'deep'});
 assert.equal(legacyV18.outfit,'formal');assert.equal(legacyV18.shoes,'boots');assert.equal(legacyV18.wristwear,'none');assert.equal(legacyV18.stance,'relaxed');
 assert.equal(CHARACTER_OPTIONS.outfit.length,8);assert.equal(CHARACTER_OPTIONS.shoes.length,6);
 console.log('V19: camera obstacle clearance and backward-compatible wardrobe options verified');
+
+import {hdRecipe,HD_CLIPS} from '../apps/web/src/features/avatar/avatar.hd.recipe.ts';
+import {ELITE_COLLECTIONS,eliteWardrobe} from '../apps/web/src/features/avatar/avatar.elite.catalog.ts';
+assert.equal(Object.keys(ELITE_COLLECTIONS).length,5);
+for(const collection of Object.keys(ELITE_COLLECTIONS)){
+ const r=hdRecipe('boy',{collection,eliteJewelry:'silver',identityMode:'phantom'},'athletic');
+ assert.ok(r.params);assert.deepEqual(r.params.accessories,['watch_silver']);
+ assert.ok(eliteWardrobe(collection).top);assert.equal(r.params.outfit,'none');
+}
+assert.equal(normalizeLook({}).identityMode,'human');assert.equal(normalizeLook({}).eliteJewelry,'collection');
+assert.equal(HD_CLIPS.length,21);assert.ok(!hdRecipe('boy',{collection:'heritage-crown',wristwear:'gold-cuff'},'athletic').params);
+console.log('V23: five fitted collection recipes, jewelry overrides, compatibility and legacy defaults verified');
