@@ -24,11 +24,11 @@ const pkg=()=>packagePromise??=loadHumanPackage(ASSETS,{
 }).catch(error=>{packagePromise=null;throw error;});
 const hairIds:Record<string,string|null>={fade:'short01',curls:'afro01',braids:'braid01',long:'long01',bald:null,'short-crop':'short04','short-swept':'short02','short-classic':'short03',ponytail:'ponytail01',bob:'bob02','blunt-bangs':'cortu_straight_bangs',bun:'rehmanpolanski_hair_bun_brown','natural-volume':'culturalibre_hair_01'};
 const colors:Record<string,string>={black:'#1a1412','dark-brown':'#34251e',brown:'#69452b',blond:'#b89b67',silver:'#a6a3a2'};
-const shoes:Record<string,string>={sneakers:'shoes01',boots:'shoes03','high-tops':'shoes02'};
+const shoes:Record<string,string>={sneakers:'shoes01',boots:'shoes03','high-tops':'shoes02','shoe-4':'shoes04','shoe-5':'shoes05','shoe-6':'shoes06'};
 export function humanConfig(gender:AvatarGender,look:CharacterLook,build:string):Partial<HumanConfig>{
   const male=gender==='boy',sex=male?'male':'female';
   const skinBase=look.skin==='deep'||look.skin==='warm'?'african':look.skin==='tan'?'asian':'caucasian';
-  const outfit=male?({casual:'male_casualsuit02',sport:'male_casualsuit04',formal:'male_elegantsuit01',workwear:'male_worksuit01'} as Record<string,string>)[look.outfit]:({casual:'female_casualsuit01',sport:'female_sportsuit01',formal:'female_elegantsuit01',workwear:'female_casualsuit02'} as Record<string,string>)[look.outfit];
+  const outfit=male?({casual:'male_casualsuit02',sport:'male_casualsuit04',formal:'male_elegantsuit01',workwear:'male_worksuit01','casual-alt':'male_casualsuit05',tailored:'toigo_male_suit_3','double-breasted':'toigo_male_double-breasted_suit',evening:'toigo_suit_with_dinner_jacket'} as Record<string,string>)[look.outfit]:({casual:'female_casualsuit01',sport:'female_sportsuit01',formal:'female_elegantsuit01',workwear:'female_casualsuit02','casual-alt':'female_casualsuit02',tailored:'toigo_female_suit_2','double-breasted':'toigo_female_double-breasted_suit',evening:'toigo_halter_dress_knee_length'} as Record<string,string>)[look.outfit];
   const detail:Record<string,number>={jaw:look.jaw==='square'?.6:look.jaw==='narrow'?-.55:0,headSquare:look.face==='strong'?.45:0,headOval:look.face==='soft'?.45:0,cheekBones:look.face==='angular'?.40:0,eyeOpening:look.eyeShape==='open'?.45:look.eyeShape==='narrow'?-.4:0,noseWidth:look.nose==='wide'?.55:look.nose==='narrow'?-.55:0,noseDepth:look.nose==='prominent'?.65:0,mouthWidth:look.mouth==='wide'?.55:0,upperLip:look.mouth==='full'?.55:look.mouth==='thin'?-.55:0,lowerLip:look.mouth==='full'?.55:look.mouth==='thin'?-.55:0,browAngle:look.brows==='arched'?.45:look.brows==='straight'?-.35:0};
   for(const key of SCULPT_FIELDS){const value=Number(look[key])/100*.65;detail[key]=THREE.MathUtils.clamp((detail[key]??0)+value,-1,1);}
   const maturity=look.maturity==='older'?'old':look.maturity==='mature'?'middleage':'young';
@@ -40,7 +40,7 @@ export async function createTexturedAvatar(gender:AvatarGender,raw:unknown,build
   // Refuse partial/unclothed assets. All required slots must exist and load.
   for(const id of config.clothes??[])if(!p.manifest.proxies.some(x=>x.kind==='clothes'&&x.id===id))throw Error('Wardrobe asset unavailable');
   const avatar=new HumanAvatar(p);const mobile=matchMedia('(pointer:coarse),(max-width:860px)').matches;avatar.textureSize=mobile&&quality!=='detail'?'1k':'2k';avatar.anisotropy=mobile&&quality!=='detail'?2:4;avatar.normalMaps=!mobile||quality==='detail';
-  let mixer:THREE.AnimationMixer|undefined;let surface:ReturnType<typeof attachCharacterDetail>|undefined;
+  let mixer:THREE.AnimationMixer|undefined;let surface:ReturnType<typeof attachCharacterDetail>|undefined;const accessories:THREE.Mesh[]=[];
   try{
     await avatar.setConfig(config);
     for(const id of config.clothes??[])if(!avatar.group.getObjectByName('clothes-'+id))throw Error('Wardrobe did not load completely');
@@ -55,6 +55,19 @@ export async function createTexturedAvatar(gender:AvatarGender,raw:unknown,build
       const to=new THREE.Vector3(from.x>0?.11:-.11,-1,.035).normalize();
       const world=arm.getWorldQuaternion(new THREE.Quaternion()),parent=arm.parent.getWorldQuaternion(new THREE.Quaternion());
       arm.quaternion.copy(parent.invert().multiply(new THREE.Quaternion().setFromUnitVectors(from,to).multiply(world)));root.updateMatrixWorld(true);
+    }
+    // Relax the elbow and align wrists with the forearm before generating clips.
+    for(const side of ['Left','Right']){
+      const fore=bone(side+'ForeArm'),hand=bone(side+'Hand'),mid=bone(side+'HandMiddle1');if(!fore||!hand||!mid||!hand.parent)continue;
+      const along=hand.getWorldPosition(new THREE.Vector3()).sub(fore.getWorldPosition(new THREE.Vector3())).normalize();
+      const fingers=mid.getWorldPosition(new THREE.Vector3()).sub(hand.getWorldPosition(new THREE.Vector3())).normalize();
+      if(along.lengthSq()>.5&&fingers.lengthSq()>.5){const correction=new THREE.Quaternion().setFromUnitVectors(fingers,along);correction.slerp(new THREE.Quaternion(),.25);hand.quaternion.copy(hand.parent.getWorldQuaternion(new THREE.Quaternion()).invert().multiply(correction).multiply(hand.getWorldQuaternion(new THREE.Quaternion())));root.updateMatrixWorld(true);}
+      if(side==='Left'&&look.wristwear!=='none'){
+        const index=bone(side+'HandIndex1'),pinky=bone(side+'HandPinky1');const width=index&&pinky?index.getWorldPosition(new THREE.Vector3()).distanceTo(pinky.getWorldPosition(new THREE.Vector3())):.066;
+        const radius=THREE.MathUtils.clamp(width*.52,.025,.048),metal=look.wristwear!=='onyx-band';
+        const cuff=new THREE.Mesh(new THREE.TorusGeometry(radius,.0045,8,32),new THREE.MeshStandardMaterial({color:look.wristwear==='gold-cuff'?0xd4aa54:look.wristwear==='silver-cuff'?0xc5cbd0:0x191d21,metalness:metal?.85:.1,roughness:metal?.24:.65}));
+        cuff.rotation.x=Math.PI/2;cuff.position.y=-.006;hand.add(cuff);accessories.push(cuff);
+      }
     }
     // Body is in meters. Use neutral standing height; don't override user height.
     let bounds=new THREE.Box3().setFromObject(root);const height=bounds.getSize(new THREE.Vector3()).y;
@@ -79,8 +92,11 @@ export async function createTexturedAvatar(gender:AvatarGender,raw:unknown,build
           const captured=name==='walk'||name==='run'?capturedMotion(name,n,time/duration):null;
           if(captured)for(let axis=0;axis<3;axis++)a[axis]=a[axis]*.52+captured[axis]*.48;
           if(/Hand(Index|Middle|Ring|Pinky|Thumb)[123]$/.test(n)){
-            const amount=(/Thumb/.test(n)?.065:.16)+.055*Math.sin(time/duration*Math.PI*2);const sign=n.startsWith('Left')?1:-1;
-            return rest.clone().multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1,0,0),sign*amount)).toArray();
+            const side=n.startsWith('Left')?'Left':'Right';const hand=bone(side+'Hand'),index=bone(side+'HandIndex1'),pinky=bone(side+'HandPinky1');
+            // Bone local +Y follows the finger; use the actual across-palm direction, not a guessed local X axis.
+            const axis=index&&pinky?index.getWorldPosition(new THREE.Vector3()).sub(pinky.getWorldPosition(new THREE.Vector3())).normalize().applyQuaternion(b.getWorldQuaternion(new THREE.Quaternion()).invert()):new THREE.Vector3(1,0,0);
+            const curl=(name==='run'?.42:name==='wave'?.035:.23)+.035*Math.sin(time/duration*Math.PI*2);const amount=/Thumb/.test(n)?curl*.25:curl*(n.endsWith('1')?1:n.endsWith('2')?.85:.55);
+            return rest.clone().multiply(new THREE.Quaternion().setFromAxisAngle(axis,amount*(side==='Left'?1:-1))).toArray();
           }
           const rotation=new THREE.Quaternion().setFromEuler(new THREE.Euler(a[0],a[1],a[2],'YXZ'));
           return inverse.clone().multiply(rotation).multiply(inverse.clone().invert()).multiply(rest).toArray();});
@@ -93,13 +109,13 @@ export async function createTexturedAvatar(gender:AvatarGender,raw:unknown,build
     };
     const idle=makeClip('idle',5.2,(n,p)=>{
       const a=p*Math.PI*2,s=Math.sin(a),c=Math.cos(a),side=n.startsWith('Left')?1:-1;
-      if(n==='Hips')return [0,.025*s,.024+.025*c];
+      if(n==='Hips')return [0,.025*s,(look.stance==='confident'?.045:look.stance==='alert'?0:.015)+.018*c];
       if(n==='Spine')return [.014*s,-.018*s,-.012-.016*c];
       if(n==='Spine1')return [.025*s,0,-.010*c];
       if(n==='Head')return [.024*c,.06*s,.012*s];
       if(n.endsWith('Arm')&&!n.endsWith('ForeArm'))return [.045+.025*s,0,side*.025*c];
-      if(n.endsWith('ForeArm'))return [-.12+.035*c,0,0];
-      if(n.endsWith('Hand'))return [0,.04*side,.035*side];
+      if(n.endsWith('ForeArm'))return [-(look.stance==='alert'?.19:.055)+.018*c,0,0];
+      if(n.endsWith('Hand'))return [0,.012*side,.014*side];
       return [0,0,0];
     },p=>.003*Math.sin(p*Math.PI*2));
     const gait=(name:string,duration:number,run:boolean)=>makeClip(name,duration,(n,p)=>{
@@ -177,6 +193,6 @@ export async function createTexturedAvatar(gender:AvatarGender,raw:unknown,build
     };
     let runtime:SkinnedAvatarRuntime;const currentMotion=()=>runtime?.currentMotion??'idle';
     mixer=new THREE.AnimationMixer(root);const actions=new Map(clips.map(c=>[c.name,mixer!.clipAction(c)]));
-    runtime={root,mixer,actions,clips,bounds,height,currentMotion:'idle',currentAction:null,expression,animateFace,locomotionSpeed:{walk:walk.speed,run:run.speed},dispose:()=>{mixer?.stopAllAction();mixer?.uncacheRoot(root);const skeletons=new Set<THREE.Skeleton>();root.traverse(o=>{if((o as THREE.SkinnedMesh).isSkinnedMesh)skeletons.add((o as THREE.SkinnedMesh).skeleton);});surface?.dispose();avatar.dispose();skeletons.forEach(s=>s.dispose());root.clear();}};return runtime;
-  }catch(error){surface?.dispose();avatar.dispose();throw error;}
+    runtime={root,mixer,actions,clips,bounds,height,currentMotion:'idle',currentAction:null,expression,animateFace,locomotionSpeed:{walk:walk.speed,run:run.speed},dispose:()=>{mixer?.stopAllAction();mixer?.uncacheRoot(root);const skeletons=new Set<THREE.Skeleton>();root.traverse(o=>{if((o as THREE.SkinnedMesh).isSkinnedMesh)skeletons.add((o as THREE.SkinnedMesh).skeleton);});for(const a of accessories){a.removeFromParent();a.geometry.dispose();(a.material as THREE.Material).dispose();}surface?.dispose();avatar.dispose();skeletons.forEach(s=>s.dispose());root.clear();}};return runtime;
+  }catch(error){for(const a of accessories){a.removeFromParent();a.geometry.dispose();(a.material as THREE.Material).dispose();}surface?.dispose();avatar.dispose();throw error;}
 }
