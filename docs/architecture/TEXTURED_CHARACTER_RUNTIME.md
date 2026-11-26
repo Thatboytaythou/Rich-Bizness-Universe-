@@ -1,0 +1,7 @@
+# Textured character runtime (V10)
+
+The previous procedural mannequin remains in source for compatibility but is not the default Studio, Profile or Lobby renderer. These three routes now use the same textured skeletal HumanForge v0.5.0 runtime and existing Rich ID loadout. Upstream: https://github.com/abdulrehman043/humanforge/tree/v0.5.0 . Vendored code is MIT; the pinned upstream manifest declares its MakeHuman / MPFB data CC0-1.0. The MIT notice is retained with the vendor files. Native browser gzip replaces fflate to avoid a new dependency.
+
+Assets are fetched from the pinned upstream raw GitHub path, not yet self-hosted. Fetches are bounded, anonymous, and carry no user identity or character configuration. Asset availability, device rendering and art quality must be validated before production-art approval. No avatar_models registry flags were changed. Future self-hosting must preserve per-file provenance.
+
+The existing outfit_config.appearance JSON is additive: legacy keys remain, new options map to real morph parameters and supported asset slots. Individual clothing pieces, tattoo, gear and arbitrary fabric colors are not exposed in the textured editor until matching assets exist. Outfit selections are complete fitted outfits. Motion clips are original skeletal keyframes, not mocap. Save uses the existing authenticated RPC and verifies the current user, profile, avatar and loadout readback. No database migration, permission change or new identity table was required.
