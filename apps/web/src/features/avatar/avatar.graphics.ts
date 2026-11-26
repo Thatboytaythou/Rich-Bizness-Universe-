@@ -52,7 +52,7 @@ export function createStudioGraphics(canvas:HTMLCanvasElement,initial:CharacterC
         runtime.lookAt?.(experience.behavior!=='manual'&&active==='idle'&&!reduced.matches?camera.position:null);
         if(anim||living)updateSkinnedAvatar(runtime,dt);
         if(active==='idle'&&living&&experience.behavior!=='manual'&&!reduced.matches){bodyTime+=dt;expressionClock+=dt;if(expressionClock>6.5){expressionClock=0;runtime.expression?.(Math.floor(bodyTime/6.5)%3===1?'confident':'neutral',.25);}}
-        if(routineActive&&runtime.currentAction&&runtime.currentAction.time>=runtime.currentAction.getClip().duration-.012){const next=sequence.shift();if(next){beginGesture(next.clip,next.speed,next.blend);}else{routineActive=false;active='idle';setAvatarMotion(runtime,'idle',.22);runtime.expression?.('neutral');}}
+        if(routineActive&&runtime.currentAction&&(runtime.currentAction.paused||runtime.currentAction.time>=runtime.currentAction.getClip().duration-.001)){const next=sequence.shift();if(next){beginGesture(next.clip,next.speed,next.blend);}else{routineActive=false;active='idle';setAvatarMotion(runtime,'idle',.22);runtime.expression?.('neutral');}}
         if(active==='jump'){
           const action=runtime.currentAction;
           const t=action?Math.min(1,action.time/action.getClip().duration):1;
