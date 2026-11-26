@@ -26,3 +26,19 @@ export function mountPrivateReference(container:HTMLElement,signal:AbortSignal){
 }
 
 export async function listVerifiedPurchases(signal:AbortSignal){const {data,error}=await supabase.rpc('rb_elite_verified_purchases').abortSignal(signal);if(error)throw Error(error.message);return Array.isArray(data)?data.length:0;}
+
+import {normalizeLook,type CharacterLook} from './avatar.character.config';
+const designKeys=['collection','designerCut','designerPalette','designerAccent','designerFootwear','signature','wings'] as const;
+export type PublishedDesign={owner_id:string;title:string;recipe:Partial<CharacterLook>;published:boolean;updated_at:string};
+export function designRecipe(look:CharacterLook){return Object.fromEntries(designKeys.map(k=>[k,look[k]]));}
+export async function readDesigns(userId:string,signal:AbortSignal){
+ const [own,gallery]=await Promise.all([supabase.from('elite_creator_designs').select('owner_id,title,recipe,published,updated_at').eq('owner_id',userId).maybeSingle().abortSignal(signal),supabase.from('elite_creator_designs').select('owner_id,title,recipe,published,updated_at').eq('published',true).order('updated_at',{ascending:false}).limit(24).abortSignal(signal)]);
+ if(own.error||gallery.error)throw Error((own.error??gallery.error)?.message);return {own:own.data as PublishedDesign|null,gallery:(gallery.data??[]) as PublishedDesign[]};
+}
+export async function saveDesign(userId:string,title:string,look:CharacterLook,published:boolean,signal:AbortSignal){
+ if(getAuthSnapshot().user?.id!==userId)throw Error('Rich ID changed');
+ const name=title.trim().slice(0,60);if(!name)throw Error('Name your design first.');
+ const recipe=designRecipe(normalizeLook(look));const write=await supabase.from('elite_creator_designs').upsert({owner_id:userId,title:name,recipe,published,updated_at:new Date().toISOString()},{onConflict:'owner_id'}).abortSignal(signal);
+ if(write.error)throw Error(write.error.message);const result=await readDesigns(userId,signal);if(!result.own||result.own.title!==name||result.own.published!==published||Object.entries(recipe).some(([k,v])=>result.own!.recipe[k as keyof CharacterLook]!==v))throw Error('Design readback did not match');return result;
+}
+export function applyDesign(look:CharacterLook,recipe:Partial<CharacterLook>){const safe=normalizeLook(recipe);return normalizeLook({...look,...designRecipe(safe)});}
