@@ -24,9 +24,10 @@ export function createStudioGraphics(canvas:HTMLCanvasElement,initial:CharacterC
   const ring=new THREE.Mesh(new THREE.TorusGeometry(.83,.013,6,48),new THREE.MeshBasicMaterial({color:aura(initial.aura)}));ring.rotation.x=-Math.PI/2;ring.position.y=.008;scene.add(ring);
   let runtime:SkinnedAvatarRuntime|null=null;
   let yaw=0,zoom=1,face=false,active:AvatarMotion='idle',disposed=false,failed=false,raf=0,previous=0,deadline=0,dirty=true;
-  let modelKey='',desired:CharacterConfig|null=null,loading=false;let revision=0;let quality:'auto'|'detail'='auto',mood:AvatarExpression='neutral',latest=initial;let expressionUntil=0;
+  let modelKey='',desired:CharacterConfig|null=null,loading=false,awaitingFrame=false,shaderError=false;let revision=0;let quality:'auto'|'detail'='auto',mood:AvatarExpression='neutral',latest=initial;let expressionUntil=0;
   const controller=new AbortController(),signal=controller.signal;
   let experience=getExperience();
+  renderer.debug.checkShaderErrors=true;renderer.debug.onShaderError=()=>{shaderError=true;};
   const fail=(message:string)=>{if(disposed||failed)return;failed=true;cancelAnimationFrame(raf);raf=0;onFailure(message);};
   const pose=()=>{
     if(!runtime)return;
@@ -56,7 +57,7 @@ export function createStudioGraphics(canvas:HTMLCanvasElement,initial:CharacterC
         if(!anim&&active!=='idle'){if(experience.behavior!=='manual'){mood='neutral';runtime.expression?.(mood);}active='idle';runtime.root.position.y=0;setAvatarMotion(runtime,'idle',.22);runtime.mixer.update(0);}
       }
       if(runtime){contact.material.opacity=Math.max(.14,1-runtime.root.position.y*1.6);contact.scale.setScalar(1+runtime.root.position.y*.6);}
-      renderer.render(scene,camera);dirty=false;if(runtime)onFrame();
+      renderer.render(scene,camera);if(shaderError){fail('Material shader compilation failed');return;}dirty=false;if(runtime){if(awaitingFrame){awaitingFrame=false;onAssetStatus('ready','Selected fitted wardrobe rendered');}onFrame();}
       if(anim||living){dirty=true;schedule();}else previous=0;
     }catch(error){fail(error instanceof Error?error.message:'WebGL draw failed');}
   };
@@ -84,7 +85,7 @@ export function createStudioGraphics(canvas:HTMLCanvasElement,initial:CharacterC
       while(desired&&!disposed&&!failed){
         const config=desired;desired=null;const generation=revision;
         const key=JSON.stringify([config.gender,config.build,config.look,quality]);
-        if(runtime&&key===modelKey){pose();invalidate();onAssetStatus('ready','Selected fitted wardrobe loaded');continue;}
+        if(runtime&&key===modelKey){pose();awaitingFrame=true;invalidate();continue;}
         onAssetStatus('loading','Fitting selected human mesh and wardrobe…');
         let next:SkinnedAvatarRuntime;
         try{next=await createTexturedAvatar(config.gender,config.look,config.build,quality);}catch(error){if(generation===revision&&!disposed&&!failed){onAssetStatus('error',(error instanceof Error?error.message:'Asset load failed')+(runtime?' • previous verified appearance retained':''));}continue;}
@@ -92,14 +93,14 @@ export function createStudioGraphics(canvas:HTMLCanvasElement,initial:CharacterC
         // Swap only after the new complete fitted mesh exists; keep old render on a failed download.
         if(runtime){scene.remove(runtime.root);disposeSkinnedAvatar(runtime);}
         runtime=next;runtime.expression?.(mood);expressionUntil=performance.now()+1000;runtime.root.rotation.y=yaw;setAvatarMotion(runtime,'idle',0);runtime.mixer.update(0);
-        scene.add(runtime.root);modelKey=key;active='idle';previous=0;pose();invalidate();onAssetStatus('ready','Selected fitted wardrobe loaded');
+        scene.add(runtime.root);modelKey=key;active='idle';previous=0;pose();awaitingFrame=true;invalidate();
       }
     }catch(error){if(!disposed)fail(error instanceof Error?error.message:'Textured human asset failed');}
     finally{loading=false;if(desired&&!disposed&&!failed)void drain();}
   };
   const update=(config:CharacterConfig)=>{
     if(disposed||failed)return;
-    latest=config;ring.material.color.setHex(aura(config.aura));const nextKey=JSON.stringify([config.gender,config.build,config.look,quality]);if(runtime&&nextKey===modelKey&&!loading){invalidate();onAssetStatus('ready','Selected fitted wardrobe loaded');return;}desired={...config,look:{...config.look}};revision++;onAssetStatus('loading','Applying selected appearance…');void drain();
+    latest=config;ring.material.color.setHex(aura(config.aura));const nextKey=JSON.stringify([config.gender,config.build,config.look,quality]);if(runtime&&nextKey===modelKey&&!loading){awaitingFrame=true;invalidate();return;}desired={...config,look:{...config.look}};revision++;awaitingFrame=false;onAssetStatus('loading','Applying selected appearance…');void drain();
   };
   const motion=(value:AvatarMotion)=>{if(!runtime||failed||disposed)return;if(experience.behavior!=='manual'){mood=value==='power'?'confident':value==='run'?'focused':value==='jump'?'surprised':'neutral';runtime.expression?.(mood);}active=value;runtime.root.position.y=0;setAvatarMotion(runtime,value,value==='idle'?0:.18);if(value==='idle')runtime.mixer.update(0);else{face=false;zoom=1;pose();}deadline=performance.now()+(value==='jump'?950:value==='power'?2500:5000);previous=0;invalidate();};
   const rotate=(radians:number)=>{yaw+=radians;if(runtime)runtime.root.rotation.y=yaw;invalidate();};
