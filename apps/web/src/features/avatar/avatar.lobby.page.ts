@@ -48,7 +48,9 @@ function disposeObject(root: THREE.Object3D): void {
 function addStreetWorld(scene: THREE.Scene): THREE.Group {
   const world = new THREE.Group();
   world.name = 'rb-avatar-street';
-  const asphalt = new THREE.MeshStandardMaterial({ color: 0x30363a, roughness: .93 });
+  // Original seamless asphalt surface, shared across the city instead of flat color.
+  const surface=document.createElement('canvas');surface.width=surface.height=256;const ctx=surface.getContext('2d')!;ctx.fillStyle='#b5b5b5';ctx.fillRect(0,0,256,256);let seed=9137;const rand=()=>{seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed/4294967296;};for(let i=0;i<7500;i++){const v=85+Math.floor(rand()*160);ctx.fillStyle='rgb('+v+','+v+','+v+')';ctx.fillRect(rand()*256,rand()*256,1+rand()*2,1+rand()*2);}const roadMap=new THREE.CanvasTexture(surface);roadMap.colorSpace=THREE.SRGBColorSpace;roadMap.wrapS=roadMap.wrapT=THREE.RepeatWrapping;roadMap.repeat.set(7,50);
+  const asphalt = new THREE.MeshStandardMaterial({ color: 0x40464a, roughness: .92,map:roadMap });
   const sidewalk = new THREE.MeshStandardMaterial({ color: 0xa8b0ac, roughness: .9 });
   const curb = new THREE.MeshStandardMaterial({ color: 0xd1d6d2, roughness: .86 });
   const stripeMat = new THREE.MeshStandardMaterial({ color: 0xf0cf52, roughness: .72 });
@@ -93,20 +95,22 @@ function addStreetWorld(scene: THREE.Scene): THREE.Group {
     [-16, 15, -59, 7, 6.5], [16, 14, -62, 6, 6],
     [-14, 11, -76, 6, 5], [14, 16, -78, 7, 6]
   ] as const;
+  const windows:THREE.Matrix4[]=[],frames:THREE.Matrix4[]=[];const dummy=new THREE.Object3D();const record=(arr:THREE.Matrix4[],x:number,y:number,z:number,sx:number,sy:number,sz:number)=>{dummy.position.set(x,y,z);dummy.scale.set(sx,sy,sz);dummy.updateMatrix();arr.push(dummy.matrix.clone());};
   blocks.forEach(([x, h, z, w, d], index) => {
     const building = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), wallMats[index % wallMats.length]);
     building.position.set(x, h / 2, z);
     building.castShadow = true;
     building.receiveShadow = true;
     world.add(building);
-    for (let row = 0; row < Math.min(5, Math.floor(h / 2)); row++) {
-      const windowPanel = new THREE.Mesh(new THREE.PlaneGeometry(Math.max(1.1, w * .42), .34), glass);
-      windowPanel.position.set(x + (x < 0 ? w / 2 + .01 : -(w / 2 + .01)), 1.7 + row * 1.55, z);
-      windowPanel.rotation.y = x < 0 ? Math.PI / 2 : -Math.PI / 2;
-      world.add(windowPanel);
-    }
+    for(let y=1.8;y<h-.6;y+=1.35){for(let offset=-d/2+.65;offset<d/2-.35;offset+=1.1){const side=x+(x<0?w/2+.035:-w/2-.035);record(frames,side,y,z+offset,.13,.99,.91);record(windows,side+(x<0?.072:-.072),y,z+offset,.035,.86,.76);}}
+    for(let y=1.25;y<h;y+=2.7){record(frames,x+(x<0?w/2+.08:-w/2-.08),y,z,.18,.085,d+.1);}
+    record(frames,x,h+.16,z,w+.25,.32,d+.25);
   });
 
+  // Two instanced batches replace hundreds of individually submitted façade pieces.
+  const batch=(mat:THREE.Material,items:THREE.Matrix4[])=>{const mesh=new THREE.InstancedMesh(new THREE.BoxGeometry(1,1,1),mat,items.length);items.forEach((m,i)=>mesh.setMatrixAt(i,m));mesh.instanceMatrix.needsUpdate=true;world.add(mesh);};
+  batch(new THREE.MeshStandardMaterial({color:0x263137,roughness:.61,metalness:.23}),frames);
+  batch(new THREE.MeshStandardMaterial({color:0x538197,metalness:.48,roughness:.26,emissive:0x12232b,emissiveIntensity:.45}),windows);
   for (const z of [-14, -29, -44, -59, -74]) {
     for (const x of [-7.3, 7.3]) {
       const pole = new THREE.Mesh(new THREE.CylinderGeometry(.045, .055, 3.9, 10), poleMat);
@@ -214,7 +218,7 @@ export async function mount(): Promise<void> {
   const quality = qualityProfile();
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(0xa9c9d8);
-  scene.fog = new THREE.Fog(0xa9c9d8, 22, 115);
+  scene.fog = new THREE.Fog(0xa9c9d8, 32, 130);
   const camera = new THREE.PerspectiveCamera(THREE.MathUtils.clamp(Number(cameraConfig.fov ?? 48)||48,38,58), 1, .08, 180);
   const baseDistance = Math.min(5.8,Math.max(4.5, Number(cameraConfig.distance ?? 5.4)||5.4));
   let cameraMode:'close'|'wide'='close',cameraYaw=0;const cameraTools=root.querySelectorAll<HTMLButtonElement>('[data-camera]');
