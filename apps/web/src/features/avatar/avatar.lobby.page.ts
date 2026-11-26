@@ -344,6 +344,7 @@ export async function mount(): Promise<void> {
   const clock = new THREE.Clock();
   const targetCamera = new THREE.Vector3();
   const cameraLook = new THREE.Vector3();
+  camera.position.set(definition.spawn[0],baseHeight,definition.spawn[1]+baseDistance);camera.lookAt(definition.spawn[0],avatarRuntime.height*.57,definition.spawn[1]);
   let activeMotion: AvatarMotion = 'idle';
   let sampleTime = 0;
   let sampleFrames = 0;
@@ -427,7 +428,7 @@ export async function mount(): Promise<void> {
       sampleFrames = 0;
     }
 
-    renderer.render(scene, camera);canvas.dataset.rbRenderState='frame-rendered';
+    renderer.render(scene, camera);canvas.dataset.rbRenderState='frame-rendered';canvas.dataset.rbDistrict=district;
     }catch(error){failure('Graphics stopped. Saved appearance is unchanged.');console.warn('[Avatar Lobby]',error);}
   };
   raf=requestAnimationFrame(loop);
