@@ -52,3 +52,11 @@ body[data-page="avatar"]{background:#080f0e;color:#e9eee9}
 .al-shell .al-controls .actions button{min-height:44px;box-shadow:none}
 .al-shell .al-loading{max-width:90%;white-space:normal;border-radius:12px;text-align:center;line-height:1.5;background:#12291e;color:#e5eee3}
 @media(max-width:760px){.al-shell .al-stage{height:clamp(285px,48dvh,475px)}.al-shell .al-controls{grid-template-columns:76px minmax(0,1fr)}.al-shell .al-controls .joystick{width:72px;height:72px}.al-shell .al-id{flex:1 1 100%}.al-shell .al-districts a{font-size:11px}.al-shell header nav a{font-size:10px}}
+
+/* V19: XP uses the world identity strip; no floating level control on canvas. */
+.al-shell #alXpSlot{position:relative;display:flex;align-items:center;flex:0 0 auto;margin-left:auto;min-width:0}
+.al-shell #alXpSlot #rbXpDock{position:relative!important;inset:auto!important;transform:none!important;z-index:2!important;width:auto!important;max-width:100%}
+.al-shell #alXpSlot #rbXpPanel{position:fixed!important;top:auto!important;left:12px!important;right:12px!important;bottom:calc(82px + env(safe-area-inset-bottom))!important;width:auto!important;max-width:420px!important;max-height:65dvh!important;overflow:auto!important;z-index:1000!important;margin-inline:auto!important}
+.al-shell #alXpSlot #rbXpPanel[hidden]{display:none!important}
+.al-shell .al-hud{overflow:visible}
+.al-shell .al-controls .actions button:focus-visible,.al-shell .al-camera-tools button:focus-visible{outline:2px solid #e6cf94;outline-offset:2px}
