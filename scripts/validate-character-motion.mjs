@@ -92,3 +92,11 @@ for(const g of [aegisGeometry(),crownGeometry()]){assert.ok(g.getAttribute('posi
 const artRoot=new THREE.Group(),chestBone=new THREE.Bone();chestBone.name='Spine2';chestBone.position.y=1.2;artRoot.add(chestBone);const art=originalWearables(artRoot,new Set([chestBone]),1.78,{signature:'gold-crown',wings:'celestial-aegis'});assert.ok(art.width>2);assert.equal(chestBone.children.length,2);art.tick(.05);art.dispose();assert.equal(chestBone.children.length,0);
 assert.equal(normalizeLook({}).signature,'none');assert.equal(normalizeLook({}).wings,'none');
 console.log('V25: original geometry, torso attachment/disposal and bounded timeline verified');
+
+import {regaliaGeometry,regaliaTextile} from '../apps/web/src/features/avatar/avatar.original.wearables.ts';
+import {nextRenderScale} from '../apps/web/src/features/avatar/avatar.render.budget.ts';
+const armor=regaliaGeometry();assert.equal(armor.getAttribute('uv').count,armor.getAttribute('position').count);assert.ok(armor.index.count>3000);assert.ok([...armor.getAttribute('normal').array].every(Number.isFinite));armor.dispose();
+const textile=regaliaTextile('emerald');assert.equal(textile.length,128*128*4);assert.notDeepEqual(textile,regaliaTextile('obsidian'));assert.deepEqual(textile,regaliaTextile('emerald'));
+assert.equal(normalizeLook({}).regalia,'none');
+assert.equal(nextRenderScale(1,50,31,true),.9);assert.equal(nextRenderScale(.65,60,31,true),.65);assert.equal(nextRenderScale(.8,30,31,true),.86);assert.equal(nextRenderScale(.8,60,3,true),.8);
+console.log('V26: Regalia geometry, UVs, deterministic original textile and render budget verified');
