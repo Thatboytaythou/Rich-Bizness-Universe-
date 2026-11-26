@@ -144,7 +144,7 @@ export async function mountProfilePage(): Promise<void> {
   const avatar = snap.avatar ?? {};
   const isOwner = Boolean(viewer.is_owner);
   const characterOutfit=snap.loadout?.outfit_config??avatar.metadata?.outfit??{};
-  const hasOriginal=isOwner&&characterOutfit.rig==='rb-original-human-v1';
+  const hasOriginal=isOwner&&snap.loadout?.outfit_config?.rig==='rb-original-human-v1';
   const isAdmin = Boolean(adminData);
   const display = profile.display_name ?? profile.username ?? avatar.display_name ?? 'Rich Member';
   const avatarUrl = profile.avatar_url ?? avatar.avatar_url ?? '/brand/icons/profile-placeholder.svg';
@@ -222,7 +222,7 @@ export async function mountProfilePage(): Promise<void> {
     ${!isOwner ? `<nav class="pu-actions" aria-label="Profile actions"><button type="button" id="followButton" class="primary">${viewer.following ? 'FOLLOWING' : 'FOLLOW'}</button><a href="/messages.html?to=${profileId}">MESSAGE</a><a href="/creator.html?id=${profileId}">CREATOR</a><a href="/store.html?seller=${profileId}">STORE</a><button type="button" id="shareButton">SHARE</button></nav>` : ''}
 
     <section class="pu-command">
-      <article class="pu-command__avatar"><div><small>CHARACTER</small>${hasOriginal?'<img id="rbOriginalPortrait" hidden alt="Your saved Rich Bizness character" style="width:96px;height:116px;object-fit:contain;border-radius:12px;background:#10251a">':''}<h2>${esc((avatar.character_type ?? 'CUSTOM').toUpperCase())}</h2><p>${esc(avatar.aura ?? 'Emerald Gold')} · ${hasOriginal?'Original stylized character':avatar.is_controllable ? 'Realtime controllable' : 'Ready'}${hasOriginal?' · '+esc(characterOutfit.style??'street'):''}</p></div><div class="pu-character-links"><a href="/avatar-characters.html">CUSTOMIZE</a><a href="/avatar.html">3D LOBBY</a></div></article>
+      <article class="pu-command__avatar"><div><small>CHARACTER</small>${hasOriginal?'<img id="rbOriginalPortrait" hidden alt="Your saved Rich Bizness character" style="width:96px;height:116px;object-fit:contain;border-radius:12px;background:#10251a">':''}<h2>${esc((characterOutfit.character_type ?? avatar.character_type ?? 'CUSTOM').toUpperCase())}</h2><p>${esc(avatar.aura ?? 'Emerald Gold')} · ${hasOriginal?'Saved RB original character':avatar.is_controllable ? 'Realtime controllable' : 'Ready'}${hasOriginal?' · '+esc(characterOutfit.style??'street'):''}</p></div><div class="pu-character-links"><a href="/avatar-characters.html">CUSTOMIZE</a><a href="/avatar.html">3D LOBBY</a></div></article>
       ${stat('BALANCE', money(profile.balance_cents))}${stat('CREATOR', snap.creator ? 'ACTIVE' : '—')}${stat('GAMER', snap.gamer?.rank_title ?? '—')}
     </section>
 
@@ -239,7 +239,7 @@ export async function mountProfilePage(): Promise<void> {
     let renderer:InstanceType<typeof THREE.WebGLRenderer>|undefined;
     let runtime:ReturnType<typeof createOriginalAvatar>|undefined;
     try{
-      runtime=createOriginalAvatar(avatar.character_type==='female'?'girl':'boy',characterOutfit.appearance,characterOutfit.build);
+      runtime=createOriginalAvatar((characterOutfit.character_type??avatar.character_type)==='female'?'girl':'boy',characterOutfit.appearance,characterOutfit.build);
       setAvatarMotion(runtime,'idle',0);
       const scene=new THREE.Scene();scene.background=new THREE.Color(0x10251a);scene.add(runtime.root);
       scene.add(new THREE.HemisphereLight(0xffffff,0x384b3b,2.3));const key=new THREE.DirectionalLight(0xffe4b5,2.6);key.position.set(3,4,5);scene.add(key);
