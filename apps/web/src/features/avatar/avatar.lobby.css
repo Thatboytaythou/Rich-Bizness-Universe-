@@ -9,3 +9,14 @@ html,body{margin:0;min-height:100%;background:#dfeae4;color:#0c1711;font-family:
 .al-stage{height:min(75dvh,850px);min-height:420px}
 .al-controls .actions button{min-height:44px}
 @media(max-width:760px){.al-stage{height:clamp(440px,66dvh,710px);min-height:0}.al-id{bottom:112px}.al-controls{grid-template-columns:74px 1fr}}
+
+.al-shell .al-districts{width:min(1180px,100%);margin:0 auto 10px;display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+.al-shell .al-districts a{display:grid;place-items:center;min-height:44px;padding:7px;text-align:center;font-size:11px;white-space:normal;background:#13251c;color:#d7e5d6;border:1px solid #425749;border-radius:10px}
+.al-shell .al-districts a[aria-current="page"]{background:#d0c08b;color:#102019;border-color:#e6d7a1}
+.al-shell .al-interaction,.al-shell .al-destinations{width:min(1180px,100%);margin:10px auto}
+.al-shell .al-interaction{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:14px;background:#102019;border:1px solid #425749;border-radius:12px}
+.al-interaction>div{flex:1 1 210px}.al-interaction small{color:#d8c592;font-size:11px}.al-interaction h2{margin:6px 0;font-size:19px}.al-interaction p{margin:0;color:#bfcfc2;font-size:13px;line-height:1.4}
+.al-interaction button{min-height:46px;background:#d0c08b;color:#102019;font-weight:800;border:0;border-radius:10px;padding:10px 14px;font-size:11px}.al-interaction button:disabled{opacity:.45}
+.al-shell .al-destinations{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px}
+.al-destinations a{display:grid;gap:5px;padding:12px;border:1px solid #425749;border-radius:10px;background:#102019;color:#e4eadf}.al-destinations small{color:#aebfb2;font-size:11px;line-height:1.4}
+@media(max-width:760px){.al-shell .al-stage{height:clamp(390px,58dvh,620px)}.al-shell .al-interaction button{flex:1 1 100%}}
