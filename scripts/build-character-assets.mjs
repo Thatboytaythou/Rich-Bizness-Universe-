@@ -13,7 +13,7 @@ const dest=resolve(root,'apps/web/public/character-assets'),temp=mkdtempSync(joi
 mkdirSync(dest,{recursive:true});const assetDir=join(dest,'ara-1.2.0');rmSync(assetDir,{recursive:true,force:true});cpSync(data,assetDir,{recursive:true});
 const reports=[];
 try{
- for(const [gender,detail,look] of [['boy','high',{skin:'deep',outfit:'formal',hair:'fade'}],['girl','low',{skin:'warm',outfit:'casual',hair:'braids'}],['boy','low',{collection:'emerald-legacy',skin:'deep',facialHair:'short_beard',earrings:'studs',tattooArt:'forearm_l',presence:'editorial'}],['girl','low',{collection:'onyx-executive',skin:'warm',earrings:'small_hoops'}],['boy','high',{collection:'omni-phantom',skin:'brown',facialHair:'stubble'}]]){
+ for(const [gender,detail,look] of [['boy','high',{skin:'deep',outfit:'formal',hair:'fade'}],['girl','low',{skin:'warm',outfit:'casual',hair:'braids'}],['boy','low',{collection:'emerald-legacy',skin:'deep',facialHair:'short_beard',earrings:'studs',tattooArt:'forearm_l',presence:'editorial'}],['girl','low',{collection:'onyx-executive',skin:'warm',earrings:'small_hoops'}],['boy','high',{collection:'omni-phantom',skin:'brown',facialHair:'stubble'}],['boy','low',{collection:'heritage-crown',skin:'deep',eliteJewelry:'gold',earrings:'studs'}],['girl','high',{collection:'midnight-motion',skin:'warm',eliteJewelry:'silver',identityMode:'phantom'}]]){
   const recipe=hdRecipe(gender,look,'athletic');assert.ok(recipe.params);
   const dir=join(temp,gender+'-'+detail+'-'+(look.collection??'base'));mkdirSync(dir);const input=join(dir,'recipe.json');writeFileSync(input,JSON.stringify({kind:'ara-character',version:1,params:recipe.params}));
   const out=join(dir,'export');mkdirSync(out);
