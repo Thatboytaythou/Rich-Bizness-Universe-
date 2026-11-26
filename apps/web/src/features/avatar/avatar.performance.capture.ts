@@ -10,7 +10,7 @@ export function mountPerformanceCapture(root:HTMLElement,getCanvas:()=>HTMLCanva
  start.disabled=!supported;stop.disabled=true;
  if(!supported)status.textContent='Canvas video recording is unavailable in this browser.';
  start.onclick=()=>{if(!supported||recorder?.state==='recording')return;if(!ready()){status.textContent='Enable 3D and wait until your selected character renders.';return;}
-  clear();chunks=[];try{stream=getCanvas().captureStream(24);const mime=['video/mp4','video/webm;codecs=vp8','video/webm'].find(t=>MediaRecorder.isTypeSupported(t));recorder=new MediaRecorder(stream,mime?{mimeType:mime,videoBitsPerSecond:2500000}:{videoBitsPerSecond:2500000});
+  clear();chunks=[];try{getCanvas().scrollIntoView({block:'center',behavior:'auto'});stream=getCanvas().captureStream(24);const mime=['video/mp4','video/webm;codecs=vp8','video/webm'].find(t=>MediaRecorder.isTypeSupported(t));recorder=new MediaRecorder(stream,mime?{mimeType:mime,videoBitsPerSecond:2500000}:{videoBitsPerSecond:2500000});
    recorder.ondataavailable=e=>{if(e.data.size)chunks.push(e.data);};
    recorder.onstop=()=>{const type=recorder?.mimeType||chunks[0]?.type||'video/webm';cleanStream();start.disabled=!supported;stop.disabled=true;if(signal.aborted)return;const blob=new Blob(chunks,{type});chunks=[];if(!blob.size){status.textContent='No video frames recorded.';return;}url=URL.createObjectURL(blob);download.href=url;download.download='rich-bizness-performance.'+(type.includes('mp4')?'mp4':'webm');download.hidden=false;status.textContent='Silent performance recording ready. Saved locally only.';};
    recorder.onerror=()=>{cleanStream();start.disabled=!supported;stop.disabled=true;status.textContent='Recording failed in this browser.';};
