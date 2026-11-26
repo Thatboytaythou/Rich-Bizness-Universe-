@@ -24,3 +24,5 @@ export function mountPrivateReference(container:HTMLElement,signal:AbortSignal){
  file.onchange=()=>{const selected=file.files?.[0];clear();if(!consent.checked||!selected)return;if(!['image/jpeg','image/png','image/webp'].includes(selected.type)||selected.size>8*1024*1024){status.textContent='Choose a JPEG, PNG or WebP image under 8 MB.';return;}url=URL.createObjectURL(selected);img.src=url;img.hidden=remove.hidden=false;status.textContent='Local comparison only — no image sent to Rich Bizness.';};
  signal.addEventListener('abort',clear,{once:true});
 }
+
+export async function listVerifiedPurchases(signal:AbortSignal){const {data,error}=await supabase.rpc('rb_elite_verified_purchases').abortSignal(signal);if(error)throw Error(error.message);return Array.isArray(data)?data.length:0;}
