@@ -187,8 +187,8 @@ export async function mountProfilePage(): Promise<void> {
   const ownerActions = [
     ownerControl('/edit-profile.html', '✎', 'EDIT PROFILE', 'Identity, bio, avatar and banner', 'is-primary'),
     ownerControl('/settings.html', '⚙', 'SETTINGS', 'Privacy, motion, theme and notifications'),
-    ownerControl('/avatar.html', '◆', 'CHOOSE AVATAR', 'Select your character identity'),
-    ownerControl('/avatar-characters.html', '◉', '3D CHARACTER LOBBY', 'Enter the live controllable avatar space'),
+    ownerControl('/avatar-characters.html', '◆', 'CHARACTER STUDIO', 'Customize your persistent Rich ID'),
+    ownerControl('/avatar.html', '◉', 'STREET DISTRICT', 'Enter the controllable avatar environment'),
     ownerControl('/creator.html', '✦', 'CREATOR', 'Open your creator dimensions'),
     ownerControl('/upload.html', '↑', 'UPLOAD', 'Publish into the universe'),
     isAdmin ? ownerControl('/admin.html', '⌘', 'ADMIN', 'Platform control', 'is-admin') : '',
