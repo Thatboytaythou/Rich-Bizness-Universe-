@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import {createCharacterLightMap} from './avatar.light-map';
 import {createTexturedAvatar} from './avatar.textured.runtime';
 import {disposeSkinnedAvatar,setAvatarMotion,updateSkinnedAvatar,playAvatarGesture,type AvatarMotion,type AvatarExpression,type SkinnedAvatarRuntime} from './avatar.skinned.runtime';
 import type {CharacterConfig} from './avatar.identity';
@@ -13,6 +14,7 @@ export function createStudioGraphics(canvas:HTMLCanvasElement,initial:CharacterC
   renderer.setPixelRatio(1);renderer.toneMappingExposure=1.05;
   renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.shadowMap.enabled=false;
   const scene=new THREE.Scene();scene.background=new THREE.Color(0x08100e);scene.fog=new THREE.FogExp2(0x08100e,.085);
+  let lightMap:THREE.WebGLRenderTarget|undefined;try{lightMap=createCharacterLightMap(renderer);scene.environment=lightMap.texture;scene.environmentIntensity=.46;}catch{ /* direct lights remain available */ }
   const camera=new THREE.PerspectiveCamera(34,1,.08,30);
   const hemi=new THREE.HemisphereLight(0xe5efff,0x534337,1.35);scene.add(hemi);
   const key=new THREE.DirectionalLight(0xffe6cc,3.1);key.position.set(3,4,5);scene.add(key);
@@ -108,7 +110,7 @@ export function createStudioGraphics(canvas:HTMLCanvasElement,initial:CharacterC
   canvas.addEventListener('webglcontextlost',event=>{event.preventDefault();fail('WebGL context lost');},{signal});
   document.addEventListener('visibilitychange',()=>{if(document.hidden){cancelAnimationFrame(raf);raf=0;previous=0;}else invalidate();},{signal});
   const observer=new ResizeObserver(resize);observer.observe(canvas);
-  const dispose=()=>{if(disposed)return;disposed=true;controller.abort();stopExperience();observer.disconnect();cancelAnimationFrame(raf);if(runtime){scene.remove(runtime.root);disposeSkinnedAvatar(runtime);runtime=null;}floor.geometry.dispose();floor.material.dispose();contact.geometry.dispose();contact.material.dispose();contactMap.dispose();ring.geometry.dispose();ring.material.dispose();renderer.dispose();renderer.forceContextLoss();};
+  const dispose=()=>{if(disposed)return;disposed=true;controller.abort();stopExperience();observer.disconnect();cancelAnimationFrame(raf);if(runtime){scene.remove(runtime.root);disposeSkinnedAvatar(runtime);runtime=null;}floor.geometry.dispose();floor.material.dispose();contact.geometry.dispose();contact.material.dispose();contactMap.dispose();ring.geometry.dispose();ring.material.dispose();lightMap?.dispose();renderer.dispose();renderer.forceContextLoss();};
   applyExperience(experience);update(initial);resize();
   return {gesture:name=>{if(!runtime||failed||disposed)return;const duration=playAvatarGesture(runtime,name);if(!duration)return;active='power';runtime.root.position.y=0;face=false;zoom=1;pose();if(experience.behavior!=='manual')runtime.expression?.(name==='wave'?'smile':'neutral');deadline=performance.now()+duration*1000+180;previous=0;invalidate();},expression:value=>{mood=value;runtime?.expression?.(value);expressionUntil=performance.now()+1000;face=true;zoom=1;pose();invalidate();},quality:value=>{if(quality===value)return;quality=value;resize();update(latest);},update,motion,rotate,zoom:delta=>{zoom=THREE.MathUtils.clamp(zoom+delta,.8,1.6);pose();invalidate();},face:enabled=>{face=enabled;zoom=1;pose();invalidate();},reset:()=>{yaw=0;zoom=1;face=false;if(runtime)runtime.root.rotation.y=0;pose();motion('idle');},dispose};
 }
