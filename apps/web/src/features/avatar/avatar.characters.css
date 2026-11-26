@@ -41,3 +41,5 @@ body[data-page="avatar-characters"] .ac-shell{min-height:100dvh;max-width:1280px
 .ac-editor p{margin:0;color:#c3d8c7;font-size:12px;line-height:1.45}
 @media(max-width:860px){.ac-layout{grid-template-columns:minmax(0,1fr)}.ac-viewport{height:clamp(250px,42dvh,420px)}.ac-shell>header small{font-size:8px}.ac-system-bar{padding:8px;gap:7px}.ac-editor{padding:12px}}
 @media(max-width:380px){.ac-shell .enter{padding:0 7px;font-size:9px}.ac-shell h1{font-size:20px}.ac-stage-top span,.ac-stage-top b{font-size:8px}.ac-shell button{font-size:10px}}
+
+.ac-motion{grid-template-columns:repeat(5,minmax(0,1fr))}.ac-appearance{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}.ac-appearance select{width:100%;min-width:0}.ac-editor .section-title{margin-top:6px}
