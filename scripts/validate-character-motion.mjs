@@ -40,3 +40,15 @@ for(const kind of ['walk','run']){
  }
 }
 console.log('Character detail: 26 neutral-default morphs, 13 hair choices, bounded captured locomotion channels verified');
+
+import {cameraClearance} from '../apps/web/src/features/avatar/world.camera.ts';
+const obstacle={minX:-1,maxX:1,minZ:2,maxZ:3};
+assert.equal(cameraClearance(0,0,0,-4,[obstacle]),1);
+assert.equal(cameraClearance(0,0,4,0,[obstacle]),1);
+assert.ok(cameraClearance(0,0,0,5,[obstacle])<.4);
+assert.ok(cameraClearance(0,0,0,5,[obstacle])>.2);
+assert.equal(cameraClearance(0,0,0,5,[]),1);
+const legacyV18=normalizeLook({outfit:'formal',shoes:'boots',skin:'deep'});
+assert.equal(legacyV18.outfit,'formal');assert.equal(legacyV18.shoes,'boots');assert.equal(legacyV18.wristwear,'none');assert.equal(legacyV18.stance,'relaxed');
+assert.equal(CHARACTER_OPTIONS.outfit.length,8);assert.equal(CHARACTER_OPTIONS.shoes.length,6);
+console.log('V19: camera obstacle clearance and backward-compatible wardrobe options verified');
