@@ -60,3 +60,11 @@ body[data-page="avatar"]{background:#080f0e;color:#e9eee9}
 .al-shell #alXpSlot #rbXpPanel[hidden]{display:none!important}
 .al-shell .al-hud{overflow:visible}
 .al-shell .al-controls .actions button:focus-visible,.al-shell .al-camera-tools button:focus-visible{outline:2px solid #e6cf94;outline-offset:2px}
+
+.al-shell #alXpSlot{flex:1 1 100%;display:block;width:100%;margin:0}
+.al-shell #alXpSlot #rbXpDock{position:static!important;inset:auto!important;transform:none!important;width:100%!important;max-width:100%!important;display:block}
+.al-shell #alXpSlot #rbXpPanel{position:static!important;inset:auto!important;transform:none!important;width:100%!important;max-width:none!important;max-height:none!important;overflow:visible!important;margin:8px 0 0}
+.al-shell #alXpSlot #rbXpPanel[hidden]{display:none!important}
+.al-shell .al-stage{height:clamp(320px,56dvh,640px)}
+.al-shell .al-hud{align-items:start}
+@media(max-width:760px){.al-shell .al-stage{height:clamp(300px,52dvh,500px)}}
