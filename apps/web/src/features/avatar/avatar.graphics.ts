@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import {createOriginalAvatar} from './avatar.original.runtime';
+import {createTexturedAvatar} from './avatar.textured.runtime';
 import {disposeSkinnedAvatar,setAvatarMotion,updateSkinnedAvatar,type AvatarMotion,type SkinnedAvatarRuntime} from './avatar.skinned.runtime';
 import type {CharacterConfig} from './avatar.identity';
 
@@ -12,14 +12,14 @@ export function createStudioGraphics(canvas:HTMLCanvasElement,initial:CharacterC
   renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.shadowMap.enabled=false;
   const scene=new THREE.Scene();scene.background=new THREE.Color(0x081910);
   const camera=new THREE.PerspectiveCamera(34,1,.08,30);
-  scene.add(new THREE.HemisphereLight(0xf4fff3,0x405042,2.3));
+  scene.add(new THREE.HemisphereLight(0xf4fff3,0x68746b,2.5));
   const key=new THREE.DirectionalLight(0xffe6c6,2.8);key.position.set(3,4,5);scene.add(key);
   const fill=new THREE.DirectionalLight(0xb0ddff,1.1);fill.position.set(-4,2,2);scene.add(fill);
   const floor=new THREE.Mesh(new THREE.CircleGeometry(2.8,40),new THREE.MeshStandardMaterial({color:0x243b2e,roughness:.78}));floor.rotation.x=-Math.PI/2;floor.position.y=-.025;scene.add(floor);
   const ring=new THREE.Mesh(new THREE.TorusGeometry(.83,.013,6,48),new THREE.MeshBasicMaterial({color:aura(initial.aura)}));ring.rotation.x=-Math.PI/2;ring.position.y=.008;scene.add(ring);
   let runtime:SkinnedAvatarRuntime|null=null;
   let yaw=0,zoom=1,face=false,active:AvatarMotion='idle',disposed=false,failed=false,raf=0,previous=0,deadline=0,dirty=true;
-  let modelKey='';
+  let modelKey='',desired:CharacterConfig|null=null,loading=false;let revision=0;
   const controller=new AbortController(),signal=controller.signal;
   const fail=(message:string)=>{if(disposed||failed)return;failed=true;cancelAnimationFrame(raf);raf=0;onFailure(message);};
   const pose=()=>{
@@ -49,26 +49,32 @@ export function createStudioGraphics(canvas:HTMLCanvasElement,initial:CharacterC
         }
         if(!anim&&active!=='idle'){active='idle';runtime.root.position.y=0;setAvatarMotion(runtime,'idle',0);runtime.mixer.update(0);}
       }
-      renderer.render(scene,camera);dirty=false;onFrame();
+      renderer.render(scene,camera);dirty=false;if(runtime)onFrame();
       if(anim){dirty=true;schedule();}else previous=0;
     }catch(error){fail(error instanceof Error?error.message:'WebGL draw failed');}
   };
   const invalidate=()=>{dirty=true;schedule();};
-  const resize=()=>{if(disposed||failed)return;const rect=canvas.getBoundingClientRect();if(rect.width<2||rect.height<2)return;const limit=mobile?720:1100;const scale=Math.min(1,limit/Math.max(rect.width,rect.height));renderer.setSize(Math.max(1,Math.round(rect.width*scale)),Math.max(1,Math.round(rect.height*scale)),false);camera.aspect=rect.width/rect.height;pose();invalidate();};
+  const resize=()=>{if(disposed||failed)return;const rect=canvas.getBoundingClientRect();if(rect.width<2||rect.height<2)return;const limit=mobile?850:1280;const scale=Math.min(1,limit/Math.max(rect.width,rect.height));renderer.setSize(Math.max(1,Math.round(rect.width*scale)),Math.max(1,Math.round(rect.height*scale)),false);camera.aspect=rect.width/rect.height;pose();invalidate();};
+  const drain=async()=>{
+    if(loading||disposed||failed)return;loading=true;
+    try{
+      while(desired&&!disposed&&!failed){
+        const config=desired;desired=null;const generation=revision;
+        const key=JSON.stringify([config.gender,config.build,config.look]);
+        if(key===modelKey){pose();invalidate();continue;}
+        // Release old GPU mesh before constructing another full skinned body.
+        if(runtime){scene.remove(runtime.root);disposeSkinnedAvatar(runtime);runtime=null;}
+        const next=await createTexturedAvatar(config.gender,config.look,config.build);
+        if(disposed||failed||generation!==revision){disposeSkinnedAvatar(next);continue;}
+        runtime=next;runtime.root.rotation.y=yaw;setAvatarMotion(runtime,'idle',0);runtime.mixer.update(0);
+        scene.add(runtime.root);modelKey=key;active='idle';previous=0;pose();invalidate();
+      }
+    }catch(error){if(!disposed)fail(error instanceof Error?error.message:'Textured human asset failed');}
+    finally{loading=false;if(desired&&!disposed&&!failed)void drain();}
+  };
   const update=(config:CharacterConfig)=>{
     if(disposed||failed)return;
-    ring.material.color.setHex(aura(config.aura));
-    const key=JSON.stringify([config.gender,config.build,config.look]);
-    if(key!==modelKey){
-      // Create replacement first; leave previous frame available if creation fails.
-      try{
-        const next=createOriginalAvatar(config.gender,config.look,config.build);next.root.rotation.y=yaw;
-        setAvatarMotion(next,'idle',0);next.mixer.update(0);
-        if(runtime){scene.remove(runtime.root);disposeSkinnedAvatar(runtime);}
-        runtime=next;scene.add(next.root);modelKey=key;active='idle';previous=0;
-      }catch(error){fail(error instanceof Error?error.message:'Character creation failed');return;}
-    }
-    pose();invalidate();
+    ring.material.color.setHex(aura(config.aura));desired={...config,look:{...config.look}};revision++;void drain();
   };
   const motion=(value:AvatarMotion)=>{if(!runtime||failed||disposed)return;active=value;runtime.root.position.y=0;setAvatarMotion(runtime,value,value==='idle'?0:.18);if(value==='idle')runtime.mixer.update(0);else{face=false;zoom=1;pose();}deadline=performance.now()+(value==='jump'?950:value==='power'?1500:5000);previous=0;invalidate();};
   const rotate=(radians:number)=>{yaw+=radians;if(runtime)runtime.root.rotation.y=yaw;invalidate();};
