@@ -35,29 +35,58 @@ export function createOriginalAvatar(gender:AvatarGender,raw:unknown,build='athl
   if(look.top==='vest'){for(const s of[-1,1]){box(spine,trim,s*.075,.17,.104,.095,.13,.025);box(spine,gold,s*.075,.23,.123,.035,.008,.008);}}
   if(look.top==='tee')box(spine,trim,0,.03,.085,.23,.025,.013);
   box(spine,gold,0,.11,.10,.043,.027,.013);
-  const neck=group(spine,'rbNeck',0,.39,0);tube(neck,skin,0,.035,0,.049,.057,.09);
+  const neck=group(spine,'rbNeck',0,.39,0);limb(neck,skin,[[.064,-.025],[.051,.012],[.043,.060],[.048,.104],[.057,.12]],0,.90);
   const head=group(neck,'rbHead',0,.13,0);
   const jaw=look.face==='strong'?1.12:look.face==='soft'?.9:1;
-  // Continuous shaped face surface instead of an overlapping ball and jaw.
-  const faceGeo=new THREE.SphereGeometry(1,mobile?24:40,mobile?16:28);const pos=faceGeo.attributes.position;
-  for(let i=0;i<pos.count;i++){const x=pos.getX(i),y=pos.getY(i),z=pos.getZ(i);const taper=y<-.18?1-(Math.abs(y)-.18)*.30+(jaw-1)*.65:1;const front=Math.max(0,z);pos.setXYZ(i,x*.102*taper,y*.137+.012,z*.095+front*Math.max(0,-y)*.020);}
-  faceGeo.computeVertexNormals();mesh(head,faceGeo,skin);
-  for(const s of[-1,1]){
-    ell(head,skin,s*.098,-.006,0,.023,.039,.019);
-    ell(head,white,s*.039,.023,.084,.021,.010,.009);
-    ell(head,iris,s*.039,.023,.091,.008,.008,.004);
-    ell(head,black,s*.039,.023,.095,.0048,.006,.002);
-    const brow=ell(head,hair,s*.039,.045,.079,.027,.007,.007);brow.rotation.z=s*-.12;
+  // One continuous anatomical surface: cheeks, nose bridge, nose tip, chin,
+  // brow and sockets are deformations of the head itself, not separate balls.
+  const faceGeo=new THREE.SphereGeometry(1,64,48);
+  const pos=faceGeo.attributes.position;
+  const gaussian=(x:number,y:number,cx:number,cy:number,sx:number,sy:number)=>Math.exp(-(((x-cx)/sx)**2+((y-cy)/sy)**2)*.5);
+  const facialDepth=(x:number,y:number)=>{
+    const ax=Math.abs(x);
+    return .011*gaussian(ax,y,.050,-.018,.025,.025)
+      -.012*gaussian(ax,y,.039,.029,.022,.014)
+      +.006*gaussian(ax,y,.039,.049,.026,.012)
+      +.021*gaussian(x,y,0,.003,.012,.026)
+      +.026*gaussian(x,y,0,-.019,.017,.013)
+      +.006*gaussian(ax,y,.016,-.023,.008,.008)
+      +.007*gaussian(x,y,0,-.049,.030,.014)
+      +.008*gaussian(x,y,0,-.096,.035,.018);
+  };
+  for(let i=0;i<pos.count;i++){
+    const sx=pos.getX(i),sy=pos.getY(i),sz=pos.getZ(i);
+    const taper=sy<-.12?1-(Math.abs(sy)-.12)*.28+(jaw-1)*.58:1;
+    const x=sx*.098*taper,y=sy*.133+.012;
+    const front=THREE.MathUtils.smoothstep(sz,0,.7);
+    pos.setXYZ(i,x,y,sz*.093+front*facialDepth(x,y));
   }
-  ell(head,skin,0,.004,.098,.013,.034,.018);ell(head,skin,0,-.024,.106,.021,.014,.014);
-  ell(head,lip,0,-.058,.095,.027,.006,.007);
-  for(const k of[-1,1])ell(head,skin,k*.062,-.023,.064,.029,.037,.026);
+  pos.needsUpdate=true;faceGeo.computeVertexNormals();mesh(head,faceGeo,skin);
+  const eyeWhite=mat(0xe5ddd0,.56);
+  const eyeDark=mat(0x463024,.85);
+  for(const sign of[-1,1]){
+    const x=sign*.038;
+    ell(head,skin,sign*.091,-.006,-.004,.014,.029,.015);
+    // Shallow almond eyes sit in the deformed sockets, not on protruding globes.
+    const eye=ell(head,eyeWhite,x,.027,.079,.019,.0075,.008);
+    eye.rotation.z=sign*.075;
+    ell(head,iris,x,.027,.086,.0063,.0063,.002);
+    ell(head,black,x,.027,.088,.003,.004,.0015);
+    const topLid=ell(head,eyeDark,x,.034,.082,.020,.0028,.004);topLid.rotation.z=sign*.075;
+    const lowerLid=ell(head,skin,x,.0205,.081,.020,.003,.005);lowerLid.rotation.z=sign*.075;
+    const brow=ell(head,hair,x,.050,.083,.023,.0035,.0035);brow.rotation.z=sign*-.13;
+  }
+  ell(head,lip,0,-.055,.091,.024,.0035,.003);
+  ell(head,mat(0x39221e,.9),0,-.057,.094,.021,.0014,.0015);
   if(look.hair!=='bald'){
-    ell(head,hair,0,.087,-.009,.105,.061,.094);
-    if(look.hair==='fade')ell(head,hair,0,.109,-.004,.087,.027,.082);
-    if(look.hair==='curls')for(let i=0;i<11;i++){const a=i/11*Math.PI*2;ell(head,hair,Math.cos(a)*.072,.113+Math.sin(i*2)*.009,Math.sin(a)*.065,.037,.032,.037);}
-    if(look.hair==='braids')for(let i=0;i<7;i++){const x=(i-3)*.025;const b=tube(head,hair,x,.048,-.081,.012,.009,.16);b.rotation.x=.28;}
-    if(look.hair==='long'){ell(head,hair,0,-.045,-.077,.115,.15,.053);for(const s of[-1,1])ell(head,hair,s*.089,-.075,-.008,.029,.128,.04);}
+    // A fitted scalp cap follows the head. No stacked sphere across the forehead.
+    const cap=new THREE.SphereGeometry(1,40,24,0,Math.PI*2,0,1.27);
+    const hp=cap.attributes.position;
+    for(let i=0;i<hp.count;i++){const x=hp.getX(i),y=hp.getY(i),z=hp.getZ(i);hp.setXYZ(i,x*.101,y*.139+.020,z*.096-.004);}
+    cap.computeVertexNormals();mesh(head,cap,hair);
+    if(look.hair==='curls')for(let i=0;i<16;i++){const a=i/16*Math.PI*2;ell(head,hair,Math.cos(a)*.063,.124+Math.sin(i*2)*.006,Math.sin(a)*.057,.024,.023,.024);}
+    if(look.hair==='braids')for(let i=0;i<7;i++){const x=(i-3)*.024;const b=tube(head,hair,x,.052,-.084,.010,.008,.15);b.rotation.x=.25;}
+    if(look.hair==='long'){ell(head,hair,0,-.025,-.076,.105,.14,.042);for(const sign of[-1,1])ell(head,hair,sign*.085,-.064,-.012,.021,.107,.033);}
   }
   if(look.gear.includes('shades')){for(const s of[-1,1])box(head,black,s*.044,.024,.107,.065,.033,.012);box(head,gold,0,.026,.11,.025,.008,.009);}
   if(look.gear.includes('chain')){const chain=ring(spine,gold,0,.295,.105,.063,.008);chain.scale.y=.7;ell(spine,gold,0,.244,.125,.019,.027,.011);}
@@ -65,7 +94,7 @@ export function createOriginalAvatar(gender:AvatarGender,raw:unknown,build='athl
     const suffix=s<0?'L':'R';
     const arm=group(spine,'rbArm'+suffix,s*shoulder,.31,0);arm.rotation.z=s*.1;
     const sleeved=look.top==='jacket'||look.top==='hoodie';
-    ell(arm,look.top==='vest'?skin:fabric,0,-.035,0,.064,.079,.065);
+    ell(arm,look.top==='vest'?skin:fabric,-s*.014,-.032,0,.058,.068,.060);
     limb(arm,sleeved?fabric:skin,[[.043,-.226],[.046,-.19],[.057,-.12],[.06,-.065],[.045,0]],0,1.04);
     if(!sleeved&&look.top==='tee')tube(arm,fabric,0,-.052,0,.062,.056,.105);
     const fore=group(arm,'rbFore'+suffix,0,-.215,0);
