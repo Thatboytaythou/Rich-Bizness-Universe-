@@ -16,7 +16,7 @@ import { createTexturedAvatar } from './avatar.textured.runtime';
 import {getExperience,resolveVisual,subscribeExperience,type Experience} from '../../core/experience/policy';
 import {readCharacterIdentity,savedCharacter,hasSavedOriginal} from './avatar.identity';
 import {DISTRICTS,resolveDistrict,districtHref} from './world.catalog';
-import {createDistrictScene,moveWithinWorld,nearbyAction} from './world.scene';
+import {createDistrictScene,moveWithinWorld,nearbyAction,cameraClearance} from './world.scene';
 import {createWorldPresence} from './world.presence';
 import {readResidence,saveResidence,defaultResidence,mountRecordingConsole,type Residence} from './world.services';
 import './avatar.lobby.css';
@@ -200,7 +200,7 @@ export async function mount(): Promise<void> {
   const deceleration = Number(controller.deceleration ?? 16);
   const turnSpeed = Number(controller.turn_speed ?? 8);
 
-  root.innerHTML = `<main class="al-shell"><header><h1>${definition.title}</h1><nav><a href="/avatar-characters.html">CUSTOMIZE</a><a href="/profile.html">PROFILE</a><a href="/meta.html">WORLDS</a></nav></header><div class="al-experience"><span id="alExperienceMode"></span><span id="alGuide" role="status" hidden></span><a href="/meta.html">World Exchange ↗</a></div><nav class="al-districts" aria-label="Travel between districts">${(Object.keys(DISTRICTS) as Array<keyof typeof DISTRICTS>).map(key=>`<a href="${districtHref(key)}" ${key===district?'aria-current="page"':''}>${DISTRICTS[key].title}</a>`).join("")}</nav><section class="al-play"><div class="al-hud"><span class="al-mode">${original?'RICH ID • SAVED':'UNSAVED DEFAULT • CUSTOMIZE'}</span><span class="al-aura">${esc(aura)}</span><div class="al-id"><strong>${esc(name)}</strong><em>${esc(build.toUpperCase())} · ${esc(character.look.outfit.toUpperCase())} OUTFIT</em></div></div><div class="al-stage"><canvas id="lobbyCanvas"></canvas><div class="al-loading" id="avatarLoading">LOADING CHARACTER…</div></div><div class="al-camera-tools" aria-label="Camera control"><button type="button" data-camera="close" aria-pressed="true">CHARACTER</button><button type="button" data-camera="wide" aria-pressed="false">EXPLORE</button><button type="button" data-camera="turn">TURN VIEW</button></div><div class="al-controls"><div class="joystick" id="joystick"><div id="stick"></div></div><div class="actions"><button data-action="jump">JUMP</button><button data-action="run">SPRINT</button><button data-action="power">POWER</button><button data-action="idle">RESET</button></div></div></section><section class="al-interaction" aria-label="District interactions"><div><small id="alWorldStatus">Connecting world entry…</small><h2 id="alActionTitle">Explore the environment</h2><p id="alActionDescription">${definition.description}</p></div><button id="alInteract" disabled type="button">MOVE TO A MARKER</button></section><section class="al-life" aria-label="World services"><div class="al-life-head"><small>RICH BIZNESS / WORLD LIFE</small><h2>${district==='personal'?'Residence controls':district==='creative'?'Creative services':'City services'}</h2></div>${district==='personal'?`<div class="al-residence"><label>Lighting<select id="rbResidenceLighting"><option value="daylight">Daylight</option><option value="evening">Evening</option></select></label><label>Furniture finish<select id="rbResidenceFinish"><option value="emerald">Emerald leather</option><option value="onyx">Onyx leather</option><option value="cognac">Cognac leather</option></select></label><button id="rbResidenceSave" disabled>SAVE RESIDENCE</button><p id="rbResidenceStatus" role="status">Reading your private settings…</p></div>`:`<label class="al-presence"><input type="checkbox" id="rbPresence">Share my in-world movement with other signed-in members</label><p id="rbPresenceStatus" role="status">Solo mode · movement not shared</p><p id="rbWayfinder" role="status">Choose a destination below to track its distance.</p><label>Destination<select id="rbTarget"><option value="">Nearest station</option>${definition.actions.map(a=>`<option value="${a.id}">${a.label}</option>`).join("")}</select></label>`}${district==='creative'?'<div id="rbRecording" class="al-recording"></div>':''}</section><div class="al-destinations">${definition.actions.filter(a=>a.href).map(a=>`<a href="${a.href}"><strong>${a.label}</strong><small>${a.description}</small></a>`).join("")}</div></main>`;
+  root.innerHTML = `<main class="al-shell"><header><h1>${definition.title}</h1><nav><a href="/avatar-characters.html">CUSTOMIZE</a><a href="/profile.html">PROFILE</a><a href="/meta.html">WORLDS</a></nav></header><div class="al-experience"><span id="alExperienceMode"></span><span id="alGuide" role="status" hidden></span><a href="/meta.html">World Exchange ↗</a></div><nav class="al-districts" aria-label="Travel between districts">${(Object.keys(DISTRICTS) as Array<keyof typeof DISTRICTS>).map(key=>`<a href="${districtHref(key)}" ${key===district?'aria-current="page"':''}>${DISTRICTS[key].title}</a>`).join("")}</nav><section class="al-play"><div class="al-hud"><span class="al-mode">${original?'RICH ID • SAVED':'UNSAVED DEFAULT • CUSTOMIZE'}</span><span class="al-aura">${esc(aura)}</span><div id="alXpSlot"></div><div class="al-id"><strong>${esc(name)}</strong><em>${esc(build.toUpperCase())} · ${esc(character.look.outfit.toUpperCase())} OUTFIT</em></div></div><div class="al-stage"><canvas id="lobbyCanvas"></canvas><div class="al-loading" id="avatarLoading">LOADING CHARACTER…</div></div><div class="al-camera-tools" aria-label="Camera control"><button type="button" data-camera="close" aria-pressed="true">CHARACTER</button><button type="button" data-camera="wide" aria-pressed="false">EXPLORE</button><button type="button" data-camera="turn">TURN VIEW</button></div><div class="al-controls"><div class="joystick" id="joystick"><div id="stick"></div></div><div class="actions"><button data-action="jump">JUMP</button><button data-action="run">SPRINT</button><button data-action="power">POWER</button><button data-action="idle">RESET</button></div></div></section><section class="al-interaction" aria-label="District interactions"><div><small id="alWorldStatus">Connecting world entry…</small><h2 id="alActionTitle">Explore the environment</h2><p id="alActionDescription">${definition.description}</p></div><button id="alInteract" disabled type="button">MOVE TO A MARKER</button></section><section class="al-life" aria-label="World services"><div class="al-life-head"><small>RICH BIZNESS / WORLD LIFE</small><h2>${district==='personal'?'Residence controls':district==='creative'?'Creative services':'City services'}</h2></div>${district==='personal'?`<div class="al-residence"><label>Lighting<select id="rbResidenceLighting"><option value="daylight">Daylight</option><option value="evening">Evening</option></select></label><label>Furniture finish<select id="rbResidenceFinish"><option value="emerald">Emerald leather</option><option value="onyx">Onyx leather</option><option value="cognac">Cognac leather</option></select></label><button id="rbResidenceSave" disabled>SAVE RESIDENCE</button><p id="rbResidenceStatus" role="status">Reading your private settings…</p></div>`:`<label class="al-presence"><input type="checkbox" id="rbPresence">Share my in-world movement with other signed-in members</label><p id="rbPresenceStatus" role="status">Solo mode · movement not shared</p><p id="rbWayfinder" role="status">Choose a destination below to track its distance.</p><label>Destination<select id="rbTarget"><option value="">Nearest station</option>${definition.actions.map(a=>`<option value="${a.id}">${a.label}</option>`).join("")}</select></label>`}${district==='creative'?'<div id="rbRecording" class="al-recording"></div>':''}</section><div class="al-destinations">${definition.actions.filter(a=>a.href).map(a=>`<a href="${a.href}"><strong>${a.label}</strong><small>${a.description}</small></a>`).join("")}</div></main>`;
 
   const worldStatus=root.querySelector<HTMLElement>('#alWorldStatus')!;
   const interaction=root.querySelector<HTMLButtonElement>('#alInteract')!;
@@ -213,7 +213,7 @@ export async function mount(): Promise<void> {
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(0xa9c9d8);
   scene.fog = new THREE.Fog(0xa9c9d8, 22, 115);
-  const camera = new THREE.PerspectiveCamera(Number(cameraConfig.fov ?? 48), 1, .08, 180);
+  const camera = new THREE.PerspectiveCamera(THREE.MathUtils.clamp(Number(cameraConfig.fov ?? 48)||48,38,58), 1, .08, 180);
   const baseDistance = Math.min(5.8,Math.max(4.5, Number(cameraConfig.distance ?? 5.4)||5.4));
   let cameraMode:'close'|'wide'='close',cameraYaw=0;const cameraTools=root.querySelectorAll<HTMLButtonElement>('[data-camera]');
   const baseHeight = Math.min(2.5,Math.max(1.5, Number(cameraConfig.height ?? 2.2)||2.2));
@@ -235,7 +235,7 @@ export async function mount(): Promise<void> {
   sun.castShadow = true;
   sun.shadow.mapSize.set(quality.shadowSize, quality.shadowSize);
   sun.shadow.camera.near = .5;
-  sun.shadow.camera.far = 42;
+  sun.shadow.camera.far = 42;sun.shadow.bias=-.0002;sun.shadow.normalBias=.025;sun.shadow.camera.left=-7;sun.shadow.camera.right=7;sun.shadow.camera.top=7;sun.shadow.camera.bottom=-7;
   scene.add(sun);
   const fill = new THREE.DirectionalLight(0xb8ddff, 1.4);
   fill.position.set(-7, 5, 5);
@@ -252,6 +252,7 @@ export async function mount(): Promise<void> {
     sun.color.setHex(fantasy?0xc6b4ff:0xfff2d9);sun.intensity=fantasy?2.0:3.2;hemi.intensity=expressive?3.1:fantasy?1.6:2.5;rim.color.setHex(fantasy?0x9e86ff:0x80ffc0);rim.intensity=fantasy?3.1:.7;
     if(district==='personal'&&evening){sun.intensity=.75;hemi.intensity=.75;rim.color.setHex(0xffbd72);rim.intensity=3.4;}
     if(district==='creative'){sun.intensity=1.8;hemi.intensity=1.6;rim.color.setHex(0x57c8a5);rim.intensity=2.7;}
+    if(district==='personal'&&!evening){sun.intensity=2.25;hemi.intensity=1.55;fill.intensity=1.2;rim.intensity=1.4;}
     if(renderer)renderer.toneMappingExposure=expressive?1.16:1.08;
     root.querySelector<HTMLElement>('#alExperienceMode')!.textContent=mode+' · '+value.behavior;
     const guide=root.querySelector<HTMLElement>('#alGuide')!;guide.hidden=value.behavior!=='guided';guide.textContent='Use joystick to move. Sprint, jump or pose, then explore a world.';
@@ -273,7 +274,7 @@ export async function mount(): Promise<void> {
   canvas.dataset.rbModelState=original?'textured-human':'unsaved-textured-human';
   if (!isCurrent()) { disposeSkinnedAvatar(avatarRuntime); return; }
   avatarRuntime.root.position.set(definition.spawn[0],0,definition.spawn[1]);
-  scene.add(avatarRuntime.root);
+  scene.add(avatarRuntime.root);avatarRuntime.root.traverse(o=>{if((o as THREE.Mesh).isMesh){o.castShadow=!mobile;o.receiveShadow=!mobile;}});
   root.querySelector<HTMLElement>('#avatarLoading')?.remove();
   const shadowCanvas=document.createElement('canvas');shadowCanvas.width=shadowCanvas.height=128;const ctx=shadowCanvas.getContext('2d')!;const grad=ctx.createRadialGradient(64,64,3,64,64,62);grad.addColorStop(0,'rgba(0,0,0,.65)');grad.addColorStop(1,'rgba(0,0,0,0)');ctx.fillStyle=grad;ctx.fillRect(0,0,128,128);const shadowTexture=new THREE.CanvasTexture(shadowCanvas);const contact=new THREE.Mesh(new THREE.PlaneGeometry(1.1,.9),new THREE.MeshBasicMaterial({map:shadowTexture,transparent:true,depthWrite:false}));contact.rotation.x=-Math.PI/2;contact.position.y=.025;world.add(contact);
 
@@ -420,10 +421,12 @@ export async function mount(): Promise<void> {
     if(nextMotion==='walk'||nextMotion==='run'){const strideSpeed=avatarRuntime.locomotionSpeed?.[nextMotion]??(nextMotion==='run'?3.8:1.9);avatarRuntime.currentAction?.setEffectiveTimeScale(THREE.MathUtils.clamp(actualSpeed/strideSpeed,.08,1.45));}else if(nextMotion==='jump'&&avatarRuntime.currentAction){avatarRuntime.currentAction.setEffectiveTimeScale(THREE.MathUtils.clamp(avatarRuntime.currentAction.getClip().duration/Math.max(.3,2*jumpForce/gravity),.6,2));}
     updateSkinnedAvatar(avatarRuntime, dt);
 
-    const distance=cameraMode==='close'?Math.max(2.55,avatarRuntime.height/(2*Math.tan(THREE.MathUtils.degToRad(camera.fov*.5))*.66)):baseDistance;
+    const distance=cameraMode==='close'?Math.max(2.3,avatarRuntime.height/(2*Math.tan(THREE.MathUtils.degToRad(camera.fov*.5))*.76)):baseDistance;
     targetCamera.set(position.x+Math.sin(cameraYaw)*distance,position.y+(cameraMode==='close'?avatarRuntime.height*.91:baseHeight),position.z+Math.cos(cameraYaw)*distance);
     if(district!=='city'){targetCamera.z=THREE.MathUtils.clamp(targetCamera.z,definition.bounds.minZ+.15,8.5);targetCamera.x=THREE.MathUtils.clamp(targetCamera.x,-5.65,5.65);}
-    camera.position.lerp(targetCamera, 1 - Math.exp(-6.5 * dt));
+    const clearance=cameraClearance(position.x,position.z,targetCamera.x,targetCamera.z,districtScene.obstacles);targetCamera.x=position.x+(targetCamera.x-position.x)*clearance;targetCamera.z=position.z+(targetCamera.z-position.z)*clearance;
+    // Collision moves inward immediately; outward motion eases back to the preferred view.
+    if(clearance<.99)camera.position.copy(targetCamera);else camera.position.lerp(targetCamera,1-Math.exp(-6.5*dt));
     cameraLook.set(position.x,position.y+avatarRuntime.height*.52,position.z);
     contact.position.set(position.x,.025,position.z);contact.material.opacity=Math.max(.13,1-position.y*.8);
     camera.lookAt(cameraLook);
@@ -444,6 +447,7 @@ export async function mount(): Promise<void> {
 
     districtScene.tick(now/1000,activeAction?.id,camera.quaternion);presence.tick(dt,now/1000);
     if(now-lastGuide>500){lastGuide=now;const guide=root.querySelector<HTMLElement>('#rbWayfinder'),selection=root.querySelector<HTMLSelectElement>('#rbTarget');if(guide){const p=avatarRuntime.root.position;const target=definition.actions.find(a=>a.id===selection?.value)??[...definition.actions].sort((a,b)=>Math.hypot(a.x-p.x,a.z-p.z)-Math.hypot(b.x-p.x,b.z-p.z))[0];if(target){const distance=Math.hypot(target.x-p.x,target.z-p.z);const direction=target.z<p.z?'ahead (north)':'behind (south)';guide.textContent=target.label+' · '+distance.toFixed(1)+' m · '+(distance<1.85?'within interaction range':direction+' / '+(target.x<p.x?'west':'east'));}}}
+    if(!mobile){sun.position.set(position.x+8,13,position.z+6);sun.target.position.set(position.x,0,position.z);sun.target.updateMatrixWorld();}
     renderer.render(scene, camera);canvas.dataset.rbRenderState='frame-rendered';canvas.dataset.rbDistrict=district;
     }catch(error){failure('Graphics stopped. Saved appearance is unchanged.');console.warn('[Avatar Lobby]',error);}
   };
