@@ -28,7 +28,7 @@ export function mountPrivateReference(container:HTMLElement,signal:AbortSignal){
 export async function listVerifiedPurchases(signal:AbortSignal){const {data,error}=await supabase.rpc('rb_elite_verified_purchases').abortSignal(signal);if(error)throw Error(error.message);return Array.isArray(data)?data.length:0;}
 
 import {normalizeLook,type CharacterLook} from './avatar.character.config';
-const designKeys=['collection','designerCut','designerPalette','designerAccent','designerFootwear','signature','wings'] as const;
+const designKeys=['collection','designerCut','designerPalette','designerAccent','designerFootwear','signature','wings','regalia'] as const;
 export type PublishedDesign={owner_id:string;title:string;recipe:Partial<CharacterLook>;published:boolean;updated_at:string};
 export function designRecipe(look:CharacterLook){return Object.fromEntries(designKeys.map(k=>[k,look[k]]));}
 export async function readDesigns(userId:string,signal:AbortSignal){
@@ -42,3 +42,15 @@ export async function saveDesign(userId:string,title:string,look:CharacterLook,p
  if(write.error)throw Error(write.error.message);const result=await readDesigns(userId,signal);if(!result.own||result.own.title!==name||result.own.published!==published||Object.entries(recipe).some(([k,v])=>result.own!.recipe[k as keyof CharacterLook]!==v))throw Error('Design readback did not match');return result;
 }
 export function applyDesign(look:CharacterLook,recipe:Partial<CharacterLook>){const safe=normalizeLook(recipe);return normalizeLook({...look,...designRecipe(safe)});}
+
+export async function readListingRequest(userId:string,signal:AbortSignal){
+ const {data,error}=await supabase.from('elite_listing_requests').select('proposed_price_cents,currency,submitted_at').eq('owner_id',userId).maybeSingle().abortSignal(signal);if(error)throw Error(error.message);return data;
+}
+export async function saveListingRequest(userId:string,raw:string,signal:AbortSignal){
+ if(getAuthSnapshot().user?.id!==userId)throw Error('Rich ID changed');
+ if(!/^\d{1,4}(\.\d{1,2})?$/.test(raw.trim()))throw Error('Enter a USD price with no more than two decimal places.');
+ const cents=Math.round(Number(raw)*100);if(cents<100||cents>100000)throw Error('Proposed price must be $1–$1,000.');
+ const {data,error}=await supabase.from('elite_creator_designs').select('owner_id').eq('owner_id',userId).maybeSingle().abortSignal(signal);if(error||!data)throw Error('Save a fashion design first.');
+ const write=await supabase.from('elite_listing_requests').upsert({owner_id:userId,proposed_price_cents:cents,currency:'usd',submitted_at:new Date().toISOString()},{onConflict:'owner_id'}).abortSignal(signal);if(write.error)throw Error(write.error.message);
+ const verified=await readListingRequest(userId,signal);if(verified?.proposed_price_cents!==cents)throw Error('Proposed price readback failed');return verified;
+}
