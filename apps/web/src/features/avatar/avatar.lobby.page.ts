@@ -329,7 +329,7 @@ export async function mount(): Promise<void> {
         sprint = !sprint;
         button.classList.toggle('active', sprint);
       }
-      if (action === 'power') powerTimer = .75;
+      if (action === 'power' && grounded) powerTimer = 2.4;
       if (action === 'idle') {
         joyX = 0;
         joyY = 0;
@@ -370,11 +370,13 @@ export async function mount(): Promise<void> {
     raf=requestAnimationFrame(loop);
     if(document.hidden||now-lastFrame<(mobile?32:16))return;
     lastFrame=now;
-    const dt = Math.min(clock.getDelta(), .05);
+    const dt = Math.min(clock.getDelta(), .075);
     try{
     const inputMagnitude = Math.min(1, Math.hypot(joyX, joyY));
     const moving = inputMagnitude > .10;
-    const topSpeed = sprint ? sprintSpeed : moveSpeed;
+    if(moving)powerTimer=0;
+    const nominal=avatarRuntime.locomotionSpeed?.[sprint?'run':'walk']??(sprint?3.8:1.9);
+    const topSpeed = Math.min(sprint?sprintSpeed:moveSpeed,nominal*1.28);
 
     if (moving) {
       desiredVelocity.set(joyX, 0, joyY).normalize().multiplyScalar(topSpeed * inputMagnitude);
@@ -385,9 +387,10 @@ export async function mount(): Promise<void> {
       velocity.lerp(new THREE.Vector3(), blend);
     }
 
-    const position=avatarRuntime.root.position;const [nx,nz]=moveWithinWorld(position.x,position.z,velocity.x*dt,velocity.z*dt,definition.bounds,districtScene.obstacles);position.x=nx;position.z=nz;
+    const position=avatarRuntime.root.position;const ox=position.x,oz=position.z;const [nx,nz]=moveWithinWorld(ox,oz,velocity.x*dt,velocity.z*dt,definition.bounds,districtScene.obstacles);position.x=nx;position.z=nz;
+    const actualSpeed=Math.hypot(nx-ox,nz-oz)/Math.max(dt,.001);
     const nearby=nearbyAction(definition.actions,nx,nz);if(nearby?.id!==activeAction?.id){activeAction=nearby;root.querySelector<HTMLElement>('#alActionTitle')!.textContent=nearby?.label??'Explore the environment';root.querySelector<HTMLElement>('#alActionDescription')!.textContent=nearby?.description??definition.description;interaction.disabled=!nearby;interaction.textContent=nearby?(nearby.effect==='lighting'?(evening?'SWITCH TO DAYLIGHT':'SWITCH TO EVENING'):'OPEN '+nearby.label.toUpperCase()):'MOVE TO A MARKER';}
-    if (velocity.lengthSq() > .03) {
+    if (actualSpeed > .11) {
       const targetYaw = Math.atan2(velocity.x, velocity.z);
       const turnBlend = 1-Math.exp(-turnSpeed*dt);
       const deltaYaw=Math.atan2(Math.sin(targetYaw-avatarRuntime.root.rotation.y),Math.cos(targetYaw-avatarRuntime.root.rotation.y));avatarRuntime.root.rotation.y+=deltaYaw*turnBlend;
@@ -404,14 +407,14 @@ export async function mount(): Promise<void> {
     }
 
     powerTimer = Math.max(0, powerTimer - dt);
-    const nextMotion: AvatarMotion = powerTimer > 0 ? 'power' : !grounded ? 'jump' : moving ? (sprint ? 'run' : 'walk') : 'idle';
+    const nextMotion: AvatarMotion = powerTimer > 0 ? 'power' : !grounded ? 'jump' : actualSpeed>.11 ? (sprint&&actualSpeed>(avatarRuntime.locomotionSpeed?.walk??1.1)*1.25?'run':'walk') : 'idle';
     if (nextMotion !== activeMotion) {
       activeMotion = nextMotion;
       setAvatarMotion(avatarRuntime, nextMotion);
       if(experience.behavior!=='manual')avatarRuntime.expression?.(nextMotion==='power'?'confident':nextMotion==='jump'?'surprised':nextMotion==='run'?'focused':'neutral');
       if(experience.behavior==='guided')root.querySelector<HTMLElement>('#alGuide')!.textContent=nextMotion==='run'?'Sprint active. Release sprint to walk.':nextMotion==='jump'?'Landing returns you to movement.':nextMotion==='power'?'Pose active. You remain in control.':nextMotion==='walk'?'Explore the district or enter Worlds.':'Choose a direction or open Worlds.';
     }
-    if(nextMotion==='walk'||nextMotion==='run'){avatarRuntime.currentAction?.setEffectiveTimeScale(THREE.MathUtils.clamp(velocity.length()/(nextMotion==='run'?3.8:1.9),.45,1.3));}
+    if(nextMotion==='walk'||nextMotion==='run'){const strideSpeed=avatarRuntime.locomotionSpeed?.[nextMotion]??(nextMotion==='run'?3.8:1.9);avatarRuntime.currentAction?.setEffectiveTimeScale(THREE.MathUtils.clamp(actualSpeed/strideSpeed,.08,1.45));}else if(nextMotion==='jump'&&avatarRuntime.currentAction){avatarRuntime.currentAction.setEffectiveTimeScale(THREE.MathUtils.clamp(avatarRuntime.currentAction.getClip().duration/Math.max(.3,2*jumpForce/gravity),.6,2));}
     updateSkinnedAvatar(avatarRuntime, dt);
 
     targetCamera.set(
