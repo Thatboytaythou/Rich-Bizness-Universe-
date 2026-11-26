@@ -13,6 +13,7 @@ import {
   type SkinnedAvatarRuntime
 } from './avatar.skinned.runtime';
 import { CHARACTER_RIG, createOriginalAvatar } from './avatar.original.runtime';
+import {readCharacterIdentity,savedCharacter,hasSavedOriginal} from './avatar.identity';
 import './avatar.lobby.css';
 
 type CleanupHost = Window & { __rbPageCleanup?: (() => void | Promise<void>) | null };
@@ -171,30 +172,29 @@ export async function mount(): Promise<void> {
 
   const user = getAuthSnapshot().user;
   if (!user) { location.replace('/tap-in.html?next=%2Favatar.html'); return; }
-  const { data, error } = await supabase.rpc('rb_avatar_runtime_snapshot', {});
-  if (error) throw error;
-  if (!isCurrent()) return;
-
-  const snap = (data ?? {}) as Snapshot;
-  const avatar = snap.avatar ?? {};
-  const loadout = snap.loadout ?? {};
-  const outfit = loadout.outfit_config ?? avatar.metadata?.outfit ?? {};
-  const name = String(avatar.display_name ?? loadout.display_name ?? snap.profile?.display_name ?? snap.profile?.username ?? 'Rich Avatar');
-  const gender: AvatarGender = String(avatar.character_type ?? 'male') === 'female' ? 'girl' : 'boy';
-  const aura = String(avatar.aura ?? loadout.aura_config?.name ?? 'Emerald Gold');
-  const build = String(outfit.build ?? 'athletic');
-  const style = String(outfit.style ?? 'street');
-  const controller = snap.controller ?? {};
+  let snap;
+  try{snap=await readCharacterIdentity(user.id,abort.signal);}
+  catch(error){if(isCurrent())root.innerHTML='<main class="al-shell"><header><h1>Rich ID unavailable</h1><a href="/avatar-characters.html">RETURN TO STUDIO</a></header><p>Saved character could not be loaded. Reopen the lobby to retry.</p></main>';return;}
+  if(!isCurrent())return;
+  const character=savedCharacter(snap);
+  const {name,gender,aura,build,style}=character;
+  const original=hasSavedOriginal(snap);
+  let controller:Record<string,any>={};
+  if(snap.loadout.controller_profile_id){
+    const {data}=await supabase.from('avatar_controller_profiles').select('*').eq('id',snap.loadout.controller_profile_id).maybeSingle().abortSignal(abort.signal);
+    controller=(data??{}) as Record<string,any>;
+  }
+  if(!isCurrent())return;
   const cameraConfig = controller.camera_config ?? {};
-  const moveSpeed = Number(controller.move_speed ?? 4.8);
-  const sprintSpeed = Number(controller.sprint_speed ?? 8.2);
+  const moveSpeed = Math.min(2.2,Math.max(1,Number(controller.move_speed ?? 2.2)));
+  const sprintSpeed = Math.min(4.2,Math.max(2.5,Number(controller.sprint_speed ?? 4.2)));
   const jumpForce = Number(controller.jump_force ?? 6.8);
   const gravity = Number(controller.gravity ?? 18);
   const acceleration = Number(controller.acceleration ?? 20);
   const deceleration = Number(controller.deceleration ?? 16);
   const turnSpeed = Number(controller.turn_speed ?? 8);
 
-  root.innerHTML = `<main class="al-shell"><header><h1>Avatar Lobby</h1><nav><a href="/avatar-characters.html">CUSTOMIZE</a><a href="/profile.html">PROFILE</a><a href="/meta.html">META</a></nav></header><section class="al-stage"><canvas id="lobbyCanvas"></canvas><div class="al-hud"><span class="al-mode">STREET</span><span class="al-aura">${esc(aura)}</span><div class="al-id"><strong>${esc(name)}</strong><em>${esc(build.toUpperCase())} · ${esc(style.toUpperCase())}</em></div></div><div class="al-controls"><div class="joystick" id="joystick"><div id="stick"></div></div><div class="actions"><button data-action="jump">JUMP</button><button data-action="run">SPRINT</button><button data-action="power">POWER</button><button data-action="idle">RESET</button></div></div><div class="al-loading" id="avatarLoading">LOADING CHARACTER…</div></section></main>`;
+  root.innerHTML = `<main class="al-shell"><header><h1>Avatar Lobby</h1><nav><a href="/avatar-characters.html">CUSTOMIZE</a><a href="/profile.html">PROFILE</a><a href="/meta.html">META</a></nav></header><section class="al-stage"><canvas id="lobbyCanvas"></canvas><div class="al-hud"><span class="al-mode">${original?'RICH ID • SAVED':'UNSAVED DEFAULT • CUSTOMIZE'}</span><span class="al-aura">${esc(aura)}</span><div class="al-id"><strong>${esc(name)}</strong><em>${esc(build.toUpperCase())} · ${esc(style.toUpperCase())}</em></div></div><div class="al-controls"><div class="joystick" id="joystick"><div id="stick"></div></div><div class="actions"><button data-action="jump">JUMP</button><button data-action="run">SPRINT</button><button data-action="power">POWER</button><button data-action="idle">RESET</button></div></div><div class="al-loading" id="avatarLoading">LOADING CHARACTER…</div></section></main>`;
 
   const canvas = root.querySelector<HTMLCanvasElement>('#lobbyCanvas')!;
   const quality = qualityProfile();
@@ -230,13 +230,9 @@ export async function mount(): Promise<void> {
   scene.add(rim);
   world = addStreetWorld(scene);
 
-  const original=outfit.rig===CHARACTER_RIG;
-  avatarRuntime=original?createOriginalAvatar(gender,outfit.appearance,build):await loadSkinnedAvatar({
-    modelUrl:resolveAvatarModelUrl(snap as Record<string, any>,gender),
-    targetHeight:gender==='girl'?1.72:1.82,signal:abort.signal
-  });
+  avatarRuntime=createOriginalAvatar(gender,character.look,build);
   setAvatarMotion(avatarRuntime,'idle',0);
-  canvas.dataset.rbModelState=original?'original-stylized':'legacy-reference';
+  canvas.dataset.rbModelState=original?'original-stylized':'unsaved-original';
   if (!isCurrent()) { disposeSkinnedAvatar(avatarRuntime); return; }
   avatarRuntime.root.position.set(0, 0, 1.6);
   scene.add(avatarRuntime.root);
@@ -326,11 +322,11 @@ export async function mount(): Promise<void> {
     if (disposed || !avatarRuntime || !renderer) return;
     const dt = Math.min(clock.getDelta(), .04);
     const inputMagnitude = Math.min(1, Math.hypot(joyX, joyY));
-    const moving = inputMagnitude > .05;
+    const moving = inputMagnitude > .10;
     const topSpeed = sprint ? sprintSpeed : moveSpeed;
 
     if (moving) {
-      desiredVelocity.set(joyX, 0, -joyY).normalize().multiplyScalar(topSpeed * inputMagnitude);
+      desiredVelocity.set(joyX, 0, joyY).normalize().multiplyScalar(topSpeed * inputMagnitude);
       const blend = Math.min(1, acceleration * dt);
       velocity.lerp(desiredVelocity, blend);
     } else {
@@ -342,8 +338,8 @@ export async function mount(): Promise<void> {
     avatarRuntime.root.position.z = THREE.MathUtils.clamp(avatarRuntime.root.position.z + velocity.z * dt, -78, 5.5);
     if (velocity.lengthSq() > .03) {
       const targetYaw = Math.atan2(velocity.x, velocity.z);
-      const turnBlend = Math.min(1, turnSpeed * dt);
-      avatarRuntime.root.rotation.y = THREE.MathUtils.lerp(avatarRuntime.root.rotation.y, targetYaw, turnBlend);
+      const turnBlend = 1-Math.exp(-turnSpeed*dt);
+      const deltaYaw=Math.atan2(Math.sin(targetYaw-avatarRuntime.root.rotation.y),Math.cos(targetYaw-avatarRuntime.root.rotation.y));avatarRuntime.root.rotation.y+=deltaYaw*turnBlend;
     }
 
     if (!grounded) {
@@ -362,6 +358,7 @@ export async function mount(): Promise<void> {
       activeMotion = nextMotion;
       setAvatarMotion(avatarRuntime, nextMotion);
     }
+    if(nextMotion==='walk'||nextMotion==='run'){avatarRuntime.currentAction?.setEffectiveTimeScale(THREE.MathUtils.clamp(velocity.length()/(nextMotion==='run'?3.8:1.9),.45,1.3));}
     updateSkinnedAvatar(avatarRuntime, dt);
 
     targetCamera.set(
