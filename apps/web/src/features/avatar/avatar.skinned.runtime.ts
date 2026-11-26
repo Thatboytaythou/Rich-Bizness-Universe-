@@ -163,9 +163,8 @@ export async function loadSkinnedAvatar(options: {
 }
 
 export function setAvatarMotion(runtime: SkinnedAvatarRuntime, motion: AvatarMotion, fadeSeconds = 0.18): void {
-  if (runtime.currentMotion === motion && runtime.currentAction?.isRunning()) return;
   const next = actionForMotion(runtime, motion);
-  if (!next) return;
+  if (!next || (runtime.currentAction===next && runtime.currentMotion===motion && next.isRunning())) return;
 
   const previous = runtime.currentAction;
   const phase=(previous&&['walk','run'].includes(runtime.currentMotion)&&['walk','run'].includes(motion))?previous.time/previous.getClip().duration:0;
