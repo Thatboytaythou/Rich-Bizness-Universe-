@@ -21,6 +21,7 @@ type Snapshot = {
   model?: Record<string, any>;
 };
 type CleanupHost = Window & { __rbPageCleanup?: (() => void | Promise<void>) | null };
+const RELEASE = "avatar-studio-controls-5";
 const OWNER = 'rich-bizness-avatar-characters-v1';
 const esc = (value: unknown) => String(value ?? '').replace(/[&<>"']/g, (c) => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c] ?? c));
 const auraColor = (aura: string) => aura === 'Neon Phantom' ? 0x765dff : aura === 'Diamond Mist' ? 0x76d8ff : 0x21df81;
@@ -87,7 +88,8 @@ export async function mount(): Promise<void> {
   const initialStyle = String(outfit.style ?? 'street');
   const initialAura = String(current.aura ?? loadout.aura_config?.name ?? 'Emerald Gold');
 
-  root.innerHTML = `<main class="ac-shell"><header><a class="back" href="/profile.html">←</a><div><small>RICH BIZNESS CHARACTER GARAGE</small><h1>Choose Your Character</h1></div><a href="/avatar.html" class="enter">ENTER LOBBY</a></header><section class="ac-layout"><div class="ac-stage"><canvas id="characterCanvas"></canvas><div class="ac-stage-top"><span>SKINNED FULL BODY</span><b id="previewGender">${gender.toUpperCase()}</b></div><div class="ac-stage-copy"><strong id="previewName">${esc(display)}</strong><em id="previewStyle">${esc(initialBuild.toUpperCase())} · ${esc(initialStyle.toUpperCase())}</em></div><div class="ac-motion"><button data-motion="idle" class="active">IDLE</button><button data-motion="walk">WALK</button><button data-motion="run">RUN</button><button data-motion="power">POSE</button></div><div class="ac-loading" id="characterLoading">LOADING CHARACTER…</div></div><aside class="ac-editor"><div class="section-title"><span>CHARACTER</span></div><div class="seg"><button data-gender="boy" class="${gender === 'boy' ? 'active' : ''}">BOY</button><button data-gender="girl" class="${gender === 'girl' ? 'active' : ''}">GIRL</button></div><label>NAME<input id="nameInput" value="${esc(display)}" maxlength="28"/></label><div class="edit-grid"><label>BUILD<select id="buildInput"><option value="athletic">ATHLETIC</option><option value="lean">LEAN</option><option value="heroic">HEROIC</option></select></label><label>STYLE<select id="styleInput"><option value="street">STREET</option><option value="boss">BOSS</option><option value="tactical">TACTICAL</option><option value="cyber">CYBER</option></select></label></div><label>AURA<select id="auraInput"><option>Emerald Gold</option><option>Neon Phantom</option><option>Diamond Mist</option></select></label><div class="ac-actions"><button id="randomize">RANDOMIZE</button><button id="saveCharacter" class="primary">SAVE CHARACTER</button></div><p id="saveStatus">${snapshotFailure ? 'Saved identity unavailable. Reference view only; no changes will be saved.' : 'Save once the character, motion and proportions look right.'}</p>${snapshotFailure ? '<button type="button" id="acRetryIdentity">Retry saved identity</button>' : ''}</aside></section></main>`;
+  root.dataset.rbStudioRelease=RELEASE;
+  root.innerHTML = `<main class="ac-shell"><header><a class="back" href="/profile.html">←</a><div><small>RICH BIZNESS CHARACTER GARAGE</small><h1>Avatar Studio</h1></div><a href="/avatar.html" class="enter">ENTER LOBBY</a></header><div class="ac-system-bar"><div><small>RICH ID • STUDIO</small><strong>${esc(display)}</strong></div><div id="acXpSlot"></div><div id="acOmniSlot"></div></div><section class="ac-layout"><div class="ac-stage"><div class="ac-viewport"><canvas id="characterCanvas"></canvas><div class="ac-stage-top"><span>SKINNED FULL BODY</span><b id="previewGender">${gender.toUpperCase()}</b></div><div class="ac-stage-copy"><strong id="previewName">${esc(display)}</strong><em id="previewStyle">${esc(initialBuild.toUpperCase())} · ${esc(initialStyle.toUpperCase())}</em></div><div class="ac-loading" id="characterLoading">LOADING CHARACTER…</div></div><div class="ac-stage-controls"><div class="ac-motion"><button data-motion="idle" class="active">IDLE</button><button data-motion="walk">WALK</button><button data-motion="run">RUN</button><button data-motion="power">POSE</button></div><div class="ac-camera"><button type="button" id="acFront">FRONT</button><button type="button" id="acBack">BACK</button><button type="button" id="acZoomOut" aria-label="Zoom out">−</button><button type="button" id="acZoomIn" aria-label="Zoom in">+</button><button type="button" id="acReset">RESET</button></div><small id="acMotionStatus" role="status">Drag to rotate • Zoom to inspect</small></div></div><aside class="ac-editor"><div class="section-title"><span>CHARACTER LAB</span><small>BUILD · STYLE · FX</small></div><div class="seg"><button data-gender="boy" class="${gender === 'boy' ? 'active' : ''}">BOY</button><button data-gender="girl" class="${gender === 'girl' ? 'active' : ''}">GIRL</button></div><label>NAME<input id="nameInput" value="${esc(display)}" maxlength="28"/></label><div class="edit-grid"><label>BUILD<select id="buildInput"><option value="athletic">ATHLETIC</option><option value="lean">LEAN</option><option value="heroic">HEROIC</option></select></label><label>STYLE<select id="styleInput"><option value="street">STREET</option><option value="boss">BOSS</option><option value="tactical">TACTICAL</option><option value="cyber">CYBER</option></select></label></div><label>AURA<select id="auraInput"><option>Emerald Gold</option><option>Neon Phantom</option><option>Diamond Mist</option></select></label><div class="ac-actions"><button id="randomize">RANDOMIZE</button><button id="saveCharacter" class="primary">SAVE CHARACTER</button></div><p id="saveStatus">${snapshotFailure ? 'Saved identity unavailable. Reference view only; no changes will be saved.' : 'Save once the character, motion and proportions look right.'}</p>${snapshotFailure ? '<button type="button" id="acRetryIdentity">Retry saved identity</button>' : ''}<small class="ac-release">STUDIO RELEASE • ${RELEASE}</small></aside></section></main>`;
 
   root.querySelector<HTMLButtonElement>('#acRetryIdentity')?.addEventListener('click',()=>location.reload());
   root.dataset.rbStudioIdentity=snapshotFailure?'unavailable':'loaded';
@@ -101,10 +103,10 @@ export async function mount(): Promise<void> {
   auraInput.value = ['Emerald Gold','Neon Phantom','Diamond Mist'].includes(initialAura) ? initialAura : 'Emerald Gold';
 
   const scene = new THREE.Scene();
-  scene.background = new THREE.Color(0xb9d4df);
-  scene.fog = new THREE.Fog(0xb9d4df, 16, 42);
+  scene.background = new THREE.Color(0x081910);
+  scene.fog = new THREE.Fog(0x081910, 9, 23);
   const camera = new THREE.PerspectiveCamera(34, 1, .08, 70);
-  camera.position.set(0, 1.55, 4.8);
+  camera.position.set(0, 1.26, 4.4);
   const quality = qualityProfile();
   const loading=root.querySelector<HTMLElement>('#characterLoading')!;
   const saveButton=root.querySelector<HTMLButtonElement>('#saveCharacter')!;
@@ -123,31 +125,33 @@ export async function mount(): Promise<void> {
   } catch (error) { console.warn('[Avatar Studio] WebGL init',error); renderer?.dispose();renderer=null; recoveryMessage('unavailable','3D graphics unavailable on this device. Reload to retry; Profile and Portal remain available.'); return; }
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
-  renderer.toneMappingExposure = 1.08;
+  renderer.toneMappingExposure = 1.0;
   renderer.shadowMap.enabled = !mobile;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
-  scene.add(new THREE.HemisphereLight(0xf5fcff, 0x5a655d, 2.7));
-  const key = new THREE.DirectionalLight(0xfff0d3, 3.1);
+  scene.add(new THREE.HemisphereLight(0xe3f4eb, 0x28452f, 2.2));
+  const key = new THREE.DirectionalLight(0xffe3ac, 2.9);
   key.position.set(5, 9, 5);
   key.castShadow = !mobile;
   key.shadow.mapSize.set(quality.shadowSize, quality.shadowSize);
   scene.add(key);
-  const fill = new THREE.DirectionalLight(0x9fd7ff, 1.35);
+  const fill = new THREE.DirectionalLight(0x79e8ad, 1.8);
   fill.position.set(-5, 4, 3);
   scene.add(fill);
   const auraLight = new THREE.PointLight(auraColor(auraInput.value), 2.2, 7, 2);
   auraLight.position.set(-2, 1.4, 2.2);
   scene.add(auraLight);
 
-  const floor = new THREE.Mesh(new THREE.CircleGeometry(3.4, 72), new THREE.MeshStandardMaterial({ color: 0x52605a, roughness: .82 }));
+  const floor = new THREE.Mesh(new THREE.CircleGeometry(3.4, 72), new THREE.MeshStandardMaterial({ color: 0x16291f, roughness: .66, metalness:.25 }));
   floor.rotation.x = -Math.PI / 2;
   floor.position.y = -.02;
   floor.receiveShadow = true;
   scene.add(floor);
-  const backWall = new THREE.Mesh(new THREE.PlaneGeometry(9, 5), new THREE.MeshStandardMaterial({ color: 0x8aa9b3, roughness: .86 }));
+  const backWall = new THREE.Mesh(new THREE.PlaneGeometry(9, 5), new THREE.MeshStandardMaterial({ color: 0x0b1d14, roughness: .9 }));
   backWall.position.set(0, 2.15, -2.2);
   scene.add(backWall);
+  const halo=new THREE.Mesh(new THREE.TorusGeometry(1.06,.014,8,80),new THREE.MeshBasicMaterial({color:auraColor(auraInput.value)}));halo.rotation.x=-Math.PI/2;halo.position.y=.015;scene.add(halo);
+  const innerHalo=new THREE.Mesh(new THREE.TorusGeometry(.88,.008,6,64),new THREE.MeshBasicMaterial({color:0xe6c679}));innerHalo.rotation.x=-Math.PI/2;innerHalo.position.y=.018;scene.add(innerHalo);
   camera.lookAt(0,.95,0);
   const onContextLost=(event:Event)=>{
     event.preventDefault();contextLost=true;modelAbort?.abort();cancelAnimationFrame(raf);saveButton.disabled=true;
@@ -156,12 +160,20 @@ export async function mount(): Promise<void> {
   canvas.addEventListener('webglcontextlost',onContextLost);
   releaseStage=()=>{
     canvas.removeEventListener('webglcontextlost',onContextLost);
-    floor.geometry.dispose();floor.material.dispose();backWall.geometry.dispose();backWall.material.dispose();key.shadow.dispose();
+    floor.geometry.dispose();floor.material.dispose();backWall.geometry.dispose();backWall.material.dispose();halo.geometry.dispose();halo.material.dispose();innerHalo.geometry.dispose();innerHalo.material.dispose();key.shadow.dispose();
   };
 
   let motion: AvatarMotion = 'idle';
   let loadGeneration = 0;
-  let userYaw = 0;
+  let userYaw = Math.PI;
+  let zoom=1;
+  const setZoom=(value:number)=>{zoom=THREE.MathUtils.clamp(value,.8,1.65);camera.zoom=zoom;camera.updateProjectionMatrix();stageDirty=true;};
+  const setYaw=(value:number)=>{userYaw=value;if(runtime)runtime.root.rotation.y=value;stageDirty=true;};
+  root.querySelector<HTMLButtonElement>("#acFront")!.onclick=()=>setYaw(Math.PI);
+  root.querySelector<HTMLButtonElement>("#acBack")!.onclick=()=>setYaw(0);
+  root.querySelector<HTMLButtonElement>("#acZoomIn")!.onclick=()=>setZoom(zoom+.15);
+  root.querySelector<HTMLButtonElement>("#acZoomOut")!.onclick=()=>setZoom(zoom-.15);
+  root.querySelector<HTMLButtonElement>("#acReset")!.onclick=()=>{setYaw(Math.PI);setZoom(1);};
   let dragging = false;
   let dragStartX = 0;
   let dragStartYaw = 0;
@@ -179,6 +191,20 @@ export async function mount(): Promise<void> {
     runtime.root.updateMatrixWorld(true);
   };
 
+  const materialColors=new Map<THREE.MeshStandardMaterial,THREE.Color>();
+  const applyStylePreview=()=>{
+    if(!runtime||canvas.dataset.rbModelState!=='reference-model')return;
+    const tint=styleInput.value==='boss'?0xf3c95f:styleInput.value==='cyber'?0x7da8ff:styleInput.value==='tactical'?0x74897c:0xffffff;
+    runtime.root.traverse(object=>{
+      const mesh=object as THREE.Mesh;if(!mesh.isMesh)return;
+      for(const mat of(Array.isArray(mesh.material)?mesh.material:[mesh.material])){
+        const m=mat as THREE.MeshStandardMaterial;if(!m.isMeshStandardMaterial)continue;
+        if(!materialColors.has(m))materialColors.set(m,m.color.clone());
+        m.color.copy(materialColors.get(m)!).multiply(new THREE.Color(tint));
+      }
+    });stageDirty=true;
+  };
+  const applyAura=()=>{const color=auraColor(auraInput.value);auraLight.color.setHex(color);halo.material.color.setHex(color);stageDirty=true;};
   const loadCharacter = async () => {
     const generation = ++loadGeneration;
     if(contextLost||disposed)return;
@@ -189,6 +215,7 @@ export async function mount(): Promise<void> {
     if (runtime) {
       scene.remove(runtime.root);
       disposeSkinnedAvatar(runtime);
+      materialColors.clear();
       runtime = null;
     }
     const model=modelSnapshotFor(gender).model;
@@ -226,6 +253,9 @@ export async function mount(): Promise<void> {
       scene.add(runtime.root);
       setAvatarMotion(runtime, motion, 0);
       canvas.dataset.rbModelState=approved?'approved-model':'reference-model';
+      applyStylePreview();
+      const poseButton=root.querySelector<HTMLButtonElement>('[data-motion="power"]')!;
+      const hasPose=next.clips.some(clip=>/power|attack|dance|pose|action/i.test(clip.name));poseButton.disabled=!hasPose;poseButton.title=hasPose?'Play pose clip':'This asset has no pose animation';if(!hasPose&&motion==='power'){motion='idle';setAvatarMotion(next,'idle',0);root.querySelectorAll<HTMLButtonElement>('[data-motion]').forEach(item=>item.classList.toggle('active',item.dataset.motion==='idle'));}
       canvas.dataset.rbRenderState='awaiting-frame';loading.hidden=true;
       root.querySelector<HTMLElement>('.ac-stage-top span')!.textContent=approved?'RICH BIZNESS CHARACTER':'TEMPORARY REFERENCE • NOT PRODUCTION ART';
       root.querySelector<HTMLElement>('#saveStatus')!.textContent=snapshotFailure?'Saved identity unavailable. Reference only; saving is disabled.':approved?'Ready to save your approved character.':'Reference only. Saving is locked until approved character art is available.';
@@ -252,7 +282,7 @@ export async function mount(): Promise<void> {
     button.onclick = () => {
       motion = (button.dataset.motion ?? 'idle') as AvatarMotion;
       root.querySelectorAll<HTMLButtonElement>('[data-motion]').forEach((item) => item.classList.toggle('active', item === button));
-      if (runtime) setAvatarMotion(runtime, motion);
+      if (runtime) {setAvatarMotion(runtime, motion);root.querySelector<HTMLElement>('#acMotionStatus')!.textContent='Motion: '+motion.toUpperCase()+' • '+(runtime.currentAction?.getClip().name??'unavailable');}
     };
   });
 
@@ -261,10 +291,11 @@ export async function mount(): Promise<void> {
     root.querySelector<HTMLElement>('#previewStyle')!.textContent = `${buildInput.value.toUpperCase()} · ${styleInput.value.toUpperCase()}`;
   };
   styleInput.onchange = () => {
+    applyStylePreview();
     root.querySelector<HTMLElement>('#previewStyle')!.textContent = `${buildInput.value.toUpperCase()} · ${styleInput.value.toUpperCase()}`;
   };
   auraInput.onchange = () => {
-    auraLight.color.setHex(auraColor(auraInput.value));stageDirty=true;
+    applyAura();
   };
   nameInput.oninput = () => {
     root.querySelector<HTMLElement>('#previewName')!.textContent = nameInput.value || 'Rich Avatar';
@@ -275,7 +306,7 @@ export async function mount(): Promise<void> {
     buildInput.selectedIndex = Math.floor(Math.random() * buildInput.options.length);
     styleInput.selectedIndex = Math.floor(Math.random() * styleInput.options.length);
     auraInput.selectedIndex = Math.floor(Math.random() * auraInput.options.length);
-    auraLight.color.setHex(auraColor(auraInput.value));
+    applyAura();
     root.querySelectorAll<HTMLButtonElement>('[data-gender]').forEach((item) => item.classList.toggle('active', item.dataset.gender === gender));
     root.querySelector<HTMLElement>('#previewGender')!.textContent = gender.toUpperCase();
     root.querySelector<HTMLElement>('#previewStyle')!.textContent = `${buildInput.value.toUpperCase()} · ${styleInput.value.toUpperCase()}`;
@@ -323,6 +354,7 @@ export async function mount(): Promise<void> {
     const scale=Math.min(1,limit/Math.max(rect.width,rect.height));
     renderer.setSize(Math.max(1,Math.round(rect.width*scale)),Math.max(1,Math.round(rect.height*scale)),false);
     camera.aspect = rect.width / rect.height;
+    camera.position.z=4.4*Math.max(1,.63/camera.aspect);
     stageDirty=true;
     camera.updateProjectionMatrix();
   };
