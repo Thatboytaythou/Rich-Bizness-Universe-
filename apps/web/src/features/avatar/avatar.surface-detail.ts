@@ -17,14 +17,14 @@ export function attachCharacterDetail(group:THREE.Group,look:CharacterLook,high:
     if(mesh.name==='body'){
       mat.roughness=look.skinFinish==='matte'?.76:look.skinFinish==='soft-glow'?.49:.64;
       mat.metalness=0;
-      if(high){mat.bumpMap=micro;mat.bumpScale=.00045;}
+      if(high&&!mat.normalMap){mat.bumpMap=micro;mat.bumpScale=.00045;}if(mat.normalMap)mat.normalScale.set(.65,.65);
       const previous=mat.onBeforeCompile.bind(mat),cache=mat.customProgramCacheKey.bind(mat);
       mat.onBeforeCompile=(shader,renderer)=>{previous(shader,renderer);
         // Broad, restrained skin gloss variation from existing skin albedo.
         shader.fragmentShader=shader.fragmentShader.replace('#include <roughnessmap_fragment>','#include <roughnessmap_fragment>\nroughnessFactor = clamp(roughnessFactor + (0.35-dot(diffuseColor.rgb,vec3(0.2126,0.7152,0.0722)))*0.12,0.42,0.86);');};
       mat.customProgramCacheKey=()=>cache()+'|rb-skin-detail-v17';mat.needsUpdate=true;
     }
-    if(mesh.name.startsWith('eyes-')){mat.roughness=.19;mat.metalness=0;mat.needsUpdate=true;}
+    if(mesh.name.startsWith('eyes-')){mat.roughness=.26;mat.metalness=0;mat.needsUpdate=true;}
     const longHair=mesh.name.startsWith('hair-')&&['long','braids','ponytail','bob','blunt-bangs'].includes(look.hair);
     const fabric=mesh.name.startsWith('clothes-')&&!/shoes|fedora/.test(mesh.name);
     if(!longHair&&!fabric)return;
