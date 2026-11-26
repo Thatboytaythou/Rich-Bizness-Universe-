@@ -5,7 +5,7 @@ import {disposeSkinnedAvatar,setAvatarMotion,updateSkinnedAvatar,playAvatarGestu
 import type {CharacterConfig} from './avatar.identity';
 import {getExperience,resolveVisual,subscribeExperience,type Experience} from '../../core/experience/policy';
 
-export type StudioGraphics={gesture:(name:string)=>boolean;expression:(value:AvatarExpression)=>void;quality:(value:'auto'|'detail')=>void;update:(config:CharacterConfig)=>void;motion:(value:AvatarMotion)=>void;rotate:(radians:number)=>void;zoom:(delta:number)=>void;face:(enabled:boolean)=>void;reset:()=>void;dispose:()=>void};
+export type StudioGraphics={routine:(names:readonly string[])=>boolean;gesture:(name:string)=>boolean;expression:(value:AvatarExpression)=>void;quality:(value:'auto'|'detail')=>void;update:(config:CharacterConfig)=>void;motion:(value:AvatarMotion)=>void;rotate:(radians:number)=>void;zoom:(delta:number)=>void;face:(enabled:boolean)=>void;reset:()=>void;dispose:()=>void};
 const aura=(s:string)=>s==='Neon Phantom'?0x765dff:s==='Diamond Mist'?0x76d8ff:0x21df81;
 export function createStudioGraphics(canvas:HTMLCanvasElement,initial:CharacterConfig,onFrame:()=>void,onFailure:(reason:string)=>void,onAssetStatus:(status:'loading'|'ready'|'error',message:string)=>void=()=>{}):StudioGraphics{
   const mobile=matchMedia('(pointer:coarse),(max-width:860px)').matches;
@@ -24,7 +24,7 @@ export function createStudioGraphics(canvas:HTMLCanvasElement,initial:CharacterC
   const ring=new THREE.Mesh(new THREE.TorusGeometry(.83,.013,6,48),new THREE.MeshBasicMaterial({color:aura(initial.aura)}));ring.rotation.x=-Math.PI/2;ring.position.y=.008;scene.add(ring);
   let runtime:SkinnedAvatarRuntime|null=null;
   let yaw=0,zoom=1,face=false,active:AvatarMotion='idle',disposed=false,failed=false,raf=0,previous=0,deadline=0,dirty=true;
-  let modelKey='',desired:CharacterConfig|null=null,loading=false,awaitingFrame=false,shaderError=false;let revision=0;let quality:'auto'|'detail'='auto',mood:AvatarExpression='neutral',latest=initial;let expressionUntil=0;let frameScale=1,frameAverage=mobile?33:17,measured=0,lastAdapt=0,lastTelemetry=0,visible=true;
+  let modelKey='',desired:CharacterConfig|null=null,loading=false,awaitingFrame=false,shaderError=false;let revision=0;let quality:'auto'|'detail'='auto',mood:AvatarExpression='neutral',latest=initial;let expressionUntil=0;let sequence:string[]=[];let routineActive=false,bodyTime=0,expressionClock=0;let loadStarted=0;let frameScale=1,frameAverage=mobile?33:17,measured=0,lastAdapt=0,lastTelemetry=0,visible=true;
   const controller=new AbortController(),signal=controller.signal;
   let experience=getExperience();
   renderer.debug.checkShaderErrors=true;renderer.debug.onShaderError=()=>{shaderError=true;};
@@ -42,7 +42,7 @@ export function createStudioGraphics(canvas:HTMLCanvasElement,initial:CharacterC
   const schedule=()=>{if(!disposed&&!failed&&!raf&&!document.hidden&&visible)raf=requestAnimationFrame(draw);};
   const draw=(now:number)=>{
     raf=0;if(disposed||failed||document.hidden||!visible)return;
-    const anim=active!=='idle'&&now<deadline;const living=!!runtime&&(!reduced.matches||now<expressionUntil);
+    const anim=active!=='idle'&&(routineActive||now<deadline);const living=!!runtime&&(!reduced.matches||now<expressionUntil);
     if(!dirty&&!anim&&!living&&active==='idle')return;
     if(previous&&now-previous<(mobile?32:16)){schedule();return;}
     const elapsed=previous?now-previous:0;const dt=Math.min(elapsed/1000,.075);previous=now;if(elapsed>0&&elapsed<250){frameAverage+=.08*(elapsed-frameAverage);measured++;}
@@ -50,6 +50,8 @@ export function createStudioGraphics(canvas:HTMLCanvasElement,initial:CharacterC
       if(runtime){
         runtime.lookAt?.(experience.behavior!=='manual'&&active==='idle'&&!reduced.matches?camera.position:null);
         if(anim||living)updateSkinnedAvatar(runtime,dt);
+        if(active==='idle'&&living&&experience.behavior!=='manual'&&!reduced.matches){bodyTime+=dt;expressionClock+=dt;if(expressionClock>6.5){expressionClock=0;runtime.expression?.(Math.floor(bodyTime/6.5)%3===1?'confident':'neutral',.25);}}
+        if(routineActive&&runtime.currentAction&&runtime.currentAction.time>=runtime.currentAction.getClip().duration-.012){const next=sequence.shift();if(next){beginGesture(next);}else{routineActive=false;active='idle';setAvatarMotion(runtime,'idle',.22);runtime.expression?.('neutral');}}
         if(active==='jump'){
           const action=runtime.currentAction;
           const t=action?Math.min(1,action.time/action.getClip().duration):1;
@@ -87,13 +89,13 @@ export function createStudioGraphics(canvas:HTMLCanvasElement,initial:CharacterC
         const config=desired;desired=null;const generation=revision;
         const key=JSON.stringify([config.gender,config.build,config.look,quality]);
         if(runtime&&key===modelKey){pose();awaitingFrame=true;invalidate();continue;}
-        onAssetStatus('loading','Fitting selected human mesh and wardrobe…');
+        loadStarted=performance.now();onAssetStatus('loading','Fitting selected human mesh and wardrobe…');
         let next:SkinnedAvatarRuntime;
         try{next=await createTexturedAvatar(config.gender,config.look,config.build,quality);}catch(error){if(generation===revision&&!disposed&&!failed){onAssetStatus('error',(error instanceof Error?error.message:'Asset load failed')+(runtime?' • previous verified appearance retained':''));}continue;}
         if(disposed||failed||generation!==revision){disposeSkinnedAvatar(next);continue;}
         // Swap only after the new complete fitted mesh exists; keep old render on a failed download.
         if(runtime){scene.remove(runtime.root);disposeSkinnedAvatar(runtime);}
-        runtime=next;runtime.expression?.(mood);expressionUntil=performance.now()+1000;runtime.root.rotation.y=yaw;setAvatarMotion(runtime,'idle',0);runtime.mixer.update(0);
+        runtime=next;sequence=[];routineActive=false;canvas.dataset.rbAssetLoadMs=String(Math.round(performance.now()-loadStarted));runtime.expression?.(mood);expressionUntil=performance.now()+1000;runtime.root.rotation.y=yaw;setAvatarMotion(runtime,'idle',0);runtime.mixer.update(0);
         scene.add(runtime.root);modelKey=key;active='idle';previous=0;pose();awaitingFrame=true;invalidate();
       }
     }catch(error){if(!disposed)fail(error instanceof Error?error.message:'Textured human asset failed');}
@@ -103,7 +105,8 @@ export function createStudioGraphics(canvas:HTMLCanvasElement,initial:CharacterC
     if(disposed||failed)return;
     latest=config;ring.material.color.setHex(aura(config.aura));const nextKey=JSON.stringify([config.gender,config.build,config.look,quality]);if(runtime&&nextKey===modelKey&&!loading){awaitingFrame=true;invalidate();return;}desired={...config,look:{...config.look}};revision++;awaitingFrame=false;onAssetStatus('loading','Applying selected appearance…');void drain();
   };
-  const motion=(value:AvatarMotion)=>{if(!runtime||failed||disposed)return;if(experience.behavior!=='manual'){mood=value==='power'?'confident':value==='run'?'focused':value==='jump'?'surprised':'neutral';runtime.expression?.(mood);}active=value;runtime.root.position.y=0;setAvatarMotion(runtime,value,value==='idle'?0:.18);if(value==='idle')runtime.mixer.update(0);else{face=false;zoom=1;pose();}deadline=performance.now()+((value==='jump'||value==='power')?(runtime.currentAction?.getClip().duration??1)*1000+120:5000);previous=0;invalidate();};
+  const motion=(value:AvatarMotion)=>{if(!runtime||failed||disposed)return;sequence=[];routineActive=false;if(experience.behavior!=='manual'){mood=value==='power'?'confident':value==='run'?'focused':value==='jump'?'surprised':'neutral';runtime.expression?.(mood);}active=value;runtime.root.position.y=0;setAvatarMotion(runtime,value,value==='idle'?0:.18);if(value==='idle')runtime.mixer.update(0);else{face=false;zoom=1;pose();}deadline=performance.now()+((value==='jump'||value==='power')?(runtime.currentAction?.getClip().duration??1)*1000+120:5000);previous=0;invalidate();};
+  const beginGesture=(name:string)=>{if(!runtime||failed||disposed)return false;const duration=playAvatarGesture(runtime,name);if(!duration)return false;active='power';runtime.root.position.y=0;face=false;zoom=1;pose();if(experience.behavior!=='manual')runtime.expression?.(['wave','soft laugh','laugh','groove','bounce'].includes(name)?'smile':'neutral');deadline=performance.now()+duration*1000+180;invalidate();return true;};
   const rotate=(radians:number)=>{yaw+=radians;if(runtime)runtime.root.rotation.y=yaw;invalidate();};
   let pointer:number|null=null,lastX=0;
   canvas.addEventListener('pointerdown',e=>{pointer=e.pointerId;lastX=e.clientX;canvas.setPointerCapture(e.pointerId);},{signal});
@@ -114,5 +117,5 @@ export function createStudioGraphics(canvas:HTMLCanvasElement,initial:CharacterC
   const observer=new ResizeObserver(resize);observer.observe(canvas);const visibility=new IntersectionObserver(entries=>{visible=entries[0]?.isIntersecting??true;if(!visible){cancelAnimationFrame(raf);raf=0;previous=0;}else invalidate();},{threshold:.05});visibility.observe(canvas);
   const dispose=()=>{if(disposed)return;disposed=true;controller.abort();stopExperience();observer.disconnect();visibility.disconnect();cancelAnimationFrame(raf);if(runtime){scene.remove(runtime.root);disposeSkinnedAvatar(runtime);runtime=null;}floor.geometry.dispose();floor.material.dispose();contact.geometry.dispose();contact.material.dispose();contactMap.dispose();ring.geometry.dispose();ring.material.dispose();lightMap?.dispose();renderer.dispose();renderer.forceContextLoss();};
   applyExperience(experience);update(initial);resize();
-  return {gesture:name=>{if(!runtime||failed||disposed)return false;const duration=playAvatarGesture(runtime,name);if(!duration)return false;active='power';runtime.root.position.y=0;face=false;zoom=1;pose();if(experience.behavior!=='manual')runtime.expression?.(name==='wave'?'smile':'neutral');deadline=performance.now()+duration*1000+180;previous=0;invalidate();return true;},expression:value=>{mood=value;runtime?.expression?.(value);expressionUntil=performance.now()+1000;face=true;zoom=1;pose();invalidate();},quality:value=>{if(quality===value)return;quality=value;frameScale=1;measured=0;resize();update(latest);},update,motion,rotate,zoom:delta=>{zoom=THREE.MathUtils.clamp(zoom+delta,.8,1.6);pose();invalidate();},face:enabled=>{face=enabled;zoom=1;pose();invalidate();},reset:()=>{yaw=0;zoom=1;face=false;if(runtime)runtime.root.rotation.y=0;pose();motion('idle');},dispose};
+  return {routine:names=>{if(!runtime||!names.length||!names.every(n=>runtime!.actions.has(n)))return false;sequence=names.slice(1);routineActive=true;const ok=beginGesture(names[0]);if(!ok){routineActive=false;sequence=[];}return ok;},gesture:name=>{sequence=[];routineActive=false;return beginGesture(name);},expression:value=>{mood=value;runtime?.expression?.(value);expressionUntil=performance.now()+1000;face=true;zoom=1;pose();invalidate();},quality:value=>{if(quality===value)return;quality=value;frameScale=1;measured=0;resize();update(latest);},update,motion,rotate,zoom:delta=>{zoom=THREE.MathUtils.clamp(zoom+delta,.8,1.6);pose();invalidate();},face:enabled=>{face=enabled;zoom=1;pose();invalidate();},reset:()=>{yaw=0;zoom=1;face=false;if(runtime)runtime.root.rotation.y=0;pose();motion('idle');},dispose};
 }
