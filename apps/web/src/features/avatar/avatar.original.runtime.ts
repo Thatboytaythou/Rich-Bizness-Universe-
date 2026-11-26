@@ -31,14 +31,16 @@ export function createOriginalAvatar(gender:AvatarGender,raw:unknown,build='athl
   const trim=mat(0x151d20,.83),denim=mat(look.pants==='denim'?0x31455e:look.pants==='tailored'?0x22232c:0x465044,.91),sole=mat(0xc9c5b8),gold=mat(0xe2b84e,.28,.82),ink=mat(0x242f2a,.9);
   const group=(p:THREE.Object3D,name:string,x=0,y=0,z=0)=>{const g=new THREE.Group();g.name=name;g.position.set(x,y,z);p.add(g);return g;};
   const mesh=(p:THREE.Object3D,geometry:THREE.BufferGeometry,m:THREE.Material,x=0,y=0,z=0)=>{const o=new THREE.Mesh(geometry,m);o.position.set(x,y,z);o.castShadow=true;o.receiveShadow=true;p.add(o);return o;};
-  const ell=(p:THREE.Object3D,m:THREE.Material,x:number,y:number,z:number,rx:number,ry:number,rz:number)=>{const o=mesh(p,new THREE.SphereGeometry(1,20,14),m,x,y,z);o.scale.set(rx,ry,rz);return o;};
+  const ell=(p:THREE.Object3D,m:THREE.Material,x:number,y:number,z:number,rx:number,ry:number,rz:number)=>{const o=mesh(p,new THREE.SphereGeometry(1,28,20),m,x,y,z);o.scale.set(rx,ry,rz);return o;};
   const tube=(p:THREE.Object3D,m:THREE.Material,x:number,y:number,z:number,rt:number,rb:number,h:number,sz=1)=>{const o=mesh(p,new THREE.CylinderGeometry(rt,rb,h,16),m,x,y,z);o.scale.z=sz;return o;};
   const box=(p:THREE.Object3D,m:THREE.Material,x:number,y:number,z:number,w:number,h:number,d:number)=>mesh(p,new THREE.BoxGeometry(w,h,d),m,x,y,z);
   const ring=(p:THREE.Object3D,m:THREE.Material,x:number,y:number,z:number,r:number,t:number)=>{const o=mesh(p,new THREE.TorusGeometry(r,t,7,32),m,x,y,z);return o;};
-  const buildWidth=build==='lean'?.9:build==='heroic'?1.12:1;
+  const buildWidth=build==='lean'?.85:build==='heroic'?1.18:1;
+  const limb=(p:THREE.Object3D,m:THREE.Material,points:number[][],y=0,depth=1)=>{const o=mesh(p,new THREE.LatheGeometry(points.map(([x,h])=>new THREE.Vector2(x,h)),24),m,0,y,0);o.scale.z=depth;return o;};
   const pelvis=group(root,'rbPelvis',0,.91,0);
-  const hip=female?.164:.145,shoulder=(female?.17:.205)*buildWidth;
-  ell(pelvis,denim,0,.015,0,hip,.125,.105);
+  const hip=(female?.164:.145)*(build==='heroic'?1.08:build==='lean'?.93:1),shoulder=(female?.17:.205)*buildWidth;
+  ell(pelvis,denim,0,.015,0,hip,.13,.11);
+  const belt=limb(pelvis,trim,[[hip*.96,-.015],[hip*1.01,0],[hip*.97,.028]],.09,.74);box(pelvis,gold,0,.101,.113,.055,.033,.018);
   const spine=group(pelvis,'rbSpine',0,.075,0);
   const torso=mesh(spine,new THREE.LatheGeometry([new THREE.Vector2(0,0),new THREE.Vector2(hip,.005),new THREE.Vector2(.136,.09),new THREE.Vector2(shoulder,.25),new THREE.Vector2(shoulder*.92,.34),new THREE.Vector2(.071,.385),new THREE.Vector2(0,.39)],24),fabric);
   torso.scale.z=.56;
@@ -50,17 +52,20 @@ export function createOriginalAvatar(gender:AvatarGender,raw:unknown,build='athl
   const neck=group(spine,'rbNeck',0,.39,0);tube(neck,skin,0,.035,0,.049,.057,.09);
   const head=group(neck,'rbHead',0,.13,0);
   const jaw=look.face==='strong'?1.12:look.face==='soft'?.9:1;
-  ell(head,skin,0,.015,0,.101,.133,.093);
-  ell(head,skin,0,-.060,.027,.076*jaw,.077,.069);
+  // Continuous shaped face surface instead of an overlapping ball and jaw.
+  const faceGeo=new THREE.SphereGeometry(1,40,28);const pos=faceGeo.attributes.position;
+  for(let i=0;i<pos.count;i++){const x=pos.getX(i),y=pos.getY(i),z=pos.getZ(i);const taper=y<-.18?1-(Math.abs(y)-.18)*.30+(jaw-1)*.65:1;const front=Math.max(0,z);pos.setXYZ(i,x*.102*taper,y*.137+.012,z*.095+front*Math.max(0,-y)*.020);}
+  faceGeo.computeVertexNormals();mesh(head,faceGeo,skin);
   for(const s of[-1,1]){
     ell(head,skin,s*.098,-.006,0,.023,.039,.019);
-    ell(head,white,s*.039,.023,.081,.026,.014,.012);
-    ell(head,iris,s*.039,.023,.091,.010,.010,.004);
+    ell(head,white,s*.039,.023,.084,.021,.010,.009);
+    ell(head,iris,s*.039,.023,.091,.008,.008,.004);
     ell(head,black,s*.039,.023,.095,.0048,.006,.002);
     const brow=ell(head,hair,s*.039,.045,.079,.027,.007,.007);brow.rotation.z=s*-.12;
   }
-  ell(head,skin,0,-.006,.094,.019,.035,.026);
-  ell(head,lip,0,-.048,.086,.032,.009,.009);
+  ell(head,skin,0,.004,.098,.013,.034,.018);ell(head,skin,0,-.024,.106,.021,.014,.014);
+  ell(head,lip,0,-.058,.095,.027,.006,.007);
+  for(const k of[-1,1])ell(head,skin,k*.062,-.023,.064,.029,.037,.026);
   if(look.hair!=='bald'){
     ell(head,hair,0,.087,-.009,.105,.061,.094);
     if(look.hair==='fade')ell(head,hair,0,.109,-.004,.087,.027,.082);
@@ -75,23 +80,26 @@ export function createOriginalAvatar(gender:AvatarGender,raw:unknown,build='athl
     const arm=group(spine,'rbArm'+suffix,s*shoulder,.31,0);arm.rotation.z=s*.1;
     const sleeved=look.top==='jacket'||look.top==='hoodie';
     ell(arm,look.top==='vest'?skin:fabric,0,-.035,0,.064,.079,.065);
-    tube(arm,sleeved?fabric:skin,0,-.115,0,.054,.043,.17);
+    limb(arm,sleeved?fabric:skin,[[.043,-.226],[.046,-.19],[.057,-.12],[.06,-.065],[.045,0]],0,1.04);
     if(!sleeved&&look.top==='tee')tube(arm,fabric,0,-.052,0,.062,.056,.105);
     const fore=group(arm,'rbFore'+suffix,0,-.215,0);
-    ell(fore,sleeved?fabric:skin,0,-.078,0,.043,.103,.043);
-    if(look.tattoo!=='none'&&!sleeved){const t=ring(fore,ink,0,-.079,0,.041,.006);t.rotation.x=Math.PI/2;if(look.tattoo==='geometric'){const mark=box(fore,ink,0,-.118,.042,.026,.038,.005);mark.rotation.z=.75;}}
-    if(look.tattoo!=='none'&&sleeved){const cuff=ring(fore,ink,0,-.176,0,.031,.005);cuff.rotation.x=Math.PI/2;}
+    const rolled=sleeved&&look.tattoo!=='none';
+    ell(fore,sleeved&&!rolled?fabric:skin,0,-.016,0,.044,.051,.043);
+    limb(fore,sleeved&&!rolled?fabric:skin,[[.031,-.168],[.034,-.128],[.042,-.075],[.045,-.015],[.041,.02]],0,1.04);
+    if(rolled)limb(fore,fabric,[[.048,-.055],[.050,-.040],[.048,.005]],0,1.05);
+    if(look.tattoo!=='none'){const t=ring(fore,ink,0,-.079,0,.041,.006);t.rotation.x=Math.PI/2;if(look.tattoo==='geometric'){const mark=box(fore,ink,0,-.118,.042,.026,.038,.005);mark.rotation.z=.75;}}
+    if(look.tattoo==='bands'){const second=ring(fore,ink,0,-.106,0,.037,.004);second.rotation.x=Math.PI/2;}
     ell(fore,skin,0,-.19,.003,.036,.052,.027);
     ell(fore,skin,-s*.027,-.177,.015,.013,.027,.014);
     const leg=group(pelvis,'rbLeg'+suffix,s*hip*.53,-.055,0);
-    ell(leg,denim,0,-.12,0,.074,.17,.079);
+    limb(leg,denim,[[.054,-.365],[.059,-.30],[.075,-.18],[.083,-.065],[.074,.025]],0,1.08);
     if(look.pants==='cargo')box(leg,trim,s*.066,-.13,.007,.023,.11,.084);
     const shin=group(leg,'rbShin'+suffix,0,-.357,0);
-    tube(shin,denim,0,-.12,0,.057,.041,.26,1.12);
+    ell(shin,denim,0,-.005,0,.057,.055,.06);limb(shin,denim,[[.04,-.335],[.043,-.27],[.053,-.16],[.06,-.08],[.054,.015]],0,1.10);
     const foot=group(shin,'rbFoot'+suffix,0,-.34,.015);
     const boot=look.shoes==='boots'||look.shoes==='high-tops';
     ell(foot,look.shoes==='boots'?trim:fabric,0,.035,.035,.059,boot?.088:.057,.115);
-    ell(foot,sole,0,-.012,.043,.062,.022,.12);
+    const outsole=box(foot,sole,0,-.008,.043,.118,.026,.221);outsole.geometry.translate(0,0,0);
     if(look.shoes!=='boots')for(let i=0;i<3;i++)box(foot,sole,0,.071-i*.006,.05+i*.021,.058,.007,.008);
   }
   // Normalize to the same ground and height contract as the existing avatar runtime.
@@ -105,14 +113,18 @@ export function createOriginalAvatar(gender:AvatarGender,raw:unknown,build='athl
   const mixer=new THREE.AnimationMixer(root);
   const track=(name:string,axis:string,t:number[],v:number[])=>new THREE.NumberKeyframeTrack(name+'.rotation['+axis+']',t,v);
   const movement=(name:string,duration:number,amplitude:number,knee:number)=>{
-    const t=[0,duration*.25,duration*.5,duration*.75,duration];const tracks:THREE.KeyframeTrack[]=[];
-    for(const s of[-1,1]){const suffix=s<0?'L':'R';tracks.push(track('rbLeg'+suffix,'x',t,[0,s*amplitude,0,-s*amplitude,0]),track('rbShin'+suffix,'x',t,[0,Math.max(0,-s)*knee,knee*.2,Math.max(0,s)*knee,0]),track('rbArm'+suffix,'x',t,[0,-s*amplitude*.65,0,s*amplitude*.65,0]),track('rbFore'+suffix,'x',t,[-.13,-.32,-.13,-.32,-.13]));}
-    tracks.push(track('rbSpine','z',t,[0,.035,0,-.035,0]));return new THREE.AnimationClip(name,duration,tracks);
+    const n=24,t=Array.from({length:n+1},(_,i)=>i*duration/n),phase=t.map(v=>v/duration*Math.PI*2);const tracks:THREE.KeyframeTrack[]=[];
+    for(const s of[-1,1]){
+      const suffix=s<0?'L':'R',p=phase.map(x=>x+(s<0?0:Math.PI));
+      tracks.push(track('rbLeg'+suffix,'x',t,p.map(x=>Math.sin(x)*amplitude-.04)),track('rbShin'+suffix,'x',t,p.map(x=>.08+Math.pow(Math.max(0,-Math.sin(x-.34)),1.4)*knee)),track('rbFoot'+suffix,'x',t,p.map(x=>-.13*Math.sin(x)-.10*Math.max(0,-Math.sin(x)))),track('rbArm'+suffix,'x',t,p.map(x=>-Math.sin(x)*amplitude*.62-.07)),track('rbFore'+suffix,'x',t,p.map(x=>-.18-(name==='run'?.67:.18)*(1+Math.sin(x-.4))*.5)),track('rbArm'+suffix,'z',t,p.map(x=>s*(.10+.035*Math.cos(x)))));
+    }
+    tracks.push(track('rbSpine','z',t,phase.map(x=>.028*Math.sin(x))),track('rbSpine','y',t,phase.map(x=>.085*Math.sin(x))),track('rbSpine','x',t,phase.map(x=>name==='run'?.13:.035)),track('rbPelvis','y',t,phase.map(x=>.04*Math.sin(x))),new THREE.NumberKeyframeTrack('rbPelvis.position[y]',t,phase.map(x=>.91+(name==='run'?.026:.017)*(1-Math.cos(2*x))*.5)));
+    return new THREE.AnimationClip(name,duration,tracks);
   };
   const idle=new THREE.AnimationClip('idle',2.4,[track('rbSpine','x',[0,1.2,2.4],[0,.018,0]),track('rbHead','y',[0,1.2,2.4],[0,.035,0]),...[-1,1].flatMap(s=>{const x=s<0?'L':'R';return[track('rbLeg'+x,'x',[0,2.4],[0,0]),track('rbShin'+x,'x',[0,2.4],[0,0]),track('rbArm'+x,'x',[0,2.4],[0,0]),track('rbFore'+x,'x',[0,2.4],[-.08,-.08]),track('rbArm'+x,'z',[0,2.4],[s*.1,s*.1])];})]);
   const jump=new THREE.AnimationClip('jump',.85,[-1,1].flatMap(s=>{const x=s<0?'L':'R';return[track('rbLeg'+x,'x',[0,.24,.55,.85],[0,-.6,-.35,0]),track('rbShin'+x,'x',[0,.24,.55,.85],[0,1.0,.6,0]),track('rbArm'+x,'x',[0,.24,.55,.85],[0,-.8,-.45,0])];}));
   const pose=new THREE.AnimationClip('power pose',1.2,[-1,1].flatMap(s=>{const x=s<0?'L':'R';return[track('rbArm'+x,'z',[0,.45,1.2],[s*.1,s*1.05,s*.8]),track('rbFore'+x,'x',[0,.45,1.2],[-.08,-1.25,-.85]),track('rbLeg'+x,'x',[0,1.2],[0,0]),track('rbShin'+x,'x',[0,1.2],[0,0])];}));
-  const clips=[idle,movement('walk',.95,.43,.65),movement('run',.58,.77,1.04),jump,pose];
+  const clips=[idle,movement('walk',1.04,.42,.77),movement('run',.72,.67,1.04),jump,pose];
   const actions=new Map(clips.map(clip=>[clip.name.toLowerCase(),mixer.clipAction(clip)]));
   return {root,mixer,actions,clips,bounds,height:target,currentMotion:'idle',currentAction:null};
 }
