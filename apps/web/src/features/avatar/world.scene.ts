@@ -1,19 +1,22 @@
 import * as THREE from 'three';
 import {DISTRICTS,type District,type WorldAction,type Bounds} from './world.catalog';
 
-export type DistrictScene={group:THREE.Group;obstacles:Bounds[];markers:Map<string,THREE.Group>};
+export type DistrictScene={group:THREE.Group;obstacles:Bounds[];markers:Map<string,THREE.Group>;setFurnishing:(value:string)=>void;tick:(time:number)=>void};
 export function createDistrictScene(district:District):DistrictScene{
   const group=new THREE.Group();group.name='rb-district-'+district;
   const obstacles:Bounds[]=[],markers=new Map<string,THREE.Group>();
   const palette={stone:0x27332f,black:0x101c19,wood:0x60442c,brass:0xad8c4c,cream:0xc6c4b8,glass:0x446e80,green:0x164634,leather:0x333f3d,screen:0x122632};
   const materials=new Map<number,THREE.MeshStandardMaterial>();
-  const mat=(c:number)=>{let m=materials.get(c);if(!m){m=new THREE.MeshStandardMaterial({color:c,roughness:c===palette.brass?.32:.74,metalness:c===palette.brass?.55:.05});materials.set(c,m);}return m;};
+  const surfaces=new Map<number,THREE.CanvasTexture>();
+  const texture=(c:number)=>{const canvas=document.createElement('canvas');canvas.width=canvas.height=256;const ctx=canvas.getContext('2d')!;ctx.fillStyle='#bcbcbc';ctx.fillRect(0,0,256,256);let state=12345+c;const random=()=>{state=(Math.imul(state,1664525)+1013904223)>>>0;return state/4294967296;};for(let i=0;i<2200;i++){const v=130+Math.floor(random()*115);ctx.fillStyle='rgba('+v+','+v+','+v+',.24)';ctx.fillRect(random()*256,random()*256,c===palette.wood?24:2,c===palette.wood?1:2);}if(c===palette.wood){for(let y=0;y<256;y+=32){ctx.fillStyle='#646464';ctx.fillRect(0,y,256,1);}}else if(c===palette.stone){ctx.strokeStyle='#9a9a9a';ctx.lineWidth=1;for(let n=0;n<256;n+=64){ctx.strokeRect(n,0,64,128);ctx.strokeRect(n,128,64,128);}}const t=new THREE.CanvasTexture(canvas);t.colorSpace=THREE.SRGBColorSpace;t.wrapS=t.wrapT=THREE.RepeatWrapping;surfaces.set(c,t);return t;};
+  const mat=(c:number)=>{let m=materials.get(c);if(!m){m=new THREE.MeshStandardMaterial({color:c,roughness:c===palette.brass?.32:.74,metalness:c===palette.brass?.55:.05});if([palette.wood,palette.stone,palette.leather].includes(c))m.map=surfaces.get(c)??texture(c);materials.set(c,m);}return m;};
   const box=(x:number,y:number,z:number,w:number,h:number,d:number,c:number,collision=false,parent:THREE.Object3D=group)=>{
     const mesh=new THREE.Mesh(new THREE.BoxGeometry(w,h,d),mat(c));mesh.position.set(x,y,z);mesh.receiveShadow=true;parent.add(mesh);
     if(collision)obstacles.push({minX:x-w/2,maxX:x+w/2,minZ:z-d/2,maxZ:z+d/2});
     return mesh;
   };
   const plane=(x:number,z:number,w:number,d:number,c:number)=>box(x,-.07,z,w,.14,d,c);
+  const lightBeacons:THREE.Mesh<THREE.BoxGeometry,THREE.MeshBasicMaterial>[]=[];
   const sign=(label:string,w=2.2,h=.42)=>{
     const canvas=document.createElement('canvas');canvas.width=512;canvas.height=128;const ctx=canvas.getContext('2d')!;
     ctx.fillStyle='#0a1512';ctx.fillRect(0,0,512,128);ctx.strokeStyle='#bba26a';ctx.lineWidth=5;ctx.strokeRect(6,6,500,116);
@@ -42,6 +45,7 @@ export function createDistrictScene(district:District):DistrictScene{
     box(-4.5,1.18,-9,1.9,2.36,2.0,palette.wood,true);for(const x of [-5,-4.5,-4])box(x,1.2,-7.98,.035,2.2,.05,palette.brass);
     box(4.7,.47,-10.2,1.3,.94,1.5,palette.black,true);box(4.7,1.3,-10.5,.9,.56,.08,palette.screen);
     for(let i=0;i<7;i++)box(-5.8+i*1.9,.005,-4,1.85,.015,.035,palette.brass);
+    for(const x of [-5.4,5.4])for(const z of [-1,-6,-10]){box(x,3.2,z,.13,.12,2.1,palette.brass);const glow=new THREE.Mesh(new THREE.BoxGeometry(.09,.08,1.95),new THREE.MeshBasicMaterial({color:0xffe1a2}));glow.position.set(x,3.11,z);group.add(glow);}
     const title=sign('RICH BIZNESS / PRIVATE SESSION',5,.7);title.position.set(0,2.7,-11.8);group.add(title);
   }else if(district==='creative'){
     plane(0,-5,12,22,palette.black);
@@ -54,15 +58,17 @@ export function createDistrictScene(district:District):DistrictScene{
     box(-4.5,.65,-3,1.2,1.3,2,palette.wood,true);box(-4.5,1.55,-3.3,.9,.5,.1,palette.screen);
     for(let z=-7;z<=1;z+=2){box(5.35,1.8,z,.12,1.6,1.35,palette.brass);box(5.25,1.8,z,.09,1.42,1.17,palette.green);}
     box(4.8,.5,-13.6,1.6,1,1.4,palette.black,true);box(4.8,1.6,-13.7,1.2,.65,.1,palette.screen);
+    for(const x of [-5.5,5.5]){const strip=new THREE.Mesh(new THREE.BoxGeometry(.1,.075,18),new THREE.MeshBasicMaterial({color:0x58bca0}));strip.position.set(x,3.65,-5);group.add(strip);}
     const title=sign('RICH BIZNESS / CREATIVE HOUSE',5,.7);title.position.set(0,3.2,-15.8);group.add(title);
   }else{
     // Extend the existing street scene with reachable destinations. Do not recreate its road.
     for(const a of DISTRICTS.city.actions){box(a.x,0.015,a.z,2.3,.025,2.3,palette.green);}
     for(const [x,z] of [[-4.9,-17],[4.9,-31],[-4.9,-50],[4.9,-67]])obstacles.push({minX:x-.93,maxX:x+.93,minZ:z-1.7,maxZ:z+1.7});
     for(const z of [-10,-22,-34,-46]){box(-6.0,.38,z,1.0,.75,1.6,palette.stone,true);box(6.0,.38,z,1.0,.75,1.6,palette.stone,true);}
+    for(const z of [-12,-28,-44]){for(const x of [-6.2,6.2]){box(x,1.35,z,.1,2.7,.1,palette.black);const lamp=new THREE.Mesh(new THREE.BoxGeometry(.26,.32,.24),new THREE.MeshBasicMaterial({color:0xe4b665}));lamp.position.set(x,2.8,z);group.add(lamp);lightBeacons.push(lamp);}for(let x=-5;x<=5;x+=.8)box(x,.016,z,.42,.025,1.4,palette.cream);}
   }
   DISTRICTS[district].actions.forEach(portal);
-  return {group,obstacles,markers};
+  return {group,obstacles,markers,setFurnishing:value=>{mat(palette.leather).color.setHex(value==='onyx'?0x26292e:value==='cognac'?0x92592f:0x275d48);},tick:time=>{lightBeacons.forEach((lamp,i)=>lamp.material.color.setHex(Math.floor(time/8+i/2)%2===0?0x6fcd8a:0xdba85c));for(const marker of markers.values()){const beacon=marker.children[2];if(beacon){beacon.rotation.y=time*.7;beacon.position.y=1.1+Math.sin(time*1.8)*.06;}}}};
 }
 export function moveWithinWorld(x:number,z:number,dx:number,dz:number,b:Bounds,obstacles:Bounds[]):[number,number]{
   const clamp=(v:number,a:number,c:number)=>Math.max(a,Math.min(c,v));
