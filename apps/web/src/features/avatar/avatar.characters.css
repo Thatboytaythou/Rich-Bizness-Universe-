@@ -98,3 +98,5 @@ body[data-page="avatar-characters"]{background:radial-gradient(ellipse at 50% 0%
 .ac-shell .ac-journey-links{display:grid;grid-template-columns:1fr 1fr;gap:6px}
 .ac-shell .ac-journey-links[hidden]{display:none}
 .ac-shell .ac-journey-links a{display:grid;place-items:center;min-height:44px;padding:8px;text-align:center;border:1px solid #425749;border-radius:10px;color:#e6cf94;font-size:11px;font-weight:800}
+
+.ac-shell .ac-gestures{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;margin:8px 0}.ac-shell .ac-gestures button{min-height:44px;background:#142620;border-color:#52634e;font-size:11px}
