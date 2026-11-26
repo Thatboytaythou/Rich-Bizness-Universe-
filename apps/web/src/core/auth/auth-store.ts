@@ -75,6 +75,8 @@ supabase.auth.onAuthStateChange((event,session)=>{
   // Initial storage state is verified by initializeAuth; later SDK auth events
   // supersede in-flight session requests.
   if(event==='INITIAL_SESSION')return;
-  authRevision++;
-  publish({session,user:session?.user??null,ready:true});
+  const revision=++authRevision;
+  // Capture SDK state immediately, but run app observers outside its auth callback.
+  snapshot=Object.freeze({session,user:session?.user??null,ready:true});
+  window.setTimeout(()=>{if(authRevision===revision)publish(snapshot);},0);
 });
