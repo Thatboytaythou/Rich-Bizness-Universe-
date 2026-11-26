@@ -26,8 +26,8 @@ function removeStaleDocks():void{
 }
 
 function placeDock(dock:HTMLElement,section:string):void{
-  if(section==='avatar-characters'){
-    const slot=document.getElementById('acXpSlot');
+  if(section==='avatar-characters'||section==='avatar'){
+    const slot=document.getElementById(section==='avatar'?'alXpSlot':'acXpSlot');
     if(slot){slot.append(dock);return;}
   }
   if(section!=='profile'){
