@@ -7,6 +7,7 @@ export type StudioGraphics={expression:(value:AvatarExpression)=>void;quality:(v
 const aura=(s:string)=>s==='Neon Phantom'?0x765dff:s==='Diamond Mist'?0x76d8ff:0x21df81;
 export function createStudioGraphics(canvas:HTMLCanvasElement,initial:CharacterConfig,onFrame:()=>void,onFailure:(reason:string)=>void):StudioGraphics{
   const mobile=matchMedia('(pointer:coarse),(max-width:860px)').matches;
+  const reduced=matchMedia('(prefers-reduced-motion: reduce)');
   const renderer=new THREE.WebGLRenderer({canvas,antialias:!mobile,powerPreference:'low-power',alpha:false});
   renderer.setPixelRatio(1);renderer.toneMappingExposure=1.05;
   renderer.outputColorSpace=THREE.SRGBColorSpace;renderer.toneMapping=THREE.ACESFilmicToneMapping;renderer.shadowMap.enabled=false;
@@ -35,9 +36,9 @@ export function createStudioGraphics(canvas:HTMLCanvasElement,initial:CharacterC
   const schedule=()=>{if(!disposed&&!failed&&!raf&&!document.hidden)raf=requestAnimationFrame(draw);};
   const draw=(now:number)=>{
     raf=0;if(disposed||failed||document.hidden)return;
-    const anim=active!=='idle'&&now<deadline;const living=!!runtime&&(!matchMedia('(prefers-reduced-motion: reduce)').matches||now<expressionUntil);
+    const anim=active!=='idle'&&now<deadline;const living=!!runtime&&(!reduced.matches||now<expressionUntil);
     if(!dirty&&!anim&&!living&&active==='idle')return;
-    if(previous&&now-previous<(mobile?42:32)){schedule();return;}
+    if(previous&&now-previous<(mobile?32:16)){schedule();return;}
     const dt=previous?Math.min((now-previous)/1000,.075):0;previous=now;
     try{
       if(runtime){
@@ -66,7 +67,7 @@ export function createStudioGraphics(canvas:HTMLCanvasElement,initial:CharacterC
         if(runtime){scene.remove(runtime.root);disposeSkinnedAvatar(runtime);runtime=null;}
         const next=await createTexturedAvatar(config.gender,config.look,config.build,quality);
         if(disposed||failed||generation!==revision){disposeSkinnedAvatar(next);continue;}
-        runtime=next;runtime.expression?.(mood);runtime.root.rotation.y=yaw;setAvatarMotion(runtime,'idle',0);runtime.mixer.update(0);
+        runtime=next;runtime.expression?.(mood);expressionUntil=performance.now()+1000;runtime.root.rotation.y=yaw;setAvatarMotion(runtime,'idle',0);runtime.mixer.update(0);
         scene.add(runtime.root);modelKey=key;active='idle';previous=0;pose();invalidate();
       }
     }catch(error){if(!disposed)fail(error instanceof Error?error.message:'Textured human asset failed');}
