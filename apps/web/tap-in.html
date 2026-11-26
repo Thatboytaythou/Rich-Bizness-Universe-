@@ -8,8 +8,18 @@
   <meta name="robots" content="noindex,nofollow" />
   <title>Tap In • Rich Bizness</title>
 </head>
-<body data-page="tap-in">
+<body data-page="tap-in" data-rb-access-release="rich-id-isolated-3">
   <div id="app" aria-live="polite"></div>
-  <script type="module" src="/src/main.ts"></script>
+  <section id="rb-access-startup" style="position:fixed;inset:0;z-index:10000;background:#07140d;color:#f6f8ee;display:grid;align-content:center;gap:16px;padding:24px;font:16px/1.5 system-ui" hidden>
+    <h1 style="color:#d7bd66">Rich ID • Tap In</h1>
+    <p role="status">Access screen is taking longer than expected. Reload to reconnect.</p>
+    <a href="" style="color:#e8d27c">Reload access screen</a><a href="/" style="color:#e8d27c">Back to Omni</a>
+    <small>Access release: rich-id-isolated-3</small>
+  </section>
+  <style>#rb-access-startup[hidden]{display:none!important}</style>
+  <script>
+    window.setTimeout(function(){if(!document.querySelector('#app .auth-shell')&&!document.querySelector('#app')?.dataset.pageMounted)document.getElementById('rb-access-startup').hidden=false;},12000);
+  </script>
+  <script type="module" src="/src/pages/tap-in/tap-in.entry.ts"></script>
 </body>
 </html>
