@@ -100,3 +100,9 @@ const textile=regaliaTextile('emerald');assert.equal(textile.length,128*128*4);a
 assert.equal(normalizeLook({}).regalia,'none');
 assert.equal(nextRenderScale(1,50,31,true),.9);assert.equal(nextRenderScale(.65,60,31,true),.65);assert.equal(nextRenderScale(.8,30,31,true),.86);assert.equal(nextRenderScale(.8,60,3,true),.8);
 console.log('V26: Regalia geometry, UVs, deterministic original textile and render budget verified');
+
+import {atlasShoeGeometry,mantleGeometry,animateMantle} from '../apps/web/src/features/avatar/avatar.atlas.art.ts';
+for(const mesh of [atlasShoeGeometry(),mantleGeometry()]){assert.ok(mesh.index.count>900);assert.ok([...mesh.getAttribute('normal').array].every(Number.isFinite));assert.equal(mesh.getAttribute('uv').count,mesh.getAttribute('position').count);mesh.dispose();}
+const cape=mantleGeometry(),rest=new Float32Array(cape.getAttribute('position').array);animateMantle(cape,rest,1);assert.notDeepEqual([...cape.getAttribute('position').array],[...rest]);assert.ok([...cape.getAttribute('normal').array].every(Number.isFinite));cape.dispose();
+assert.equal(normalizeLook({}).mantle,'none');
+console.log('V27: original footwear mesh, mantle geometry and bounded cloth animation verified');
