@@ -109,8 +109,25 @@ export async function loadSkinnedAvatar(options: {
 }): Promise<SkinnedAvatarRuntime> {
   if (options.signal?.aborted) throw new DOMException('Aborted', 'AbortError');
   const loader = new GLTFLoader();
-  const gltf = await loader.loadAsync(options.modelUrl);
-  if (options.signal?.aborted) throw new DOMException('Aborted', 'AbortError');
+  const gltf = options.signal ? await (async()=>{
+    const response=await fetch(options.modelUrl,{signal:options.signal});
+    if(!response.ok)throw new Error('Character asset HTTP '+response.status);
+    const bytes=await response.arrayBuffer();
+    if(options.signal?.aborted)throw new DOMException('Aborted','AbortError');
+    return loader.parseAsync(bytes,new URL('.',response.url).href);
+  })() : await loader.loadAsync(options.modelUrl);
+  if(options.signal?.aborted){
+    gltf.scene.traverse(object=>{
+      const mesh=object as THREE.Mesh;
+      if(!mesh.isMesh)return;
+      mesh.geometry?.dispose();
+      for(const material of (Array.isArray(mesh.material)?mesh.material:[mesh.material])){
+        for(const value of Object.values(material))if((value as THREE.Texture|undefined)?.isTexture)(value as THREE.Texture).dispose();
+        material.dispose();
+      }
+    });
+    throw new DOMException('Aborted','AbortError');
+  }
 
   const root = gltf.scene;
   root.name = 'rb-skinned-avatar';

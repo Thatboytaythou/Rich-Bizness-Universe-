@@ -89,9 +89,14 @@ const cleanupOnExit=()=>{void clearGlobalRuntime();};
 window.addEventListener('pagehide',cleanupOnExit,{once:true});
 window.addEventListener('beforeunload',cleanupOnExit,{once:true});
 
+const currentPage=document.body.dataset.page??'';
+const miniTask=currentPage==='avatar-characters'
+  ? import('./core/navigation/omni-mini').then(({mountOmniMini})=>mountOmniMini(currentPage)).catch(error=>console.warn('[Rich Bizness Mini Omni]',error))
+  : Promise.resolve();
 void bootstrap().then(async()=>{
   const page=document.body.dataset.page??'';
   await mountGlobalRuntime(page);
 }).catch(error=>{
   console.error('[Rich Bizness bootstrap]',error);
+  if(currentPage==='avatar-characters') void miniTask.then(()=>import('./core/navigation/omni-mini')).then(({mountOmniMini})=>mountOmniMini(currentPage,true)).catch(()=>{});
 });

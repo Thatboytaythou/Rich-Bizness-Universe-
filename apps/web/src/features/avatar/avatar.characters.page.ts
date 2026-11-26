@@ -34,16 +34,21 @@ export async function mount(): Promise<void> {
   let runtime: SkinnedAvatarRuntime | null = null;
   let raf = 0;
   let resize = () => {};
+  let releaseStage = () => {};
+  let modelAbort: AbortController | null = null;
   const abort = new AbortController();
   const isCurrent = () => !disposed && root.dataset.pageEpoch === epoch && root.dataset.pageOwner === OWNER;
   const cleanup = () => {
     if (disposed) return;
     disposed = true;
     abort.abort();
+    modelAbort?.abort();
     cancelAnimationFrame(raf);
     window.removeEventListener('resize', resize);
-    if (runtime) disposeSkinnedAvatar(runtime);
+    if (runtime) { disposeSkinnedAvatar(runtime); runtime = null; }
+    releaseStage();
     renderer?.dispose();
+    renderer = null;
     const host = window as CleanupHost;
     if (host.__rbPageCleanup === cleanup) host.__rbPageCleanup = null;
   };
@@ -53,8 +58,25 @@ export async function mount(): Promise<void> {
 
   const user = getAuthSnapshot().user;
   if (!user) { location.replace('/tap-in.html?next=%2Favatar-characters.html'); return; }
-  const { data, error } = await supabase.rpc('rb_avatar_runtime_snapshot', {});
-  if (error) throw error;
+  root.innerHTML='<main class="ac-shell"><p role="status">Opening your Avatar Studio…</p></main>';
+  const snapshotAbort=new AbortController();
+  abort.signal.addEventListener('abort',()=>snapshotAbort.abort(),{once:true});
+  const snapshotTimer=window.setTimeout(()=>snapshotAbort.abort(),10000);
+  let data:unknown=null;
+  let snapshotFailure=false;
+  try {
+    const result=await supabase.rpc('rb_avatar_runtime_snapshot',{}).abortSignal(snapshotAbort.signal);
+    snapshotFailure=!!result.error;
+    data=result.data;
+  } catch { snapshotFailure=true; }
+  finally { clearTimeout(snapshotTimer); }
+  if(snapshotFailure){
+    if(isCurrent()){
+      root.innerHTML='<main class="ac-shell"><h1>Avatar Studio</h1><p role="status">Avatar identity unavailable. Your saved character has not changed.</p><button type="button" id="acRetry">Retry identity</button> <a href="/profile.html">Profile</a></main>';
+      root.querySelector<HTMLButtonElement>('#acRetry')!.onclick=()=>location.reload();
+    }
+    return;
+  }
   if (!isCurrent()) return;
 
   const snap = (data ?? {}) as Snapshot;
@@ -85,18 +107,28 @@ export async function mount(): Promise<void> {
   const camera = new THREE.PerspectiveCamera(34, 1, .08, 70);
   camera.position.set(0, 1.55, 4.8);
   const quality = qualityProfile();
-  renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
-  renderer.setPixelRatio(quality.dpr);
+  const loading=root.querySelector<HTMLElement>('#characterLoading')!;
+  const saveButton=root.querySelector<HTMLButtonElement>('#saveCharacter')!;
+  saveButton.disabled=true;
+  const stageMessage=(state:string,message:string)=>{
+    canvas.dataset.rbRenderState=state;loading.textContent=message;loading.hidden=false;
+  };
+  const mobile=matchMedia('(max-width:860px), (pointer:coarse)').matches;
+  let contextLost=false;
+  try {
+    renderer=new THREE.WebGLRenderer({canvas,antialias:!mobile,powerPreference:'low-power',alpha:false});
+    renderer.setPixelRatio(Math.min(quality.dpr,mobile?1.25:1.5));
+  } catch { stageMessage('unavailable','3D graphics unavailable. Navigation remains active.');return; }
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.toneMappingExposure = 1.08;
-  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.enabled = !mobile;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
   scene.add(new THREE.HemisphereLight(0xf5fcff, 0x5a655d, 2.7));
   const key = new THREE.DirectionalLight(0xfff0d3, 3.1);
   key.position.set(5, 9, 5);
-  key.castShadow = true;
+  key.castShadow = !mobile;
   key.shadow.mapSize.set(quality.shadowSize, quality.shadowSize);
   scene.add(key);
   const fill = new THREE.DirectionalLight(0x9fd7ff, 1.35);
@@ -114,6 +146,16 @@ export async function mount(): Promise<void> {
   const backWall = new THREE.Mesh(new THREE.PlaneGeometry(9, 5), new THREE.MeshStandardMaterial({ color: 0x8aa9b3, roughness: .86 }));
   backWall.position.set(0, 2.15, -2.2);
   scene.add(backWall);
+  camera.lookAt(0,.95,0);
+  const onContextLost=(event:Event)=>{
+    event.preventDefault();contextLost=true;modelAbort?.abort();cancelAnimationFrame(raf);saveButton.disabled=true;
+    stageMessage('context-lost','Graphics paused. Reload Avatar Studio to recover.');
+  };
+  canvas.addEventListener('webglcontextlost',onContextLost);
+  releaseStage=()=>{
+    canvas.removeEventListener('webglcontextlost',onContextLost);
+    floor.geometry.dispose();floor.material.dispose();backWall.geometry.dispose();backWall.material.dispose();key.shadow.dispose();
+  };
 
   let motion: AvatarMotion = 'idle';
   let loadGeneration = 0;
@@ -131,41 +173,66 @@ export async function mount(): Promise<void> {
   const applyBuildScale = () => {
     if (!runtime) return;
     const xScale = buildInput.value === 'lean' ? .95 : buildInput.value === 'heroic' ? 1.035 : 1;
-    runtime.root.scale.x = xScale;
+    runtime.root.scale.x = runtime.root.scale.y * xScale;
     runtime.root.updateMatrixWorld(true);
   };
 
   const loadCharacter = async () => {
     const generation = ++loadGeneration;
-    const loading = root.querySelector<HTMLElement>('#characterLoading');
-    if (loading) loading.textContent = 'LOADING CHARACTER…';
+    if(contextLost||disposed)return;
+    modelAbort?.abort();
+    const selectionAbort=new AbortController();modelAbort=selectionAbort;
+    saveButton.disabled=true;canvas.dataset.rbModelState='loading';
+    stageMessage('loading-model','Loading character…');
     if (runtime) {
       scene.remove(runtime.root);
       disposeSkinnedAvatar(runtime);
       runtime = null;
     }
+    const model=modelSnapshotFor(gender).model;
+    const approved=model?.is_active===true&&model?.is_realistic===true&&model?.rig_type==='skinned-humanoid'&&model?.metadata?.production_art_ready===true&&model?.metadata?.role!=='temporary-reference-skinned-model'&&!String(model?.model_key??'').startsWith('rb-skinned-');
+    const timer=window.setTimeout(()=>{
+      selectionAbort.abort();
+      if(isCurrent()&&generation===loadGeneration&&!contextLost){
+        canvas.dataset.rbModelState='unavailable';
+        stageMessage('model-error','Character load timed out. Select a character to retry.');
+      }
+    },18000);
     try {
-      const next = await loadSkinnedAvatar({
-        modelUrl: resolveAvatarModelUrl(modelSnapshotFor(gender), gender),
+      let modelUrl=resolveAvatarModelUrl({model:null},gender);
+      if(approved){
+        const path=String(model.metadata?.asset_path??model.model_url??'').trim();
+        if(!path)throw new Error('Approved character asset path is missing.');
+        if(/^https:\/\//i.test(path))modelUrl=path;
+        else{
+          const signed=await supabase.storage.from('game-assets').createSignedUrl(path.replace(/^\/+/,''),3600);
+          if(signed.error||!signed.data?.signedUrl)throw new Error('Approved character asset unavailable.');
+          modelUrl=signed.data.signedUrl;
+        }
+      }
+      if(selectionAbort.signal.aborted)throw new Error('Character load timed out.');
+      const next=await loadSkinnedAvatar({
+        modelUrl,
         targetHeight: gender === 'girl' ? 1.72 : 1.82,
-        signal: abort.signal
+        signal: selectionAbort.signal
       });
-      if (!isCurrent() || generation !== loadGeneration) { disposeSkinnedAvatar(next); return; }
+      if (!isCurrent() || generation !== loadGeneration || contextLost || selectionAbort.signal.aborted) { disposeSkinnedAvatar(next); return; }
       runtime = next;
-      runtime.root.position.set(0, 0, 0);
+      // Preserve the grounded transform established by the loader.
       runtime.root.rotation.y = userYaw;
       applyBuildScale();
       scene.add(runtime.root);
       setAvatarMotion(runtime, motion, 0);
-      root.querySelector<HTMLElement>('#characterLoading')?.remove();
-    } catch (loadError) {
-      if (!isCurrent()) return;
-      const target = root.querySelector<HTMLElement>('#characterLoading');
-      if (target) target.textContent = `CHARACTER LOAD FAILED: ${loadError instanceof Error ? loadError.message : 'UNKNOWN ERROR'}`;
-    }
+      canvas.dataset.rbModelState=approved?'approved-model':'reference-model';
+      canvas.dataset.rbRenderState='awaiting-frame';loading.hidden=true;
+      root.querySelector<HTMLElement>('.ac-stage-top span')!.textContent=approved?'RICH BIZNESS CHARACTER':'TEMPORARY REFERENCE • NOT PRODUCTION ART';
+      root.querySelector<HTMLElement>('#saveStatus')!.textContent=approved?'Ready to save your approved character.':'Reference only. Saving is locked until approved character art is available.';
+    } catch {
+      if(!isCurrent()||generation!==loadGeneration||contextLost)return;
+      canvas.dataset.rbModelState='unavailable';
+      stageMessage('model-error',selectionAbort.signal.aborted?'Character load timed out. Select a character to retry.':'Character asset unavailable. Select a character to retry.');
+    } finally {clearTimeout(timer);}
   };
-
-  await loadCharacter();
 
   root.querySelectorAll<HTMLButtonElement>('[data-gender]').forEach((button) => {
     button.onclick = async () => {
@@ -212,6 +279,7 @@ export async function mount(): Promise<void> {
 
   root.querySelector<HTMLButtonElement>('#saveCharacter')!.onclick = async () => {
     const status = root.querySelector<HTMLElement>('#saveStatus')!;
+    if(!runtime||contextLost||canvas.dataset.rbModelState!=='approved-model'||canvas.dataset.rbRenderState!=='frame-rendered'){status.textContent='Approved character required before saving.';return;}
     status.textContent = 'Saving character…';
     const presetKey = gender === 'girl' ? 'street_queen_hd' : 'street_king_hd';
     const { error: saveError } = await supabase.rpc('rb_save_avatar_studio', {
@@ -252,17 +320,30 @@ export async function mount(): Promise<void> {
   window.addEventListener('resize', resize);
   resize();
 
-  const clock = new THREE.Clock();
-  const loop = () => {
-    if (disposed || !renderer) return;
-    const dt = Math.min(clock.getDelta(), .04);
+  const clock=new THREE.Clock();
+  let lastFrame=0;
+  const target=new THREE.Vector3(0,.95,0);
+  const loop=(now=0)=>{
+    if(disposed||!renderer||contextLost)return;
+    raf=requestAnimationFrame(loop);
+    if(document.hidden||now-lastFrame<(mobile?32:15))return;
+    lastFrame=now;
+    const dt=Math.min(clock.getDelta(),.04);
     if (runtime) {
       updateSkinnedAvatar(runtime, dt);
-      const target = new THREE.Vector3(0, runtime.height * .52, 0);
+      target.set(0,runtime.height*.52,0);
       camera.lookAt(target);
     }
-    renderer.render(scene, camera);
-    raf = requestAnimationFrame(loop);
+    try {
+      renderer.render(scene,camera);
+      if(runtime&&canvas.dataset.rbRenderState==='awaiting-frame'){
+        canvas.dataset.rbRenderState='frame-rendered';saveButton.disabled=canvas.dataset.rbModelState!=='approved-model';
+      }
+    } catch {
+      contextLost=true;cancelAnimationFrame(raf);saveButton.disabled=true;
+      stageMessage('render-error','Graphics stopped. Reload Avatar Studio to recover.');
+    }
   };
-  loop();
+  raf=requestAnimationFrame(loop);
+  void loadCharacter();
 }
