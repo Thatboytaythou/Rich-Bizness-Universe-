@@ -275,7 +275,7 @@ export async function mount(): Promise<void> {
   const loadCharacter = async () => {
     const generation = ++loadGeneration;
     const loading = root.querySelector<HTMLElement>('#characterLoading');
-    if (loading) loading.textContent = 'LOADING CHARACTER…';
+    if (loading) { loading.hidden = false; loading.textContent = 'LOADING CHARACTER…'; }
     if (runtime) {
       scene.remove(runtime.root);
       disposeSkinnedAvatar(runtime);
@@ -297,9 +297,9 @@ export async function mount(): Promise<void> {
       applyBuildScale();
       scene.add(runtime.root);
       setAvatarMotion(runtime, motion, 0);
-      root.querySelector<HTMLElement>('#characterLoading')?.remove();
+      root.querySelector<HTMLElement>('#characterLoading')?.setAttribute('hidden', '');
     } catch (loadError) {
-      if (!isCurrent()) return;
+      if (!isCurrent() || generation !== loadGeneration) return;
       const target = root.querySelector<HTMLElement>('#characterLoading');
       if (target) target.textContent = `RICH BIZNESS CHARACTER ASSET REQUIRED: ${loadError instanceof Error ? loadError.message : 'UNKNOWN ERROR'}`;
     }
@@ -339,7 +339,7 @@ export async function mount(): Promise<void> {
     status.textContent='Saving character…';button.disabled=true;
     try{
       const activeModel = modelForGender(gender);
-      if (!activeModel || activeModel.is_realistic !== true || activeModel.is_active !== true || activeModel.rig_type !== 'skinned-humanoid') {
+      if (!runtime || !activeModel || activeModel.metadata?.production_art_ready !== true || activeModel.is_realistic !== true || activeModel.is_active !== true || activeModel.rig_type !== 'skinned-humanoid') {
         throw new Error('This character is still assigned to a temporary demo model. A Rich Bizness production rig must be installed before saving it as a finished character.');
       }
       const {error:saveError}=await supabase.rpc('rb_save_avatar_studio',{
@@ -351,7 +351,16 @@ export async function mount(): Promise<void> {
         p_smoke:{mode:'off'},p_emotes:{idle:true,walk:true,run:true,jump:true,power:true},
         p_character_type:gender==='girl'?'female':'male'
       });
-      status.textContent=saveError?saveError.message:'Saved. Your settings are linked to the selected production model.';
+      if (saveError) throw saveError;
+      const { data: persisted, error: readError } = await supabase.rpc('rb_avatar_runtime_snapshot', {});
+      if (readError) throw readError;
+      if (!isCurrent()) return;
+      const saved = (persisted as Snapshot | null)?.avatar;
+      if (!saved || saved.display_name !== (nameInput.value || display) || saved.character_type !== (gender==='girl'?'female':'male')) {
+        throw new Error('Save returned but character readback did not match. Please retry before entering your profile.');
+      }
+      status.textContent='Character saved and identity read back. Opening profile…';
+      location.assign('/profile.html');
     }catch(error){status.textContent=error instanceof Error?error.message:'Could not save character'}
     finally{button.disabled=false}
   };
