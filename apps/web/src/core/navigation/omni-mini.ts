@@ -1,4 +1,5 @@
 import { ROUTES } from '../config/routes';
+import {getExperience,setExperience,subscribeExperience,experienceLabel,JOURNEYS,type VisualMode,type BehaviorMode} from '../experience/policy';
 import { getAuthSnapshot, subscribeAuth } from '../auth/auth-store';
 
 // The existing portal remains the destination authority. This control creates
@@ -32,10 +33,16 @@ const pages = new Set<string>(destinations.map(([key]) => key));
 pages.delete('portal');
 const HOST_ID = 'rb-omni-mini';
 const css = `
+:host([data-docked]){position:relative;right:auto;bottom:auto;z-index:70;display:flex;justify-content:flex-end;align-items:center;gap:10px;min-height:54px;padding:6px 12px;background:#0b1913;border-bottom:1px solid #385243;pointer-events:auto}
+:host([data-docked]) .trigger{width:44px;height:44px;float:none;box-shadow:none}
+:host([data-docked]) .panel,:host([data-inline]) .panel{position:fixed;inset:auto 12px max(16px,env(safe-area-inset-bottom)) auto;z-index:1000;width:min(370px,calc(100vw - 24px));max-height:75dvh}
+.dock-label{font-size:11px;font-weight:800;letter-spacing:.06em;color:#dfc27b;margin-right:auto}.dock-label[hidden]{display:none}
+nav{display:block!important}.journey{margin:10px 0}.journey h3{margin:0 0 3px;font-size:12px;color:#e8cd8a}.journey p{margin:0 0 7px;font-size:10px;color:#b8c7be}.journey-links{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}.experience{display:grid;gap:6px;margin-top:12px;padding:9px;border:1px solid #385243;border-radius:12px}.experience label{display:grid;gap:4px;font-size:10px;color:#cbd9cc}.experience select{min-height:42px;width:100%;background:#102119;color:#e7f0e7;border:1px solid #637667;border-radius:8px;padding:6px;font:inherit;font-size:16px}.experience p{margin:0;font-size:10px;color:#cbd9cc}
+
 :host{all:initial;position:fixed;right:max(10px,env(safe-area-inset-right));bottom:calc(max(72px,env(safe-area-inset-bottom) + 56px));z-index:850;display:block;color:#f5f8f0;font:13px/1.4 system-ui,-apple-system,sans-serif;pointer-events:none}
 :host([data-inline]){position:relative;right:auto;bottom:auto;z-index:auto;display:block}
 :host([data-inline]) .trigger{width:46px;height:46px;float:none;box-shadow:none}
-:host([data-inline]) .panel{bottom:auto;top:calc(100% + 8px);z-index:20;max-height:60dvh}
+
 *,*::before,*::after{box-sizing:border-box}
 button,a{font:inherit;color:inherit;cursor:pointer;-webkit-tap-highlight-color:transparent}
 button:focus-visible,a:focus-visible{outline:2px solid #f6d17d;outline-offset:3px}
@@ -64,19 +71,33 @@ export function mountOmniMini(page: string, failure = false): void {
   const panel = document.createElement('section');
   panel.className='panel'; panel.id='omni-panel'; panel.hidden=true;
   panel.setAttribute('aria-label','Mini Omni navigation');
-  panel.innerHTML='<header><div><small>RICH BIZNESS • OMNI CORE</small><h2>Choose your universe</h2></div><button class="close" type="button" aria-label="Close Omni">×</button></header><div class="identity"><strong id="identity"></strong><span id="section"></span></div><nav aria-label="Universe destinations"></nav><details><summary>Visual status / share with support</summary><pre id="report"></pre><button class="copy" type="button">Copy screen status</button><span class="feedback" role="status"></span></details>';
+  panel.innerHTML='<header><div><small>RICH BIZNESS • OMNI CORE</small><h2>Choose your universe</h2></div><button class="close" type="button" aria-label="Close Omni">×</button></header><div class="identity"><strong id="identity"></strong><span id="section"></span></div><nav aria-label="Universe destinations"></nav><section class="experience"><strong>Experience control</strong><label>Visual treatment<select id="visual"><option value="adaptive">Adaptive by environment</option><option value="cinematic">Cinematic</option><option value="expressive">Expressive</option><option value="fantasy">Fantasy lighting</option></select></label><label>Avatar behavior<select id="behavior"><option value="manual">Manual control</option><option value="contextual">Contextual reactions</option><option value="guided">Guided assistance + control</option></select></label><p id="experienceNote"></p><p>Saved on this device. Studio and Lobby apply visual and behavior modes; guidance is scripted, not AI.</p></section><details><summary>Visual status / share with support</summary><pre id="report"></pre><button class="copy" type="button">Copy screen status</button><span class="feedback" role="status"></span></details>';
   const trigger = document.createElement('button');
   trigger.type='button'; trigger.className='trigger'; trigger.innerHTML='<b>◎</b><small>OMNI</small>';
   trigger.setAttribute('aria-label','Open Mini Omni Dial');trigger.setAttribute('aria-controls',panel.id);trigger.setAttribute('aria-expanded','false');
   const nav=panel.querySelector('nav')!;
   const section=panel.querySelector<HTMLElement>('#section')!;
-  for (const [key,label,icon,href] of destinations) {
-    const link=document.createElement('a');link.href=href;
-    const glyph=document.createElement('span');glyph.textContent=icon;glyph.setAttribute('aria-hidden','true');
-    link.append(glyph,document.createTextNode(label));
-    if(key===page){link.setAttribute('aria-current','page');section.textContent=label;}
-    nav.append(link);
+  const makeLink=(key:string)=>{
+    const item=destinations.find(d=>d[0]===key);if(!item)return null;
+    const [,label,icon,href]=item,link=document.createElement('a');link.href=href;
+    const glyph=document.createElement('span');glyph.textContent=icon;glyph.setAttribute('aria-hidden','true');link.append(glyph,document.createTextNode(label));
+    if(key===page){link.setAttribute('aria-current','page');section.textContent=label;}return link;
+  };
+  const portal=makeLink('portal');if(portal)nav.append(portal);
+  for(const group of JOURNEYS){
+    const wrap=document.createElement('section');wrap.className='journey';
+    const title=document.createElement('h3');title.textContent=group.title;
+    const purpose=document.createElement('p');purpose.textContent=group.purpose;
+    const links=document.createElement('div');links.className='journey-links';
+    for(const key of group.routes){const link=makeLink(key);if(link)links.append(link);}
+    wrap.append(title,purpose,links);nav.append(wrap);
   }
+  const visual=panel.querySelector<HTMLSelectElement>('#visual')!,behavior=panel.querySelector<HTMLSelectElement>('#behavior')!;
+  const note=panel.querySelector<HTMLElement>('#experienceNote')!;
+  const refreshPrefs=()=>{const prefs=getExperience();visual.value=prefs.visual;behavior.value=prefs.behavior;note.textContent=experienceLabel(prefs.visual,page)+' · '+prefs.behavior;};
+  visual.onchange=()=>setExperience({visual:visual.value as VisualMode});
+  behavior.onchange=()=>setExperience({behavior:behavior.value as BehaviorMode});
+  const stopPrefs=subscribeExperience(refreshPrefs);refreshPrefs();
   const report=panel.querySelector<HTMLElement>('#report')!;
   const feedback=panel.querySelector<HTMLElement>('.feedback')!;
   const identity=panel.querySelector<HTMLElement>('#identity')!;
@@ -87,7 +108,7 @@ export function mountOmniMini(page: string, failure = false): void {
     const canvas=app?.querySelector<HTMLCanvasElement>('canvas');
     const render=canvas?.dataset.rbRenderState ?? (canvas?'Canvas present (not verified)':'No canvas on this page');
     report.textContent=[
-      'Release: '+(app?.dataset.rbStudioRelease??'avatar-live-recovery-1'),'Section: '+page,'Path: '+location.pathname,
+      'Release: '+(app?.dataset.rbStudioRelease??document.body.dataset.rbSectionRelease??'not yet confirmed'),'Section: '+page,'Path: '+location.pathname,
       'Page: '+(host.dataset.bootFailed==='true'?'Bootstrap error':app?.dataset.pageMounted==='true'?'Controller mounted':'Not confirmed'),
       'Owner: '+(app?.dataset.pageOwner??'not assigned'),
       'Identity: '+(!auth.ready?'checking':auth.user?'signed in':'guest'),
@@ -111,9 +132,10 @@ export function mountOmniMini(page: string, failure = false): void {
   const refresh=()=>{if(!panel.hidden)update();};
   window.addEventListener('resize',refresh);
   window.addEventListener('online',refresh);window.addEventListener('offline',refresh);
-  window.addEventListener('pagehide',(event)=>{if(event.persisted)return;unsubscribe();window.removeEventListener('resize',refresh);window.removeEventListener('online',refresh);window.removeEventListener('offline',refresh);host.remove();});
-  shadow.append(style,panel,trigger);
-  document.body.append(host);
+  window.addEventListener('pagehide',(event)=>{if(event.persisted)return;unsubscribe();stopPrefs();window.removeEventListener('resize',refresh);window.removeEventListener('online',refresh);window.removeEventListener('offline',refresh);host.remove();});
+  const dockLabel=document.createElement('span');dockLabel.className='dock-label';dockLabel.textContent='RICH BIZNESS / OMNI';dockLabel.hidden=page==='avatar-characters';
+  shadow.append(style,panel,dockLabel,trigger);
+  if(page==='avatar-characters')document.body.append(host);else{host.dataset.docked='true';const root=document.querySelector<HTMLElement>('#app');if(root)root.prepend(host);else document.body.prepend(host);}
   let slotObserver:MutationObserver|undefined;
   if(page==='avatar-characters'){
     const place=()=>{const slot=document.getElementById('acOmniSlot');if(slot&&host.parentElement!==slot){host.dataset.inline='true';slot.append(host);}};
