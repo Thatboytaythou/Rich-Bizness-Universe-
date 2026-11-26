@@ -33,7 +33,7 @@ export async function createTexturedAvatar(gender:AvatarGender,raw:unknown,build
   const look=normalizeLook(raw),p=await pkg(),config=humanConfig(gender,look,build);
   // Refuse partial/unclothed assets. All required slots must exist and load.
   for(const id of config.clothes??[])if(!p.manifest.proxies.some(x=>x.kind==='clothes'&&x.id===id))throw Error('Wardrobe asset unavailable');
-  const avatar=new HumanAvatar(p);avatar.textureSize='1k';avatar.anisotropy=1;avatar.normalMaps=false;
+  const avatar=new HumanAvatar(p);const mobile=matchMedia('(pointer:coarse),(max-width:860px)').matches;avatar.textureSize=mobile?'1k':'2k';avatar.anisotropy=mobile?2:4;avatar.normalMaps=!mobile;
   let mixer:THREE.AnimationMixer|undefined;
   try{
     await avatar.setConfig(config);
@@ -45,7 +45,7 @@ export async function createTexturedAvatar(gender:AvatarGender,raw:unknown,build
       const arm=bone(side+'Arm'),fore=bone(side+'ForeArm');if(!arm||!fore||!arm.parent)continue;
       root.updateMatrixWorld(true);
       const from=fore.getWorldPosition(new THREE.Vector3()).sub(arm.getWorldPosition(new THREE.Vector3())).normalize();
-      const to=new THREE.Vector3(from.x>0?.16:-.16,-1,0).normalize();
+      const to=new THREE.Vector3(from.x>0?.11:-.11,-1,.035).normalize();
       const world=arm.getWorldQuaternion(new THREE.Quaternion()),parent=arm.parent.getWorldQuaternion(new THREE.Quaternion());
       arm.quaternion.copy(parent.invert().multiply(new THREE.Quaternion().setFromUnitVectors(from,to).multiply(world)));root.updateMatrixWorld(true);
     }
@@ -77,7 +77,15 @@ export async function createTexturedAvatar(gender:AvatarGender,raw:unknown,build
         for(const [joint,values] of [['UpLeg',pose==='jump'?[0,-.4,0]:[0,0,0]],['Leg',pose==='jump'?[0,.8,0]:[0,0,0]],['Arm',pose==='power'?[0,-.8,-.5]:pose==='jump'?[0,-.4,0]:[0,0,0]],['ForeArm',pose==='power'?[0,-.8,-.5]:[0,0,0]]] as [string,number[]][]){const t=track(side+joint,times,values);if(t)tracks.push(t);}
       }return new THREE.AnimationClip(name,duration,tracks);
     };
-    const clips=[actionClip('idle',2,'idle'),clip('walk',1.1,.43),clip('run',.76,.68),actionClip('jump',.9,'jump'),actionClip('power pose',1.3,'power')];
+    const idle=()=>{const duration=4.8,t=Array.from({length:17},(_,i)=>duration*i/16),phase=t.map(v=>v/duration*Math.PI*2),tracks:THREE.KeyframeTrack[]=[];
+      const add=(n:string,v:number[],axis?:THREE.Vector3)=>{const a=track(n,t,v,axis);if(a)tracks.push(a);};
+      add('Spine',phase.map(x=>.018*Math.sin(x)),new THREE.Vector3(0,0,1));
+      add('Spine1',phase.map(x=>.024*Math.sin(x)),new THREE.Vector3(1,0,0));
+      add('Head',phase.map(x=>.045*Math.sin(x)),new THREE.Vector3(0,1,0));
+      for(const [i,side] of ['Left','Right'].entries()){add(side+'Arm',phase.map(x=>.035*Math.sin(x+i*Math.PI)));add(side+'ForeArm',phase.map(x=>-.10+.025*Math.cos(x+i*Math.PI)));}
+      return new THREE.AnimationClip('idle',duration,tracks);
+    };
+    const clips=[idle(),clip('walk',1.1,.43),clip('run',.76,.68),actionClip('jump',.9,'jump'),actionClip('power pose',1.3,'power')];
     mixer=new THREE.AnimationMixer(root);const actions=new Map(clips.map(c=>[c.name,mixer!.clipAction(c)]));
     return {root,mixer,actions,clips,bounds,height,currentMotion:'idle',currentAction:null,dispose:()=>{mixer?.stopAllAction();mixer?.uncacheRoot(root);const skeletons=new Set<THREE.Skeleton>();root.traverse(o=>{if((o as THREE.SkinnedMesh).isSkinnedMesh)skeletons.add((o as THREE.SkinnedMesh).skeleton);});avatar.dispose();skeletons.forEach(s=>s.dispose());root.clear();}};
   }catch(error){avatar.dispose();throw error;}
