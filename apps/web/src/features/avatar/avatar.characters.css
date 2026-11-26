@@ -43,3 +43,5 @@ body[data-page="avatar-characters"] .ac-shell{min-height:100dvh;max-width:1280px
 @media(max-width:380px){.ac-shell .enter{padding:0 7px;font-size:9px}.ac-shell h1{font-size:20px}.ac-stage-top span,.ac-stage-top b{font-size:8px}.ac-shell button{font-size:10px}}
 
 .ac-motion{grid-template-columns:repeat(5,minmax(0,1fr))}.ac-appearance{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}.ac-appearance select{width:100%;min-width:0}.ac-editor .section-title{margin-top:6px}
+
+.ac-view{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}.ac-direct-lobby{display:grid;place-items:center;min-height:44px;padding:6px;text-align:center;border:1px solid #3e5c44;border-radius:10px;font-size:10px;font-weight:800;color:#e9f5e9}#acSyncStatus{font-size:12px;line-height:1.45;overflow-wrap:anywhere;margin:0;color:#e6c679;padding:8px 10px;background:#07160d;border-radius:9px}.ac-shell>header #acSaveEnter{background:linear-gradient(135deg,#72ff58,#f4cf69);color:#07130b;font-size:10px;padding:0 10px}.ac-shell>header #acSaveEnter:disabled{opacity:.45}
