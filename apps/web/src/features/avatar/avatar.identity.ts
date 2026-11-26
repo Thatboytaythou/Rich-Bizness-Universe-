@@ -1,6 +1,6 @@
 import {supabase} from '../../core/supabase/client';
 import {getAuthSnapshot} from '../../core/auth/auth-store';
-import {CHARACTER_RIG,normalizeLook,type CharacterLook} from './avatar.original.runtime';
+import {CHARACTER_RIG,normalizeLook,type CharacterLook} from './avatar.character.config';
 
 type Row=Record<string,any>;
 export type CharacterIdentity={profile:Row;avatar:Row;loadout:Row;controller:Row;model:Row};
