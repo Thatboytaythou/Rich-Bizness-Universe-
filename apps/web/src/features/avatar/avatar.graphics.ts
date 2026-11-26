@@ -61,7 +61,7 @@ export function createStudioGraphics(canvas:HTMLCanvasElement,initial:CharacterC
       while(desired&&!disposed&&!failed){
         const config=desired;desired=null;const generation=revision;
         const key=JSON.stringify([config.gender,config.build,config.look]);
-        if(key===modelKey){pose();invalidate();continue;}
+        if(runtime&&key===modelKey){pose();invalidate();continue;}
         // Release old GPU mesh before constructing another full skinned body.
         if(runtime){scene.remove(runtime.root);disposeSkinnedAvatar(runtime);runtime=null;}
         const next=await createTexturedAvatar(config.gender,config.look,config.build);
