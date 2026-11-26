@@ -3,23 +3,24 @@ import {CHARACTER_OPTIONS,normalizeLook,type CharacterLook} from './avatar.chara
 import {readCharacterIdentity,saveCharacterIdentity,savedCharacter,hasSavedOriginal,type CharacterIdentity,type CharacterConfig} from './avatar.identity';
 import type {StudioGraphics} from './avatar.graphics';
 import type {AvatarMotion} from './avatar.skinned.runtime';
+import {publishSectionUpdate} from '../../core/section-update/runtime';
 import './avatar.characters.css';
 
-const OWNER='rich-bizness-avatar-characters-v1',RELEASE='avatar-textured-human-10';
+const OWNER='rich-bizness-avatar-characters-v1',RELEASE='avatar-hybrid-studio-11';
 const esc=(v:unknown)=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]??c));
 const emptyIdentity=():CharacterIdentity=>({profile:{},avatar:{},loadout:{},controller:{},model:{}});
 type Host=Window&{__rbPageCleanup?:()=>void};
 const presets:Record<string,Partial<CharacterLook>>={street:{outfit:'casual'},boss:{outfit:'formal'},tactical:{outfit:'workwear'},cyber:{outfit:'sport'}};
 const optionLabels:Record<string,string>={fade:'Short textured',curls:'Afro',braids:'Braided',long:'Long straight',bald:'Shaved',hazel:'Light brown','high-tops':'Shoe style 2',boots:'Shoe style 3',sneakers:'Shoe style 1',sport:'Sport / casual',workwear:'Work / casual'};
 const groups=[
-  {title:'01 • Skin & hair',keys:['skin','hair','hairColor','eyes']},
-  {title:'02 • Face sculpt',keys:['face','jaw','nose','mouth','eyeShape','brows']},
-  {title:'03 • Body proportions',keys:['height','weight']},
-  {title:'04 • Wardrobe',keys:['outfit','shoes']}
+  {title:'Hair & complexion',keys:['skin','hair','hairColor','eyes']},
+  {title:'Face sculpt',keys:['face','jaw','nose','mouth','eyeShape','brows']},
+  {title:'Physique',keys:['height','weight']},
+  {title:'Wardrobe',keys:['outfit','shoes']}
 ] as const;
 const label=(s:string)=>optionLabels[s]??s.replace(/([a-z])([A-Z])/g,'$1 $2').replace(/-/g,' ');
 const swatches:Record<string,string>={deep:'#754631',warm:'#ad7352',tan:'#c88f68',light:'#e5b294',black:'#1a1412','dark-brown':'#34251e',brown:'#69452b',blond:'#b89b67',silver:'#a6a3a2',hazel:'#9a783c',blue:'#779dbd'};
-const pickers=()=>groups.map((group,i)=>`<details class="ac-picker" ${i===0?'open':''}><summary>${group.title}</summary><div class="ac-choice-grid">${group.keys.map(key=>`<fieldset><legend>${label(key)}</legend><div class="ac-choices">${CHARACTER_OPTIONS[key].map(value=>`<button type="button" data-look-key="${key}" data-look-value="${value}" aria-pressed="false">${(['skin','hairColor','eyes'].includes(key)&&swatches[value])?`<i class="ac-swatch" style="background:${swatches[value]}"></i>`:''}<span>${label(value)}</span></button>`).join('')}</div></fieldset>`).join('')}</div></details>`).join('');
+const pickers=()=>groups.map((group,i)=>`<details class="ac-picker" data-category="${i}" ${i===0?'open':''}><summary>${group.title}</summary><div class="ac-choice-grid">${group.keys.map(key=>`<fieldset><legend>${label(key)}</legend><div class="ac-choices">${CHARACTER_OPTIONS[key].map(value=>`<button type="button" data-look-key="${key}" data-look-value="${value}" aria-pressed="false">${(['skin','hairColor','eyes'].includes(key)&&swatches[value])?`<i class="ac-swatch" style="background:${swatches[value]}"></i>`:''}<span>${label(value)}</span></button>`).join('')}</div></fieldset>`).join('')}</div></details>`).join('');
 
 
 export async function mount():Promise<void>{
@@ -39,12 +40,12 @@ export async function mount():Promise<void>{
   <div class="ac-stage-controls"><div class="ac-quick"><button id="acStartGraphics" class="primary" type="button">ENABLE 3D</button><button id="acStopGraphics" type="button" disabled hidden>PAUSE 3D</button><button data-view="body">BODY</button><button data-view="face">FACE</button></div><p id="acGraphicsStatus" role="status">Graphics paused • configuration mode</p><details class="ac-motion-tools"><summary>Motion & camera controls</summary>
   <div class="ac-motion"><button data-motion="idle">IDLE</button><button data-motion="walk">WALK</button><button data-motion="run">RUN</button><button data-motion="jump">JUMP</button><button data-motion="power">POSE</button></div><div class="ac-camera"><button data-view="front">FRONT</button><button data-view="back">BACK</button><button data-view="out">−</button><button data-view="in">+</button><button data-view="reset">RESET</button></div></details>
   <div class="ac-actions"><button id="acSaveTop" class="primary">SAVE TO RICH ID</button><button id="acRetryIdentity" hidden>RETRY IDENTITY</button></div><p id="acSyncStatus" role="status">Reading Rich ID…</p><a class="ac-direct-lobby" href="/avatar.html" hidden>OPEN SAVED LOBBY</a></div></div>
-  <aside class="ac-editor"><div class="section-title"><span>CHARACTER LAB</span><small>BUILD · STYLE · FX</small></div><div class="seg"><button data-gender="boy">BOY</button><button data-gender="girl">GIRL</button></div><label>NAME<input id="nameInput" maxlength="28" autocomplete="off"></label><div class="edit-grid"><label>BUILD<select id="buildInput"><option value="athletic">ATHLETIC</option><option value="lean">LEAN</option><option value="heroic">HEROIC</option></select></label><label>STYLE<select id="styleInput"><option value="street">STREET</option><option value="boss">BOSS</option><option value="tactical">TACTICAL</option><option value="cyber">CYBER</option></select></label></div><div class="section-title"><span>APPEARANCE</span><small>TEXTURED HUMAN • V1</small></div>${pickers()}<p class="ac-asset-note">Wardrobe uses fitted full outfits. Legacy individual tops, pants, tattoos and accessories are preserved in your saved data but are not supported by this textured asset pack yet.</p><label>AURA<select id="auraInput"><option>Emerald Gold</option><option>Neon Phantom</option><option>Diamond Mist</option></select></label><div class="ac-actions"><button id="randomize">RANDOMIZE</button><button id="saveCharacter" class="primary">SAVE CHARACTER</button></div><p id="saveStatus" role="status">Connecting identity…</p><small class="ac-release">STUDIO RELEASE • ${RELEASE}</small></aside></section></main>`;
+  <aside class="ac-editor"><div class="section-title"><span>CHARACTER LAB</span><small>HYBRID · V11</small></div><div class="seg"><button data-gender="boy">BOY</button><button data-gender="girl">GIRL</button></div><label>NAME<input id="nameInput" maxlength="28" autocomplete="off"></label><div class="edit-grid"><label>BUILD<select id="buildInput"><option value="athletic">ATHLETIC</option><option value="lean">LEAN</option><option value="heroic">HEROIC</option></select></label><label>STYLE<select id="styleInput"><option value="street">STREET</option><option value="boss">BOSS</option><option value="tactical">TACTICAL</option><option value="cyber">CYBER</option></select></label></div><div class="section-title"><span>DESIGN YOUR IDENTITY</span><small>LIVE 3D</small></div><div class="ac-style-cards" aria-label="Style presets">${Object.keys(presets).map((key,i)=>`<button type="button" data-style="${key}"><i aria-hidden="true">${["◆","♛","⬡","✦"][i]}</i><strong>${["Street luxury","Executive","Utility","Sport tech"][i]}</strong><small>${["Casual fit","Tailored fit","Workwear","Athletic fit"][i]}</small></button>`).join("")}</div><nav class="ac-category-tabs" aria-label="Appearance categories">${groups.map((g,i)=>`<button type="button" data-tab="${i}" aria-pressed="${i===0}">${g.title}</button>`).join("")}</nav>${pickers()}<p class="ac-asset-note">Wardrobe uses fitted full outfits. Legacy individual tops, pants, tattoos and accessories are preserved in your saved data but are not supported by this textured asset pack yet.</p><label>AURA<select id="auraInput"><option>Emerald Gold</option><option>Neon Phantom</option><option>Diamond Mist</option></select></label><div class="ac-actions"><button id="randomize">RANDOMIZE</button><button id="saveCharacter" class="primary">SAVE CHARACTER</button></div><p id="saveStatus" role="status">Connecting identity…</p><small class="ac-release">STUDIO RELEASE • ${RELEASE}</small></aside></section></main>`;
   const $=<T extends HTMLElement>(sel:string)=>root.querySelector<T>(sel)!;
   let canvas=$<HTMLCanvasElement>('#characterCanvas');const preview=$('#acConfigPreview');
   const name=$<HTMLInputElement>('#nameInput'),build=$<HTMLSelectElement>('#buildInput'),style=$<HTMLSelectElement>('#styleInput'),aura=$<HTMLSelectElement>('#auraInput');
   const saveButtons=['#acSaveEnter','#acSaveTop','#saveCharacter'].map(s=>$<HTMLButtonElement>(s));
-  const editControls=[...root.querySelectorAll<HTMLInputElement|HTMLSelectElement|HTMLButtonElement>('.ac-editor input,.ac-editor select,[data-gender],[data-look-key],#randomize')];
+  const editControls=[...root.querySelectorAll<HTMLInputElement|HTMLSelectElement|HTMLButtonElement>('.ac-editor input,.ac-editor select,[data-gender],[data-look-key],#randomize,[data-style]')];
   const start=$<HTMLButtonElement>('#acStartGraphics'),stop=$<HTMLButtonElement>('#acStopGraphics'),retry=$<HTMLButtonElement>('#acRetryIdentity');
   const motionControls=[...root.querySelectorAll<HTMLButtonElement>('[data-motion],[data-view]')];
   const report=(s:string)=>{$('#acSyncStatus').textContent=s;$('#saveStatus').textContent=s;};
@@ -58,6 +59,7 @@ export async function mount():Promise<void>{
     name.value=config.name;build.value=config.build;style.value=config.style;aura.value=config.aura;
     root.querySelectorAll<HTMLButtonElement>('[data-look-key]').forEach(e=>{const selected=config.look[e.dataset.lookKey as keyof CharacterLook]===e.dataset.lookValue;e.classList.toggle('active',selected);e.setAttribute('aria-pressed',String(selected));});
     root.querySelectorAll<HTMLButtonElement>('[data-gender]').forEach(e=>e.classList.toggle('active',e.dataset.gender===config.gender));
+    root.querySelectorAll<HTMLButtonElement>('[data-style]').forEach(b=>{const selected=b.dataset.style===config.style;b.classList.toggle('active',selected);b.setAttribute('aria-pressed',String(selected));});
     graphics?.update(config);
   };
   const changed=()=>{dirty=true;root.dataset.rbIdentitySync='dirty';report(identityReady?'Unsaved changes • save to Rich ID':'Unsaved configuration • reconnect Rich ID to save');renderConfig();controls();};
@@ -69,7 +71,7 @@ export async function mount():Promise<void>{
   };
   const save=async(enter=false)=>{
     if(!identityReady||reading||saving)return;saving=true;controls();report('Saving character to Rich ID…');
-    try{identity=await saveCharacterIdentity(user.id,{...config,look:{...config.look}},identity);if(!current())return;dirty=false;root.dataset.rbIdentitySync='verified';report('VERIFIED • Rich ID, character and loadout match');if(enter)location.assign('/avatar.html');}
+    try{identity=await saveCharacterIdentity(user.id,{...config,look:{...config.look}},identity);if(!current())return;dirty=false;root.dataset.rbIdentitySync='verified';report('VERIFIED • Rich ID, character and loadout match');publishSectionUpdate('avatar-characters');if(enter)location.assign('/avatar.html');}
     catch(error){if(current()){root.dataset.rbIdentitySync='failed';report(error instanceof Error?error.message:'Save failed');}}
     finally{saving=false;if(current())controls();}
   };
@@ -79,7 +81,7 @@ export async function mount():Promise<void>{
   const enable=async()=>{
     if(graphics||graphicsLoading)return;const generation=++graphicsGeneration;graphicsLoading=true;graphicsFrame=false;controls();visualReport('Loading textured human mesh and fitted wardrobe…');
     try{const {createStudioGraphics}=await import('./avatar.graphics');if(!current()||generation!==graphicsGeneration)return;canvas.hidden=false;preview.hidden=true;
-      graphics=createStudioGraphics(canvas,config,()=>{if(current()&&generation===graphicsGeneration&&!graphicsFrame){graphicsFrame=true;canvas.dataset.rbRenderState='frame-rendered';visualReport('3D ready • textured skeletal human');controls();}},reason=>{if(current()&&generation===graphicsGeneration)queueMicrotask(()=>{if(current()&&generation===graphicsGeneration)pause('3D stopped: '+reason+'. Your Rich ID is still available.');});});
+      graphics=createStudioGraphics(canvas,config,()=>{if(current()&&generation===graphicsGeneration&&!graphicsFrame){graphicsFrame=true;canvas.dataset.rbRenderState='frame-rendered';visualReport('Live character • hybrid asset pack');controls();}},reason=>{if(current()&&generation===graphicsGeneration)queueMicrotask(()=>{if(current()&&generation===graphicsGeneration)pause('3D stopped: '+reason+'. Your Rich ID is still available.');});});
     }catch(error){if(current()&&generation===graphicsGeneration)pause('3D unavailable: '+(error instanceof Error?error.message:'graphics startup failed')+'. You can still save.');}
     finally{if(generation===graphicsGeneration){graphicsLoading=false;controls();}}
   };
@@ -87,6 +89,9 @@ export async function mount():Promise<void>{
   saveButtons.forEach(b=>b.onclick=()=>void save(b.id==='acSaveEnter'));
   name.oninput=()=>{config.name=name.value;dirty=true;$('#acPreviewName').textContent=name.value;report(identityReady?'Unsaved changes • save to Rich ID':'Reconnect Rich ID to save');controls();};
   build.onchange=()=>{config.build=build.value;changed();};style.onchange=()=>{config.style=style.value;config.look=normalizeLook({...config.look,...presets[style.value]});changed();};aura.onchange=()=>{config.aura=aura.value;changed();};
+  root.querySelectorAll<HTMLButtonElement>('[data-style]').forEach(b=>b.onclick=()=>{const key=b.dataset.style!;config.style=key;config.look=normalizeLook({...config.look,...presets[key]});changed();graphics?.face(false);});
+  root.querySelectorAll<HTMLButtonElement>('[data-tab]').forEach(b=>b.onclick=()=>{root.querySelectorAll<HTMLButtonElement>('[data-tab]').forEach(t=>t.setAttribute('aria-pressed',String(t===b)));root.querySelectorAll<HTMLDetailsElement>('[data-category]').forEach(d=>{d.hidden=d.dataset.category!==b.dataset.tab;d.open=!d.hidden;});graphics?.face(b.dataset.tab==='0'||b.dataset.tab==='1');});
+  root.querySelectorAll<HTMLDetailsElement>('[data-category]').forEach(d=>{d.hidden=d.dataset.category!=='0';});
   root.querySelectorAll<HTMLButtonElement>('[data-gender]').forEach(b=>b.onclick=()=>{config.gender=b.dataset.gender==='girl'?'girl':'boy';changed();});
   root.querySelectorAll<HTMLButtonElement>('[data-look-key]').forEach(e=>e.onclick=()=>{config.look=normalizeLook({...config.look,[e.dataset.lookKey!]:e.dataset.lookValue});changed();if(['face','jaw','nose','mouth','eyeShape','brows','eyes','hair','hairColor'].includes(e.dataset.lookKey??''))graphics?.face(true);else if(['height','weight','outfit','shoes'].includes(e.dataset.lookKey??''))graphics?.face(false);});
   $<HTMLButtonElement>('#randomize').onclick=()=>{config.look=normalizeLook({...config.look,...Object.fromEntries(groups.flatMap(group=>group.keys.map(key=>{const values=CHARACTER_OPTIONS[key];return [key,values[Math.floor(Math.random()*values.length)]];})))});changed();};
