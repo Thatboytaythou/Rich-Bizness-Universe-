@@ -64,3 +64,21 @@ for(const collection of Object.keys(ELITE_COLLECTIONS)){
 assert.equal(normalizeLook({}).identityMode,'human');assert.equal(normalizeLook({}).eliteJewelry,'collection');
 assert.equal(HD_CLIPS.length,21);assert.ok(!hdRecipe('boy',{collection:'heritage-crown',wristwear:'gold-cuff'},'athletic').params);
 console.log('V23: five fitted collection recipes, jewelry overrides, compatibility and legacy defaults verified');
+
+import {normalizeRoutine} from '../apps/web/src/features/avatar/avatar.motion.design.ts';
+import {designerWardrobe} from '../apps/web/src/features/avatar/avatar.elite.catalog.ts';
+assert.deepEqual(normalizeRoutine(['wave','bad','groove',7,'bow']),['wave','groove','bow']);
+assert.equal(normalizeRoutine(Array(20).fill('wave')).length,12);
+assert.deepEqual(normalizeRoutine({clip:'wave'}),[]);
+const designer=normalizeLook({designerCut:'street',designerPalette:'burgundy',designerAccent:'copper',designerFootwear:'boots',evolution:'celestial'});
+const designed=designerWardrobe(designer);
+assert.equal(designed.shoes,'combat_boots');
+assert.equal(designed.garmentStyles.oversized_tee.color,'#64263b');
+assert.equal(designed.garmentStyles.oversized_tee.color2,'#ae6949');
+assert.equal(eliteWardrobe('emerald-legacy').garmentStyles.oversized_tee.color,'#153d2c');
+const evolved=hdRecipe('boy',designer,'athletic');
+assert.ok(evolved.params);
+assert.equal(evolved.params.modifiers['eyes/eye-scale'],.28);
+assert.equal(normalizeLook({}).designerCut,'collection');
+assert.equal(normalizeLook({}).evolution,'none');
+console.log('V24: custom fitted recipes, preserved collection source, evolution and personal choreography bounds verified');
