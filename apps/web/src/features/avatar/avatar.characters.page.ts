@@ -52,6 +52,7 @@ export async function mount(): Promise<void> {
   let runtime: SkinnedAvatarRuntime | null = null;
   let raf = 0;
   let resize = () => {};
+  let releaseStage = () => {};
   const abort = new AbortController();
   const isCurrent = () => !disposed && root.dataset.pageEpoch === epoch && root.dataset.pageOwner === OWNER;
   const cleanup = () => {
@@ -61,7 +62,9 @@ export async function mount(): Promise<void> {
     cancelAnimationFrame(raf);
     window.removeEventListener('resize', resize);
     if (runtime) disposeSkinnedAvatar(runtime);
+    releaseStage();
     renderer?.dispose();
+    renderer = null;
     const host = window as CleanupHost;
     if (host.__rbPageCleanup === cleanup) host.__rbPageCleanup = null;
   };
@@ -220,7 +223,26 @@ export async function mount(): Promise<void> {
   const camera = new THREE.PerspectiveCamera(34, 1, .08, 70);
   camera.position.set(0, 1.55, 4.8);
   const quality = qualityProfile();
-  renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
+  const saveButton = root.querySelector<HTMLButtonElement>('#saveCharacter')!;
+  const loading = root.querySelector<HTMLElement>('#characterLoading')!;
+  const showRenderFailure = (state:string, message:string) => {
+    canvas.dataset.rbRenderState = state;
+    loading.hidden = false;
+    loading.textContent = message;
+    saveButton.disabled = true;
+  };
+  canvas.dataset.rbRenderState = 'initializing';
+  try { renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'default' }); }
+  catch (error) {
+    console.warn('[Rich Bizness Avatar renderer]', error);
+    showRenderFailure('unavailable','3D rendering unavailable on this device. Your wardrobe is still here. Reload this page to retry.');
+    return;
+  }
+  let contextLost = false;
+  let renderFailed = false;
+  let previousState = 'initializing';
+  let previousMessage = '';
+  let previousHidden = false;
   renderer.setPixelRatio(quality.dpr);
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
@@ -249,6 +271,11 @@ export async function mount(): Promise<void> {
   const backWall = new THREE.Mesh(new THREE.PlaneGeometry(9, 5), new THREE.MeshStandardMaterial({ color: 0x8aa9b3, roughness: .86 }));
   backWall.position.set(0, 2.15, -2.2);
   scene.add(backWall);
+  releaseStage = () => {
+    floor.geometry.dispose(); floor.material.dispose();
+    backWall.geometry.dispose(); backWall.material.dispose();
+    key.shadow.map?.dispose();
+  };
 
   let motion: AvatarMotion = 'idle';
   let loadGeneration = 0;
@@ -275,6 +302,8 @@ export async function mount(): Promise<void> {
   const loadCharacter = async () => {
     const generation = ++loadGeneration;
     const loading = root.querySelector<HTMLElement>('#characterLoading');
+    if (contextLost || renderFailed) return;
+    canvas.dataset.rbRenderState = 'loading asset';
     if (loading) { loading.hidden = false; loading.textContent = 'LOADING CHARACTER…'; }
     if (runtime) {
       scene.remove(runtime.root);
@@ -297,11 +326,16 @@ export async function mount(): Promise<void> {
       applyBuildScale();
       scene.add(runtime.root);
       setAvatarMotion(runtime, motion, 0);
-      root.querySelector<HTMLElement>('#characterLoading')?.setAttribute('hidden', '');
+      if (!contextLost && !renderFailed) {
+        canvas.dataset.rbRenderState = 'asset loaded; frame pending';
+        root.querySelector<HTMLElement>('#characterLoading')?.setAttribute('hidden', '');
+      } else if (contextLost) { previousState = 'asset loaded; frame pending'; previousHidden = true; }
     } catch (loadError) {
       if (!isCurrent() || generation !== loadGeneration) return;
       const target = root.querySelector<HTMLElement>('#characterLoading');
-      if (target) target.textContent = `RICH BIZNESS CHARACTER ASSET REQUIRED: ${loadError instanceof Error ? loadError.message : 'UNKNOWN ERROR'}`;
+      const message = `RICH BIZNESS CHARACTER ASSET REQUIRED: ${loadError instanceof Error ? loadError.message : 'UNKNOWN ERROR'}`;
+      if (contextLost) { previousState = 'asset unavailable'; previousMessage = message; previousHidden = false; }
+      else if (!renderFailed) { canvas.dataset.rbRenderState = 'asset unavailable'; if (target) target.textContent = message; }
     }
   };
 
@@ -339,7 +373,7 @@ export async function mount(): Promise<void> {
     status.textContent='Saving character…';button.disabled=true;
     try{
       const activeModel = modelForGender(gender);
-      if (!runtime || !activeModel || activeModel.metadata?.production_art_ready !== true || activeModel.is_realistic !== true || activeModel.is_active !== true || activeModel.rig_type !== 'skinned-humanoid') {
+      if (contextLost || renderFailed || !runtime || !activeModel || activeModel.metadata?.production_art_ready !== true || activeModel.is_realistic !== true || activeModel.is_active !== true || activeModel.rig_type !== 'skinned-humanoid') {
         throw new Error('This character is still assigned to a temporary demo model. A Rich Bizness production rig must be installed before saving it as a finished character.');
       }
       const {error:saveError}=await supabase.rpc('rb_save_avatar_studio',{
@@ -362,7 +396,7 @@ export async function mount(): Promise<void> {
       status.textContent='Character saved and identity read back. Opening profile…';
       location.assign('/profile.html');
     }catch(error){status.textContent=error instanceof Error?error.message:'Could not save character'}
-    finally{button.disabled=false}
+    finally{button.disabled=contextLost||renderFailed}
   };
 
   canvas.addEventListener('pointerdown', (event) => {
@@ -383,6 +417,7 @@ export async function mount(): Promise<void> {
   resize = () => {
     if (!renderer) return;
     const rect = canvas.getBoundingClientRect();
+    if (contextLost || renderFailed || rect.width <= 0 || rect.height <= 0) return;
     renderer.setSize(Math.max(1, rect.width), Math.max(1, rect.height), false);
     camera.aspect = rect.width / Math.max(1, rect.height);
     camera.updateProjectionMatrix();
@@ -391,16 +426,37 @@ export async function mount(): Promise<void> {
   resize();
 
   const clock = new THREE.Clock();
+  const target = new THREE.Vector3();
   const loop = () => {
-    if (disposed || !renderer) return;
-    const dt = Math.min(clock.getDelta(), .04);
-    if (runtime) {
-      updateSkinnedAvatar(runtime, dt);
-      const target = new THREE.Vector3(0, runtime.height * .52, 0);
-      camera.lookAt(target);
+    raf = 0;
+    if (disposed || !renderer || contextLost || renderFailed || document.hidden) return;
+    try {
+      const dt = Math.min(clock.getDelta(), .04);
+      if (runtime) {
+        updateSkinnedAvatar(runtime, dt);
+        camera.lookAt(target.set(0, runtime.height * .52, 0));
+      }
+      renderer.render(scene, camera);
+      if (runtime) canvas.dataset.rbRenderState = 'character frame rendered';
+      raf = requestAnimationFrame(loop);
+    } catch (error) {
+      renderFailed = true;
+      console.warn('[Rich Bizness Avatar frame]',error);
+      showRenderFailure('frame failed','3D preview paused after a render error. Reload to retry; your saved identity is unchanged.');
     }
-    renderer.render(scene, camera);
-    raf = requestAnimationFrame(loop);
   };
-  loop();
+  const stopLoop = () => { if(raf) cancelAnimationFrame(raf); raf=0; };
+  const resumeLoop = () => { if(!raf && !disposed && !contextLost && !renderFailed && !document.hidden){clock.getDelta();raf=requestAnimationFrame(loop);} };
+  canvas.addEventListener('webglcontextlost',event=>{
+    event.preventDefault(); if(contextLost || disposed || renderFailed)return;
+    previousState=canvas.dataset.rbRenderState??'initializing';previousMessage=loading.textContent??'';previousHidden=loading.hidden;
+    contextLost=true;stopLoop();showRenderFailure('context lost','3D graphics paused. Waiting for device recovery.');
+  },{signal:abort.signal});
+  canvas.addEventListener('webglcontextrestored',()=>{
+    if(disposed || renderFailed || !contextLost)return;
+    contextLost=false;canvas.dataset.rbRenderState=previousState;loading.textContent=previousMessage;loading.hidden=previousHidden;
+    saveButton.disabled=false;resize();resumeLoop();
+  },{signal:abort.signal});
+  document.addEventListener('visibilitychange',()=>{if(document.hidden)stopLoop();else resumeLoop();},{signal:abort.signal});
+  resumeLoop();
 }

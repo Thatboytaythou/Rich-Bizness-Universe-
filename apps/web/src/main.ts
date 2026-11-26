@@ -91,7 +91,12 @@ window.addEventListener('beforeunload',cleanupOnExit,{once:true});
 
 void bootstrap().then(async()=>{
   const page=document.body.dataset.page??'';
+  // The mini dial is an isolated, optional UI; never block a page on it.
+  try { const { mountOmniMini } = await import('./core/navigation/omni-mini'); mountOmniMini(page); }
+  catch (error) { console.warn('[Rich Bizness Mini Omni]', error); }
   await mountGlobalRuntime(page);
 }).catch(error=>{
   console.error('[Rich Bizness bootstrap]',error);
+  const page=document.body.dataset.page??'';
+  void import('./core/navigation/omni-mini').then(({mountOmniMini})=>mountOmniMini(page,true)).catch(()=>{});
 });
