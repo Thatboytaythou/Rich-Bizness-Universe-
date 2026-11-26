@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import {regaliaTextile} from './avatar.original.wearables.ts';
 import {DISTRICTS,type District,type WorldAction,type Bounds} from './world.catalog';
 
 export type DistrictScene={group:THREE.Group;obstacles:Bounds[];markers:Map<string,THREE.Group>;setFurnishing:(value:string)=>void;tick:(time:number,active?:string,cameraRotation?:THREE.Quaternion)=>void};
@@ -45,7 +46,13 @@ export function createDistrictScene(district:District):DistrictScene{
     // Lounge: sofa, cushions, table, media cabinet and textured architectural details.
     box(-3.8,.36,1.2,2.1,.7,2.3,palette.leather,true);box(-4.66,.84,1.2,.35,.95,2.3,palette.leather);
     for(const z of [.5,1.25,2])box(-3.7,.78,z,1.55,.18,.66,palette.cream);
-    box(-1.7,.32,1.2,.8,.58,1.8,palette.black,true);box(-1.7,.65,1.2,.85,.08,1.86,palette.brass);
+    // Original sculpted pedestal table in the same collision footprint.
+    obstacles.push({minX:-2.16,maxX:-1.24,minZ:.27,maxZ:2.13});
+    const table=new THREE.Group();table.position.set(-1.7,0,1.2);
+    const stem=new THREE.Mesh(new THREE.LatheGeometry([new THREE.Vector2(.31,.025),new THREE.Vector2(.33,.055),new THREE.Vector2(.24,.12),new THREE.Vector2(.13,.28),new THREE.Vector2(.22,.57),new THREE.Vector2(.30,.61)],32),mat(palette.brass));stem.scale.z=2;table.add(stem);
+    const top=new THREE.Mesh(new THREE.CylinderGeometry(.43,.4,.085,48),mat(palette.black));top.position.y=.65;top.scale.z=2.16;top.receiveShadow=true;table.add(top);group.add(table);
+    const rugTex=new THREE.DataTexture(regaliaTextile('emerald'),128,128,THREE.RGBAFormat);rugTex.colorSpace=THREE.SRGBColorSpace;rugTex.wrapS=rugTex.wrapT=THREE.RepeatWrapping;rugTex.repeat.set(5,6);rugTex.magFilter=THREE.LinearFilter;rugTex.needsUpdate=true;
+    const rug=new THREE.Mesh(new THREE.PlaneGeometry(3.8,4.6),new THREE.MeshStandardMaterial({map:rugTex,roughness:.96}));rug.rotation.x=-Math.PI/2;rug.position.set(-2.85,.009,1.1);rug.receiveShadow=true;group.add(rug);
     box(4.75,.55,.3,1.4,1.1,3,palette.wood,true);box(4.01,1.65,.3,.12,1.15,2.2,palette.screen);
     box(-4.5,1.18,-9,1.9,2.36,2.0,palette.wood,true);for(const x of [-5,-4.5,-4])box(x,1.2,-7.98,.035,2.2,.05,palette.brass);
     box(4.7,.47,-10.2,1.3,.94,1.5,palette.black,true);box(4.7,1.3,-10.5,.9,.56,.08,palette.screen);
@@ -64,6 +71,8 @@ export function createDistrictScene(district:District):DistrictScene{
     for(let z=-7;z<=1;z+=2){box(5.35,1.8,z,.12,1.6,1.35,palette.brass);box(5.25,1.8,z,.09,1.42,1.17,palette.green);}
     box(4.8,.5,-13.6,1.6,1,1.4,palette.black,true);box(4.8,1.6,-13.7,1.2,.65,.1,palette.screen);
     for(const x of [-5.5,5.5]){const strip=new THREE.Mesh(new THREE.BoxGeometry(.1,.075,18),new THREE.MeshBasicMaterial({color:0x58bca0}));strip.position.set(x,3.65,-5);group.add(strip);}
+    // Gallery display plinth and sculptural RB ring, inside existing exhibition side-wall footprint.
+    const sculpture=new THREE.Mesh(new THREE.TorusKnotGeometry(.23,.05,80,10,2,3),mat(palette.brass));sculpture.position.set(5.1,2.28,-9);sculpture.rotation.set(.45,.35,.2);group.add(sculpture);
     const title=sign('RICH BIZNESS / CREATIVE HOUSE',5,.7);title.position.set(0,3.2,-15.8);group.add(title);
   }else{
     // Extend the existing street scene with reachable destinations. Do not recreate its road.
