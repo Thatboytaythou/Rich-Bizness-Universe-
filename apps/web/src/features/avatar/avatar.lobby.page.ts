@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import {createCharacterLightMap} from './avatar.light-map';
 import { getAuthSnapshot } from '../../core/auth/auth-store';
 import { supabase } from '../../core/supabase/client';
 import {
@@ -151,7 +152,7 @@ export async function mount(): Promise<void> {
   if (!root) throw new Error('Missing #app mount');
   const epoch = root.dataset.pageEpoch ?? '';
   let disposed = false;
-  let renderer: THREE.WebGLRenderer | null = null;
+  let renderer: THREE.WebGLRenderer | null = null;let lightMap:THREE.WebGLRenderTarget|undefined;
   let avatarRuntime: SkinnedAvatarRuntime | null = null;
   let world: THREE.Group | null = null;
   let raf = 0;
@@ -167,7 +168,7 @@ export async function mount(): Promise<void> {
     window.removeEventListener('resize', resize);observer?.disconnect();
     if (avatarRuntime) disposeSkinnedAvatar(avatarRuntime);
     if (world) disposeObject(world);
-    renderer?.dispose();renderer?.forceContextLoss();
+    lightMap?.dispose();renderer?.dispose();renderer?.forceContextLoss();
     const host = window as CleanupHost;
     if (host.__rbPageCleanup === cleanup) host.__rbPageCleanup = null;
   };
@@ -226,6 +227,7 @@ export async function mount(): Promise<void> {
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.toneMappingExposure = 1.08;
+  try{lightMap=createCharacterLightMap(renderer);scene.environment=lightMap.texture;scene.environmentIntensity=.4;}catch{ /* direct lights remain available */ }
   renderer.shadowMap.enabled = !mobile;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
@@ -249,11 +251,11 @@ export async function mount(): Promise<void> {
   const applyExperience=(value:Experience)=>{experience=value;const mode=resolveVisual(value.visual,'avatar');canvas.dataset.rbVisualMode=mode;canvas.dataset.rbBehaviorMode=value.behavior;
     const fantasy=mode==='fantasy',expressive=mode==='expressive';
     (scene.background as THREE.Color).setHex(district==='city'?(fantasy?0x292645:expressive?0xc7dbe3:0xa9c9d8):(fantasy?0x211b32:0x141d19));(scene.fog as THREE.Fog).color.copy(scene.background as THREE.Color);
-    sun.color.setHex(fantasy?0xc6b4ff:0xfff2d9);sun.intensity=fantasy?2.0:3.2;hemi.intensity=expressive?3.1:fantasy?1.6:2.5;rim.color.setHex(fantasy?0x9e86ff:0x80ffc0);rim.intensity=fantasy?3.1:.7;
-    if(district==='personal'&&evening){sun.intensity=.75;hemi.intensity=.75;rim.color.setHex(0xffbd72);rim.intensity=3.4;}
+    fill.intensity=1.15;fill.color.setHex(0xd2e1f0);sun.color.setHex(fantasy?0xc6b4ff:0xfff2d9);sun.intensity=fantasy?2.0:3.2;hemi.intensity=expressive?3.1:fantasy?1.6:2.5;rim.color.setHex(fantasy?0x9e86ff:0x80ffc0);rim.intensity=fantasy?3.1:.7;
+    if(district==='personal'&&evening){sun.intensity=1.1;hemi.intensity=.95;fill.intensity=.85;rim.color.setHex(0xffbd72);rim.intensity=1.7;}
     if(district==='creative'){sun.intensity=1.8;hemi.intensity=1.6;rim.color.setHex(0x57c8a5);rim.intensity=2.7;}
     if(district==='personal'&&!evening){sun.intensity=2.25;hemi.intensity=1.55;fill.intensity=1.2;rim.intensity=1.4;}
-    if(renderer)renderer.toneMappingExposure=expressive?1.16:1.08;
+    if(renderer)renderer.toneMappingExposure=expressive?1.05:.98;
     root.querySelector<HTMLElement>('#alExperienceMode')!.textContent=mode+' · '+value.behavior;
     const guide=root.querySelector<HTMLElement>('#alGuide')!;guide.hidden=value.behavior!=='guided';guide.textContent='Use joystick to move. Sprint, jump or pose, then explore a world.';
     if(value.behavior==='manual')avatarRuntime?.expression?.('neutral');
@@ -269,7 +271,7 @@ export async function mount(): Promise<void> {
     save.onclick=async()=>{if(!residenceReady||residenceSaving)return;residenceSaving=true;setBusy(true);status.textContent='Saving…';try{residence=await saveResidence(user.id,residence,abort.signal);if(isCurrent()){sync();status.textContent='Verified • saved to your Rich ID';}}catch(error){if(isCurrent())status.textContent='Save failed: '+(error instanceof Error?error.message:'Retry');}finally{residenceSaving=false;if(isCurrent())setBusy(false);}};
   }
 
-  try{avatarRuntime=await createTexturedAvatar(gender,character.look,build);}catch(error){if(isCurrent())failure('Textured character unavailable. Saved Rich ID is unchanged.');return;}
+  try{avatarRuntime=await createTexturedAvatar(gender,character.look,build);}catch(error){if(isCurrent())failure('Character asset unavailable: '+(error instanceof Error?error.message:'load failed')+'. Saved Rich ID is unchanged.');return;}
   setAvatarMotion(avatarRuntime,'idle',0);
   canvas.dataset.rbModelState=original?'textured-human':'unsaved-textured-human';
   if (!isCurrent()) { disposeSkinnedAvatar(avatarRuntime); return; }
