@@ -22,3 +22,21 @@ const mixer=new THREE.AnimationMixer(root),action=mixer.clipAction(baked);action
 mixer.setTime(.31*1.08);root.updateMatrixWorld(true);near(first.foot.getWorldPosition(new THREE.Vector3()).y,.07,.015);
 mixer.setTime(.81*1.08);root.updateMatrixWorld(true);assert.ok(first.foot.getWorldPosition(new THREE.Vector3()).y>.105,'swing lifts foot');
 console.log('Character motion: stride cycle, IK endpoint, finite keyframes, restored rest pose, stance and swing verified');
+
+import {capturedMotion} from '../apps/web/src/features/avatar/avatar.captured-motion.ts';
+import {normalizeLook,SCULPT_FIELDS,CHARACTER_OPTIONS} from '../apps/web/src/features/avatar/avatar.character.config.ts';
+const old=normalizeLook({skin:'deep',hair:'braids',jaw:'square'});
+assert.equal(old.skin,'deep');assert.equal(old.hair,'braids');assert.equal(old.jaw,'square');
+assert.equal(old.maturity,'young-adult');assert.equal(old.hat,'none');
+for(const key of SCULPT_FIELDS)assert.equal(old[key],'0');
+assert.equal(SCULPT_FIELDS.length,26);
+assert.equal(CHARACTER_OPTIONS.hair.length,13);
+for(const kind of ['walk','run']){
+ for(const joint of ['Spine','Head','LeftArm','RightForeArm']){
+  const a=capturedMotion(kind,joint,0),b=capturedMotion(kind,joint,1);
+  assert.deepEqual(a,b);
+  for(let i=0;i<33;i++)assert.ok(capturedMotion(kind,joint,i/32).every(v=>Number.isFinite(v)&&Math.abs(v)<=.5));
+  assert.ok(capturedMotion(kind,joint,.25).some((v,i)=>Math.abs(v-a[i])>.001),'non-static captured motion');
+ }
+}
+console.log('Character detail: 26 neutral-default morphs, 13 hair choices, bounded captured locomotion channels verified');
