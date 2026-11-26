@@ -24,7 +24,7 @@ export function createStudioGraphics(canvas:HTMLCanvasElement,initial:CharacterC
   const ring=new THREE.Mesh(new THREE.TorusGeometry(.83,.013,6,48),new THREE.MeshBasicMaterial({color:aura(initial.aura)}));ring.rotation.x=-Math.PI/2;ring.position.y=.008;scene.add(ring);
   let runtime:SkinnedAvatarRuntime|null=null;
   let yaw=0,zoom=1,face=false,active:AvatarMotion='idle',disposed=false,failed=false,raf=0,previous=0,deadline=0,dirty=true;
-  let modelKey='',desired:CharacterConfig|null=null,loading=false,awaitingFrame=false,shaderError=false;let revision=0;let quality:'auto'|'detail'='auto',mood:AvatarExpression='neutral',latest=initial;let expressionUntil=0;
+  let modelKey='',desired:CharacterConfig|null=null,loading=false,awaitingFrame=false,shaderError=false;let revision=0;let quality:'auto'|'detail'='auto',mood:AvatarExpression='neutral',latest=initial;let expressionUntil=0;let frameScale=1,frameAverage=mobile?33:17,measured=0,lastAdapt=0,lastTelemetry=0,visible=true;
   const controller=new AbortController(),signal=controller.signal;
   let experience=getExperience();
   renderer.debug.checkShaderErrors=true;renderer.debug.onShaderError=()=>{shaderError=true;};
@@ -39,15 +39,16 @@ export function createStudioGraphics(canvas:HTMLCanvasElement,initial:CharacterC
     camera.position.set(0,targetY,distance);camera.fov=fov;camera.zoom=zoom;
     camera.updateProjectionMatrix();camera.lookAt(0,targetY,0);
   };
-  const schedule=()=>{if(!disposed&&!failed&&!raf&&!document.hidden)raf=requestAnimationFrame(draw);};
+  const schedule=()=>{if(!disposed&&!failed&&!raf&&!document.hidden&&visible)raf=requestAnimationFrame(draw);};
   const draw=(now:number)=>{
-    raf=0;if(disposed||failed||document.hidden)return;
+    raf=0;if(disposed||failed||document.hidden||!visible)return;
     const anim=active!=='idle'&&now<deadline;const living=!!runtime&&(!reduced.matches||now<expressionUntil);
     if(!dirty&&!anim&&!living&&active==='idle')return;
     if(previous&&now-previous<(mobile?32:16)){schedule();return;}
-    const dt=previous?Math.min((now-previous)/1000,.075):0;previous=now;
+    const elapsed=previous?now-previous:0;const dt=Math.min(elapsed/1000,.075);previous=now;if(elapsed>0&&elapsed<250){frameAverage+=.08*(elapsed-frameAverage);measured++;}
     try{
       if(runtime){
+        runtime.lookAt?.(experience.behavior!=='manual'&&active==='idle'&&!reduced.matches?camera.position:null);
         if(anim||living)updateSkinnedAvatar(runtime,dt);
         if(active==='jump'){
           const action=runtime.currentAction;
@@ -57,7 +58,7 @@ export function createStudioGraphics(canvas:HTMLCanvasElement,initial:CharacterC
         if(!anim&&active!=='idle'){if(experience.behavior!=='manual'){mood='neutral';runtime.expression?.(mood);}active='idle';runtime.root.position.y=0;setAvatarMotion(runtime,'idle',.22);runtime.mixer.update(0);}
       }
       if(runtime){contact.material.opacity=Math.max(.14,1-runtime.root.position.y*1.6);contact.scale.setScalar(1+runtime.root.position.y*.6);}
-      renderer.render(scene,camera);if(shaderError){fail('Material shader compilation failed');return;}dirty=false;if(runtime){if(awaitingFrame){awaitingFrame=false;onAssetStatus('ready',runtime.assetLabel??'Selected fitted wardrobe rendered');}onFrame();}
+      renderer.render(scene,camera);if(measured>30&&now-lastAdapt>2500&&!loading){lastAdapt=now;const next=frameAverage>(mobile?45:32)?Math.max(.65,frameScale-.12):frameAverage<(mobile?36:21)?Math.min(1,frameScale+.08):frameScale;if(Math.abs(next-frameScale)>.01){frameScale=next;resize();}}if(now-lastTelemetry>1000){lastTelemetry=now;canvas.dataset.rbFps=String(Math.round(1000/frameAverage));canvas.dataset.rbResolution=renderer.domElement.width+'×'+renderer.domElement.height;canvas.dataset.rbRenderScale=String(Math.round(frameScale*100));}if(shaderError){fail('Material shader compilation failed');return;}dirty=false;if(runtime){if(awaitingFrame){awaitingFrame=false;onAssetStatus('ready',runtime.assetLabel??'Selected fitted wardrobe rendered');}onFrame();}
       if(anim||living){dirty=true;schedule();}else previous=0;
     }catch(error){fail(error instanceof Error?error.message:'WebGL draw failed');}
   };
@@ -78,7 +79,7 @@ export function createStudioGraphics(canvas:HTMLCanvasElement,initial:CharacterC
     invalidate();
   };
   const stopExperience=subscribeExperience(applyExperience);
-  const resize=()=>{if(disposed||failed)return;const rect=canvas.getBoundingClientRect();if(rect.width<2||rect.height<2)return;const limit=mobile?(quality==='detail'?1152:900):1600;const scale=Math.min(quality==='detail'?1.5:1,limit/Math.max(rect.width,rect.height));renderer.setSize(Math.max(1,Math.round(rect.width*scale)),Math.max(1,Math.round(rect.height*scale)),false);camera.aspect=rect.width/rect.height;pose();invalidate();};
+  const resize=()=>{if(disposed||failed)return;const rect=canvas.getBoundingClientRect();if(rect.width<2||rect.height<2)return;const limit=mobile?(quality==='detail'?1152:900):1600;const scale=Math.min(quality==='detail'?1.5:1,limit/Math.max(rect.width,rect.height))*frameScale;renderer.setSize(Math.max(1,Math.round(rect.width*scale)),Math.max(1,Math.round(rect.height*scale)),false);camera.aspect=rect.width/rect.height;pose();invalidate();};
   const drain=async()=>{
     if(loading||disposed||failed)return;loading=true;
     try{
@@ -102,7 +103,7 @@ export function createStudioGraphics(canvas:HTMLCanvasElement,initial:CharacterC
     if(disposed||failed)return;
     latest=config;ring.material.color.setHex(aura(config.aura));const nextKey=JSON.stringify([config.gender,config.build,config.look,quality]);if(runtime&&nextKey===modelKey&&!loading){awaitingFrame=true;invalidate();return;}desired={...config,look:{...config.look}};revision++;awaitingFrame=false;onAssetStatus('loading','Applying selected appearance…');void drain();
   };
-  const motion=(value:AvatarMotion)=>{if(!runtime||failed||disposed)return;if(experience.behavior!=='manual'){mood=value==='power'?'confident':value==='run'?'focused':value==='jump'?'surprised':'neutral';runtime.expression?.(mood);}active=value;runtime.root.position.y=0;setAvatarMotion(runtime,value,value==='idle'?0:.18);if(value==='idle')runtime.mixer.update(0);else{face=false;zoom=1;pose();}deadline=performance.now()+(value==='jump'?950:value==='power'?2500:5000);previous=0;invalidate();};
+  const motion=(value:AvatarMotion)=>{if(!runtime||failed||disposed)return;if(experience.behavior!=='manual'){mood=value==='power'?'confident':value==='run'?'focused':value==='jump'?'surprised':'neutral';runtime.expression?.(mood);}active=value;runtime.root.position.y=0;setAvatarMotion(runtime,value,value==='idle'?0:.18);if(value==='idle')runtime.mixer.update(0);else{face=false;zoom=1;pose();}deadline=performance.now()+((value==='jump'||value==='power')?(runtime.currentAction?.getClip().duration??1)*1000+120:5000);previous=0;invalidate();};
   const rotate=(radians:number)=>{yaw+=radians;if(runtime)runtime.root.rotation.y=yaw;invalidate();};
   let pointer:number|null=null,lastX=0;
   canvas.addEventListener('pointerdown',e=>{pointer=e.pointerId;lastX=e.clientX;canvas.setPointerCapture(e.pointerId);},{signal});
@@ -110,8 +111,8 @@ export function createStudioGraphics(canvas:HTMLCanvasElement,initial:CharacterC
   for(const event of ['pointerup','pointercancel','lostpointercapture'])canvas.addEventListener(event,()=>{pointer=null;},{signal});
   canvas.addEventListener('webglcontextlost',event=>{event.preventDefault();fail('WebGL context lost');},{signal});
   document.addEventListener('visibilitychange',()=>{if(document.hidden){cancelAnimationFrame(raf);raf=0;previous=0;}else invalidate();},{signal});
-  const observer=new ResizeObserver(resize);observer.observe(canvas);
-  const dispose=()=>{if(disposed)return;disposed=true;controller.abort();stopExperience();observer.disconnect();cancelAnimationFrame(raf);if(runtime){scene.remove(runtime.root);disposeSkinnedAvatar(runtime);runtime=null;}floor.geometry.dispose();floor.material.dispose();contact.geometry.dispose();contact.material.dispose();contactMap.dispose();ring.geometry.dispose();ring.material.dispose();lightMap?.dispose();renderer.dispose();renderer.forceContextLoss();};
+  const observer=new ResizeObserver(resize);observer.observe(canvas);const visibility=new IntersectionObserver(entries=>{visible=entries[0]?.isIntersecting??true;if(!visible){cancelAnimationFrame(raf);raf=0;previous=0;}else invalidate();},{threshold:.05});visibility.observe(canvas);
+  const dispose=()=>{if(disposed)return;disposed=true;controller.abort();stopExperience();observer.disconnect();visibility.disconnect();cancelAnimationFrame(raf);if(runtime){scene.remove(runtime.root);disposeSkinnedAvatar(runtime);runtime=null;}floor.geometry.dispose();floor.material.dispose();contact.geometry.dispose();contact.material.dispose();contactMap.dispose();ring.geometry.dispose();ring.material.dispose();lightMap?.dispose();renderer.dispose();renderer.forceContextLoss();};
   applyExperience(experience);update(initial);resize();
-  return {gesture:name=>{if(!runtime||failed||disposed)return false;const duration=playAvatarGesture(runtime,name);if(!duration)return false;active='power';runtime.root.position.y=0;face=false;zoom=1;pose();if(experience.behavior!=='manual')runtime.expression?.(name==='wave'?'smile':'neutral');deadline=performance.now()+duration*1000+180;previous=0;invalidate();return true;},expression:value=>{mood=value;runtime?.expression?.(value);expressionUntil=performance.now()+1000;face=true;zoom=1;pose();invalidate();},quality:value=>{if(quality===value)return;quality=value;resize();update(latest);},update,motion,rotate,zoom:delta=>{zoom=THREE.MathUtils.clamp(zoom+delta,.8,1.6);pose();invalidate();},face:enabled=>{face=enabled;zoom=1;pose();invalidate();},reset:()=>{yaw=0;zoom=1;face=false;if(runtime)runtime.root.rotation.y=0;pose();motion('idle');},dispose};
+  return {gesture:name=>{if(!runtime||failed||disposed)return false;const duration=playAvatarGesture(runtime,name);if(!duration)return false;active='power';runtime.root.position.y=0;face=false;zoom=1;pose();if(experience.behavior!=='manual')runtime.expression?.(name==='wave'?'smile':'neutral');deadline=performance.now()+duration*1000+180;previous=0;invalidate();return true;},expression:value=>{mood=value;runtime?.expression?.(value);expressionUntil=performance.now()+1000;face=true;zoom=1;pose();invalidate();},quality:value=>{if(quality===value)return;quality=value;frameScale=1;measured=0;resize();update(latest);},update,motion,rotate,zoom:delta=>{zoom=THREE.MathUtils.clamp(zoom+delta,.8,1.6);pose();invalidate();},face:enabled=>{face=enabled;zoom=1;pose();invalidate();},reset:()=>{yaw=0;zoom=1;face=false;if(runtime)runtime.root.rotation.y=0;pose();motion('idle');},dispose};
 }
