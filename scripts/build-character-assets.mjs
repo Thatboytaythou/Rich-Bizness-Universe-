@@ -15,7 +15,7 @@ const reports=[];
 try{
  for(const [gender,detail,look] of [['boy','high',{skin:'deep',outfit:'formal',hair:'fade'}],['girl','low',{skin:'warm',outfit:'casual',hair:'braids'}],['boy','low',{collection:'emerald-legacy',skin:'deep',facialHair:'short_beard',earrings:'studs',tattooArt:'forearm_l',presence:'editorial'}],['girl','low',{collection:'onyx-executive',skin:'warm',earrings:'small_hoops'}],['boy','high',{collection:'omni-phantom',skin:'brown',facialHair:'stubble'}]]){
   const recipe=hdRecipe(gender,look,'athletic');assert.ok(recipe.params);
-  const dir=join(temp,gender);mkdirSync(dir);const input=join(dir,'recipe.json');writeFileSync(input,JSON.stringify({kind:'ara-character',version:1,params:recipe.params}));
+  const dir=join(temp,gender+'-'+detail+'-'+(look.collection??'base'));mkdirSync(dir);const input=join(dir,'recipe.json');writeFileSync(input,JSON.stringify({kind:'ara-character',version:1,params:recipe.params}));
   const out=join(dir,'export');mkdirSync(out);
   const r=spawnSync(process.execPath,[cli,'export','--params',input,'--detail',detail,'--formats','glb','--animations',HD_CLIPS.join(','),'--out',out],{stdio:'inherit',env:{...process.env,ARA3D_DATA:data},timeout:180000});
   assert.equal(r.status,0,'Real character export failed');
