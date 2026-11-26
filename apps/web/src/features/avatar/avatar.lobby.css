@@ -20,3 +20,12 @@ html,body{margin:0;min-height:100%;background:#dfeae4;color:#0c1711;font-family:
 .al-shell .al-destinations{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px}
 .al-destinations a{display:grid;gap:5px;padding:12px;border:1px solid #425749;border-radius:10px;background:#102019;color:#e4eadf}.al-destinations small{color:#aebfb2;font-size:11px;line-height:1.4}
 @media(max-width:760px){.al-shell .al-stage{height:clamp(390px,58dvh,620px)}.al-shell .al-interaction button{flex:1 1 100%}}
+
+.al-shell .al-life{width:min(1180px,100%);margin:10px auto;padding:16px;border:1px solid #425749;border-radius:14px;background:#0f2019;display:grid;gap:12px}
+.al-life-head small{color:#c8ad73;font-size:10px;letter-spacing:.13em}.al-life h2{margin:3px 0;font-size:19px;font-weight:650}.al-life p{margin:0;color:#c3d1c5;font-size:13px;line-height:1.5}
+.al-life label{display:grid;gap:6px;font-size:12px;color:#d3dfd3}.al-life select{background:#0a1711;border:1px solid #506555;color:#e6ecdf;min-height:44px;padding:8px;border-radius:8px;font-size:16px}
+.al-residence{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.al-residence button,.al-residence p{grid-column:1/-1}
+.al-life button,.al-life a[data-export]{min-height:44px;padding:10px;border-radius:9px;border:1px solid #b9a16c;background:#c9b77e;color:#102019;font-weight:800;text-align:center;font-size:12px}
+.al-life button:disabled{opacity:.45}.al-life .al-presence{display:flex;align-items:center;gap:10px;min-height:44px}.al-presence input{width:22px;height:22px;accent-color:#c9b77e}
+.al-recording{display:grid;gap:10px;padding:12px;border:1px solid #425749;border-radius:12px;background:#0a1711}.al-record-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px}.al-recording audio{width:100%}.al-recording [hidden]{display:none!important}.al-recording a{color:#dfcb92}
+.al-shell .al-id,.al-shell .al-mode,.al-shell .al-aura,.al-shell .joystick,.al-shell .actions button{backdrop-filter:none;background:rgba(13,30,22,.92);color:#e6e8da;border:1px solid #58715e}.al-shell .al-id strong,.al-shell .al-id em{color:#e6e8da}.al-shell .actions button.active{background:#b6c786;color:#102019}
