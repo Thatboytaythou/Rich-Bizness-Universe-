@@ -13,7 +13,7 @@ const dest=resolve(root,'apps/web/public/character-assets'),temp=mkdtempSync(joi
 mkdirSync(dest,{recursive:true});const assetDir=join(dest,'ara-1.2.0');rmSync(assetDir,{recursive:true,force:true});cpSync(data,assetDir,{recursive:true});
 const reports=[];
 try{
- for(const [gender,detail,look] of [['boy','high',{skin:'deep',outfit:'formal',hair:'fade'}],['girl','low',{skin:'warm',outfit:'casual',hair:'braids'}]]){
+ for(const [gender,detail,look] of [['boy','high',{skin:'deep',outfit:'formal',hair:'fade'}],['girl','low',{skin:'warm',outfit:'casual',hair:'braids'}],['boy','low',{collection:'emerald-legacy',skin:'deep',facialHair:'short_beard',earrings:'studs',tattooArt:'forearm_l',presence:'editorial'}],['girl','low',{collection:'onyx-executive',skin:'warm',earrings:'small_hoops'}],['boy','high',{collection:'omni-phantom',skin:'brown',facialHair:'stubble'}]]){
   const recipe=hdRecipe(gender,look,'athletic');assert.ok(recipe.params);
   const dir=join(temp,gender);mkdirSync(dir);const input=join(dir,'recipe.json');writeFileSync(input,JSON.stringify({kind:'ara-character',version:1,params:recipe.params}));
   const out=join(dir,'export');mkdirSync(out);
@@ -28,8 +28,8 @@ try{
   assert.ok((j.images??[]).length>=3);assert.ok((j.animations??[]).length>=HD_CLIPS.length);
   assert.ok((j.animations??[]).every(a=>a.channels.some(c=>c.target.path==='rotation')));
   const names=j.animations.map(a=>a.name);for(const clip of ['idle','walk','run','jump'])assert.ok(names.some(n=>n.toLowerCase().includes(clip)),clip+' missing');
-  const filename='rb-'+gender+'-'+detail+'.glb';writeFileSync(join(dest,filename),b);
-  reports.push({gender,detail,filename,triangles:Math.round(triangles),joints,morphs,bytes:b.length,clips:names,sha256:createHash('sha256').update(b).digest('hex')});
+  const filename=look.collection?'rb-elite-'+look.collection+'.glb':'rb-'+gender+'-'+detail+'.glb';writeFileSync(join(dest,filename),b);
+  reports.push({gender,detail,collection:look.collection??null,filename,triangles:Math.round(triangles),joints,morphs,bytes:b.length,clips:names,sha256:createHash('sha256').update(b).digest('hex')});
  }
  const report={generator:'ara3d@'+HD_VERSION,data:'ara3d-data@1.2.0',models:reports,visualApproval:false,source:'MakeHuman CC0 and CMU motion capture',notice:'The data used in this project was obtained from mocap.cs.cmu.edu. The database was created with funding from NSF EIA-0196217. Do not resell motion data independently.'};
  writeFileSync(join(dest,'admission.json'),JSON.stringify(report,null,2));console.log('RB HD actual GLB admission: '+JSON.stringify(reports));
