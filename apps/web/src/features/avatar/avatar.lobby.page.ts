@@ -155,7 +155,7 @@ export async function mount(): Promise<void> {
   let avatarRuntime: SkinnedAvatarRuntime | null = null;
   let world: THREE.Group | null = null;
   let raf = 0;
-  let resize = () => {};let stopExperience=()=>{};let stopLife=()=>{};
+  let resize = () => {};let observer:ResizeObserver|undefined;let stopExperience=()=>{};let stopLife=()=>{};
   const abort = new AbortController();
   const isCurrent = () => !disposed && root.dataset.pageEpoch === epoch && root.dataset.pageOwner === OWNER;
 
@@ -164,7 +164,7 @@ export async function mount(): Promise<void> {
     disposed = true;
     abort.abort();stopExperience();stopLife();
     cancelAnimationFrame(raf);
-    window.removeEventListener('resize', resize);
+    window.removeEventListener('resize', resize);observer?.disconnect();
     if (avatarRuntime) disposeSkinnedAvatar(avatarRuntime);
     if (world) disposeObject(world);
     renderer?.dispose();renderer?.forceContextLoss();
@@ -200,7 +200,7 @@ export async function mount(): Promise<void> {
   const deceleration = Number(controller.deceleration ?? 16);
   const turnSpeed = Number(controller.turn_speed ?? 8);
 
-  root.innerHTML = `<main class="al-shell"><header><h1>${definition.title}</h1><nav><a href="/avatar-characters.html">CUSTOMIZE</a><a href="/profile.html">PROFILE</a><a href="/meta.html">WORLDS</a></nav></header><div class="al-experience"><span id="alExperienceMode"></span><span id="alGuide" role="status" hidden></span><a href="/meta.html">World Exchange ↗</a></div><nav class="al-districts" aria-label="Travel between districts">${(Object.keys(DISTRICTS) as Array<keyof typeof DISTRICTS>).map(key=>`<a href="${districtHref(key)}" ${key===district?'aria-current="page"':''}>${DISTRICTS[key].title}</a>`).join("")}</nav><section class="al-stage"><canvas id="lobbyCanvas"></canvas><div class="al-hud"><span class="al-mode">${original?'RICH ID • SAVED':'UNSAVED DEFAULT • CUSTOMIZE'}</span><span class="al-aura">${esc(aura)}</span><div class="al-id"><strong>${esc(name)}</strong><em>${esc(build.toUpperCase())} · ${esc(style.toUpperCase())}</em></div></div><div class="al-controls"><div class="joystick" id="joystick"><div id="stick"></div></div><div class="actions"><button data-action="jump">JUMP</button><button data-action="run">SPRINT</button><button data-action="power">POWER</button><button data-action="idle">RESET</button></div></div><div class="al-loading" id="avatarLoading">LOADING CHARACTER…</div></section><section class="al-interaction" aria-label="District interactions"><div><small id="alWorldStatus">Connecting world entry…</small><h2 id="alActionTitle">Explore the environment</h2><p id="alActionDescription">${definition.description}</p></div><button id="alInteract" disabled type="button">MOVE TO A MARKER</button></section><section class="al-life" aria-label="World services"><div class="al-life-head"><small>RICH BIZNESS / WORLD LIFE</small><h2>${district==='personal'?'Residence controls':district==='creative'?'Creative services':'City services'}</h2></div>${district==='personal'?`<div class="al-residence"><label>Lighting<select id="rbResidenceLighting"><option value="daylight">Daylight</option><option value="evening">Evening</option></select></label><label>Furniture finish<select id="rbResidenceFinish"><option value="emerald">Emerald leather</option><option value="onyx">Onyx leather</option><option value="cognac">Cognac leather</option></select></label><button id="rbResidenceSave" disabled>SAVE RESIDENCE</button><p id="rbResidenceStatus" role="status">Reading your private settings…</p></div>`:`<label class="al-presence"><input type="checkbox" id="rbPresence">Share my in-world movement with other signed-in members</label><p id="rbPresenceStatus" role="status">Solo mode · movement not shared</p><p id="rbWayfinder" role="status">Choose a destination below to track its distance.</p><label>Destination<select id="rbTarget"><option value="">Nearest station</option>${definition.actions.map(a=>`<option value="${a.id}">${a.label}</option>`).join("")}</select></label>`}${district==='creative'?'<div id="rbRecording" class="al-recording"></div>':''}</section><div class="al-destinations">${definition.actions.filter(a=>a.href).map(a=>`<a href="${a.href}"><strong>${a.label}</strong><small>${a.description}</small></a>`).join("")}</div></main>`;
+  root.innerHTML = `<main class="al-shell"><header><h1>${definition.title}</h1><nav><a href="/avatar-characters.html">CUSTOMIZE</a><a href="/profile.html">PROFILE</a><a href="/meta.html">WORLDS</a></nav></header><div class="al-experience"><span id="alExperienceMode"></span><span id="alGuide" role="status" hidden></span><a href="/meta.html">World Exchange ↗</a></div><nav class="al-districts" aria-label="Travel between districts">${(Object.keys(DISTRICTS) as Array<keyof typeof DISTRICTS>).map(key=>`<a href="${districtHref(key)}" ${key===district?'aria-current="page"':''}>${DISTRICTS[key].title}</a>`).join("")}</nav><section class="al-play"><div class="al-hud"><span class="al-mode">${original?'RICH ID • SAVED':'UNSAVED DEFAULT • CUSTOMIZE'}</span><span class="al-aura">${esc(aura)}</span><div class="al-id"><strong>${esc(name)}</strong><em>${esc(build.toUpperCase())} · ${esc(character.look.outfit.toUpperCase())} OUTFIT</em></div></div><div class="al-stage"><canvas id="lobbyCanvas"></canvas><div class="al-loading" id="avatarLoading">LOADING CHARACTER…</div></div><div class="al-camera-tools" aria-label="Camera control"><button type="button" data-camera="close" aria-pressed="true">CHARACTER</button><button type="button" data-camera="wide" aria-pressed="false">EXPLORE</button><button type="button" data-camera="turn">TURN VIEW</button></div><div class="al-controls"><div class="joystick" id="joystick"><div id="stick"></div></div><div class="actions"><button data-action="jump">JUMP</button><button data-action="run">SPRINT</button><button data-action="power">POWER</button><button data-action="idle">RESET</button></div></div></section><section class="al-interaction" aria-label="District interactions"><div><small id="alWorldStatus">Connecting world entry…</small><h2 id="alActionTitle">Explore the environment</h2><p id="alActionDescription">${definition.description}</p></div><button id="alInteract" disabled type="button">MOVE TO A MARKER</button></section><section class="al-life" aria-label="World services"><div class="al-life-head"><small>RICH BIZNESS / WORLD LIFE</small><h2>${district==='personal'?'Residence controls':district==='creative'?'Creative services':'City services'}</h2></div>${district==='personal'?`<div class="al-residence"><label>Lighting<select id="rbResidenceLighting"><option value="daylight">Daylight</option><option value="evening">Evening</option></select></label><label>Furniture finish<select id="rbResidenceFinish"><option value="emerald">Emerald leather</option><option value="onyx">Onyx leather</option><option value="cognac">Cognac leather</option></select></label><button id="rbResidenceSave" disabled>SAVE RESIDENCE</button><p id="rbResidenceStatus" role="status">Reading your private settings…</p></div>`:`<label class="al-presence"><input type="checkbox" id="rbPresence">Share my in-world movement with other signed-in members</label><p id="rbPresenceStatus" role="status">Solo mode · movement not shared</p><p id="rbWayfinder" role="status">Choose a destination below to track its distance.</p><label>Destination<select id="rbTarget"><option value="">Nearest station</option>${definition.actions.map(a=>`<option value="${a.id}">${a.label}</option>`).join("")}</select></label>`}${district==='creative'?'<div id="rbRecording" class="al-recording"></div>':''}</section><div class="al-destinations">${definition.actions.filter(a=>a.href).map(a=>`<a href="${a.href}"><strong>${a.label}</strong><small>${a.description}</small></a>`).join("")}</div></main>`;
 
   const worldStatus=root.querySelector<HTMLElement>('#alWorldStatus')!;
   const interaction=root.querySelector<HTMLButtonElement>('#alInteract')!;
@@ -214,8 +214,9 @@ export async function mount(): Promise<void> {
   scene.background = new THREE.Color(0xa9c9d8);
   scene.fog = new THREE.Fog(0xa9c9d8, 22, 115);
   const camera = new THREE.PerspectiveCamera(Number(cameraConfig.fov ?? 48), 1, .08, 180);
-  const baseDistance = Math.max(3.8, Number(cameraConfig.distance ?? 5.4));
-  const baseHeight = Math.max(1.5, Number(cameraConfig.height ?? 2.2));
+  const baseDistance = Math.min(5.8,Math.max(4.5, Number(cameraConfig.distance ?? 5.4)||5.4));
+  let cameraMode:'close'|'wide'='close',cameraYaw=0;const cameraTools=root.querySelectorAll<HTMLButtonElement>('[data-camera]');
+  const baseHeight = Math.min(2.5,Math.max(1.5, Number(cameraConfig.height ?? 2.2)||2.2));
 
   const mobile=matchMedia('(pointer:coarse),(max-width:860px)').matches;
   const failure=(message:string)=>{cancelAnimationFrame(raf);stopLife();root.querySelector<HTMLElement>('#avatarLoading')?.remove();const panel=document.createElement('div');panel.className='al-loading';panel.setAttribute('role','status');panel.textContent=message+' ';const link=document.createElement('a');link.href='/avatar-characters.html';link.textContent='Return to Avatar Studio';panel.append(link);canvas.parentElement?.append(panel);root.querySelectorAll<HTMLButtonElement>('[data-action]').forEach(button=>button.disabled=true);};
@@ -247,7 +248,7 @@ export async function mount(): Promise<void> {
   let experience=getExperience();
   const applyExperience=(value:Experience)=>{experience=value;const mode=resolveVisual(value.visual,'avatar');canvas.dataset.rbVisualMode=mode;canvas.dataset.rbBehaviorMode=value.behavior;
     const fantasy=mode==='fantasy',expressive=mode==='expressive';
-    (scene.background as THREE.Color).setHex(fantasy?0x292645:expressive?0xc7dbe3:0xa9c9d8);(scene.fog as THREE.Fog).color.copy(scene.background as THREE.Color);
+    (scene.background as THREE.Color).setHex(district==='city'?(fantasy?0x292645:expressive?0xc7dbe3:0xa9c9d8):(fantasy?0x211b32:0x141d19));(scene.fog as THREE.Fog).color.copy(scene.background as THREE.Color);
     sun.color.setHex(fantasy?0xc6b4ff:0xfff2d9);sun.intensity=fantasy?2.0:3.2;hemi.intensity=expressive?3.1:fantasy?1.6:2.5;rim.color.setHex(fantasy?0x9e86ff:0x80ffc0);rim.intensity=fantasy?3.1:.7;
     if(district==='personal'&&evening){sun.intensity=.75;hemi.intensity=.75;rim.color.setHex(0xffbd72);rim.intensity=3.4;}
     if(district==='creative'){sun.intensity=1.8;hemi.intensity=1.6;rim.color.setHex(0x57c8a5);rim.intensity=2.7;}
@@ -274,6 +275,7 @@ export async function mount(): Promise<void> {
   avatarRuntime.root.position.set(definition.spawn[0],0,definition.spawn[1]);
   scene.add(avatarRuntime.root);
   root.querySelector<HTMLElement>('#avatarLoading')?.remove();
+  const shadowCanvas=document.createElement('canvas');shadowCanvas.width=shadowCanvas.height=128;const ctx=shadowCanvas.getContext('2d')!;const grad=ctx.createRadialGradient(64,64,3,64,64,62);grad.addColorStop(0,'rgba(0,0,0,.65)');grad.addColorStop(1,'rgba(0,0,0,0)');ctx.fillStyle=grad;ctx.fillRect(0,0,128,128);const shadowTexture=new THREE.CanvasTexture(shadowCanvas);const contact=new THREE.Mesh(new THREE.PlaneGeometry(1.1,.9),new THREE.MeshBasicMaterial({map:shadowTexture,transparent:true,depthWrite:false}));contact.rotation.x=-Math.PI/2;contact.position.y=.025;world.add(contact);
 
   const joystick = root.querySelector<HTMLElement>('#joystick')!;
   const stick = root.querySelector<HTMLElement>('#stick')!;
@@ -327,7 +329,7 @@ export async function mount(): Promise<void> {
       }
       if (action === 'run') {
         sprint = !sprint;
-        button.classList.toggle('active', sprint);
+        button.classList.toggle('active', sprint);button.setAttribute('aria-pressed',String(sprint));
       }
       if (action === 'power' && grounded) powerTimer = 2.4;
       if (action === 'idle') {
@@ -336,7 +338,7 @@ export async function mount(): Promise<void> {
         sprint = false;
         powerTimer = 0;
         velocity.set(0, 0, 0);
-        root.querySelector<HTMLButtonElement>('[data-action="run"]')?.classList.remove('active');
+        const sprintButton=root.querySelector<HTMLButtonElement>('[data-action="run"]');sprintButton?.classList.remove('active');sprintButton?.setAttribute('aria-pressed','false');release();keys.clear();
       }
     };
   });
@@ -344,17 +346,18 @@ export async function mount(): Promise<void> {
   resize = () => {
     if (!renderer) return;
     const rect = canvas.getBoundingClientRect();
-    const limit=mobile?720:1280;const scale=Math.min(1,limit/Math.max(1,rect.width,rect.height));renderer.setSize(Math.max(1,Math.round(rect.width*scale)),Math.max(1,Math.round(rect.height*scale)),false);
+    const limit=mobile?960:1440;const scale=Math.min(1,limit/Math.max(1,rect.width,rect.height));renderer.setSize(Math.max(1,Math.round(rect.width*scale)),Math.max(1,Math.round(rect.height*scale)),false);
     camera.aspect = rect.width / Math.max(1, rect.height);
     camera.updateProjectionMatrix();
   };
-  window.addEventListener('resize', resize);
+  window.addEventListener('resize', resize);observer=new ResizeObserver(resize);observer.observe(canvas);
   resize();
+  cameraTools.forEach(b=>b.onclick=()=>{if(b.dataset.camera==='turn'){cameraYaw=(cameraYaw+Math.PI/2)%(Math.PI*2);return;}cameraMode=b.dataset.camera==='wide'?'wide':'close';cameraTools.forEach(t=>{if(t.dataset.camera!=='turn')t.setAttribute('aria-pressed',String(t===b));});});
 
   const clock = new THREE.Clock();
   const targetCamera = new THREE.Vector3();
   const cameraLook = new THREE.Vector3();
-  camera.position.set(definition.spawn[0],baseHeight,definition.spawn[1]+baseDistance);camera.lookAt(definition.spawn[0],avatarRuntime.height*.57,definition.spawn[1]);
+  camera.position.set(definition.spawn[0],1.65,definition.spawn[1]+3.1);camera.lookAt(definition.spawn[0],avatarRuntime.height*.52,definition.spawn[1]);
   let activeMotion: AvatarMotion = 'idle';
   const presence=createWorldPresence(scene,district,user.id,()=>avatarRuntime?{x:avatarRuntime.root.position.x,y:Math.min(4,Math.max(0,avatarRuntime.root.position.y)),z:avatarRuntime.root.position.z,yaw:Math.atan2(Math.sin(avatarRuntime.root.rotation.y),Math.cos(avatarRuntime.root.rotation.y)),motion:activeMotion}:null,s=>{const el=root.querySelector<HTMLElement>('#rbPresenceStatus');if(el)el.textContent=s;});
   const toggle=root.querySelector<HTMLInputElement>('#rbPresence');if(toggle){toggle.disabled=!original;toggle.onchange=()=>{if(toggle.checked)presence.start();else presence.stop();};document.addEventListener('visibilitychange',()=>{if(document.hidden&&toggle.checked){toggle.checked=false;presence.stop();}},{signal:abort.signal});}
@@ -379,7 +382,7 @@ export async function mount(): Promise<void> {
     const topSpeed = Math.min(sprint?sprintSpeed:moveSpeed,nominal*1.28);
 
     if (moving) {
-      desiredVelocity.set(joyX, 0, joyY).normalize().multiplyScalar(topSpeed * inputMagnitude);
+      desiredVelocity.set(joyX, 0, joyY).applyAxisAngle(new THREE.Vector3(0,1,0),cameraYaw).normalize().multiplyScalar(topSpeed * inputMagnitude);
       const blend = Math.min(1, acceleration * dt);
       velocity.lerp(desiredVelocity, blend);
     } else {
@@ -417,18 +420,12 @@ export async function mount(): Promise<void> {
     if(nextMotion==='walk'||nextMotion==='run'){const strideSpeed=avatarRuntime.locomotionSpeed?.[nextMotion]??(nextMotion==='run'?3.8:1.9);avatarRuntime.currentAction?.setEffectiveTimeScale(THREE.MathUtils.clamp(actualSpeed/strideSpeed,.08,1.45));}else if(nextMotion==='jump'&&avatarRuntime.currentAction){avatarRuntime.currentAction.setEffectiveTimeScale(THREE.MathUtils.clamp(avatarRuntime.currentAction.getClip().duration/Math.max(.3,2*jumpForce/gravity),.6,2));}
     updateSkinnedAvatar(avatarRuntime, dt);
 
-    targetCamera.set(
-      avatarRuntime.root.position.x,
-      avatarRuntime.root.position.y + baseHeight,
-      avatarRuntime.root.position.z + baseDistance
-    );
-    if(district!=='city'){targetCamera.z=Math.min(9,targetCamera.z);targetCamera.x=THREE.MathUtils.clamp(targetCamera.x,-4.9,4.9);}
+    const distance=cameraMode==='close'?Math.max(2.55,avatarRuntime.height/(2*Math.tan(THREE.MathUtils.degToRad(camera.fov*.5))*.66)):baseDistance;
+    targetCamera.set(position.x+Math.sin(cameraYaw)*distance,position.y+(cameraMode==='close'?avatarRuntime.height*.91:baseHeight),position.z+Math.cos(cameraYaw)*distance);
+    if(district!=='city'){targetCamera.z=THREE.MathUtils.clamp(targetCamera.z,definition.bounds.minZ+.15,8.5);targetCamera.x=THREE.MathUtils.clamp(targetCamera.x,-5.65,5.65);}
     camera.position.lerp(targetCamera, 1 - Math.exp(-6.5 * dt));
-    cameraLook.set(
-      avatarRuntime.root.position.x,
-      avatarRuntime.root.position.y + avatarRuntime.height * .57,
-      avatarRuntime.root.position.z - .3
-    );
+    cameraLook.set(position.x,position.y+avatarRuntime.height*.52,position.z);
+    contact.position.set(position.x,.025,position.z);contact.material.opacity=Math.max(.13,1-position.y*.8);
     camera.lookAt(cameraLook);
 
     sampleTime += dt;
@@ -445,7 +442,7 @@ export async function mount(): Promise<void> {
       sampleFrames = 0;
     }
 
-    districtScene.tick(now/1000);presence.tick(dt,now/1000);
+    districtScene.tick(now/1000,activeAction?.id,camera.quaternion);presence.tick(dt,now/1000);
     if(now-lastGuide>500){lastGuide=now;const guide=root.querySelector<HTMLElement>('#rbWayfinder'),selection=root.querySelector<HTMLSelectElement>('#rbTarget');if(guide){const p=avatarRuntime.root.position;const target=definition.actions.find(a=>a.id===selection?.value)??[...definition.actions].sort((a,b)=>Math.hypot(a.x-p.x,a.z-p.z)-Math.hypot(b.x-p.x,b.z-p.z))[0];if(target){const distance=Math.hypot(target.x-p.x,target.z-p.z);const direction=target.z<p.z?'ahead (north)':'behind (south)';guide.textContent=target.label+' · '+distance.toFixed(1)+' m · '+(distance<1.85?'within interaction range':direction+' / '+(target.x<p.x?'west':'east'));}}}
     renderer.render(scene, camera);canvas.dataset.rbRenderState='frame-rendered';canvas.dataset.rbDistrict=district;
     }catch(error){failure('Graphics stopped. Saved appearance is unchanged.');console.warn('[Avatar Lobby]',error);}
