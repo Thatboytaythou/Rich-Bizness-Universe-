@@ -4,7 +4,7 @@ import {tmpdir} from 'node:os';
 import {spawnSync} from 'node:child_process';
 import {createHash} from 'node:crypto';
 import assert from 'node:assert/strict';
-import {hdRecipe,HD_CLIPS,HD_VERSION} from '../apps/web/src/features/avatar/avatar.hd.recipe.ts';
+import {hdRecipe,HD_CLIPS,HD_VERSION,morphs} from '../apps/web/src/features/avatar/avatar.hd.recipe.ts';
 const root=process.cwd(),data=[resolve(root,'node_modules/ara3d-data/assets'),resolve(root,'apps/web/node_modules/ara3d-data/assets')].find(existsSync);
 assert.ok(data,'Pinned Ara character data is missing');
 const cli=[resolve(root,'node_modules/ara3d/dist/cli.js'),resolve(root,'apps/web/node_modules/ara3d/dist/cli.js')].find(existsSync);
@@ -12,9 +12,10 @@ assert.ok(cli,'Pinned Ara exporter is missing');
 const dest=resolve(root,'apps/web/public/character-assets'),temp=mkdtempSync(join(tmpdir(),'rb-hd-'));
 mkdirSync(dest,{recursive:true});const assetDir=join(dest,'ara-1.2.0');rmSync(assetDir,{recursive:true,force:true});cpSync(data,assetDir,{recursive:true});
 const reports=[];
+const catalog=JSON.parse(readFileSync(join(data,'catalog.json'),'utf8'));const sliderIds=new Set(catalog.sliders.flatMap(group=>group.sliders.map(slider=>slider.id)));for(const [field,id] of Object.entries(morphs))assert.ok(sliderIds.has(id),'Anatomy control '+field+' points to absent asset target '+id);
 try{
- for(const [gender,detail,look] of [['boy','high',{skin:'deep',outfit:'formal',hair:'fade'}],['girl','low',{skin:'warm',outfit:'casual',hair:'braids'}],['boy','medium',{skin:'deep',outfit:'formal',hair:'fade'}],['girl','medium',{skin:'warm',outfit:'casual',hair:'braids'}],['boy','low',{collection:'emerald-legacy',skin:'deep',facialHair:'short_beard',earrings:'studs',tattooArt:'forearm_l',presence:'editorial'}],['girl','low',{collection:'onyx-executive',skin:'warm',earrings:'small_hoops'}],['boy','high',{collection:'omni-phantom',skin:'brown',facialHair:'stubble'}],['boy','low',{collection:'heritage-crown',skin:'deep',eliteJewelry:'gold',earrings:'studs'}],['girl','high',{collection:'midnight-motion',skin:'warm',eliteJewelry:'silver',identityMode:'phantom'}],['boy','high',{skin:'deep',hair:'fade',designerCut:'street',designerPalette:'burgundy',designerAccent:'copper',designerFootwear:'boots',evolution:'celestial',foreheadHeight:'20',neckWidth:'20'}]]){
-  const recipe=hdRecipe(gender,look,'athletic');assert.ok(recipe.params);
+ for(const [gender,detail,look] of [['boy','high',{skin:'deep',outfit:'formal',hair:'fade'}],['girl','low',{skin:'warm',outfit:'casual',hair:'braids'}],['boy','medium',{skin:'deep',outfit:'formal',hair:'fade'}],['girl','medium',{skin:'warm',outfit:'casual',hair:'braids'}],['boy','low',{collection:'emerald-legacy',skin:'deep',facialHair:'short_beard',earrings:'studs',tattooArt:'forearm_l',presence:'editorial'}],['girl','low',{collection:'onyx-executive',skin:'warm',earrings:'small_hoops'}],['boy','high',{collection:'omni-phantom',skin:'brown',facialHair:'stubble'}],['boy','low',{collection:'heritage-crown',skin:'deep',eliteJewelry:'gold',earrings:'studs'}],['girl','high',{collection:'midnight-motion',skin:'warm',eliteJewelry:'silver',identityMode:'phantom'}],['boy','high',{skin:'deep',hair:'fade',designerCut:'street',designerPalette:'burgundy',designerAccent:'copper',designerFootwear:'boots',evolution:'celestial',foreheadHeight:'20',neckWidth:'20',upperArm:'60',forearm:'40',thigh:'40',calf:'20',handSize:'20',footSize:'20',torsoLength:'20',backWidth:'40',gluteVolume:'20'}]]){
+  const recipe=hdRecipe(gender,look,'athletic');assert.ok(recipe.params);for(const id of Object.keys(recipe.params.modifiers))assert.ok(sliderIds.has(id),'Recipe uses absent target '+id);
   const dir=join(temp,gender+'-'+detail+'-'+(look.designerCut?'custom-design':look.collection??'base'));mkdirSync(dir);const input=join(dir,'recipe.json');writeFileSync(input,JSON.stringify({kind:'ara-character',version:1,params:recipe.params}));
   const out=join(dir,'export');mkdirSync(out);
   const r=spawnSync(process.execPath,[cli,'export','--params',input,'--detail',detail,'--formats','glb','--animations',HD_CLIPS.join(','),'--out',out],{stdio:'inherit',env:{...process.env,ARA3D_DATA:data},timeout:180000});
