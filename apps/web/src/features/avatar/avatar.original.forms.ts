@@ -46,7 +46,7 @@ export function secondarySurface(g:THREE.BufferGeometry,kind:'hair'|'fabric',sel
  const max=span*(kind==='hair'?.022:.012);
  for(let k=0;k<vertices.length;k++){const i=vertices[k],x=p.getX(i),y=p.getY(i),z=p.getZ(i),v=THREE.MathUtils.clamp((y-box.min.y)/size.y,0,1),u=(x-box.min.x)/size.x;rest[k*3]=x;rest[k*3+1]=y;rest[k*3+2]=z;normal.fromBufferAttribute(n,i);if(!Number.isFinite(normal.lengthSq())||normal.lengthSq()<.25)continue;normal.normalize();const weight=kind==='hair'?(1-v)**2:Math.sin(Math.PI*v)**2;const d=max*weight*Math.sin((u*3+v*2)*Math.PI);delta[k*3]=normal.x*d;delta[k*3+1]=normal.y*d;delta[k*3+2]=normal.z*d;}
  g.computeBoundingBox();g.computeBoundingSphere();if(g.boundingBox)g.boundingBox.expandByScalar(max);if(g.boundingSphere)g.boundingSphere.radius+=max;
- const lo=Math.min(...vertices),hi=Math.max(...vertices);let last=0;
+ let lo=Infinity,hi=-Infinity;for(const i of vertices){lo=Math.min(lo,i);hi=Math.max(hi,i);}let last=0;
  return {count:vertices.length,kind,max,apply:(amount:number)=>{const value=Number.isFinite(amount)?THREE.MathUtils.clamp(amount,-1,1):0;const a=Math.abs(value)<.001?0:value;if(a===last)return;last=a;
   for(let k=0;k<vertices.length;k++){const i=vertices[k],j=k*3;if(a===0)p.setXYZ(i,rest[j],rest[j+1],rest[j+2]);else p.setXYZ(i,rest[j]+delta[j]*a,rest[j+1]+delta[j+1]*a,rest[j+2]+delta[j+2]*a);}
   if(p instanceof THREE.BufferAttribute&&p.itemSize===3)p.addUpdateRange(lo*3,(hi-lo+1)*3);p.needsUpdate=true;
