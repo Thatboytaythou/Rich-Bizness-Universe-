@@ -23,3 +23,11 @@ assert.match(source,/if\(!mobile&&!graphics&&!graphicsLoading\)void enable\(\)/)
 assert.match(source,/onWorkspace=key=>/);
 assert.ok(!html.includes('id="app" aria-live'));
 console.log('Mobile stability policy: serialized fit, single mesh, bounded buffer, explicit 3D start, deferred optional reads');
+
+import {createCinematicSky,createGroundShade,glassGradient,groundShadeMesh} from '../apps/web/src/features/avatar/avatar.cinematic.depth.ts';
+const sky=createCinematicSky();assert.equal(sky.material.depthWrite,false);assert.ok(sky.geometry.attributes.position.count<400);assert.ok(sky.material.fragmentShader.includes('#include <colorspace_fragment>'));sky.geometry.dispose();sky.material.dispose();
+const shade=createGroundShade(),glass=glassGradient();assert.equal(shade.image.data.length,64*64*4);assert.equal(shade.image.data[3],0);assert.ok(shade.image.data[(32*64+32)*4+3]>170);assert.equal(glass.image.data.length,16*64*4);
+const plane=groundShadeMesh(shade,1.35,2.5);assert.equal(plane.material.depthWrite,false);plane.geometry.dispose();plane.material.dispose();shade.dispose();glass.dispose();
+const lobby=readFileSync(root+'avatar.lobby.page.ts','utf8');assert.match(lobby,/const limit=mobile\?640:1440/);assert.match(lobby,/new THREE.InstancedMesh\(new THREE.PlaneGeometry\(1,1\)/);
+assert.match(graphics,/renderer.shadowMap.enabled=!mobile/);
+console.log('V29: bounded sky geometry, soft shade and glass textures, desktop-only shadow map, mobile buffer protection');
