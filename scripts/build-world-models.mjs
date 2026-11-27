@@ -1,8 +1,12 @@
 import {mkdirSync,writeFileSync,rmSync} from 'node:fs';
 import {createHash} from 'node:crypto';
+import {GLTFLoader} from 'three/examples/jsm/loaders/GLTFLoader.js';
+import {mergeStaticVehicle,disposeDetailedVehicle} from '../apps/web/src/features/avatar/avatar.world.vehicle.ts';
+import {compactMobileVehicle} from './world-vehicle-mobile-lod.mjs';
 const out='apps/web/public/world-models';mkdirSync(out,{recursive:true});
 const file='spectral-gt-rs.glb',url='https://raw.githubusercontent.com/JaronKBragg7337/spectral-gt-rs/34499c501908818a2b08e589a7aecf963343cee7/spectral_gt_rs_game_ready.glb',expected='f5b814848453a6c75a48f5047fdadaa7bdc78969';
-const report={release:'V31',available:false,asset:file,source:url,gitBlob:expected,license:'CC0-1.0',creator:'JaronKBragg7337'};
+const mobileFile='spectral-gt-rs-mobile.glb';rmSync(out+'/'+mobileFile,{force:true});
+const report={release:'V31.1',available:false,asset:file,source:url,gitBlob:expected,license:'CC0-1.0',creator:'JaronKBragg7337'};
 try{
  const response=await fetch(url,{signal:AbortSignal.timeout(18000),redirect:'error'});if(!response.ok)throw Error('upstream HTTP '+response.status);
  const len=Number(response.headers.get('content-length')??0);if(len>6_000_000)throw Error('download exceeds 6 MB');
@@ -18,6 +22,12 @@ try{
  if(!triangles||triangles>240000||primitives>600)throw Error('asset exceeds static world budget: '+triangles+' triangles / '+primitives+' primitives');
  const embeddedImageBytes=(j.images??[]).reduce((sum,img)=>sum+(j.bufferViews?.[img.bufferView]?.byteLength??0),0);if(embeddedImageBytes>3_000_000)throw Error('embedded image budget exceeded');
  Object.assign(report,{available:true,bytes:bytes.length,triangles,primitives,embeddedImageBytes,mobileEligible:triangles<=85000&&embeddedImageBytes<=1_500_000});
+ // Use the same real GLTFLoader and static merge routine as the running world.
+ const verifyMerge=async(buffer,mobile)=>{const gltf=await new GLTFLoader().parseAsync(buffer.buffer.slice(buffer.byteOffset,buffer.byteOffset+buffer.byteLength),'');let merged;try{merged=mergeStaticVehicle(gltf.scene,mobile);return {triangles:merged.userData.rbVehicleTriangles,draws:merged.userData.rbVehicleDraws};}finally{gltf.scene.traverse(o=>{if(o.isMesh)o.geometry.dispose();});if(merged)disposeDetailedVehicle(merged);else disposeDetailedVehicle(gltf.scene);}};
+ report.desktopRuntime=await verifyMerge(bytes,false);
  writeFileSync(out+'/'+file,bytes);
-}catch(e){rmSync(out+'/'+file,{force:true});report.reason=e instanceof Error?e.message:String(e);}
-writeFileSync(out+'/manifest.json',JSON.stringify(report,null,2));console.log('V31 verified vehicle admission: '+JSON.stringify(report));
+ try{const lod=compactMobileVehicle(bytes,j);const checked=await verifyMerge(lod.bytes,true);if(lod.bytes.length>=bytes.length||checked.triangles>85000||checked.draws>36)throw Error('Mobile variant budget failure');writeFileSync(out+'/'+mobileFile,lod.bytes);report.mobileVariant={available:true,asset:mobileFile,bytes:lod.bytes.length,triangles:checked.triangles,draws:checked.draws,removedObjects:lod.removed,sha256:createHash('sha256').update(lod.bytes).digest('hex')};}
+ catch(e){report.mobileVariant={available:false,reason:e instanceof Error?e.message:String(e)};}
+
+}catch(e){rmSync(out+'/'+file,{force:true});report.available=false;report.reason=e instanceof Error?e.message:String(e);}
+writeFileSync(out+'/manifest.json',JSON.stringify(report,null,2));console.log('V31.1 verified vehicle admission: '+JSON.stringify(report));
