@@ -4,7 +4,7 @@ export const SCULPT_FIELDS=['headWidth','cheekVolume','chinProminence','eyeSpaci
 export const CHARACTER_OPTIONS={
   skin:['deep','warm','tan','light','ebony','brown','caramel','olive'],
   face:['angular','soft','strong'],
-  hair:['fade','curls','braids','long','bald','short-crop','short-swept','short-classic','ponytail','bob','bob-classic','blunt-bangs','bun','natural-volume'],
+  hair:['fade','curls','braids','long','bald','short-crop','wave-crop','short-swept','short-classic','ponytail','bob','bob-classic','blunt-bangs','bun','natural-volume'],
   eyes:['brown','hazel','blue','green','grey','deepblue','bluegreen','ice','lightblue'],
   top:['jacket','tee','hoodie','vest'],
   pants:['cargo','denim','tailored'],
@@ -34,7 +34,7 @@ export const CHARACTER_OPTIONS={
   presence:['natural','editorial','relaxed'],
   eliteJewelry:['collection','gold','silver','minimal'],
   identityMode:['human','cinematic','phantom'],
-  designerCut:['collection','street','executive','techwear'],
+  designerCut:['collection','street','executive','techwear','sovereign'],
   designerPalette:['collection','emerald','midnight','ivory','burgundy','cobalt'],
   designerAccent:['collection','gold','silver','jade','copper'],
   designerFootwear:['collection','sneakers','boots','oxfords'],

@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import {createCharacter} from 'ara3d';
 import {mobileDetail} from './avatar.quality.v31';
 import {energeticClip} from './avatar.energy.motion';
+import {editableSurface,originalForm,secondarySurface,secondaryEligible,secondaryResponse} from './avatar.original.forms';
 import {sculptSurfaceGeometry} from './avatar.sculpt.surface';
 import {surfaceRole,fabricFinish,hairStrandNormal} from './avatar.material.roles';
 import {weaveNormal} from './avatar.visual.assets';
@@ -16,7 +17,7 @@ export async function createHDCharacter(gender:AvatarGender,raw:unknown,build:st
  const mobile=matchMedia('(any-pointer:coarse),(max-width:860px)').matches;
  const detail=mobile?mobileDetail(quality):quality==='detail'?'high':'medium';
  const hero=await createCharacter({kind:'ara-character',version:1,params:recipe.params},{detail,animations:[...HD_CLIPS],rootMotion:false,assetsUrl:new URL('/character-assets/ara-1.2.0/',location.origin).href});
- let strands:THREE.DataTexture|undefined;let textile:THREE.DataTexture|undefined;let microSkin:THREE.DataTexture|undefined;let mixer:THREE.AnimationMixer|undefined;let wearables:ReturnType<typeof originalWearables>|undefined;
+ let strands:THREE.DataTexture|undefined;let textile:THREE.DataTexture|undefined;let microSkin:THREE.DataTexture|undefined;let mixer:THREE.AnimationMixer|undefined;let wearables:ReturnType<typeof originalWearables>|undefined;const replacements:{mesh:THREE.Mesh;original:THREE.BufferGeometry;refined:THREE.BufferGeometry}[]=[];const releaseSurfaces=()=>{for(const entry of replacements){entry.mesh.geometry=entry.original;entry.refined.dispose();}replacements.length=0;};
  try{
   const root=new THREE.Group();root.name='rb-hd-character-v33';root.add(hero.scene);
   const bones=new Set<THREE.Bone>();let triangles=0,meshes=0,faceMorphs=0;
@@ -35,8 +36,21 @@ export async function createHDCharacter(gender:AvatarGender,raw:unknown,build:st
   // One pass, one material owner; match actual vendor IDs and preserve the original accessory finish.
   const portrait=look.surfaceDetail==='portrait'||cinematic,enhanced=!mobile||quality==='detail';
   const surfaces=new Map<THREE.Material,ReturnType<typeof surfaceRole>>();
-  const meshUse=new Map<THREE.BufferGeometry,number>();hero.scene.traverse(o=>{const m=o as THREE.Mesh;if(m.isMesh)meshUse.set(m.geometry,(meshUse.get(m.geometry)??0)+1);});let sculptedVertices=0;
-  hero.scene.traverse(o=>{const mesh=o as THREE.Mesh;if(!mesh.isMesh)return;const uv=!!mesh.geometry.getAttribute('uv');const materials=Array.isArray(mesh.material)?mesh.material:[mesh.material];const role=surfaceRole(materials[0]?.name??'',mesh.name);if(meshUse.get(mesh.geometry)===1&&materials.every(m=>surfaceRole(m.name,mesh.name)===role))sculptedVertices+=sculptSurfaceGeometry(mesh.geometry,role,enhanced);
+  const meshUse=new Map<THREE.BufferGeometry,number>();hero.scene.traverse(o=>{const m=o as THREE.Mesh;if(m.isMesh)meshUse.set(m.geometry,(meshUse.get(m.geometry)??0)+1);});let sculptedVertices=0,originalVertices=0,secondaryCount=0;const secondary:NonNullable<ReturnType<typeof secondarySurface>>[]=[];const secondaryBudget=mobile?6000:18000;
+  const head=[...bones].find(b=>/^head$/i.test(b.name)),chest=[...bones].find(b=>/^(spine2|chest|upperchest)$/i.test(b.name))??[...bones].find(b=>/spine/i.test(b.name));
+  hero.scene.traverse(o=>{const mesh=o as THREE.Mesh;if(!mesh.isMesh)return;const uv=!!mesh.geometry.getAttribute('uv');const materials=Array.isArray(mesh.material)?mesh.material:[mesh.material];const role=surfaceRole(materials[0]?.name??'',mesh.name);if(meshUse.get(mesh.geometry)===1&&materials.every(m=>surfaceRole(m.name,mesh.name)===role)&&editableSurface(mesh.geometry)){
+    const selected=look.hair==='wave-crop'&&role==='hair'?'wave-crop':look.designerCut==='sovereign'&&role==='techwear'&&/jacket/i.test(mesh.name+' '+materials.map(m=>m.name).join(' '))?'sovereign':null;
+    const eligible=role==='hair'||['denim','tailoring','knit','techwear','fabric'].includes(role);
+    if(eligible&&(enhanced||selected)){
+     // Own modified geometry for this fit only. Restore the authored geometry before
+     // the vendor disposer; no shared source/cache mutation or persistent extra objects.
+     const original=mesh.geometry,refined=original.clone();mesh.geometry=refined;replacements.push({mesh,original,refined});
+     if(selected)originalVertices+=originalForm(refined,selected);else sculptedVertices+=sculptSurfaceGeometry(refined,role,enhanced);
+     if(enhanced&&secondaryEligible(role,look.hair)&&secondaryCount+refined.getAttribute('position').count<=secondaryBudget&&(role==='hair'?head:chest)){
+      const driver=secondarySurface(refined,role==='hair'?'hair':'fabric');if(driver){secondary.push(driver);secondaryCount+=driver.count;}
+     }
+    }
+   }
    for(const material of Array.isArray(mesh.material)?mesh.material:[mesh.material]){
     const mat=material as THREE.MeshStandardMaterial;if(!mat.isMeshStandardMaterial||surfaces.has(mat))continue;
     const role=surfaceRole(mat.name,mesh.name);surfaces.set(mat,role);
@@ -50,7 +64,10 @@ export async function createHDCharacter(gender:AvatarGender,raw:unknown,build:st
     if(fantasy||look.evolution!=='none'){mat.emissive.setHex(look.evolution==='celestial'?0x6653a4:look.evolution==='shadow'?0x164a56:0x184c43);mat.emissiveIntensity=look.evolution==='none'?.20:.30;}
    }
   });
+  if((look.hair==='wave-crop'||look.designerCut==='sovereign')&&!originalVertices)throw Error('Selected original form could not be fitted to this asset');
+  const headPrevious=head?.getWorldQuaternion(new THREE.Quaternion()),chestPrevious=chest?.getWorldQuaternion(new THREE.Quaternion()),current=new THREE.Quaternion(),deltaQ=new THREE.Quaternion();let hairMotion=0,fabricMotion=0,secondaryElapsed=0;
+  const tickSecondary=(dt:number)=>{if(!secondary.length||!Number.isFinite(dt)||dt<=0)return;const turn=(bone:THREE.Bone|undefined,prev:THREE.Quaternion|undefined)=>{if(!bone||!prev)return 0;bone.getWorldQuaternion(current);deltaQ.copy(prev).invert().multiply(current);const angle=prev.angleTo(current)*(deltaQ.y+deltaQ.x*.35+deltaQ.z*.35<0?-1:1);prev.copy(current);return angle;};hairMotion=secondaryResponse(hairMotion,turn(head,headPrevious),dt);fabricMotion=secondaryResponse(fabricMotion,turn(chest,chestPrevious),dt);secondaryElapsed+=dt;if(secondaryElapsed>=.083){secondaryElapsed=0;for(const item of secondary)item.apply(item.kind==='hair'?hairMotion:fabricMotion);}};
   const moods:Record<AvatarExpression,string>={neutral:'neutral',smile:'happy',focused:'determined',surprised:'surprised',confident:'happy',laugh:'laughing',sad:'sad',angry:'angry'};
-  return {root,mixer,actions,clips,bounds,height,currentMotion:'idle',currentAction:null,accessoryWidth:wearables.width,assetLabel:(look.evolution!=='none'?'EVOLUTION '+look.evolution:look.designerCut!=='collection'||look.designerPalette!=='collection'||look.designerAccent!=='collection'||look.designerFootwear!=='collection'?'CUSTOM ATELIER':look.collection==='none'?'HD skeletal mesh':'ELITE '+look.collection.replace(/-/g,' '))+' · '+(cinematic?'CINEMATIC':fantasy?'FANTASY':'HUMAN')+' · '+detail.toUpperCase()+' · '+Math.round(triangles/1000)+'k triangles · '+bones.size+' bones'+(sculptedVertices?' · refined surface':'') ,locomotionSpeed:{walk:1.5*height/1.78,run:3.7*height/1.78},expression:(value,strength=1)=>hero.setExpression(moods[value],value==='confident'?strength*.35:strength),animateFace:dt=>{hero.update(dt);wearables?.tick(dt);},lookAt:target=>hero.lookAt(target,{amount:.35,smoothing:.45}),dispose:()=>{mixer?.stopAllAction();mixer?.uncacheRoot(hero.scene);wearables?.dispose();microSkin?.dispose();textile?.dispose();strands?.dispose();hero.dispose();root.clear();}};
- }catch(error){mixer?.stopAllAction();wearables?.dispose();microSkin?.dispose();textile?.dispose();strands?.dispose();hero.dispose();throw error;}
+  return {root,mixer,actions,clips,bounds,height,currentMotion:'idle',currentAction:null,accessoryWidth:wearables.width,assetLabel:(look.evolution!=='none'?'EVOLUTION '+look.evolution:look.designerCut!=='collection'||look.designerPalette!=='collection'||look.designerAccent!=='collection'||look.designerFootwear!=='collection'?'CUSTOM ATELIER':look.collection==='none'?'HD skeletal mesh':'ELITE '+look.collection.replace(/-/g,' '))+' · '+(cinematic?'CINEMATIC':fantasy?'FANTASY':'HUMAN')+' · '+detail.toUpperCase()+' · '+Math.round(triangles/1000)+'k triangles · '+bones.size+' bones'+(originalVertices?' · original form':sculptedVertices?' · refined surface':'')+(secondaryCount?' · responsive fabric/hair':'') ,locomotionSpeed:{walk:1.5*height/1.78,run:3.7*height/1.78},expression:(value,strength=1)=>hero.setExpression(moods[value],value==='confident'?strength*.35:strength),animateFace:dt=>{hero.update(dt);wearables?.tick(dt);tickSecondary(dt);},lookAt:target=>hero.lookAt(target,{amount:.35,smoothing:.45}),dispose:()=>{mixer?.stopAllAction();mixer?.uncacheRoot(hero.scene);wearables?.dispose();microSkin?.dispose();textile?.dispose();strands?.dispose();releaseSurfaces();hero.dispose();root.clear();}};
+ }catch(error){mixer?.stopAllAction();wearables?.dispose();microSkin?.dispose();textile?.dispose();strands?.dispose();releaseSurfaces();hero.dispose();throw error;}
 }

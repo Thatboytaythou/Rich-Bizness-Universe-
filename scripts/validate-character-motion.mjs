@@ -31,7 +31,7 @@ assert.equal(old.maturity,'young-adult');assert.equal(old.hat,'none');
 for(const key of SCULPT_FIELDS)assert.equal(old[key],'0');
 assert.equal(SCULPT_FIELDS.length,38);
 assert.equal(new Set(SCULPT_FIELDS).size,SCULPT_FIELDS.length);
-assert.equal(CHARACTER_OPTIONS.hair.length,14);
+assert.equal(CHARACTER_OPTIONS.hair.length,15);
 for(const kind of ['walk','run']){
  for(const joint of ['Spine','Head','LeftArm','RightForeArm']){
   const a=capturedMotion(kind,joint,0),b=capturedMotion(kind,joint,1);
@@ -40,7 +40,7 @@ for(const kind of ['walk','run']){
   assert.ok(capturedMotion(kind,joint,.25).some((v,i)=>Math.abs(v-a[i])>.001),'non-static captured motion');
  }
 }
-console.log('Character detail: 38 neutral-default morphs, 14 hair choices, bounded captured locomotion channels verified');
+console.log('Character detail: 38 neutral-default morphs, 15 hair choices, bounded captured locomotion channels verified');
 
 import {cameraClearance} from '../apps/web/src/features/avatar/world.camera.ts';
 const obstacle={minX:-1,maxX:1,minZ:2,maxZ:3};
@@ -162,3 +162,6 @@ const wristRoot=new THREE.Group(),wChest=new THREE.Bone(),wElbow=new THREE.Bone(
 
 import {sculptSurfaceGeometry} from '../apps/web/src/features/avatar/avatar.sculpt.surface.ts';
 for(const role of ['hair','denim','tailoring']){const shape=new THREE.SphereGeometry(.2,24,16);const before=shape.attributes.position.array.slice(),normals=shape.attributes.normal.array.slice(),idx=shape.index.array.slice(),uv=shape.attributes.uv.array.slice();assert.equal(sculptSurfaceGeometry(shape,role,false),0);assert.ok(sculptSurfaceGeometry(shape,role,true)>100);assert.notDeepEqual(shape.attributes.position.array,before);assert.deepEqual(shape.attributes.normal.array,normals);assert.deepEqual(shape.index.array,idx);assert.deepEqual(shape.attributes.uv.array,uv);for(let i=0;i<before.length;i+=3)assert.ok(Math.hypot(...[0,1,2].map(k=>shape.attributes.position.array[i+k]-before[i+k]))<=.005);shape.dispose();}const noMorph=new THREE.SphereGeometry(.2,16,16);noMorph.morphAttributes.position=[noMorph.attributes.position.clone()];assert.equal(sculptSurfaceGeometry(noMorph,'hair',true),0);assert.equal(sculptSurfaceGeometry(noMorph,'skin',true),0);noMorph.dispose();for(const key of ['abdominalTone','hipDepth','neckDepth']){assert.equal(normalizeLook({})[key],'0');assert.equal(hdRecipe('boy',{[key]:'40'},'athletic').params.modifiers[morphs[key]],.26);}console.log('V1 mesh sculpt: three verified body morphs, bounded original hair and fabric rest-shape relief, unchanged topology, UVs and authored normals');
+
+import {originalForm,secondarySurface,secondaryResponse,secondaryEligible} from '../apps/web/src/features/avatar/avatar.original.forms.ts';
+const waveMesh=new THREE.SphereGeometry(.16,32,24),sovereignMesh=waveMesh.clone(),waveRest=waveMesh.attributes.position.array.slice();assert.ok(originalForm(waveMesh,'wave-crop')>100);assert.ok(originalForm(sovereignMesh,'sovereign')>100);assert.notDeepEqual(waveMesh.attributes.position.array,sovereignMesh.attributes.position.array);for(let i=0;i<waveRest.length;i+=3)assert.ok(Math.hypot(...[0,1,2].map(k=>waveMesh.attributes.position.array[i+k]-waveRest[i+k]))<=.011);const restWave=waveMesh.attributes.position.array.slice(),driver=secondarySurface(waveMesh,'hair');assert.ok(driver);driver.apply(1);assert.notDeepEqual(waveMesh.attributes.position.array,restWave);driver.apply(0);assert.deepEqual(waveMesh.attributes.position.array,restWave);let response=secondaryResponse(0,.15,.033);assert.ok(response>0&&response<=1);for(let i=0;i<80;i++)response=secondaryResponse(response,0,.033);assert.ok(Math.abs(response)<.0001);assert.equal(secondaryEligible('hair','wave-crop'),false);assert.equal(secondaryEligible('hair','long'),true);assert.equal(secondaryEligible('skin','long'),false);waveMesh.dispose();sovereignMesh.dispose();const originalLook=normalizeLook({hair:'wave-crop',designerCut:'sovereign'}),originalRecipe=hdRecipe('boy',originalLook,'athletic');assert.equal(originalRecipe.params.hair,'short01');assert.equal(originalRecipe.params.garmentStyles.techwear_jacket.color,'#183d32');assert.equal(originalRecipe.params.garmentStyles.techwear_jacket.color2,'#c6a05b');console.log('V1 original fitted forms: Wave Crop and Sovereign cut, bounded secondary hair/fabric motion and rest recovery');

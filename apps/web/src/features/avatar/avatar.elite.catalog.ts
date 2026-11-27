@@ -15,12 +15,13 @@ export function eliteWardrobe(id:string){
 
 const palettes:Record<string,string>={emerald:'#153d2c',midnight:'#181b20',ivory:'#e5d8b6',burgundy:'#64263b',cobalt:'#213d78'};
 const accents:Record<string,string>={gold:'#c6a05b',silver:'#b9c7d1',jade:'#35b98c',copper:'#ae6949'};
-const cuts:Record<string,Collection>={street:'emerald-legacy',executive:'onyx-executive',techwear:'omni-phantom'};
+const cuts:Record<string,Collection>={street:'emerald-legacy',executive:'onyx-executive',techwear:'omni-phantom',sovereign:'omni-phantom'};
 export function designerActive(look:Record<string,string>){return ['designerCut','designerPalette','designerAccent','designerFootwear'].some(k=>look[k]&&look[k]!=='collection');}
 export function designerWardrobe(look:Record<string,string>){
  if(!designerActive(look))return eliteWardrobe(look.collection);
  const base=eliteWardrobe(cuts[look.designerCut]??(Object.hasOwn(ELITE_COLLECTIONS,look.collection)?look.collection:'emerald-legacy'))!;
  const styles=base.garmentStyles as Record<string,{pattern?:string;color?:string;color2?:string}>;
+ if(look.designerCut==='sovereign'){styles.techwear_jacket={pattern:'techwear',color:'#183d32',color2:'#c6a05b'};styles.techwear_pants={pattern:'solid',color:'#1c2224'};}
  for(const [garment,style] of Object.entries(styles)){if(palettes[look.designerPalette]&&!/shoes|sneakers|oxfords/.test(garment))style.color=palettes[look.designerPalette];if(accents[look.designerAccent]&&style.color2)style.color2=accents[look.designerAccent];}
  const footwear:Record<string,string>={sneakers:'sneakers',boots:'combat_boots',oxfords:'oxfords'};
  return {...base,shoes:footwear[look.designerFootwear]??base.shoes,garmentStyles:styles};
