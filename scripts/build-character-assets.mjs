@@ -5,6 +5,7 @@ import {spawnSync} from 'node:child_process';
 import {createHash} from 'node:crypto';
 import assert from 'node:assert/strict';
 import * as THREE from 'three';
+import {refinePhoneSkin} from '../apps/web/src/features/avatar/avatar.mobile.refine.ts';
 import {originalForm,secondarySurface} from '../apps/web/src/features/avatar/avatar.original.forms.ts';
 import {wristBone} from '../apps/web/src/features/avatar/avatar.cuff.art.ts';
 import {surfaceRole} from '../apps/web/src/features/avatar/avatar.material.roles.ts';
@@ -37,6 +38,25 @@ try{
   const names=j.animations.map(a=>a.name);for(const clip of ['idle','walk','run','jump'])assert.ok(names.some(n=>n.toLowerCase().includes(clip)),clip+' missing');
   // Hash actual position accessor bytes (not the whole file) to prove the fitted portrait is a different mesh.
   const positionHash=createHash('sha256');const positionKeys=new Set(j.meshes.flatMap(m=>m.primitives.map(p=>p.attributes.POSITION)));const binStart=20+b.readUInt32LE(12)+8;for(const key of positionKeys){const a=j.accessors[key],v=j.bufferViews[a.bufferView];assert.equal(a.componentType,5126);assert.equal(a.type,'VEC3');const start=binStart+(v.byteOffset??0)+(a.byteOffset??0),stride=v.byteStride??12;for(let i=0;i<a.count;i++)positionHash.update(b.subarray(start+i*stride,start+i*stride+12));}const authoredPositionSha=positionHash.digest('hex');
+  let densityProbe=null;
+  if(detail==='medium'&&(look.templeVolume||gender==='boy'&&!look.designerCut&&!look.collection)){
+   // Exercise the runtime algorithm against actual exported skin and relative
+   // morph accessors. This is an admission probe, not a rewritten download.
+   const skinnedNode=j.nodes.find(n=>n.skin!==undefined&&n.mesh!==undefined),skin=j.skins[skinnedNode.skin],mesh=j.meshes[skinnedNode.mesh],headIndex=skin.joints.findIndex(i=>/^head$/i.test(j.nodes[i].name??''));
+   const primitive=mesh.primitives.find(p=>surfaceRole(j.materials[p.material]?.name??'')==='skin'&&p.attributes.JOINTS_0!==undefined&&p.attributes.WEIGHTS_0!==undefined);
+   const offset=20+b.readUInt32LE(12)+8,bin=b.subarray(offset),components={SCALAR:1,VEC2:2,VEC3:3,VEC4:4},formats={5120:[1,'readInt8',127],5121:[1,'readUInt8',255],5122:[2,'readInt16LE',32767],5123:[2,'readUInt16LE',65535],5125:[4,'readUInt32LE',4294967295],5126:[4,'readFloatLE',1]};
+   const read=(key,integer=false)=>{const a=j.accessors[key],size=components[a.type],format=formats[a.componentType];assert.ok(size&&format,'Unsupported density probe accessor');const [bytes,method,max]=format,Ctor=integer?Uint32Array:Float32Array,values=new Ctor(a.count*size),norm=value=>a.normalized?Math.max(-1,value/max):value;
+    if(a.bufferView!==undefined){const v=j.bufferViews[a.bufferView],start=(v.byteOffset??0)+(a.byteOffset??0),stride=v.byteStride??bytes*size;for(let i=0;i<a.count;i++)for(let k=0;k<size;k++)values[i*size+k]=norm(bin[method](start+i*stride+k*bytes));}
+    if(a.sparse){const sp=a.sparse,iv=j.bufferViews[sp.indices.bufferView],vv=j.bufferViews[sp.values.bufferView],[ib,im]=formats[sp.indices.componentType],io=(iv.byteOffset??0)+(sp.indices.byteOffset??0),vo=(vv.byteOffset??0)+(sp.values.byteOffset??0);for(let i=0;i<sp.count;i++){const dst=bin[im](io+i*ib);for(let k=0;k<size;k++)values[dst*size+k]=norm(bin[method](vo+(i*size+k)*bytes));}}
+    return new THREE.BufferAttribute(values,size);
+   };
+   if(primitive&&primitive.indices!==undefined){const geo=new THREE.BufferGeometry(),names={POSITION:'position',NORMAL:'normal',TEXCOORD_0:'uv',TEXCOORD_1:'uv1',TANGENT:'tangent',COLOR_0:'color',JOINTS_0:'skinIndex',WEIGHTS_0:'skinWeight'};for(const [name,key] of Object.entries(primitive.attributes))if(names[name])geo.setAttribute(names[name],read(key,name==='JOINTS_0'));geo.setIndex(read(primitive.indices,true));geo.morphTargetsRelative=true;
+    for(const name of ['POSITION','NORMAL','TANGENT'])if(primitive.targets?.some(t=>t[name]!==undefined)){geo.morphAttributes[names[name]]=primitive.targets.map(t=>t[name]===undefined?new THREE.Float32BufferAttribute(new Float32Array(geo.attributes[names[name]].count*geo.attributes[names[name]].itemSize),geo.attributes[names[name]].itemSize):read(t[name]));}
+    densityProbe={baseTriangles:Math.round(triangles),skinTriangles:geo.index.count/3,headJoint:headIndex,morphTargets:geo.morphAttributes.position?.length??0,adaptiveAdded:0,enhancedAdded:0};
+    for(const quality of ['auto','detail']){const dense=refinePhoneSkin(geo,[0],1,headIndex,phoneTriangleBudget(quality)-triangles,45000-geo.attributes.position.count);if(dense){assert.ok(admitsPhoneMesh(quality,triangles+dense.addedTriangles));assert.equal(dense.geometry.index.count,geo.index.count+dense.addedTriangles*3);assert.equal(dense.geometry.morphAttributes.position?.length,geo.morphAttributes.position?.length);densityProbe[quality==='auto'?'adaptiveAdded':'enhancedAdded']=dense.addedTriangles;dense.geometry.dispose();}}
+    geo.dispose();console.log('V1 actual medium skin density probe: '+JSON.stringify(densityProbe));
+   }
+  }
   let originalSculpt=null;
   if(look.designerCut==='sovereign'){
    // Validate and export original form shaping on the actual admitted GLB buffers.
@@ -51,7 +71,7 @@ try{
    assert.ok(wave>0&&sovereign>0,'Original forms missing from actual GLB: '+JSON.stringify(j.nodes.filter(n=>n.mesh!==undefined).map(n=>({name:n.name,materials:j.meshes[n.mesh].primitives.map(p=>j.materials[p.material]?.name),morphs:j.meshes[n.mesh].primitives.map(p=>p.targets?.length??0)}))));assert.ok(secondaryVerified>0);if(detail!=='high')assert.ok(positionVertices<=45000,'Original forms exceed mobile position-buffer limit');originalSculpt={waveVertices:wave,sovereignVertices:sovereign,secondaryVerified,positionVertices};let json=Buffer.from(JSON.stringify(j));json=Buffer.concat([json,Buffer.alloc((4-json.length%4)%4,32)]);const h=Buffer.alloc(20),bh=Buffer.alloc(8);h.writeUInt32LE(0x46546c67,0);h.writeUInt32LE(2,4);h.writeUInt32LE(20+json.length+8+bin.length,8);h.writeUInt32LE(json.length,12);h.writeUInt32LE(0x4e4f534a,16);bh.writeUInt32LE(bin.length,0);bh.writeUInt32LE(0x004e4942,4);b=Buffer.concat([h,json,bh,bin]);console.log('V1 actual original fitted mesh export: '+JSON.stringify(originalSculpt));
   }
   const filename=look.templeVolume?'rb-portrait-sculpt-medium.glb':look.designerCut==='sovereign'?(detail==='high'?'rb-sovereign-wave-original.glb':'rb-sovereign-wave-'+detail+'.glb'):look.hair==='bob-classic'?'rb-bob-classic-precise-body.glb':look.identityMode==='cinematic'?'rb-cinematic-body-medium.glb':look.designerCut?'rb-elite-custom-design.glb':look.collection?'rb-elite-'+look.collection+'.glb':'rb-'+gender+'-'+detail+'.glb';writeFileSync(join(dest,filename),b);
-  reports.push({gender,detail,collection:look.collection??null,customDesign:look.designerCut??null,filename,triangles:Math.round(triangles),joints,morphs,wristRig,originalSculpt,authoredPositionSha,phoneAdmission:{adaptive:detail!=='high'&&admitsPhoneMesh('auto',triangles),enhanced:detail!=='high'&&admitsPhoneMesh('detail',triangles)},bytes:b.length,clips:names,sha256:createHash('sha256').update(b).digest('hex')});
+  reports.push({gender,detail,collection:look.collection??null,customDesign:look.designerCut??null,filename,triangles:Math.round(triangles),joints,morphs,wristRig,originalSculpt,authoredPositionSha,densityProbe,phoneAdmission:{adaptive:detail!=='high'&&admitsPhoneMesh('auto',triangles),enhanced:detail!=='high'&&admitsPhoneMesh('detail',triangles)},bytes:b.length,clips:names,sha256:createHash('sha256').update(b).digest('hex')});
  }
  const femaleLow=reports.find(m=>m.gender==='girl'&&m.detail==='low'&&!m.collection),femaleMedium=reports.find(m=>m.gender==='girl'&&m.detail==='medium'&&!m.collection);assert.ok(femaleMedium.triangles>femaleLow.triangles,'Enhanced mobile detail must increase actual mesh density');
  const portrait=reports.find(m=>m.filename==='rb-portrait-sculpt-medium.glb'),baseline=reports.find(m=>m.filename==='rb-boy-medium.glb');assert.ok(portrait&&baseline);assert.notEqual(portrait.authoredPositionSha,baseline.authoredPositionSha,'Facial sculpt must change actual fitted mesh position bytes');assert.equal(portrait.joints,baseline.joints);assert.equal(portrait.triangles,baseline.triangles);console.log('V1 portrait actual GLB: distinct mesh positions, unchanged topology and skeleton count');
