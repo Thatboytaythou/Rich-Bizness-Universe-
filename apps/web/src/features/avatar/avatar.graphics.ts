@@ -40,9 +40,9 @@ export function createStudioGraphics(canvas:HTMLCanvasElement,initial:CharacterC
   const pose=()=>{
     if(!runtime)return;
     const h=runtime.height, aspect=Math.max(.25,camera.aspect),fov=face?24:34;
-    const targetY=h*(face?.88:.53);
+    const targetY=h*(face?.89:.53);
     // Fit both axes; reserve headroom and feet. Face mode includes neck and shoulders.
-    const viewHeight=h*(face?.40:1.15),viewWidth=face?h*.34:Math.max(h*.64,runtime.accessoryWidth??0);
+    const viewHeight=h*(face?.34:1.15),viewWidth=face?h*.32:Math.max(h*.64,runtime.accessoryWidth??0);
     const distance=Math.max(viewHeight,viewWidth/aspect)/(2*Math.tan(THREE.MathUtils.degToRad(fov/2)));
     camera.position.set(Math.sin(orbitAngle)*distance,targetY+(shot==='orbit'?.08*h:0),Math.cos(orbitAngle)*distance);camera.fov=fov;camera.zoom=zoom;
     camera.updateProjectionMatrix();camera.lookAt(0,targetY,0);
@@ -78,11 +78,11 @@ export function createStudioGraphics(canvas:HTMLCanvasElement,initial:CharacterC
     experience=value;const mode=resolveVisual(value.visual,'avatar-characters');
     canvas.dataset.rbVisualMode=mode;canvas.dataset.rbBehaviorMode=value.behavior;
     const cinematic=mode==='cinematic',expressive=mode==='expressive';
-    renderer.toneMappingExposure=cinematic?1.02:expressive?1.0:.94;
-    hemi.intensity=cinematic?.94:expressive?1.15:.85;
-    key.color.setHex(cinematic?0xffe3c9:expressive?0xfff2da:0xc3adff);key.intensity=expressive?2.25:2.85;
-    fill.color.setHex(mode==='fantasy'?0x9e74ff:0xb0ddff);fill.intensity=mode==='fantasy'?1.6:.82;
-    rim.color.setHex(mode==='fantasy'?aura(latest.aura):0xe9cb81);rim.intensity=mode==='fantasy'?2.8:1.45;
+    renderer.toneMappingExposure=cinematic?1.0:expressive?1.0:.94;
+    hemi.intensity=cinematic?.78:expressive?1.02:.85;
+    key.color.setHex(cinematic?0xfff0df:expressive?0xfff2da:0xc3adff);key.intensity=cinematic?2.45:expressive?2.25:2.85;
+    fill.color.setHex(mode==='fantasy'?0x9e74ff:0xdce9ff);fill.intensity=mode==='fantasy'?1.6:cinematic?.60:.82;
+    rim.color.setHex(mode==='fantasy'?aura(latest.aura):0xf1ddc0);rim.intensity=mode==='fantasy'?2.8:cinematic?1.10:1.45;
     (scene.background as THREE.Color).setHex(cinematic?0x1b2325:expressive?0x293333:0x11152a);
     (scene.fog as THREE.FogExp2).color.copy(scene.background as THREE.Color);
     floor.material.color.setHex(cinematic?0x333537:expressive?0x414847:0x201c3b);ring.visible=mode==='fantasy';directionalShade.visible=mobile&&mode!=='fantasy';
