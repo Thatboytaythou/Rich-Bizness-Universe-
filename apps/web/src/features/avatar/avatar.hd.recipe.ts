@@ -9,7 +9,7 @@ const shoes:Record<string,string>={sneakers:'shoes01',boots:'shoes03','high-tops
 const colors:Record<string,string>={black:'#1a1412','dark-brown':'#34251e',brown:'#69452b',blond:'#b89b67',silver:'#a6a3a2'};
 const skinTint:Record<string,string>={deep:'#d8c5b5',warm:'#ffffff',tan:'#d8bd9e',light:'#ffffff',ebony:'#a99383',brown:'#eddfd3',caramel:'#c99f78',olive:'#e0c4a2'};
 export const morphs:Record<(typeof SCULPT_FIELDS)[number],string>={
- headWidth:'head/head-scale-horiz',headHeight:'head/head-scale-vert',faceFat:'head/head-fat',cheekVolume:'cheek/cheek-volume',chinProminence:'chin/chin-prominent',chinWidth:'chin/chin-width',eyeSpacing:'eyes/eye-trans',eyeSize:'eyes/eye-scale',eyeTilt:'eyes/eye-corner1',eyeFold:'eyes/eye-eyefold',noseLength:'nose/nose-scale-vert',nostrils:'nose/nose-flaring',mouthDepth:'mouth/mouth-scale-depth',upperLip:'mouth/mouth-upperlip-volume',lowerLip:'mouth/mouth-lowerlip-volume',earSize:'ears/ear-scale',foreheadHeight:'forehead/forehead-scale-vert',browHeight:'eyebrows/eyebrows-trans',noseBridge:'nose/nose-scale-depth',neckWidth:'neck/neck-scale-horiz',hips:'hip/hip-scale-horiz',shoulders:'torso/measure-shoulder-dist',waist:'torso/measure-waist-circ',chest:'torso/torso-muscle-pectoral',noseTip:'nose/nose-point-width',earAngle:'ears/ear-rot',upperArm:'armslegs/upperarm-muscle',forearm:'armslegs/lowerarm-muscle',thigh:'armslegs/upperleg-muscle',calf:'armslegs/lowerleg-muscle',handSize:'armslegs/hand-scale',footSize:'armslegs/foot-scale',torsoLength:'torso/torso-scale-vert',backWidth:'torso/torso-muscle-dorsi',gluteVolume:'buttocks/buttocks-volume'
+ headWidth:'head/head-scale-horiz',headHeight:'head/head-scale-vert',faceFat:'head/head-fat',cheekVolume:'cheek/cheek-volume',chinProminence:'chin/chin-prominent',chinWidth:'chin/chin-width',eyeSpacing:'eyes/eye-trans',eyeSize:'eyes/eye-scale',eyeTilt:'eyes/eye-corner1',eyeFold:'eyes/eye-eyefold',noseLength:'nose/nose-scale-vert',nostrils:'nose/nose-flaring',mouthDepth:'mouth/mouth-scale-depth',upperLip:'mouth/mouth-upperlip-volume',lowerLip:'mouth/mouth-lowerlip-volume',earSize:'ears/ear-scale',foreheadHeight:'forehead/forehead-scale-vert',browHeight:'eyebrows/eyebrows-trans:down|up',noseBridge:'nose/nose-scale-depth',neckWidth:'neck/neck-scale-horiz',hips:'hip/hip-scale-horiz',shoulders:'armslegs/upperarm-shoulder-muscle',waist:'torso/torso-scale-horiz',chest:'torso/torso-muscle-pectoral',noseTip:'nose/nose-point-width',earAngle:'ears/ear-rot',upperArm:'armslegs/upperarm-muscle',forearm:'armslegs/lowerarm-muscle',thigh:'armslegs/upperleg-muscle',calf:'armslegs/lowerleg-muscle',handSize:'armslegs/hand-scale',footSize:'armslegs/foot-scale',torsoLength:'torso/torso-scale-vert',backWidth:'torso/torso-muscle-dorsi',gluteVolume:'buttocks/buttocks-volume'
 };
 export function hdRecipe(gender:'boy'|'girl',raw:unknown,build:string){
  const look=normalizeLook(raw),male=gender==='boy',outfit=(male?maleOutfits:femaleOutfits)[look.outfit];
@@ -17,10 +17,11 @@ export function hdRecipe(gender:'boy'|'girl',raw:unknown,build:string){
  if(!hair[look.hair])unsupported.push('hairstyle');if(!outfit&&!elite)unsupported.push('outfit');
  if(look.wristwear!=='none')unsupported.push('wrist accessory');if(look.stance!=='relaxed')unsupported.push('stance');
  if(look.gear!=='none'||look.tattoo!=='none')unsupported.push('legacy accessories');
- if(look.brows!=='natural')unsupported.push('brow shape');
+ // Brow shape is a real mesh modifier, not a reason to switch renderer.
  for(const key of SCULPT_FIELDS)if(look[key]!=='0'&&!morphs[key])unsupported.push(key);
  if(unsupported.length)return {unsupported,params:null};
  const modifiers:Record<string,number>={};
+ if(look.brows!=='natural')modifiers['eyebrows/eyebrows-angle']=look.brows==='arched'?.45:-.35;
  if(look.face==='soft')modifiers['head/head-oval']=.45;else if(look.face==='strong')modifiers['head/head-square']=.45;else modifiers['cheek/cheek-bones']=.4;
  if(look.jaw!=='balanced')modifiers['chin/chin-width']=look.jaw==='square'?.6:-.55;
  if(look.nose!=='balanced')modifiers[look.nose==='prominent'?'nose/nose-scale-depth':'nose/nose-scale-horiz']=look.nose==='narrow'?-.55:.55;
