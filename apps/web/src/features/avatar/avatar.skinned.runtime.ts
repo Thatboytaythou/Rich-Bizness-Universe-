@@ -175,10 +175,12 @@ export function setAvatarMotion(runtime: SkinnedAvatarRuntime, motion: AvatarMot
   const previous = runtime.currentAction;
   const entries=captureMotionWeights(runtime);
   const phase=(previous&&['walk','run'].includes(runtime.currentMotion)&&['walk','run'].includes(motion))?previous.time/previous.getClip().duration:0;
-  next.reset();
+  // Re-selecting a still-visible locomotion clip must not rewind it mid-stride.
+  const resumeLoop=motion!=='jump'&&motion!=='power'&&entries.some(e=>e.action===next&&e.from>.0001)&&next.isRunning();
+  if(!resumeLoop)next.reset();
   next.enabled = true;
   next.setEffectiveTimeScale(1);
-  if(phase>0)next.time=(phase%1)*next.getClip().duration;
+  if(!resumeLoop&&phase>0&&Number.isFinite(phase))next.time=(phase%1)*next.getClip().duration;
   next.setEffectiveWeight(1);
   if (motion === 'jump' || motion === 'power') {
     next.setLoop(THREE.LoopOnce, 1);
