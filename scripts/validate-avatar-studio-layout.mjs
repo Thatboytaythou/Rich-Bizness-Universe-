@@ -31,3 +31,11 @@ const plane=groundShadeMesh(shade,1.35,2.5);assert.equal(plane.material.depthWri
 const lobby=readFileSync(root+'avatar.lobby.page.ts','utf8');assert.match(lobby,/const limit=mobile\?640:1440/);assert.match(lobby,/new THREE.InstancedMesh\(new THREE.PlaneGeometry\(1,1\)/);
 assert.match(graphics,/renderer.shadowMap.enabled=!mobile/);
 console.log('V29: bounded sky geometry, soft shade and glass textures, desktop-only shadow map, mobile buffer protection');
+
+import {automotiveShell,foliageGeometry,weaveNormal} from '../apps/web/src/features/avatar/avatar.visual.assets.ts';
+const auto=automotiveShell([[-1,.6,.2,.6],[0,.9,.2,.8],[1,.6,.2,.6]],16);
+assert.equal(auto.attributes.position.count,51);assert.equal(auto.attributes.uv.count,51);assert.ok(auto.index.count>0);assert.ok(auto.attributes.normal.array.every(Number.isFinite));auto.dispose();
+for(const mobile of [true,false]){const leaves=foliageGeometry(mobile);assert.equal(leaves.attributes.position.count,(mobile?100:190)*6);assert.equal(leaves.attributes.color.count,leaves.attributes.position.count);assert.ok(leaves.attributes.normal.array.every(Number.isFinite));leaves.dispose();}
+const weave=weaveNormal();assert.equal(weave.image.data.length,64*64*4);assert.equal(weave.repeat.x,20);assert.ok(weave.image.data[2]>245);weave.dispose();
+assert.match(lobby,/world\?\.userData\.tickFoliage\?\.\(dt\)/);assert.match(lobby,/const spokes=new THREE.InstancedMesh/);
+console.log('V30: generated vehicle UVs and normals, bounded leaf geometry and woven textile map, instanced detail');
