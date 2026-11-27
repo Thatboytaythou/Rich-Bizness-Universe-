@@ -38,8 +38,9 @@ export async function loadDetailedVehicle(signal:AbortSignal,mobile:boolean){
  let source:THREE.Group|undefined;
  try{
   const response=await fetch('/world-models/manifest.json',{signal});if(!response.ok)return null;const report=await response.json();
-  if(report.release!=='V31'||!report.available||report.asset!=='spectral-gt-rs.glb'||(mobile&&!report.mobileEligible))return null;
-  const f=await fetch('/world-models/spectral-gt-rs.glb',{signal});if(!f.ok)throw Error('Vehicle HTTP '+f.status);const bytes=await f.arrayBuffer();if(bytes.byteLength!==report.bytes||bytes.byteLength>6000000||signal.aborted)throw Error('Vehicle size or lifecycle invalid');
+  if(report.release!=='V31.1'||!report.available||report.asset!=='spectral-gt-rs.glb')return null;
+  const selected=mobile?report.mobileVariant:report;if(!selected?.available||selected.asset!==(mobile?'spectral-gt-rs-mobile.glb':'spectral-gt-rs.glb')||(mobile&&(selected.triangles>85000||selected.draws>36)))return null;
+  const f=await fetch('/world-models/'+selected.asset,{signal});if(!f.ok)throw Error('Vehicle HTTP '+f.status);const bytes=await f.arrayBuffer();if(bytes.byteLength!==selected.bytes||bytes.byteLength>6000000||signal.aborted)throw Error('Vehicle size or lifecycle invalid');
   const gltf=await new GLTFLoader().parseAsync(bytes,new URL('/world-models/',location.origin).href);source=gltf.scene;if(signal.aborted)throw Error('Vehicle load cancelled');
   const result=mergeStaticVehicle(source,mobile);disposeSource(source,true);source=undefined;return result;
  }catch(e){if(source)disposeSource(source);if(!signal.aborted)console.warn('[RB vehicle fallback]',e);return null;}
