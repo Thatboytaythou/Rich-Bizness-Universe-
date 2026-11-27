@@ -21,8 +21,8 @@ export function createStudioGraphics(canvas:HTMLCanvasElement,initial:CharacterC
   let lightMap:THREE.WebGLRenderTarget|undefined;try{if(!mobile){lightMap=createCharacterLightMap(renderer);scene.environment=lightMap.texture;scene.environmentIntensity=.46;}}catch{ /* direct lights remain available */ }
   const camera=new THREE.PerspectiveCamera(34,1,.08,30);
   const hemi=new THREE.HemisphereLight(0xe5efff,0x534337,1.35);scene.add(hemi);
-  const key=new THREE.DirectionalLight(0xffe6cc,3.1);key.position.set(3,4,5);scene.add(key);
-  const fill=new THREE.DirectionalLight(0xb0ddff,1.65);fill.position.set(-4,2,2);scene.add(fill);const rim=new THREE.DirectionalLight(0xe9cb81,2.5);rim.position.set(0,3,-4);scene.add(rim);
+  const key=new THREE.DirectionalLight(0xffe6cc,3.1);key.position.set(-3,3.5,5);scene.add(key);
+  const fill=new THREE.DirectionalLight(0xb0ddff,1.65);fill.position.set(4,1.8,3);scene.add(fill);const rim=new THREE.DirectionalLight(0xe9cb81,2.5);rim.position.set(0,3,-4);scene.add(rim);
   const floor=new THREE.Mesh(new THREE.CircleGeometry(2.8,40),new THREE.MeshStandardMaterial({color:0x16271f,roughness:.48,metalness:.18}));floor.rotation.x=-Math.PI/2;floor.position.y=-.025;scene.add(floor);
   const contactCanvas=document.createElement('canvas');contactCanvas.width=contactCanvas.height=128;const ctx=contactCanvas.getContext('2d')!;const gradient=ctx.createRadialGradient(64,64,4,64,64,62);gradient.addColorStop(0,'rgba(0,0,0,.75)');gradient.addColorStop(.55,'rgba(0,0,0,.35)');gradient.addColorStop(1,'rgba(0,0,0,0)');ctx.fillStyle=gradient;ctx.fillRect(0,0,128,128);const contactMap=new THREE.CanvasTexture(contactCanvas);const contact=new THREE.Mesh(new THREE.PlaneGeometry(1.45,1.15),new THREE.MeshBasicMaterial({map:contactMap,transparent:true,depthWrite:false}));contact.rotation.x=-Math.PI/2;contact.position.y=-.012;scene.add(contact);
   const ring=new THREE.Mesh(new THREE.TorusGeometry(.83,.013,6,48),new THREE.MeshBasicMaterial({color:aura(initial.aura)}));ring.rotation.x=-Math.PI/2;ring.position.y=.008;scene.add(ring);
@@ -35,10 +35,10 @@ export function createStudioGraphics(canvas:HTMLCanvasElement,initial:CharacterC
   const fail=(message:string)=>{if(disposed||failed)return;failed=true;cancelAnimationFrame(raf);raf=0;onFailure(message);};
   const pose=()=>{
     if(!runtime)return;
-    const h=runtime.height, aspect=Math.max(.25,camera.aspect),fov=face?32:35;
-    const targetY=h*(face?.88:.52);
+    const h=runtime.height, aspect=Math.max(.25,camera.aspect),fov=face?24:34;
+    const targetY=h*(face?.88:.53);
     // Fit both axes; reserve headroom and feet. Face mode includes neck and shoulders.
-    const viewHeight=h*(face?.48:1.19),viewWidth=face?h*.39:Math.max(h*.64,runtime.accessoryWidth??0);
+    const viewHeight=h*(face?.40:1.15),viewWidth=face?h*.34:Math.max(h*.64,runtime.accessoryWidth??0);
     const distance=Math.max(viewHeight,viewWidth/aspect)/(2*Math.tan(THREE.MathUtils.degToRad(fov/2)));
     camera.position.set(Math.sin(orbitAngle)*distance,targetY+(shot==='orbit'?.08*h:0),Math.cos(orbitAngle)*distance);camera.fov=fov;camera.zoom=zoom;
     camera.updateProjectionMatrix();camera.lookAt(0,targetY,0);
@@ -74,14 +74,14 @@ export function createStudioGraphics(canvas:HTMLCanvasElement,initial:CharacterC
     experience=value;const mode=resolveVisual(value.visual,'avatar-characters');
     canvas.dataset.rbVisualMode=mode;canvas.dataset.rbBehaviorMode=value.behavior;
     const cinematic=mode==='cinematic',expressive=mode==='expressive';
-    renderer.toneMappingExposure=cinematic?.98:expressive?1.05:1.0;
-    hemi.intensity=cinematic?1.15:expressive?1.6:1.05;
-    key.color.setHex(cinematic?0xffe6cc:expressive?0xfff2da:0xc3adff);key.intensity=expressive?2.1:2.65;
-    fill.color.setHex(mode==='fantasy'?0x9e74ff:0xb0ddff);fill.intensity=mode==='fantasy'?1.6:1.4;
-    rim.color.setHex(mode==='fantasy'?aura(latest.aura):0xe9cb81);rim.intensity=mode==='fantasy'?2.8:1.65;
-    (scene.background as THREE.Color).setHex(cinematic?0x08100e:expressive?0x1b2826:0x11152a);
+    renderer.toneMappingExposure=cinematic?.96:expressive?1.0:.94;
+    hemi.intensity=cinematic?.72:expressive?1.15:.85;
+    key.color.setHex(cinematic?0xffe3c9:expressive?0xfff2da:0xc3adff);key.intensity=expressive?2.25:2.85;
+    fill.color.setHex(mode==='fantasy'?0x9e74ff:0xb0ddff);fill.intensity=mode==='fantasy'?1.6:.58;
+    rim.color.setHex(mode==='fantasy'?aura(latest.aura):0xe9cb81);rim.intensity=mode==='fantasy'?2.8:.95;
+    (scene.background as THREE.Color).setHex(cinematic?0x1b2325:expressive?0x293333:0x11152a);
     (scene.fog as THREE.FogExp2).color.copy(scene.background as THREE.Color);
-    floor.material.color.setHex(cinematic?0x16271f:expressive?0x293d36:0x201c3b);
+    floor.material.color.setHex(cinematic?0x303333:expressive?0x39413e:0x201c3b);ring.visible=mode==='fantasy';
     if(value.behavior==='manual'){mood='neutral';runtime?.expression?.(mood);expressionUntil=performance.now()+1000;}
     if(lighting!=='studio'){key.color.setHex(lighting==='warm'?0xffd0a0:0x8eafff);rim.color.setHex(lighting==='warm'?0xffbc72:0x9c7cde);key.intensity=lighting==='warm'?2.4:1.55;fill.intensity=lighting==='warm'?1.15:1.4;}
     invalidate();
