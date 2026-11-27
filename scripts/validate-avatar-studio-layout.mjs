@@ -12,3 +12,14 @@ assert.match(css,/@media\(any-pointer:coarse\)\{\s*body\[data-page="avatar-chara
 assert.match(html,/width=device-width,initial-scale=1,viewport-fit=cover/);
 assert.ok(!html.includes('user-scalable=no'));
 console.log('Avatar Studio: four workspaces, unique control IDs, mobile-first layout and viewport verified');
+
+const graphics=readFileSync(root+'avatar.graphics.ts','utf8');
+assert.match(graphics,/if\(mobile&&runtime\)\{scene.remove\(runtime.root\);disposeSkinnedAvatar\(runtime\);runtime=null/);
+assert.match(graphics,/mobileFitTail=job\.then/);
+assert.match(graphics,/const limit=mobile\?640:1600/);
+assert.match(graphics,/if\(canvas.width!==width\|\|canvas.height!==height\)renderer.setSize/);
+assert.match(graphics,/if\(mobile\)value='auto'/);
+assert.match(source,/if\(!mobile&&!graphics&&!graphicsLoading\)void enable\(\)/);
+assert.match(source,/onWorkspace=key=>/);
+assert.ok(!html.includes('id="app" aria-live'));
+console.log('Mobile stability policy: serialized fit, single mesh, bounded buffer, explicit 3D start, deferred optional reads');
