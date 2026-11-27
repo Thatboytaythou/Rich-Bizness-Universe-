@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import {meridianCuffGeometry,cuffMetalness,cuffRoughness,wristBone,cuffFit} from './avatar.cuff.art.ts';
 import {measureTorsoFit,clothFollow} from './avatar.wearable.fit.ts';
 import {mantleGeometry,animateMantle} from './avatar.atlas.art.ts';
 // Original Rich Bizness "Aegis" swept feather profiles and Crown Sigil wearable.
@@ -61,9 +62,9 @@ export function crownChain(material:THREE.Material){
  chain.instanceMatrix.needsUpdate=true;chain.computeBoundingSphere();return chain;
 }
 
-export function originalWearables(root:THREE.Group,bones:Set<THREE.Bone>,height:number,look:{signature:string;wings:string;regalia?:string;mantle?:string}){
+export function originalWearables(root:THREE.Group,bones:Set<THREE.Bone>,height:number,look:{signature:string;wings:string;regalia?:string;mantle?:string;wristwear?:string;forearm?:string}){
  const parts:THREE.Mesh[]=[],hinges:THREE.Group[]=[];const anchors:THREE.Group[]=[];const textures:THREE.Texture[]=[];let time=0,lastMantle=0;let mantle:THREE.BufferGeometry|undefined,mantleBase:Float32Array|undefined;
- if(look.signature==='none'&&look.wings==='none'&&(!look.regalia||look.regalia==='none')&&(!look.mantle||look.mantle==='none'))return {tick:(_dt:number)=>{},dispose:()=>{},width:0};
+ if(look.signature==='none'&&look.wings==='none'&&(!look.regalia||look.regalia==='none')&&(!look.mantle||look.mantle==='none')&&(!look.wristwear||look.wristwear==='none'))return {tick:(_dt:number)=>{},dispose:()=>{},width:0};
  const chest=[...bones].find(b=>/^(spine2|spine02|spine03|chest|upperchest|mixamorig:spine2)$/i.test(b.name))??[...bones].find(b=>/spine/i.test(b.name));
  if(!chest)throw Error('Original wearables require a torso bone');
  root.updateMatrixWorld(true);
@@ -86,6 +87,12 @@ export function originalWearables(root:THREE.Group,bones:Set<THREE.Bone>,height:
   const mount=attach(0,height*.82,-height*.095+fit.back,fit.width);mantle=mantleGeometry();mantleBase=new Float32Array(mantle.getAttribute('position').array);
   const tex=new THREE.DataTexture(regaliaTextile(look.mantle),128,128,THREE.RGBAFormat);tex.colorSpace=THREE.SRGBColorSpace;tex.wrapS=tex.wrapT=THREE.RepeatWrapping;tex.repeat.set(3,4);tex.magFilter=THREE.LinearFilter;tex.minFilter=THREE.LinearMipmapLinearFilter;tex.generateMipmaps=true;tex.needsUpdate=true;textures.push(tex);
   const m=new THREE.Mesh(mantle,new THREE.MeshStandardMaterial({map:tex,vertexColors:true,roughness:.79,side:THREE.DoubleSide}));mount.add(m);parts.push(m);
+ }
+ if(look.wristwear&&look.wristwear!=='none'){
+  const wrist=wristBone(bones,'left');if(!wrist||!(wrist.parent instanceof THREE.Bone))throw Error('Meridian cuff requires a verified wrist and forearm joint');
+  const wristPoint=wrist.getWorldPosition(new THREE.Vector3()),elbowPoint=wrist.parent.getWorldPosition(new THREE.Vector3()),axis=wristPoint.clone().sub(elbowPoint);if(axis.lengthSq()<.0004)throw Error('Meridian cuff wrist axis unavailable');axis.normalize();
+  const size=cuffFit(height,look.forearm),mount=new THREE.Group();root.add(mount);mount.position.copy(wristPoint).addScaledVector(axis,-.032*size.length);mount.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),axis);mount.scale.set(size.radial,size.length,size.radial);root.updateMatrixWorld(true);wrist.attach(mount);anchors.push(mount);
+  const mesh=new THREE.Mesh(meridianCuffGeometry(look.wristwear),new THREE.MeshStandardMaterial({vertexColors:true,metalness:cuffMetalness(look.wristwear),roughness:cuffRoughness(look.wristwear),side:THREE.DoubleSide}));mount.add(mesh);parts.push(mesh);
  }
  if(look.wings!=='none'){
   const mount=attach(0,height*.76,-height*.10+fit.back,fit.width);

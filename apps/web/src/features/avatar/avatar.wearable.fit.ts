@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import {surfaceRole} from './avatar.material.roles.ts';
 export type TorsoFit={width:number;front:number;back:number;samples:number};
 // Measure only the central torso band, not arms, head, shoes, or fantasy accessories.
 // Bounded ratios preserve compatibility if an unusual outfit or rig is encountered.
@@ -18,7 +19,7 @@ export function measureTorsoFit(root:THREE.Object3D,height:number):TorsoFit{
  const points:THREE.Vector3[]=[],v=new THREE.Vector3();root.updateMatrixWorld(true);
  root.traverse(o=>{const mesh=o as THREE.SkinnedMesh;if(!mesh.isSkinnedMesh||!mesh.geometry.getAttribute('position'))return;
   const mats=Array.isArray(mesh.material)?mesh.material:[mesh.material];const name=mesh.name+' '+mats.map(m=>m.name).join(' ');
-  if(!/skin|body|torso|shirt|jacket|coat|hoodie|suit|dress|vest|top|clothes/i.test(name)||/hair|beard|eye|teeth|shoe|boot|wing/i.test(name))return;
+  const roles=mats.map(m=>surfaceRole(m.name,mesh.name));if(!roles.some(role=>['skin','tailoring','denim','knit','techwear','fabric'].includes(role))&&(!/skin|body|torso|shirt|jacket|coat|hoodie|suit|dress|vest|top|clothes/i.test(name)||/hair|beard|eye|teeth|shoe|boot|wing/i.test(name)))return;
   const count=mesh.geometry.getAttribute('position').count,step=Math.max(1,Math.ceil(count/2400));mesh.skeleton.update();
   for(let i=0;i<count&&points.length<12000;i+=step){mesh.getVertexPosition(i,v);v.applyMatrix4(mesh.matrixWorld);if(v.y>=height*.66&&v.y<=height*.80&&Math.abs(v.x)<=height*.15&&Math.abs(v.z)<=height*.22)points.push(v.clone());}
  });

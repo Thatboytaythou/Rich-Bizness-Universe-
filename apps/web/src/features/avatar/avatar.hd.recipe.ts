@@ -16,7 +16,7 @@ export function hdRecipe(gender:'boy'|'girl',raw:unknown,build:string){
  const look=normalizeLook(raw),male=gender==='boy',outfit=(male?maleOutfits:femaleOutfits)[look.outfit];
  const elite=designerWardrobe(look);const unsupported:string[]=[];
  if(!hair[look.hair])unsupported.push('hairstyle');if(!outfit&&!elite)unsupported.push('outfit');
- if(look.wristwear!=='none')unsupported.push('wrist accessory');if(look.stance!=='relaxed')unsupported.push('stance');
+ if(look.stance!=='relaxed')unsupported.push('stance');
  if(look.gear!=='none'||look.tattoo!=='none')unsupported.push('legacy accessories');
  // Brow shape is a real mesh modifier, not a reason to switch renderer.
  for(const key of SCULPT_FIELDS)if(look[key]!=='0'&&!morphs[key])unsupported.push(key);
