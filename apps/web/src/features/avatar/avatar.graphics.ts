@@ -98,7 +98,7 @@ export function createStudioGraphics(canvas:HTMLCanvasElement,initial:CharacterC
         const config=desired;desired=null;const generation=revision,fitQuality=quality;
         const key=JSON.stringify([config.gender,config.build,config.look,quality]);
         if(runtime&&key===modelKey){pose();awaitingFrame=true;invalidate();continue;}
-        loadStarted=performance.now();onAssetStatus('loading','Fitting selected human mesh and wardrobe…');
+        loadStarted=performance.now();if(mobile){phoneLimit=640;measured=0;resize();}onAssetStatus('loading','Fitting selected human mesh and wardrobe…');
         let next:SkinnedAvatarRuntime;
         // On phones never retain a fitted character while constructing another.
         if(mobile&&runtime){scene.remove(runtime.root);disposeSkinnedAvatar(runtime);runtime=null;modelKey='';renderer.renderLists.dispose();dirty=true;invalidate();}
@@ -107,7 +107,7 @@ export function createStudioGraphics(canvas:HTMLCanvasElement,initial:CharacterC
         // Swap only after the new complete fitted mesh exists; keep old render on a failed download.
         if(runtime){scene.remove(runtime.root);disposeSkinnedAvatar(runtime);}
         runtime=next;sequence=[];routineActive=false;measured=0;frameAverage=mobile?(quality==='detail'?34:50):17;phoneLimit=640;canvas.dataset.rbAssetLoadMs=String(Math.round(performance.now()-loadStarted));runtime.expression?.(mood);expressionUntil=performance.now()+1000;runtime.root.rotation.y=yaw;setAvatarMotion(runtime,'idle',0);runtime.mixer.update(0);
-        scene.add(runtime.root);modelKey=key;active='idle';previous=0;pose();awaitingFrame=true;invalidate();
+        scene.add(runtime.root);modelKey=key;active='idle';previous=0;pose();if(mobile)resize();awaitingFrame=true;invalidate();
       }
     }catch(error){if(!disposed)fail(error instanceof Error?error.message:'Textured human asset failed');}
     finally{loading=false;if(desired&&!disposed&&!failed)void drain();}
