@@ -37,6 +37,7 @@ const MOTION_HINTS: Record<AvatarMotion, string[]> = {
 };
 
 function actionForMotion(runtime: SkinnedAvatarRuntime, motion: AvatarMotion): THREE.AnimationAction | null {
+  const exact=runtime.actions.get(motion);if(exact)return exact;
   const hints = MOTION_HINTS[motion];
   for (const hint of hints) {
     const hit = [...runtime.actions.entries()].find(([name]) => name.includes(hint));

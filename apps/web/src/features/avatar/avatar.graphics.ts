@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import {studioFrameInterval} from './avatar.energy.motion';
 import {createGroundShade,groundShadeMesh} from './avatar.cinematic.depth';
 import {phoneRenderLimit} from './avatar.quality.v31';
 import {nextRenderScale} from './avatar.render.budget';
@@ -31,7 +32,7 @@ export function createStudioGraphics(canvas:HTMLCanvasElement,initial:CharacterC
   const ring=new THREE.Mesh(new THREE.TorusGeometry(.83,.013,6,48),new THREE.MeshBasicMaterial({color:aura(initial.aura)}));ring.rotation.x=-Math.PI/2;ring.position.y=.008;scene.add(ring);
   let runtime:SkinnedAvatarRuntime|null=null;
   let shot:'portrait'|'full'|'orbit'='full',orbitAngle=0,lighting:'studio'|'warm'|'night'='studio';let yaw=0,zoom=1,face=false,active:AvatarMotion='idle',disposed=false,failed=false,raf=0,previous=0,deadline=0,dirty=true;
-  let modelKey='',pendingKey='',desired:CharacterConfig|null=null,loading=false,awaitingFrame=false,shaderError=false;let revision=0,fitTimer=0;let quality:'auto'|'detail'='auto',mood:AvatarExpression='neutral',latest=initial;let expressionUntil=0;let sequence:MotionStep[]=[];let routineActive=false,bodyTime=0,expressionClock=0;let loadStarted=0;let phoneLimit=640;let frameScale=1,frameAverage=mobile?50:17,measured=0,lastAdapt=0,lastTelemetry=0,visible=true;
+  let modelKey='',pendingKey='',desired:CharacterConfig|null=null,loading=false,awaitingFrame=false,shaderError=false;let revision=0,fitTimer=0;let quality:'auto'|'detail'='auto',mood:AvatarExpression='neutral',latest=initial;let expressionUntil=0;let sequence:MotionStep[]=[];let routineActive=false,bodyTime=0,expressionClock=0;let loadStarted=0;let phoneLimit=640;let drawCost=0;let frameScale=1,frameAverage=mobile?50:17,measured=0,lastAdapt=0,lastTelemetry=0,visible=true;
   const controller=new AbortController(),signal=controller.signal;
   let experience=getExperience();
   renderer.debug.checkShaderErrors=true;renderer.debug.onShaderError=()=>{shaderError=true;};
@@ -51,8 +52,8 @@ export function createStudioGraphics(canvas:HTMLCanvasElement,initial:CharacterC
     raf=0;if(disposed||failed||document.hidden||!visible)return;
     const anim=active!=='idle'&&(routineActive||now<deadline);const living=!!runtime&&(!reduced.matches||now<expressionUntil);
     if(!dirty&&!anim&&!living&&active==='idle')return;
-    if(previous&&now-previous<(mobile?(quality==='detail'?32:48):16)){schedule();return;}
-    const elapsed=previous?now-previous:0;const dt=Math.min(elapsed/1000,.075);previous=now;if(elapsed>0&&elapsed<250){frameAverage+=.08*(elapsed-frameAverage);measured++;}
+    if(previous&&now-previous<studioFrameInterval(mobile,drawCost,quality)){schedule();return;}
+    const drawStarted=performance.now();const elapsed=previous?now-previous:0;const dt=Math.min(elapsed/1000,.075);previous=now;if(elapsed>0&&elapsed<250){frameAverage+=.08*(elapsed-frameAverage);measured++;}
     try{
       if(runtime){
         runtime.lookAt?.(experience.behavior!=='manual'&&active==='idle'&&!reduced.matches?camera.position:null);
@@ -68,7 +69,7 @@ export function createStudioGraphics(canvas:HTMLCanvasElement,initial:CharacterC
       }
       if(runtime){contact.material.opacity=Math.max(.14,1-runtime.root.position.y*1.6);contact.scale.setScalar(1+runtime.root.position.y*.6);directionalShade.material.opacity=Math.max(.12,.86-runtime.root.position.y);directionalShade.scale.setScalar(1+runtime.root.position.y*.4);}
       if(shot==='orbit'&&runtime&&!reduced.matches){orbitAngle=(orbitAngle+dt*.38)%(Math.PI*2);pose();}
-      renderer.render(scene,camera);if(mobile&&runtime&&!loading&&measured>=90&&now-lastAdapt>3200){lastAdapt=now;const limit=phoneRenderLimit(quality,frameAverage,measured,phoneLimit);if(limit!==phoneLimit){phoneLimit=limit;resize();}}if(!mobile&&measured>30&&now-lastAdapt>2500&&!loading){lastAdapt=now;const next=nextRenderScale(frameScale,frameAverage,measured,mobile);if(Math.abs(next-frameScale)>.01){frameScale=next;resize();}}if(now-lastTelemetry>1000){lastTelemetry=now;canvas.dataset.rbFps=String(Math.round(1000/frameAverage));canvas.dataset.rbResolution=renderer.domElement.width+'×'+renderer.domElement.height;canvas.dataset.rbRenderScale=String(Math.round(frameScale*100));canvas.dataset.rbDrawCalls=String(renderer.info.render.calls);canvas.dataset.rbTriangles=String(renderer.info.render.triangles);canvas.dataset.rbTextures=String(renderer.info.memory.textures);}if(shaderError){fail('Material shader compilation failed');return;}dirty=false;if(runtime){if(awaitingFrame){awaitingFrame=false;onAssetStatus('ready',runtime.assetLabel??'Selected fitted wardrobe rendered');}onFrame();}
+      renderer.render(scene,camera);drawCost+=.12*(performance.now()-drawStarted-drawCost);if(mobile&&runtime&&!loading&&measured>=90&&now-lastAdapt>3200){lastAdapt=now;const limit=phoneRenderLimit(quality,frameAverage,measured,phoneLimit);if(limit!==phoneLimit){phoneLimit=limit;resize();}}if(!mobile&&measured>30&&now-lastAdapt>2500&&!loading){lastAdapt=now;const next=nextRenderScale(frameScale,frameAverage,measured,mobile);if(Math.abs(next-frameScale)>.01){frameScale=next;resize();}}if(now-lastTelemetry>1000){lastTelemetry=now;canvas.dataset.rbFps=String(Math.round(1000/frameAverage));canvas.dataset.rbResolution=renderer.domElement.width+'×'+renderer.domElement.height;canvas.dataset.rbRenderScale=String(Math.round(frameScale*100));canvas.dataset.rbDrawCalls=String(renderer.info.render.calls);canvas.dataset.rbTriangles=String(renderer.info.render.triangles);canvas.dataset.rbTextures=String(renderer.info.memory.textures);}if(shaderError){fail('Material shader compilation failed');return;}dirty=false;if(runtime){if(awaitingFrame){awaitingFrame=false;onAssetStatus('ready',runtime.assetLabel??'Selected fitted wardrobe rendered');}onFrame();}
       if(anim||living){dirty=true;schedule();}else previous=0;
     }catch(error){fail(error instanceof Error?error.message:'WebGL draw failed');}
   };
@@ -77,11 +78,11 @@ export function createStudioGraphics(canvas:HTMLCanvasElement,initial:CharacterC
     experience=value;const mode=resolveVisual(value.visual,'avatar-characters');
     canvas.dataset.rbVisualMode=mode;canvas.dataset.rbBehaviorMode=value.behavior;
     const cinematic=mode==='cinematic',expressive=mode==='expressive';
-    renderer.toneMappingExposure=cinematic?.96:expressive?1.0:.94;
-    hemi.intensity=cinematic?.72:expressive?1.15:.85;
+    renderer.toneMappingExposure=cinematic?1.02:expressive?1.0:.94;
+    hemi.intensity=cinematic?.94:expressive?1.15:.85;
     key.color.setHex(cinematic?0xffe3c9:expressive?0xfff2da:0xc3adff);key.intensity=expressive?2.25:2.85;
-    fill.color.setHex(mode==='fantasy'?0x9e74ff:0xb0ddff);fill.intensity=mode==='fantasy'?1.6:.58;
-    rim.color.setHex(mode==='fantasy'?aura(latest.aura):0xe9cb81);rim.intensity=mode==='fantasy'?2.8:.95;
+    fill.color.setHex(mode==='fantasy'?0x9e74ff:0xb0ddff);fill.intensity=mode==='fantasy'?1.6:.82;
+    rim.color.setHex(mode==='fantasy'?aura(latest.aura):0xe9cb81);rim.intensity=mode==='fantasy'?2.8:1.45;
     (scene.background as THREE.Color).setHex(cinematic?0x1b2325:expressive?0x293333:0x11152a);
     (scene.fog as THREE.FogExp2).color.copy(scene.background as THREE.Color);
     floor.material.color.setHex(cinematic?0x333537:expressive?0x414847:0x201c3b);ring.visible=mode==='fantasy';directionalShade.visible=mobile&&mode!=='fantasy';
@@ -106,7 +107,7 @@ export function createStudioGraphics(canvas:HTMLCanvasElement,initial:CharacterC
         if(disposed||failed||generation!==revision){disposeSkinnedAvatar(next);continue;}
         // Swap only after the new complete fitted mesh exists; keep old render on a failed download.
         if(runtime){scene.remove(runtime.root);disposeSkinnedAvatar(runtime);}
-        runtime=next;sequence=[];routineActive=false;measured=0;frameAverage=mobile?(quality==='detail'?34:50):17;phoneLimit=640;canvas.dataset.rbAssetLoadMs=String(Math.round(performance.now()-loadStarted));runtime.expression?.(mood);expressionUntil=performance.now()+1000;runtime.root.rotation.y=yaw;setAvatarMotion(runtime,'idle',0);runtime.mixer.update(0);
+        runtime=next;sequence=[];routineActive=false;measured=0;frameAverage=mobile?34:17;drawCost=0;phoneLimit=640;canvas.dataset.rbAssetLoadMs=String(Math.round(performance.now()-loadStarted));runtime.expression?.(mood);expressionUntil=performance.now()+1000;runtime.root.rotation.y=yaw;setAvatarMotion(runtime,'idle',0);runtime.mixer.update(0);
         scene.add(runtime.root);modelKey=key;active='idle';previous=0;pose();if(mobile)resize();awaitingFrame=true;invalidate();
       }
     }catch(error){if(!disposed)fail(error instanceof Error?error.message:'Textured human asset failed');}
@@ -128,5 +129,5 @@ export function createStudioGraphics(canvas:HTMLCanvasElement,initial:CharacterC
   const observer=new ResizeObserver(resize);observer.observe(canvas);const visibility=new IntersectionObserver(entries=>{visible=entries[0]?.isIntersecting??true;if(!visible){cancelAnimationFrame(raf);raf=0;previous=0;}else invalidate();},{threshold:.05});visibility.observe(canvas);
   const dispose=()=>{if(disposed)return;disposed=true;desired=null;clearTimeout(fitTimer);controller.abort();stopExperience();observer.disconnect();visibility.disconnect();cancelAnimationFrame(raf);if(runtime){scene.remove(runtime.root);disposeSkinnedAvatar(runtime);runtime=null;}floor.geometry.dispose();floor.material.dispose();contact.geometry.dispose();contact.material.dispose();contactMap.dispose();directionalShade.geometry.dispose();directionalShade.material.dispose();shadeMap.dispose();key.shadow.dispose();ring.geometry.dispose();ring.material.dispose();lightMap?.dispose();renderer.dispose();renderer.forceContextLoss();};
   applyExperience(experience);update(initial);resize();
-  return {shot:value=>{shot=value;orbitAngle=0;face=value==='portrait';zoom=1;pose();invalidate();},lighting:value=>{lighting=value;applyExperience(experience);},still:()=>new Promise<Blob>((resolve,reject)=>{if(disposed||failed||!runtime||loading){reject(Error('Wait for the current character to render.'));return;}try{renderer.render(scene,camera);canvas.toBlob(blob=>blob?resolve(blob):reject(Error('Image export unavailable')),'image/png');}catch(e){reject(e);}}),routine:names=>{const steps=normalizeTimeline([...names]);if(!runtime||!steps.length||steps.length!==names.length||!steps.every(n=>runtime!.actions.has(n.clip)))return false;sequence=steps.slice(1);routineActive=true;const ok=beginGesture(steps[0].clip,steps[0].speed,steps[0].blend);if(!ok){routineActive=false;sequence=[];}return ok;},gesture:name=>{sequence=[];routineActive=false;return beginGesture(name);},expression:(value,strength=1)=>{mood=value;runtime?.expression?.(value,THREE.MathUtils.clamp(strength,0,1));expressionUntil=performance.now()+1000;face=true;zoom=1;pose();invalidate();},quality:value=>{if(quality===value)return;quality=value;phoneLimit=640;frameAverage=mobile?(quality==='detail'?34:50):17;frameScale=1;measured=0;resize();update(latest);},update,motion,rotate,zoom:delta=>{zoom=THREE.MathUtils.clamp(zoom+delta,.8,1.6);pose();invalidate();},face:enabled=>{shot=enabled?'portrait':'full';orbitAngle=0;face=enabled;zoom=1;pose();invalidate();},reset:()=>{shot='full';orbitAngle=0;yaw=0;zoom=1;face=false;if(runtime)runtime.root.rotation.y=0;pose();motion('idle');},dispose};
+  return {shot:value=>{shot=value;orbitAngle=0;face=value==='portrait';zoom=1;pose();invalidate();},lighting:value=>{lighting=value;applyExperience(experience);},still:()=>new Promise<Blob>((resolve,reject)=>{if(disposed||failed||!runtime||loading){reject(Error('Wait for the current character to render.'));return;}try{renderer.render(scene,camera);canvas.toBlob(blob=>blob?resolve(blob):reject(Error('Image export unavailable')),'image/png');}catch(e){reject(e);}}),routine:names=>{const steps=normalizeTimeline([...names]);if(!runtime||!steps.length||steps.length!==names.length||!steps.every(n=>runtime!.actions.has(n.clip)))return false;sequence=steps.slice(1);routineActive=true;const ok=beginGesture(steps[0].clip,steps[0].speed,steps[0].blend);if(!ok){routineActive=false;sequence=[];}return ok;},gesture:name=>{sequence=[];routineActive=false;return beginGesture(name);},expression:(value,strength=1)=>{mood=value;runtime?.expression?.(value,THREE.MathUtils.clamp(strength,0,1));expressionUntil=performance.now()+1000;face=true;zoom=1;pose();invalidate();},quality:value=>{if(quality===value)return;quality=value;phoneLimit=640;frameAverage=mobile?34:17;drawCost=0;frameScale=1;measured=0;resize();update(latest);},update,motion,rotate,zoom:delta=>{zoom=THREE.MathUtils.clamp(zoom+delta,.8,1.6);pose();invalidate();},face:enabled=>{shot=enabled?'portrait':'full';orbitAngle=0;face=enabled;zoom=1;pose();invalidate();},reset:()=>{shot='full';orbitAngle=0;yaw=0;zoom=1;face=false;if(runtime)runtime.root.rotation.y=0;pose();motion('idle');},dispose};
 }

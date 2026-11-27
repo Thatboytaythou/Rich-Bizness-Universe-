@@ -52,3 +52,5 @@ const sourceVehicle=new THREE.Group(),vehicleMat=new THREE.MeshStandardMaterial(
 const mergedVehicle=mergeStaticVehicle(sourceVehicle,true);assert.equal(mergedVehicle.children.length,1);assert.equal(mergedVehicle.userData.rbVehicleTriangles,24);mergedVehicle.updateMatrixWorld(true);const vehicleBounds=new THREE.Box3().setFromObject(mergedVehicle);assert.ok(Math.abs(vehicleBounds.getSize(new THREE.Vector3()).z-3.55)<.01);assert.ok(Math.abs(vehicleBounds.min.y)<.01);disposeDetailedVehicle(mergedVehicle);sourceVehicle.traverse(o=>{if(o.isMesh)o.geometry.dispose();});
 assert.match(graphics,/fitQuality!=='detail'/);assert.match(lobby,/tryDetailedVehicle/);assert.match(source,/Enhanced • medium mesh/);
 console.log('V31: mobile safe startup and enhanced limits, bounded animation rate, original chain geometry, merged vehicle fit and fallback paths verified');
+
+assert.match(graphics,/studioFrameInterval\(mobile,drawCost,quality\)/);assert.match(source,/upperArm:'80',forearm:'60',thigh:'60'/);assert.match(source,/avatar-elite-33-body-energy/);

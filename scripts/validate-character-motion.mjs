@@ -109,3 +109,16 @@ for(const mesh of [atlasShoeGeometry(),mantleGeometry()]){assert.ok(mesh.index.c
 const cape=mantleGeometry(),rest=new Float32Array(cape.getAttribute('position').array);animateMantle(cape,rest,1);assert.notDeepEqual([...cape.getAttribute('position').array],[...rest]);assert.ok([...cape.getAttribute('normal').array].every(Number.isFinite));cape.dispose();
 assert.equal(normalizeLook({}).mantle,'none');
 console.log('V27: original footwear mesh, mantle geometry and bounded cloth animation verified');
+
+import {energeticClip,studioFrameInterval} from '../apps/web/src/features/avatar/avatar.energy.motion.ts';
+const axis=new THREE.Vector3(1,0,0);
+const swing=(name)=>new THREE.QuaternionKeyframeTrack(name+'.quaternion',[0,.5,1],[...new THREE.Quaternion().toArray(),...new THREE.Quaternion().setFromAxisAngle(axis,.6).toArray(),...new THREE.Quaternion().toArray()]);
+const energeticSource=new THREE.AnimationClip('test',1,[swing('LeftArm'),swing('Head'),swing('LeftUpLeg'),swing('LeftFoot'),new THREE.VectorKeyframeTrack('Hips.position',[0,1],[0,1,0,0,1,0])]);
+const walkEnergy=energeticClip(energeticSource,'run',[]),jumpEnergy=energeticClip(energeticSource,'jump',[]);
+for(const i of [0,1])assert.notDeepEqual([...walkEnergy.tracks[i].values],[...energeticSource.tracks[i].values]);
+for(const i of [2,3,4])assert.deepEqual([...walkEnergy.tracks[i].values],[...energeticSource.tracks[i].values]);
+assert.notDeepEqual([...jumpEnergy.tracks[2].values],[...energeticSource.tracks[2].values]);
+assert.deepEqual([...jumpEnergy.tracks[3].values],[...energeticSource.tracks[3].values]);
+for(const track of walkEnergy.tracks.slice(0,4)){for(let i=0;i<track.values.length;i+=4)near(new THREE.Quaternion().fromArray(track.values,i).length(),1);assert.deepEqual([...track.values.slice(0,4)],[...track.values.slice(-4)]);}
+assert.equal(studioFrameInterval(true,8,'auto'),32);assert.equal(studioFrameInterval(true,30,'auto'),48);assert.equal(studioFrameInterval(false,30,'detail'),16);
+console.log('V33: upper-body motion, expressive legs, protected locomotion and foot tracks, normalized quaternions, bounded phone cadence');

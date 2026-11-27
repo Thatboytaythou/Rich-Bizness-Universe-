@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import {createCharacter} from 'ara3d';
 import {mobileDetail} from './avatar.quality.v31';
+import {energeticClip} from './avatar.energy.motion';
 import {weaveNormal} from './avatar.visual.assets';
 import {hdRecipe,HD_CLIPS} from './avatar.hd.recipe';
 import {originalWearables} from './avatar.original.wearables';
@@ -14,7 +15,7 @@ export async function createHDCharacter(gender:AvatarGender,raw:unknown,build:st
  const hero=await createCharacter({kind:'ara-character',version:1,params:recipe.params},{detail,animations:[...HD_CLIPS],rootMotion:false,assetsUrl:new URL('/character-assets/ara-1.2.0/',location.origin).href});
  let textile:THREE.DataTexture|undefined;let microSkin:THREE.DataTexture|undefined;let mixer:THREE.AnimationMixer|undefined;let wearables:ReturnType<typeof originalWearables>|undefined;
  try{
-  const root=new THREE.Group();root.name='rb-hd-character-v31';root.add(hero.scene);
+  const root=new THREE.Group();root.name='rb-hd-character-v33';root.add(hero.scene);
   const bones=new Set<THREE.Bone>();let triangles=0,meshes=0,faceMorphs=0;
   root.traverse(o=>{const mesh=o as THREE.SkinnedMesh;if(!mesh.isSkinnedMesh)return;meshes++;mesh.skeleton.bones.forEach(b=>bones.add(b));triangles+=(mesh.geometry.index?.count??mesh.geometry.attributes.position.count)/3;faceMorphs+=Object.keys(mesh.morphTargetDictionary??{}).length;mesh.frustumCulled=false;mesh.castShadow=!mobile;});
   if(!meshes||bones.size<30||triangles<15000||triangles>(detail==='high'?220000:mobile&&detail==='medium'?85000:100000)||faceMorphs<5)throw Error('HD mesh failed anatomy/rig budget: '+Math.round(triangles)+' triangles, '+bones.size+' bones');
@@ -26,8 +27,8 @@ export async function createHDCharacter(gender:AvatarGender,raw:unknown,build:st
   const look=normalizeLook(raw);wearables=originalWearables(root,bones,height,look);
   const clips:THREE.AnimationClip[]=[];const names:Record<string,string>={idle:'idle',walk:look.presence==='editorial'?'model_walk':look.presence==='relaxed'?'walk_slouch':'walk',run:'run',jump:'jump',power:'cheer',wave:'wave','look around':'look_around',bow:'bow','talk gestures':'talk_gestures','catwalk':'model_walk','relaxed walk':'walk_slouch','clap':'clap','point':'point','thumbs up':'thumbs_up','groove':'dance_groove','bounce':'dance_bounce','laugh':'laugh_hard','turn left':'turn_left_90','turn right':'turn_right_90',talk:'talk','soft laugh':'laugh'};
   mixer=new THREE.AnimationMixer(root);const actions=new Map<string,THREE.AnimationAction>();
-  for(const [name,id] of Object.entries(names)){const src=hero.clip(id);if(!src||!src.tracks.length||!Number.isFinite(src.duration)||src.duration<=0)throw Error('Missing retargeted clip: '+id);const clip=src.clone();clip.name=name;clips.push(clip);actions.set(name,mixer.clipAction(clip,hero.scene));}
-  root.traverse(o=>{const m=o as THREE.Mesh;if(!m.isMesh)return;for(const mat of Array.isArray(m.material)?m.material:[m.material]){if((mat as THREE.MeshStandardMaterial).isMeshStandardMaterial&&/skin|body/i.test(mat.name)){(mat as THREE.MeshStandardMaterial).roughness=look.surfaceDetail==='portrait'?.56:look.skinFinish==='matte'?.76:look.skinFinish==='soft-glow'?.49:.64;if(look.surfaceDetail==='portrait'){const skin=mat as THREE.MeshStandardMaterial;if(skin.normalMap)skin.normalScale.set(.82,.82);skin.envMapIntensity=.55;skin.roughness=.52;}}}});
+  for(const [name,id] of Object.entries(names)){const src=hero.clip(id);if(!src||!src.tracks.length||!Number.isFinite(src.duration)||src.duration<=0)throw Error('Missing retargeted clip: '+id);const clip=energeticClip(src,name,bones);clips.push(clip);actions.set(name,mixer.clipAction(clip,hero.scene));}
+  root.traverse(o=>{const m=o as THREE.Mesh;if(!m.isMesh)return;for(const mat of Array.isArray(m.material)?m.material:[m.material]){if((mat as THREE.MeshStandardMaterial).isMeshStandardMaterial&&/skin|body/i.test(mat.name)){(mat as THREE.MeshStandardMaterial).roughness=look.surfaceDetail==='portrait'?.56:look.skinFinish==='matte'?.76:look.skinFinish==='soft-glow'?.49:.64;if(look.surfaceDetail==='portrait'){const skin=mat as THREE.MeshStandardMaterial;if(skin.normalMap)skin.normalScale.set(.82,.82);skin.envMapIntensity=.65;skin.roughness=.53;}}}});
   // Preserve the actual baked skin colors. Add restrained micro-surface only where the mesh has UVs.
   const makeMicroSkin=()=>{const n=128,data=new Uint8Array(n*n*4);let seed=8317;for(let i=0;i<n*n;i++){seed=(Math.imul(seed,1664525)+1013904223)>>>0;const v=112+((seed>>>24)%33);data[i*4]=data[i*4+1]=data[i*4+2]=v;data[i*4+3]=255;}const tex=new THREE.DataTexture(data,n,n,THREE.RGBAFormat);tex.wrapS=tex.wrapT=THREE.RepeatWrapping;tex.repeat.set(12,12);tex.magFilter=THREE.LinearFilter;tex.minFilter=THREE.LinearMipmapLinearFilter;tex.generateMipmaps=true;tex.needsUpdate=true;return tex;};
   root.traverse(o=>{const m=o as THREE.Mesh;if(!m.isSkinnedMesh||!m.geometry.getAttribute('uv'))return;for(const mat of Array.isArray(m.material)?m.material:[m.material]){const skin=mat as THREE.MeshStandardMaterial;if(!skin.isMeshStandardMaterial||!/skin|body/i.test(skin.name)||!skin.map)continue;skin.metalness=0;if(skin.normalMap){skin.normalScale.set(look.surfaceDetail==='portrait'?.8:.55,look.surfaceDetail==='portrait'?.8:.55);}else if(!skin.bumpMap&&look.surfaceDetail==='portrait'&&!mobile){microSkin??=makeMicroSkin();skin.bumpMap=microSkin;skin.bumpScale=.00045;skin.needsUpdate=true;}}});
