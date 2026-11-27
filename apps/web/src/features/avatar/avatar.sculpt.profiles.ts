@@ -10,9 +10,9 @@ export const BODY_REGIONS=[
  {title:'Legs & hips',fields:['hips','gluteVolume','thigh','calf','footSize','hipDepth']}
 ] as const;
 export const FACE_REGIONS=[
- {title:'Head & cheekbones',fields:['headWidth','headHeight','faceFat','foreheadHeight','cheekVolume']},
- {title:'Eyes & brows',fields:['eyeSpacing','eyeSize','eyeTilt','eyeFold','browHeight']},
- {title:'Nose, mouth & jaw',fields:['noseBridge','noseLength','noseTip','nostrils','mouthDepth','upperLip','lowerLip','chinProminence','chinWidth']},
+ {title:'Head & cheekbones',fields:['headWidth','headHeight','faceFat','foreheadHeight','cheekVolume','templeVolume','innerCheek']},
+ {title:'Eyes & brows',fields:['eyeSpacing','eyeSize','eyeTilt','eyeFold','browHeight','browDepth','eyelidVolume','underEyeVolume']},
+ {title:'Nose, mouth & jaw',fields:['noseBridge','noseLength','noseTip','nostrils','mouthDepth','upperLip','lowerLip','chinProminence','chinWidth','chinHeight','noseCurve','noseOffset','mouthOffset','cupidsBow']},
  {title:'Ears',fields:['earSize','earAngle']}
 ] as const;
 export const BODY_PRESETS={

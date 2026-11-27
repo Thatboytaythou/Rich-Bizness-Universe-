@@ -1,12 +1,14 @@
 import * as THREE from 'three';
 // Pinned Ara catalog naming, including material IDs which have no "skin" or "hair" prefix.
 // Prioritize facial mesh names for the vendor's shared bodyMaterial eyelash material.
-export type SurfaceRole='skin'|'hair'|'facial-hair'|'eye'|'cornea'|'face-detail'|'tailoring'|'denim'|'knit'|'techwear'|'fabric'|'unknown';
+export type SurfaceRole='skin'|'hair'|'facial-hair'|'eye'|'cornea'|'face-detail'|'oral'|'tailoring'|'denim'|'knit'|'techwear'|'fabric'|'unknown';
 const norm=(s:string)=>s.toLowerCase().replace(/[^a-z0-9]/g,'');
 export function surfaceRole(material:string,mesh=''):SurfaceRole{
  const m=norm(material),n=norm(mesh),both=m+' '+n;
  // Eye_brown normalizes to eyebrown, not eyebrow: require a distinct brow match.
- if(/eyelash|eylash|eyebrow(?!n)|teeth|tongue|gum|tooth|nail/.test(both))return 'face-detail';
+ if(/eyelash|eylash|eyebrow(?!n)|nail/.test(both))return 'face-detail';
+ if(/^(mouth|teeth|tongue|gum|tooth|oral)/.test(m))return 'oral';
+ if(/teeth|tongue|gum|tooth/.test(n))return 'oral';
  if(/beard|mustache|moustache|stubble|facialhair/.test(both))return 'facial-hair';
  if(/cornea/.test(both))return 'cornea';
  if(/^eye(?:s|blue|brown|black|deep|green|grey|ice|light|mesh|material|ball|iris|[0-9]|$)/.test(m)||/eyeball|eyemesh|iris/.test(n))return 'eye';

@@ -30,3 +30,16 @@ The Aegis and Crown lattice are original procedural Rich Bizness designs, while 
 
 ## Owner-approved V1 development direction
 Selectable human, cinematic and anime/fantasy presentation; complete body customization; all original fashion collections; full movement system; connected universe; customizable street vehicles; complete creator marketplace; selectable adaptive graphics with protection; uncluttered six-tab immersive interface. Priority: character and body realism before expanding world or commerce. Use the existing Rich ID appearance recipe; do not fork identity or change payment/database infrastructure for graphics work. These are targets, not claims of completion.
+
+## Owner-approved V1 expanded requirements — November 26, 2026
+1. All three selectable human, cinematic and fantasy/anime styles.
+2. Complete anatomy: realistic muscles, body fat, proportions and supernatural forms.
+3. Facial geometry, asymmetric sculpt controls, eyes, teeth, lips, skin, natural expressions and speech.
+4. Complete grooming: waves, fades, hairlines, locs, braids, natural hair, eyebrows and facial hair.
+5. Complete movement: locomotion, athletic/combat motion, dance, acting and natural transitions.
+6. Complete fashion and clothing physics, original clothing, jewelry and fitted footwear.
+7. World interaction: other characters, vehicles, seating/objects, social interaction and proximity voice.
+8. Realistic day/night/interiors with adaptive mobile protection.
+9. Creator economy: secure Stripe payments for original goods, digital assets, commissions and storefronts; creator onboarding and verified fulfillment are required before claiming marketplace readiness.
+10. First implementation priority: human geometry and facial realism.
+These are acceptance targets, not completed feature claims. Keep V1, existing Rich ID, locked Omni visuals, Home, Tap In, Auth, Portal and all saved records. Use one normalized appearance recipe and existing runtime owners. Keep graphics-only work separate from payment/database writes. The current Stripe account connection and existing webhook do not prove a complete marketplace; validate Connect architecture, seller onboarding, amount authorization, idempotent verified fulfillment and payout reconciliation before live monetary changes.
