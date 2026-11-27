@@ -43,7 +43,7 @@ export function secondarySurface(g:THREE.BufferGeometry,kind:'hair'|'fabric'){
  for(let i=0;i<p.count;i++){const x=p.getX(i),y=p.getY(i),z=p.getZ(i),v=THREE.MathUtils.clamp((y-box.min.y)/size.y,0,1),u=(x-box.min.x)/size.x;rest.set([x,y,z],i*3);normal.fromBufferAttribute(n,i);if(!Number.isFinite(normal.lengthSq())||normal.lengthSq()<.25)continue;normal.normalize();const weight=kind==='hair'?(1-v)**2:Math.sin(Math.PI*v)**2;const d=max*weight*Math.sin((u*3+v*2)*Math.PI);delta[i*3]=normal.x*d;delta[i*3+1]=normal.y*d;delta[i*3+2]=normal.z*d;}
  // Keep conservative bounds for every allowed deformation.
  if(g.boundingBox)g.boundingBox.expandByScalar(max);g.computeBoundingSphere();if(g.boundingSphere)g.boundingSphere.radius+=max;
- return {count:p.count,kind,max,apply:(amount:number)=>{const a=Number.isFinite(amount)?THREE.MathUtils.clamp(amount,-1,1):0;if(a===0){p.array.set(rest);}else{for(let i=0;i<p.count;i++)p.setXYZ(i,rest[i*3]+delta[i*3]*a,rest[i*3+1]+delta[i*3+1]*a,rest[i*3+2]+delta[i*3+2]*a);}p.needsUpdate=true;}};
+ let last=0;return {count:p.count,kind,max,apply:(amount:number)=>{const value=Number.isFinite(amount)?THREE.MathUtils.clamp(amount,-1,1):0;const a=Math.abs(value)<.001?0:value;if(a===last)return;last=a;if(a===0){p.array.set(rest);}else{for(let i=0;i<p.count;i++)p.setXYZ(i,rest[i*3]+delta[i*3]*a,rest[i*3+1]+delta[i*3+1]*a,rest[i*3+2]+delta[i*3+2]*a);}p.needsUpdate=true;}};
 }
 export function secondaryResponse(previous:number,angle:number,dt:number){
  if(!Number.isFinite(previous+angle+dt)||dt<=0)return 0;

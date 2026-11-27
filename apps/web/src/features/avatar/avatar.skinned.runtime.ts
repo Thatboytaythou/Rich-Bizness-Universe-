@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import {captureMotionWeights,beginMotionBlend,tickMotionBlend,clearMotionBlend} from './avatar.motion.blend';
 import {naturalMotionFade} from './avatar.energy.motion';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 
@@ -172,6 +173,7 @@ export function setAvatarMotion(runtime: SkinnedAvatarRuntime, motion: AvatarMot
   if (!next || (runtime.currentAction===next && runtime.currentMotion===motion && next.isRunning())) return;
 
   const previous = runtime.currentAction;
+  const entries=captureMotionWeights(runtime);
   const phase=(previous&&['walk','run'].includes(runtime.currentMotion)&&['walk','run'].includes(motion))?previous.time/previous.getClip().duration:0;
   next.reset();
   next.enabled = true;
@@ -186,22 +188,17 @@ export function setAvatarMotion(runtime: SkinnedAvatarRuntime, motion: AvatarMot
     next.clampWhenFinished = false;
   }
   next.play();
-  if (previous && previous !== next) {
-    const fade=naturalMotionFade(runtime.currentMotion,motion,fadeSeconds);
-    if(fade<=0)previous.stop();else previous.crossFadeTo(next, fade, false);
-  }
+  beginMotionBlend(runtime,next,entries,naturalMotionFade(runtime.currentMotion,motion,fadeSeconds));
   runtime.currentAction = next;
   runtime.currentMotion = motion;
 }
 
 export function playAvatarGesture(runtime:SkinnedAvatarRuntime,name:string,speed=1,blend=.2):number{
-  const next=runtime.actions.get(name);if(!next)return 0;const previous=runtime.currentAction;const rate=THREE.MathUtils.clamp(speed,.5,1.5);next.reset().setEffectiveWeight(1).setEffectiveTimeScale(rate).setLoop(THREE.LoopOnce,1);next.clampWhenFinished=true;next.play();if(previous&&previous!==next)previous.crossFadeTo(next,THREE.MathUtils.clamp(blend,.05,.65),false);runtime.currentAction=next;runtime.currentMotion='power';return next.getClip().duration/rate;
+  const next=runtime.actions.get(name);if(!next)return 0;const entries=captureMotionWeights(runtime);const rate=Number.isFinite(speed)?THREE.MathUtils.clamp(speed,.5,1.5):1;next.reset().setEffectiveWeight(1).setEffectiveTimeScale(rate).setLoop(THREE.LoopOnce,1);next.clampWhenFinished=true;next.play();beginMotionBlend(runtime,next,entries,Number.isFinite(blend)?THREE.MathUtils.clamp(blend,.05,.65):.2);runtime.currentAction=next;runtime.currentMotion='power';return next.getClip().duration/rate;
 }
 
 export function updateSkinnedAvatar(runtime: SkinnedAvatarRuntime, deltaSeconds: number): void {
-  const dt=Number.isFinite(deltaSeconds)?Math.min(Math.max(deltaSeconds,0),0.075):0;runtime.mixer.update(dt);
-  // Retire fully faded actions, preventing dormant skeletal tracks accumulating after movement or gesture changes.
-  for(const action of runtime.actions.values()){if(action!==runtime.currentAction&&action.isScheduled()&&action.getEffectiveWeight()<=.0001)action.stop();}
+  const dt=Number.isFinite(deltaSeconds)?Math.min(Math.max(deltaSeconds,0),0.075):0;tickMotionBlend(runtime,dt);runtime.mixer.update(dt);
   runtime.animateFace?.(dt);
 }
 
@@ -213,6 +210,7 @@ export function refreshAvatarBounds(runtime: SkinnedAvatarRuntime): THREE.Box3 {
 }
 
 export function disposeSkinnedAvatar(runtime: SkinnedAvatarRuntime): void {
+  clearMotionBlend(runtime);
   if(runtime.dispose){runtime.dispose();return;}
   runtime.mixer.stopAllAction();runtime.mixer.uncacheRoot(runtime.root);
   const geometries=new Set<THREE.BufferGeometry>(),materials=new Set<THREE.Material>(),textures=new Set<THREE.Texture>(),skeletons=new Set<THREE.Skeleton>();
