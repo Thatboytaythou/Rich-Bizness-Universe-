@@ -57,6 +57,7 @@ export async function mountXpRuntime():Promise<(()=>Promise<void>)|undefined>{
   window.addEventListener('pagehide',()=>{mountEpoch++;pending.abort();},{once:true,signal:pending.signal});
   const section=pageSection();
   if(hiddenDockPages.has(section)){
+    pending.abort();
     if(window.__rbXpRuntime)await window.__rbXpRuntime.cleanup();
     removeStaleDocks();
     return;
@@ -65,6 +66,7 @@ export async function mountXpRuntime():Promise<(()=>Promise<void>)|undefined>{
   const {data:{session}}=await supabase.auth.getSession();
   if(epoch!==mountEpoch||pending.signal.aborted){pending.abort();return;}
   if(!session){
+    pending.abort();
     if(window.__rbXpRuntime)await window.__rbXpRuntime.cleanup();
     removeStaleDocks();
     return;
@@ -117,7 +119,7 @@ export async function mountXpRuntime():Promise<(()=>Promise<void>)|undefined>{
     if(channel)await supabase.removeChannel(channel);
   };
   window.__rbXpRuntime={owner:RUNTIME_OWNER,section,sessionId:session.user.id,cleanup};
-  window.addEventListener('pagehide',()=>void cleanup(),{once:true,signal});
+  signal.addEventListener('abort',()=>void cleanup(),{once:true});
   const initialize=async()=>{
     try{
       await supabase.rpc('rb_award_xp',{p_event_key:'daily_tap_in',p_section:'auth',p_source_table:null,p_source_id:null,p_amount:null}).abortSignal(signal);
