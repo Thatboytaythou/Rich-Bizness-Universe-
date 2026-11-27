@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import {createCharacter} from 'ara3d';
-import {mobileDetail} from './avatar.quality.v31';
+import {mobileDetail,phoneTriangleBudget,admitsPhoneMesh} from './avatar.quality.v31';
 import {energeticClip} from './avatar.energy.motion';
 import {editableSurface,originalForm,secondarySurface,secondaryEligible,secondaryResponse,formSelection,cloneFormGeometry} from './avatar.original.forms';
 import {limbSegments,sculptLimbRelief} from './avatar.anatomy.relief';
@@ -13,23 +13,30 @@ import {originalWearables} from './avatar.original.wearables';
 import {normalizeLook} from './avatar.character.config';
 import type {AvatarGender,AvatarExpression,SkinnedAvatarRuntime} from './avatar.skinned.runtime';
 
+class PhoneFitBudgetError extends Error{}
 export async function createHDCharacter(gender:AvatarGender,raw:unknown,build:string,quality:'auto'|'detail'):Promise<SkinnedAvatarRuntime>{
- const recipe=hdRecipe(gender,raw,build);if(!recipe.params)throw Error('HD asset compatibility: '+recipe.unsupported.join(', '));
  const mobile=matchMedia('(any-pointer:coarse),(max-width:860px)').matches;
- const detail=mobile?mobileDetail(quality):quality==='detail'?'high':'medium';
+ try{return await fitHDCharacter(gender,raw,build,quality,mobile,false);}catch(error){if(!mobile||!(error instanceof PhoneFitBudgetError))throw error;const fallback=await fitHDCharacter(gender,raw,build,quality,true,true);fallback.assetLabel=(fallback.assetLabel??'Fitted character')+' · budget-safe lower mesh';return fallback;}
+}
+async function fitHDCharacter(gender:AvatarGender,raw:unknown,build:string,quality:'auto'|'detail',mobile:boolean,fallback:boolean):Promise<SkinnedAvatarRuntime>{
+ const recipe=hdRecipe(gender,raw,build);if(!recipe.params)throw Error('HD asset compatibility: '+recipe.unsupported.join(', '));
+ const detail=mobile?mobileDetail(quality,fallback):quality==='detail'?'high':'medium';
  const hero=await createCharacter({kind:'ara-character',version:1,params:recipe.params},{detail,animations:[...HD_CLIPS],rootMotion:false,assetsUrl:new URL('/character-assets/ara-1.2.0/',location.origin).href});
  let strands:THREE.DataTexture|undefined;let textile:THREE.DataTexture|undefined;let microSkin:THREE.DataTexture|undefined;let mixer:THREE.AnimationMixer|undefined;let wearables:ReturnType<typeof originalWearables>|undefined;const replacements:{mesh:THREE.Mesh;original:THREE.BufferGeometry;refined:THREE.BufferGeometry}[]=[];const releaseSurfaces=()=>{for(const entry of replacements){entry.mesh.geometry=entry.original;entry.refined.dispose();}replacements.length=0;};
  try{
   const root=new THREE.Group();root.name='rb-hd-character-v33';root.add(hero.scene);
   const bones=new Set<THREE.Bone>();let triangles=0,meshes=0,faceMorphs=0;
   root.traverse(o=>{const mesh=o as THREE.SkinnedMesh;if(!mesh.isSkinnedMesh)return;meshes++;mesh.skeleton.bones.forEach(b=>bones.add(b));triangles+=(mesh.geometry.index?.count??mesh.geometry.attributes.position.count)/3;faceMorphs+=Object.keys(mesh.morphTargetDictionary??{}).length;mesh.frustumCulled=false;mesh.castShadow=!mobile;});
-  if(!meshes||bones.size<30||triangles<15000||triangles>(detail==='high'?220000:mobile&&detail==='medium'?85000:100000)||faceMorphs<5)throw Error('HD mesh failed anatomy/rig budget: '+Math.round(triangles)+' triangles, '+bones.size+' bones');
+  if(mobile&&!admitsPhoneMesh(quality,triangles))throw new PhoneFitBudgetError('Character exceeds '+phoneTriangleBudget(quality)+' triangle budget: '+Math.round(triangles));
+  if(!meshes||bones.size<30||triangles<15000||(!mobile&&triangles>(detail==='high'?220000:100000))||faceMorphs<5)throw Error('HD mesh failed anatomy/rig budget: '+Math.round(triangles)+' triangles, '+bones.size+' bones');
   // Reject an enhanced phone fit before uploading it to the WebGL renderer if its texture footprint exceeds budget.
-  if(mobile&&detail==='medium'){const maps=new Set<THREE.Texture>();root.traverse(o=>{const mesh=o as THREE.Mesh;if(!mesh.isMesh)return;for(const material of Array.isArray(mesh.material)?mesh.material:[mesh.material])for(const value of Object.values(material)){if((value as THREE.Texture|undefined)?.isTexture)maps.add(value as THREE.Texture);}});let estimate=0;for(const map of maps){const image=map.image;if(!image||!Number.isFinite(image.width)||!Number.isFinite(image.height))continue;if(image.width>2048||image.height>2048)throw Error('Enhanced fit exceeds 2048px texture limit');estimate+=image.width*image.height*4*(map.generateMipmaps?4/3:1);}if(estimate>64*1024*1024)throw Error('Enhanced fit exceeds estimated 64 MiB texture budget');}
+  if(mobile&&detail==='medium'){const maps=new Set<THREE.Texture>();root.traverse(o=>{const mesh=o as THREE.Mesh;if(!mesh.isMesh)return;for(const material of Array.isArray(mesh.material)?mesh.material:[mesh.material])for(const value of Object.values(material)){if((value as THREE.Texture|undefined)?.isTexture)maps.add(value as THREE.Texture);}});let estimate=0;for(const map of maps){const image=map.image;if(!image||!Number.isFinite(image.width)||!Number.isFinite(image.height))continue;if(image.width>2048||image.height>2048)throw new PhoneFitBudgetError('Mobile medium fit exceeds 2048px texture limit');estimate+=image.width*image.height*4*(map.generateMipmaps?4/3:1);}if(estimate>64*1024*1024)throw new PhoneFitBudgetError('Mobile medium fit exceeds estimated 64 MiB texture budget');}
   root.updateMatrixWorld(true);const bounds=new THREE.Box3().setFromObject(root),height=hero.height;
   if(!Number.isFinite(height)||height<1||height>2.5||!Number.isFinite(bounds.min.y))throw Error('HD mesh invalid size');
   hero.scene.position.y-=bounds.min.y;root.updateMatrixWorld(true);bounds.setFromObject(root);
   const look=normalizeLook(raw);wearables=originalWearables(root,bones,height,look);
+  // Count all character meshes, including original wearable instances, not the environment.
+  if(mobile){let total=0;root.traverse(o=>{const m=o as THREE.Mesh;if(!m.isMesh)return;const g=m.geometry,instances=(m as THREE.InstancedMesh).isInstancedMesh?(m as THREE.InstancedMesh).count:1;total+=(g.index?.count??g.getAttribute('position')?.count??0)/3*instances;});if(!admitsPhoneMesh(quality,total))throw new PhoneFitBudgetError('Fitted character and wearables exceed '+phoneTriangleBudget(quality)+' triangle budget: '+Math.round(total));triangles=total;}
   const cinematic=look.identityMode==='cinematic',fantasy=look.identityMode==='phantom';
   const clips:THREE.AnimationClip[]=[];const names:Record<string,string>={idle:'idle',walk:look.presence==='editorial'?'model_walk':look.presence==='relaxed'?'walk_slouch':'walk',run:'run',jump:'jump',power:'cheer',wave:'wave','look around':'look_around',bow:'bow','talk gestures':'talk_gestures','catwalk':'model_walk','relaxed walk':'walk_slouch','clap':'clap','point':'point','thumbs up':'thumbs_up','groove':'dance_groove','bounce':'dance_bounce','laugh':'laugh_hard','turn left':'turn_left_90','turn right':'turn_right_90',talk:'talk','soft laugh':'laugh'};
   mixer=new THREE.AnimationMixer(root);const actions=new Map<string,THREE.AnimationAction>();

@@ -41,16 +41,16 @@ assert.match(lobby,/world\?\.userData\.tickFoliage\?\.\(dt\)/);assert.match(lobb
 console.log('V30: generated vehicle UVs and normals, bounded leaf geometry and woven textile map, instanced detail');
 
 import * as THREE from 'three';
-import {phoneRenderLimit,mobileDetail,smoothPlayback} from '../apps/web/src/features/avatar/avatar.quality.v31.ts';
+import {phoneRenderLimit,mobileDetail,smoothPlayback,phoneTriangleBudget,admitsPhoneMesh} from '../apps/web/src/features/avatar/avatar.quality.v31.ts';
 import {crownChain} from '../apps/web/src/features/avatar/avatar.original.wearables.ts';
 import {mergeStaticVehicle,disposeDetailedVehicle} from '../apps/web/src/features/avatar/avatar.world.vehicle.ts';
-assert.equal(mobileDetail('auto'),'low');assert.equal(mobileDetail('detail'),'medium');
+assert.equal(mobileDetail('auto'),'medium');assert.equal(mobileDetail('detail'),'medium');assert.equal(mobileDetail('auto',true),'low');assert.equal(mobileDetail('detail',true),'low');assert.equal(phoneTriangleBudget('auto'),60000);assert.equal(phoneTriangleBudget('detail'),75000);assert.ok(admitsPhoneMesh('auto',60000));assert.ok(!admitsPhoneMesh('auto',60001));assert.ok(admitsPhoneMesh('detail',75000));assert.ok(!admitsPhoneMesh('detail',75001));assert.ok(!admitsPhoneMesh('detail',NaN));console.log('V1 phone admission: adaptive 60k, enhanced 75k, medium preferred and low fallback');
 assert.equal(phoneRenderLimit('detail',33,89,640),640);assert.equal(phoneRenderLimit('detail',33,90,640),704);assert.equal(phoneRenderLimit('detail',33,100,875),900);assert.equal(phoneRenderLimit('detail',58,100,900),820);assert.equal(phoneRenderLimit('auto',33,100,640),640);
 assert.ok(smoothPlayback(1,1.4,.033)>1&&smoothPlayback(1,1.4,.033)<1.4);
 const chainMat=new THREE.MeshStandardMaterial(),chain=crownChain(chainMat);assert.equal(chain.count,34);assert.ok(Number.isFinite(chain.boundingSphere.radius));chain.dispose();chain.geometry.dispose();chainMat.dispose();
 const sourceVehicle=new THREE.Group(),vehicleMat=new THREE.MeshStandardMaterial();for(const x of [-1,1]){const panel=new THREE.Mesh(new THREE.BoxGeometry(1.6,1.2,1.8),vehicleMat);panel.position.set(x,.6,0);sourceVehicle.add(panel);}
 const mergedVehicle=mergeStaticVehicle(sourceVehicle,true);assert.equal(mergedVehicle.children.length,1);assert.equal(mergedVehicle.userData.rbVehicleTriangles,24);mergedVehicle.updateMatrixWorld(true);const vehicleBounds=new THREE.Box3().setFromObject(mergedVehicle);assert.ok(Math.abs(vehicleBounds.getSize(new THREE.Vector3()).z-3.55)<.01);assert.ok(Math.abs(vehicleBounds.min.y)<.01);disposeDetailedVehicle(mergedVehicle);sourceVehicle.traverse(o=>{if(o.isMesh)o.geometry.dispose();});
-assert.match(graphics,/fitQuality!=='detail'/);assert.match(lobby,/tryDetailedVehicle/);assert.match(source,/Enhanced • medium mesh/);
+assert.match(graphics,/fitQuality!=='detail'/);assert.match(lobby,/tryDetailedVehicle/);assert.match(source,/Enhanced • up to 75k/);
 console.log('V31: mobile safe startup and enhanced limits, bounded animation rate, original chain geometry, merged vehicle fit and fallback paths verified');
 
 assert.match(graphics,/studioFrameInterval\(mobile,drawCost,quality\)/);assert.match(source,/upperArm:'80',forearm:'60',thigh:'60'/);assert.match(source,/1\.0\.0-foundation/);
