@@ -32,3 +32,11 @@ export function weaveNormal(){
  for(let y=0;y<n;y++)for(let x=0;x<n;x++){const a=x*Math.PI/4,b=y*Math.PI/4;const nx=.16*Math.cos(a)*Math.sin(b),ny=.16*Math.sin(a)*Math.cos(b),nz=Math.sqrt(1-nx*nx-ny*ny),i=(y*n+x)*4;data[i]=Math.round(127.5*(nx+1));data[i+1]=Math.round(127.5*(ny+1));data[i+2]=Math.round(127.5*(nz+1));data[i+3]=255;}
  const t=new THREE.DataTexture(data,n,n,THREE.RGBAFormat);t.wrapS=t.wrapT=THREE.RepeatWrapping;t.repeat.set(20,20);t.magFilter=THREE.LinearFilter;t.minFilter=THREE.LinearMipmapLinearFilter;t.generateMipmaps=true;t.needsUpdate=true;return t;
 }
+
+// Original RB street silhouettes: sport, executive and wide touring body. Shared
+// wheelbase and lamp anchors retain the existing collision and parked-car layout.
+export function streetVehicleBody(variant:number,mobile:boolean){
+ const base=[[-1.78,.64,.36,.51],[-1.65,.77,.29,.59],[-1.35,.89,.25,.72],[-.72,.93,.24,.79],[.52,.93,.24,.75],[1.24,.88,.26,.60],[1.58,.77,.30,.53],[1.75,.64,.34,.46]];
+ const sections=base.map(([z,w,b,t],i)=>{const middle=Math.sin(Math.PI*i/(base.length-1));return [z,w+(variant===2?.045*middle:variant===1?-.025*middle:0),b,t+(variant===1?.045*middle:variant===2?.018*middle:0)];});
+ return automotiveShell(sections,mobile?16:28);
+}

@@ -1,7 +1,8 @@
 import * as THREE from 'three';
-import {automotiveShell,foliageGeometry} from './avatar.visual.assets';
+import {automotiveShell,foliageGeometry,streetVehicleBody} from './avatar.visual.assets';
 import {createCinematicSky,createGroundShade,glassGradient} from './avatar.cinematic.depth';
 import {phoneRenderLimit,smoothPlayback} from './avatar.quality.v31';
+import {studioFrameInterval} from './avatar.energy.motion';
 import {nextRenderScale} from './avatar.render.budget';
 import {createCharacterLightMap} from './avatar.light-map';
 import { getAuthSnapshot } from '../../core/auth/auth-store';
@@ -93,13 +94,9 @@ function addStreetWorld(scene: THREE.Scene,signal:AbortSignal,mobile:boolean): T
     world.add(walk);
   }
 
-  for (const laneX of [-2.05, 2.05]) {
-    for (let z = -82; z <= -5; z += 8) {
-      const dash = new THREE.Mesh(new THREE.BoxGeometry(.11, .025, 2.4), stripeMat);
-      dash.position.set(laneX, .018, z);
-      world.add(dash);
-    }
-  }
+  const laneDashes=new THREE.InstancedMesh(new THREE.BoxGeometry(.11,.025,2.4),stripeMat,20);const dashMatrix=new THREE.Matrix4();let dashIndex=0;
+  for(const laneX of [-2.05,2.05])for(let z=-82;z<=-5;z+=8)laneDashes.setMatrixAt(dashIndex++,dashMatrix.makeTranslation(laneX,.018,z));
+  laneDashes.instanceMatrix.needsUpdate=true;laneDashes.computeBoundingSphere();world.add(laneDashes);
 
   const blocks = [
     [-13, 7, -12, 6, 4.5], [13, 8, -15, 5.5, 5],
@@ -179,7 +176,7 @@ function addStreetWorld(scene: THREE.Scene,signal:AbortSignal,mobile:boolean): T
     [-4.9, -17, 0], [4.9, -31, Math.PI], [-4.9, -50, 0], [4.9, -67, Math.PI]
   ] as const;
   // Shared original automotive shell: curved longitudinal sections, no stock cube cabin.
-  const bodyShell=automotiveShell([[-1.78,.64,.36,.51],[-1.65,.77,.29,.59],[-1.35,.89,.25,.72],[-.72,.93,.24,.79],[.52,.93,.24,.75],[1.24,.88,.26,.60],[1.58,.77,.30,.53],[1.75,.64,.34,.46]],mobile?16:28);
+  const bodyShells=[0,1,2].map(i=>streetVehicleBody(i,mobile));
   const roofShell=automotiveShell([[-1.02,.58,.59,.71],[-.78,.63,.65,.91],[-.44,.67,.67,1.15],[.28,.67,.67,1.18],[.58,.64,.65,1.06],[.99,.59,.59,.72]],mobile?16:28);
   const roofCap=automotiveShell([[-.52,.44,1.05,1.12],[-.32,.59,1.08,1.17],[.28,.60,1.09,1.20],[.48,.45,1.05,1.13]],mobile?12:24);
   const trimMat=new THREE.MeshStandardMaterial({color:0x191d20,roughness:.48,metalness:.32});
@@ -193,7 +190,7 @@ function addStreetWorld(scene: THREE.Scene,signal:AbortSignal,mobile:boolean): T
   const spokeMatrices:THREE.Matrix4[]=[];const spokeDummy=new THREE.Object3D();let showcase:THREE.Group|undefined;
   carPositions.forEach(([x, z, rotation], index) => {
     const car = new THREE.Group();
-    const body = new THREE.Mesh(bodyShell, carMats[index % carMats.length]);
+    const body = new THREE.Mesh(bodyShells[index%bodyShells.length], carMats[index % carMats.length]);
     body.position.y = 0;
     body.castShadow = true;
     car.add(body);
@@ -300,7 +297,7 @@ export async function mount(): Promise<void> {
   const failure=(message:string)=>{cancelAnimationFrame(raf);stopLife();root.querySelector<HTMLElement>('#avatarLoading')?.remove();const panel=document.createElement('div');panel.className='al-loading';panel.setAttribute('role','status');panel.textContent=message+' ';const link=document.createElement('a');link.href='/avatar-characters.html';link.textContent='Return to Avatar Studio';panel.append(link);canvas.parentElement?.append(panel);root.querySelectorAll<HTMLButtonElement>('[data-action]').forEach(button=>button.disabled=true);};
   try{renderer = new THREE.WebGLRenderer({ canvas, antialias: !mobile, powerPreference: mobile?'low-power':'high-performance' });}catch{failure('3D graphics unavailable. Your saved Rich ID is unchanged.');return;}
   canvas.addEventListener('webglcontextlost',event=>{event.preventDefault();failure('3D graphics paused. Your saved Rich ID is unchanged.');},{signal:abort.signal,once:true});
-  renderer.setPixelRatio(mobile?1:quality.dpr);
+  renderer.setPixelRatio(1);
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.toneMappingExposure = 1.08;
@@ -368,6 +365,7 @@ export async function mount(): Promise<void> {
   let powerTimer = 0;
   let dragging = false;
   const velocity = new THREE.Vector3();
+  const verticalAxis=new THREE.Vector3(0,1,0),stationary=new THREE.Vector3();
   const desiredVelocity = new THREE.Vector3();
 
   const setJoy = (clientX: number, clientY: number) => {
@@ -427,7 +425,7 @@ export async function mount(): Promise<void> {
   resize = () => {
     if (!renderer) return;
     const rect = canvas.getBoundingClientRect();
-    const limit=mobile?phoneLimit:1440;const scale=Math.min(mobile?1.6:1,limit/Math.max(1,rect.width,rect.height))*renderScale;const w=Math.max(1,Math.round(rect.width*scale)),h=Math.max(1,Math.round(rect.height*scale));if(canvas.width!==w||canvas.height!==h)renderer.setSize(w,h,false);
+    const limit=mobile?phoneLimit:1440;const scale=Math.min(mobile?1.6:quality.dpr,limit/Math.max(1,rect.width,rect.height))*renderScale;const w=Math.max(1,Math.round(rect.width*scale)),h=Math.max(1,Math.round(rect.height*scale));if(canvas.width!==w||canvas.height!==h)renderer.setSize(w,h,false);
     camera.aspect = rect.width / Math.max(1, rect.height);
     camera.updateProjectionMatrix();
   };
@@ -435,7 +433,6 @@ export async function mount(): Promise<void> {
   resize();
   cameraTools.forEach(b=>b.onclick=()=>{if(b.dataset.camera==='turn'){cameraYaw=(cameraYaw+Math.PI/2)%(Math.PI*2);return;}cameraMode=b.dataset.camera==='wide'?'wide':'close';cameraTools.forEach(t=>{if(t.dataset.camera!=='turn')t.setAttribute('aria-pressed',String(t===b));});});
 
-  const clock = new THREE.Clock();
   const targetCamera = new THREE.Vector3();
   const cameraLook = new THREE.Vector3();
   camera.position.set(definition.spawn[0],1.65,definition.spawn[1]+3.1);camera.lookAt(definition.spawn[0],avatarRuntime.height*.52,definition.spawn[1]);
@@ -444,22 +441,20 @@ export async function mount(): Promise<void> {
   const toggle=root.querySelector<HTMLInputElement>('#rbPresence');if(toggle){toggle.disabled=!original;toggle.onchange=()=>{if(toggle.checked)presence.start();else presence.stop();};document.addEventListener('visibilitychange',()=>{if(document.hidden&&toggle.checked){toggle.checked=false;presence.stop();}},{signal:abort.signal});}
   const recording=root.querySelector<HTMLElement>('#rbRecording');const stopRecording=recording?mountRecordingConsole(recording):()=>{};let lifeStopped=false;stopLife=()=>{if(lifeStopped)return;lifeStopped=true;presence.dispose();stopRecording();if(toggle){toggle.checked=false;toggle.disabled=true;}};
   let lastGuide=0;
-  let sampleTime = 0;
-  let sampleFrames = 0;
-  let pixelRatio = mobile?1:quality.dpr;
+  let drawCost=0;
 
   let lastFrame=0;
   const loop = (now=0) => {
     if (disposed || !avatarRuntime || !renderer) return;
     raf=requestAnimationFrame(loop);
-    if(document.hidden||!worldVisible){lastFrame=0;return;}if(now-lastFrame<(mobile?32:16))return;
+    if(document.hidden||!worldVisible){lastFrame=0;return;}if(lastFrame&&now-lastFrame<studioFrameInterval(mobile,drawCost,'auto'))return;
     const interval=lastFrame?now-lastFrame:0;lastFrame=now;if(interval>0&&interval<250){averageFrame+=(interval-averageFrame)*.08;frameSamples++;}
     if(frameSamples>30&&now-lastAdapt>3000){lastAdapt=now;if(mobile){const next=phoneRenderLimit('auto',averageFrame,frameSamples,phoneLimit);if(next!==phoneLimit){phoneLimit=next;resize();}}else{const next=nextRenderScale(renderScale,averageFrame,frameSamples,false);if(Math.abs(next-renderScale)>.01){renderScale=next;resize();}}}
     if(now-lastTelemetry>1000){lastTelemetry=now;const status=root.querySelector<HTMLElement>('#alPerformance');if(status)status.textContent='~'+Math.round(1000/averageFrame)+' fps · '+Math.round(renderScale*100)+'% render scale';}
-    const dt = Math.min(clock.getDelta(), .075);
+    const drawStarted=performance.now();const dt=Math.min(interval/1000,.075);
+    try{
     world?.userData.tickFoliage?.(dt);
     if(frameSamples>=90&&averageFrame<(mobile?39:30)&&Math.hypot(avatarRuntime.root.position.x+4.9,avatarRuntime.root.position.z+17)<23){void world?.userData.tryDetailedVehicle?.();}
-    try{
     const inputMagnitude = Math.min(1, Math.hypot(joyX, joyY));
     const moving = inputMagnitude > .10;
     if(moving)powerTimer=0;
@@ -467,12 +462,12 @@ export async function mount(): Promise<void> {
     const topSpeed = Math.min(sprint?sprintSpeed:moveSpeed,nominal*1.28);
 
     if (moving) {
-      desiredVelocity.set(joyX, 0, joyY).applyAxisAngle(new THREE.Vector3(0,1,0),cameraYaw).normalize().multiplyScalar(topSpeed * inputMagnitude);
+      desiredVelocity.set(joyX, 0, joyY).applyAxisAngle(verticalAxis,cameraYaw).normalize().multiplyScalar(topSpeed * inputMagnitude);
       const blend = Math.min(1, acceleration * dt);
       velocity.lerp(desiredVelocity, blend);
     } else {
       const blend = Math.min(1, deceleration * dt);
-      velocity.lerp(new THREE.Vector3(), blend);
+      velocity.lerp(stationary, blend);
     }
 
     const position=avatarRuntime.root.position;const ox=position.x,oz=position.z;const [nx,nz]=moveWithinWorld(ox,oz,velocity.x*dt,velocity.z*dt,definition.bounds,districtScene.obstacles);position.x=nx;position.z=nz;
@@ -517,25 +512,11 @@ export async function mount(): Promise<void> {
     contact.position.set(position.x,.025,position.z);contact.material.opacity=Math.max(.13,1-position.y*.8);
     camera.lookAt(cameraLook);
 
-    sampleTime += dt;
-    sampleFrames += 1;
-    if (sampleTime >= 2.2 && !mobile) {
-      const averageFrame = sampleTime / Math.max(sampleFrames, 1);
-      const nextRatio = averageFrame > .027 ? Math.max(1.15, pixelRatio - .2) : averageFrame < .019 ? Math.min(quality.dpr, pixelRatio + .1) : pixelRatio;
-      if (Math.abs(nextRatio - pixelRatio) > .04) {
-        pixelRatio = nextRatio;
-        renderer.setPixelRatio(pixelRatio);
-        resize();
-      }
-      sampleTime = 0;
-      sampleFrames = 0;
-    }
-
     districtScene.tick(now/1000,activeAction?.id,camera.quaternion);presence.tick(dt,now/1000);
     if(now-lastGuide>500){lastGuide=now;const guide=root.querySelector<HTMLElement>('#rbWayfinder'),selection=root.querySelector<HTMLSelectElement>('#rbTarget');if(guide){const p=avatarRuntime.root.position;const target=definition.actions.find(a=>a.id===selection?.value)??[...definition.actions].sort((a,b)=>Math.hypot(a.x-p.x,a.z-p.z)-Math.hypot(b.x-p.x,b.z-p.z))[0];if(target){const distance=Math.hypot(target.x-p.x,target.z-p.z);const direction=target.z<p.z?'ahead (north)':'behind (south)';guide.textContent=target.label+' · '+distance.toFixed(1)+' m · '+(distance<1.85?'within interaction range':direction+' / '+(target.x<p.x?'west':'east'));}}}
     const sky=world.getObjectByName('rb-cinematic-sky');if(sky)sky.position.copy(camera.position);
     if(!mobile){sun.position.set(position.x-9,9,position.z+6);sun.target.position.set(position.x,0,position.z);sun.target.updateMatrixWorld();}
-    renderer.render(scene, camera);canvas.dataset.rbRenderState='frame-rendered';canvas.dataset.rbDistrict=district;canvas.dataset.rbVehicleAsset=world.userData.vehicleStatus??'fallback';
+    renderer.render(scene, camera);drawCost+=.12*(performance.now()-drawStarted-drawCost);canvas.dataset.rbDrawCalls=String(renderer.info.render.calls);canvas.dataset.rbTriangles=String(renderer.info.render.triangles);canvas.dataset.rbResolution=canvas.width+'×'+canvas.height;canvas.dataset.rbRenderState='frame-rendered';canvas.dataset.rbDistrict=district;canvas.dataset.rbVehicleAsset=world.userData.vehicleStatus??'fallback';
     }catch(error){failure('Graphics stopped. Saved appearance is unchanged.');console.warn('[Avatar Lobby]',error);}
   };
   raf=requestAnimationFrame(loop);

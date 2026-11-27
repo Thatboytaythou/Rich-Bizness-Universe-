@@ -28,7 +28,11 @@ export function regaliaGeometry(){
  for(let layer=0;layer<2;layer++)for(let j=0;j<=rows;j++)for(let i=0;i<=cols;i++){
   const t=j/rows,u=i/cols,a=(u-.5)*2.15;
   const radius=.205*(.77+.23*Math.sin(Math.PI*t*.8));const y=.145-t*.29;
-  v.push(Math.sin(a)*radius,y,Math.cos(a)*(.075+.038*Math.sin(Math.PI*t))+(layer===0?.009:0));
+  // Sculpted central keel, paired diagonal ribs and a raised perimeter on the outer plate.
+  const rib=Math.pow(Math.max(0,Math.cos(14*(Math.abs(u-.5)-.18*t))),8);
+  const edge=Math.pow(Math.abs(u-.5)*2,12)+Math.pow(Math.abs(t-.5)*2,12);
+  const relief=layer===0?.007*rib+.008*Math.pow(1-Math.abs(u-.5)*2,8)+.003*edge:0;
+  v.push(Math.sin(a)*radius,y,Math.cos(a)*(.075+.038*Math.sin(Math.PI*t))+(layer===0?.009:0)+relief);
   uv.push(u,1-t);
  }
  const stride=cols+1,n=stride*(rows+1);

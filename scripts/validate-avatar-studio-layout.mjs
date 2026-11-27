@@ -53,4 +53,14 @@ const mergedVehicle=mergeStaticVehicle(sourceVehicle,true);assert.equal(mergedVe
 assert.match(graphics,/fitQuality!=='detail'/);assert.match(lobby,/tryDetailedVehicle/);assert.match(source,/Enhanced • medium mesh/);
 console.log('V31: mobile safe startup and enhanced limits, bounded animation rate, original chain geometry, merged vehicle fit and fallback paths verified');
 
-assert.match(graphics,/studioFrameInterval\(mobile,drawCost,quality\)/);assert.match(source,/upperArm:'80',forearm:'60',thigh:'60'/);assert.match(source,/avatar-elite-33-body-energy/);
+assert.match(graphics,/studioFrameInterval\(mobile,drawCost,quality\)/);assert.match(source,/upperArm:'80',forearm:'60',thigh:'60'/);assert.match(source,/avatar-elite-34-motion-world/);
+
+import {oneShotActive} from '../apps/web/src/features/avatar/avatar.energy.motion.ts';
+import {streetVehicleBody} from '../apps/web/src/features/avatar/avatar.visual.assets.ts';
+assert.equal(oneShotActive({paused:false,time:.9,getClip:()=>({duration:1})}),true);
+assert.equal(oneShotActive({paused:true,time:.9,getClip:()=>({duration:1})}),false);
+assert.equal(oneShotActive({paused:false,time:1,getClip:()=>({duration:1})}),false);
+assert.equal(oneShotActive(null),false);
+const silhouettes=[0,1,2].map(i=>streetVehicleBody(i,true));assert.notDeepEqual([...silhouettes[0].attributes.position.array],[...silhouettes[1].attributes.position.array]);assert.notDeepEqual([...silhouettes[0].attributes.position.array],[...silhouettes[2].attributes.position.array]);for(const shell of silhouettes){assert.equal(shell.attributes.position.count,136);assert.ok(shell.attributes.normal.array.every(Number.isFinite));shell.dispose();}
+assert.match(lobby,/const laneDashes=new THREE.InstancedMesh/);assert.match(lobby,/renderer.setPixelRatio\(1\)/);assert.doesNotMatch(lobby,/sampleTime \+= dt/);assert.match(graphics,/oneShotActive\(runtime\?\.currentAction\)/);
+console.log('V34: animation-clock completion, distinct original car silhouettes, instanced lane markings and one render resolution controller verified');

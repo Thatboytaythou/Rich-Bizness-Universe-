@@ -8,7 +8,7 @@ export function energeticClip(source:THREE.AnimationClip, name:string, bones:Ite
  const gait=['walk','run','catwalk','relaxed walk'].includes(name);
  const expressive=['jump','power','groove','bounce','clap','laugh','soft laugh','wave','talk gestures','point','thumbs up','bow'].includes(name);
  if(!gait&&!expressive&&name!=='idle')return clip;
- const q=new THREE.Quaternion(),center=new THREE.Quaternion();
+ const q=new THREE.Quaternion(),center=new THREE.Quaternion(),sample=new THREE.Quaternion();
  for(const track of clip.tracks){
   if(!(track instanceof THREE.QuaternionKeyframeTrack)||track.values.length%4!==0||track.values.length<8)continue;
   let parsed;try{parsed=THREE.PropertyBinding.parseTrackName(track.name);}catch{continue;}
@@ -25,7 +25,7 @@ export function energeticClip(source:THREE.AnimationClip, name:string, bones:Ite
   const values=track.values,count=values.length/4;
   let valid=true;for(let i=0;i<count;i++){q.fromArray(values,i*4);if(!Number.isFinite(q.lengthSq())||q.lengthSq()<.5){valid=false;break;}q.normalize();if(i===0)center.copy(q);else center.slerp(q,1/(i+1));}
   if(!valid)continue;
-  for(let i=0;i<count;i++){q.fromArray(values,i*4).normalize();const angle=center.angleTo(q);if(angle<1e-5)continue;const factor=Math.min(gain,1+cap/angle);q.copy(center).slerp(new THREE.Quaternion().fromArray(values,i*4).normalize(),factor).normalize();q.toArray(values,i*4);}
+  for(let i=0;i<count;i++){q.fromArray(values,i*4).normalize();const angle=center.angleTo(q);if(angle<1e-5)continue;const factor=Math.min(gain,1+cap/angle);q.copy(center).slerp(sample.fromArray(values,i*4).normalize(),factor).normalize();q.toArray(values,i*4);}
  }
  return clip;
 }
@@ -36,3 +36,7 @@ export function studioFrameInterval(mobile:boolean,drawCost:number,quality:'auto
  if(!mobile)return 16;
  return Number.isFinite(drawCost)&&drawCost>(quality==='detail'?25:23)?48:32;
 }
+
+// One-shot actions end on their animation clock, not elapsed wall time. Slow devices
+// and hidden tabs must not skip the final pose or the landing.
+export function oneShotActive(action:Pick<THREE.AnimationAction,'paused'|'time'|'getClip'>|null|undefined){return !!action&&!action.paused&&action.time<action.getClip().duration;}

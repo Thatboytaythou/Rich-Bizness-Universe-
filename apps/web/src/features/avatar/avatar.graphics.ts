@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import {studioFrameInterval} from './avatar.energy.motion';
+import {studioFrameInterval,oneShotActive} from './avatar.energy.motion';
 import {createGroundShade,groundShadeMesh} from './avatar.cinematic.depth';
 import {phoneRenderLimit} from './avatar.quality.v31';
 import {nextRenderScale} from './avatar.render.budget';
@@ -50,7 +50,7 @@ export function createStudioGraphics(canvas:HTMLCanvasElement,initial:CharacterC
   const schedule=()=>{if(!disposed&&!failed&&!raf&&!document.hidden&&visible)raf=requestAnimationFrame(draw);};
   const draw=(now:number)=>{
     raf=0;if(disposed||failed||document.hidden||!visible)return;
-    const anim=active!=='idle'&&(routineActive||now<deadline);const living=!!runtime&&(!reduced.matches||now<expressionUntil);
+    const anim=active!=='idle'&&(routineActive||((active==='jump'||active==='power')?oneShotActive(runtime?.currentAction):now<deadline));const living=!!runtime&&(!reduced.matches||now<expressionUntil);
     if(!dirty&&!anim&&!living&&active==='idle')return;
     if(previous&&now-previous<studioFrameInterval(mobile,drawCost,quality)){schedule();return;}
     const drawStarted=performance.now();const elapsed=previous?now-previous:0;const dt=Math.min(elapsed/1000,.075);previous=now;if(elapsed>0&&elapsed<250){frameAverage+=.08*(elapsed-frameAverage);measured++;}

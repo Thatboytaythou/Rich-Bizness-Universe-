@@ -13,7 +13,7 @@ import {designerActive} from './avatar.elite.catalog';
 import {mountPerformanceCapture} from './avatar.performance.capture';
 import './avatar.characters.css';
 
-const OWNER='rich-bizness-avatar-characters-v1',RELEASE='avatar-elite-33-body-energy';
+const OWNER='rich-bizness-avatar-characters-v1',RELEASE='avatar-elite-34-motion-world';
 const esc=(v:unknown)=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]??c));
 const emptyIdentity=():CharacterIdentity=>({profile:{},avatar:{},loadout:{},controller:{},model:{}});
 type Host=Window&{__rbPageCleanup?:()=>void};
