@@ -53,7 +53,7 @@ const mergedVehicle=mergeStaticVehicle(sourceVehicle,true);assert.equal(mergedVe
 assert.match(graphics,/fitQuality!=='detail'/);assert.match(lobby,/tryDetailedVehicle/);assert.match(source,/Enhanced • medium mesh/);
 console.log('V31: mobile safe startup and enhanced limits, bounded animation rate, original chain geometry, merged vehicle fit and fallback paths verified');
 
-assert.match(graphics,/studioFrameInterval\(mobile,drawCost,quality\)/);assert.match(source,/upperArm:'80',forearm:'60',thigh:'60'/);assert.match(source,/avatar-elite-34-motion-world/);
+assert.match(graphics,/studioFrameInterval\(mobile,drawCost,quality\)/);assert.match(source,/upperArm:'80',forearm:'60',thigh:'60'/);assert.match(source,/1\.0\.0-foundation/);
 
 import {oneShotActive} from '../apps/web/src/features/avatar/avatar.energy.motion.ts';
 import {streetVehicleBody} from '../apps/web/src/features/avatar/avatar.visual.assets.ts';
