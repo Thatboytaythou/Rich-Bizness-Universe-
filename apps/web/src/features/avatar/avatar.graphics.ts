@@ -90,7 +90,7 @@ export function createStudioGraphics(canvas:HTMLCanvasElement,initial:CharacterC
     invalidate();
   };
   const stopExperience=subscribeExperience(applyExperience);
-  const resize=()=>{if(disposed||failed)return;const rect=canvas.getBoundingClientRect();if(rect.width<2||rect.height<2)return;const limit=mobile?phoneLimit:1600;const scale=Math.min(mobile?1.65:quality==='detail'?1.5:1,limit/Math.max(rect.width,rect.height))*frameScale;const width=Math.max(1,Math.round(rect.width*scale)),height=Math.max(1,Math.round(rect.height*scale));if(canvas.width!==width||canvas.height!==height)renderer.setSize(width,height,false);const aspect=rect.width/rect.height;if(Math.abs(camera.aspect-aspect)>.0001){camera.aspect=aspect;pose();}invalidate();};
+  const resize=()=>{if(disposed||failed)return;const rect=canvas.getBoundingClientRect();if(rect.width<2||rect.height<2)return;const limit=mobile?phoneLimit:1600;const scale=Math.min(mobile?(quality==='detail'?2.25:1.65):quality==='detail'?1.5:1,limit/Math.max(rect.width,rect.height))*frameScale;const width=Math.max(1,Math.round(rect.width*scale)),height=Math.max(1,Math.round(rect.height*scale));if(canvas.width!==width||canvas.height!==height)renderer.setSize(width,height,false);const aspect=rect.width/rect.height;if(Math.abs(camera.aspect-aspect)>.0001){camera.aspect=aspect;pose();}invalidate();};
   const drain=async()=>{
     if(loading||disposed||failed)return;loading=true;
     try{
