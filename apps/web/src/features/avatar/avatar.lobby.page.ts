@@ -458,7 +458,7 @@ export async function mount(): Promise<void> {
     if(now-lastTelemetry>1000){lastTelemetry=now;const status=root.querySelector<HTMLElement>('#alPerformance');if(status)status.textContent='~'+Math.round(1000/averageFrame)+' fps · '+Math.round(renderScale*100)+'% render scale';}
     const dt = Math.min(clock.getDelta(), .075);
     world?.userData.tickFoliage?.(dt);
-    if(frameSamples>=90&&averageFrame<(mobile?39:30)&&avatarRuntime.root.position.distanceTo(new THREE.Vector3(-4.9,0,-17))<23){void world?.userData.tryDetailedVehicle?.();}
+    if(frameSamples>=90&&averageFrame<(mobile?39:30)&&Math.hypot(avatarRuntime.root.position.x+4.9,avatarRuntime.root.position.z+17)<23){void world?.userData.tryDetailedVehicle?.();}
     try{
     const inputMagnitude = Math.min(1, Math.hypot(joyX, joyY));
     const moving = inputMagnitude > .10;
@@ -535,7 +535,7 @@ export async function mount(): Promise<void> {
     if(now-lastGuide>500){lastGuide=now;const guide=root.querySelector<HTMLElement>('#rbWayfinder'),selection=root.querySelector<HTMLSelectElement>('#rbTarget');if(guide){const p=avatarRuntime.root.position;const target=definition.actions.find(a=>a.id===selection?.value)??[...definition.actions].sort((a,b)=>Math.hypot(a.x-p.x,a.z-p.z)-Math.hypot(b.x-p.x,b.z-p.z))[0];if(target){const distance=Math.hypot(target.x-p.x,target.z-p.z);const direction=target.z<p.z?'ahead (north)':'behind (south)';guide.textContent=target.label+' · '+distance.toFixed(1)+' m · '+(distance<1.85?'within interaction range':direction+' / '+(target.x<p.x?'west':'east'));}}}
     const sky=world.getObjectByName('rb-cinematic-sky');if(sky)sky.position.copy(camera.position);
     if(!mobile){sun.position.set(position.x-9,9,position.z+6);sun.target.position.set(position.x,0,position.z);sun.target.updateMatrixWorld();}
-    renderer.render(scene, camera);canvas.dataset.rbRenderState='frame-rendered';canvas.dataset.rbDistrict=district;
+    renderer.render(scene, camera);canvas.dataset.rbRenderState='frame-rendered';canvas.dataset.rbDistrict=district;canvas.dataset.rbVehicleAsset=world.userData.vehicleStatus??'fallback';
     }catch(error){failure('Graphics stopped. Saved appearance is unchanged.');console.warn('[Avatar Lobby]',error);}
   };
   raf=requestAnimationFrame(loop);
