@@ -29,7 +29,8 @@ const old=normalizeLook({skin:'deep',hair:'braids',jaw:'square'});
 assert.equal(old.skin,'deep');assert.equal(old.hair,'braids');assert.equal(old.jaw,'square');
 assert.equal(old.maturity,'young-adult');assert.equal(old.hat,'none');
 for(const key of SCULPT_FIELDS)assert.equal(old[key],'0');
-assert.equal(SCULPT_FIELDS.length,26);
+assert.equal(SCULPT_FIELDS.length,35);
+assert.equal(new Set(SCULPT_FIELDS).size,SCULPT_FIELDS.length);
 assert.equal(CHARACTER_OPTIONS.hair.length,13);
 for(const kind of ['walk','run']){
  for(const joint of ['Spine','Head','LeftArm','RightForeArm']){
@@ -39,7 +40,7 @@ for(const kind of ['walk','run']){
   assert.ok(capturedMotion(kind,joint,.25).some((v,i)=>Math.abs(v-a[i])>.001),'non-static captured motion');
  }
 }
-console.log('Character detail: 26 neutral-default morphs, 13 hair choices, bounded captured locomotion channels verified');
+console.log('Character detail: 35 neutral-default morphs, 13 hair choices, bounded captured locomotion channels verified');
 
 import {cameraClearance} from '../apps/web/src/features/avatar/world.camera.ts';
 const obstacle={minX:-1,maxX:1,minZ:2,maxZ:3};
@@ -53,7 +54,7 @@ assert.equal(legacyV18.outfit,'formal');assert.equal(legacyV18.shoes,'boots');as
 assert.equal(CHARACTER_OPTIONS.outfit.length,8);assert.equal(CHARACTER_OPTIONS.shoes.length,6);
 console.log('V19: camera obstacle clearance and backward-compatible wardrobe options verified');
 
-import {hdRecipe,HD_CLIPS} from '../apps/web/src/features/avatar/avatar.hd.recipe.ts';
+import {hdRecipe,HD_CLIPS,morphs} from '../apps/web/src/features/avatar/avatar.hd.recipe.ts';
 import {ELITE_COLLECTIONS,eliteWardrobe} from '../apps/web/src/features/avatar/avatar.elite.catalog.ts';
 assert.equal(Object.keys(ELITE_COLLECTIONS).length,5);
 for(const collection of Object.keys(ELITE_COLLECTIONS)){
@@ -63,6 +64,8 @@ for(const collection of Object.keys(ELITE_COLLECTIONS)){
 }
 assert.equal(normalizeLook({}).identityMode,'human');assert.equal(normalizeLook({}).eliteJewelry,'collection');
 assert.equal(HD_CLIPS.length,21);assert.ok(!hdRecipe('boy',{collection:'heritage-crown',wristwear:'gold-cuff'},'athletic').params);
+for(const gender of ['boy','girl'])for(const key of SCULPT_FIELDS){for(const value of ['-60','60']){const r=hdRecipe(gender,{collection:'emerald-legacy',[key]:value},'athletic');assert.ok(r.params,key+' must remain HD compatible');const baseline=hdRecipe(gender,{collection:'emerald-legacy'},'athletic');assert.notEqual(r.params.modifiers[morphs[key]],baseline.params.modifiers[morphs[key]],key+' must alter its mesh target');assert.equal(normalizeLook({[key]:value})[key],value);}}
+console.log('V32: every facial and body control changes an HD modifier in both body types; legacy defaults preserved');
 console.log('V23: five fitted collection recipes, jewelry overrides, compatibility and legacy defaults verified');
 
 import {normalizeRoutine} from '../apps/web/src/features/avatar/avatar.motion.design.ts';
