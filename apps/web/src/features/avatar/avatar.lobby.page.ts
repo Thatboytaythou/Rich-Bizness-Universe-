@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import {automotiveShell,foliageGeometry} from './avatar.visual.assets';
 import {createCinematicSky,createGroundShade,glassGradient} from './avatar.cinematic.depth';
 import {nextRenderScale} from './avatar.render.budget';
 import {createCharacterLightMap} from './avatar.light-map';
@@ -66,7 +67,7 @@ function addStreetWorld(scene: THREE.Scene,signal:AbortSignal,mobile:boolean): T
   if(!mobile)loadSurface('asphalt_02_nor',7,50,false,texture=>{asphalt.normalMap=texture;asphalt.normalScale.set(.45,.45);asphalt.needsUpdate=true;});
   loadSurface('concrete_wall_008_diff',2,10,true,texture=>{sidewalk.map=texture;sidewalk.color.setHex(0xc8c3b8);sidewalk.needsUpdate=true;curb.map=texture;curb.color.setHex(0xd2ccc0);curb.needsUpdate=true;});
   loadSurface('brick_wall_001_diff',3,5,true,texture=>{for(const mat of wallMats){mat.map=texture;mat.color.multiplyScalar(1.65);mat.needsUpdate=true;}});
-  const glass = new THREE.MeshPhysicalMaterial({ color: 0x84bed1, roughness: .22, metalness: .04, transparent: true, opacity: .7 });
+  const glass = new THREE.MeshPhysicalMaterial({ color: 0x263e4b, roughness: .24, metalness: .18, clearcoat: .65 });
   const poleMat = new THREE.MeshStandardMaterial({ color: 0x252b2d, roughness: .48, metalness: .48 });
   const glowMat = new THREE.MeshBasicMaterial({ color: 0xffe7a8 });
   const carMats = [0x183d58, 0x692c31, 0x2f5e42].map((color) => new THREE.MeshPhysicalMaterial({ color, roughness: .4, metalness: .18, clearcoat: .28 }));
@@ -140,6 +141,8 @@ function addStreetWorld(scene: THREE.Scene,signal:AbortSignal,mobile:boolean): T
   const joints:THREE.Matrix4[]=[];
   for(const x of [-8.1,8.1])for(let z=-85;z<8;z+=2)record(joints,x,.162,z,3.65,.006,.022);
   batch(new THREE.MeshStandardMaterial({color:0x676761,roughness:1}),joints);
+  const crossing:THREE.Matrix4[]=[],edgeLines:THREE.Matrix4[]=[];for(const z of [-11,-39,-69])for(let x=-5.8;x<=5.8;x+=.86)record(crossing,x,.012,z,.43,.006,2.15);for(const x of [-6.55,6.55])record(edgeLines,x,.012,-38,.075,.006,94);
+  batch(new THREE.MeshStandardMaterial({color:0xe1ded0,roughness:.9}),crossing.concat(edgeLines));
   for (const z of [-14, -29, -44, -59, -74]) {
     for (const x of [-7.3, 7.3]) {
       const pole = new THREE.Mesh(new THREE.CylinderGeometry(.045, .055, 3.9, 10), poleMat);
@@ -161,15 +164,20 @@ function addStreetWorld(scene: THREE.Scene,signal:AbortSignal,mobile:boolean): T
   const plants=(geometry:THREE.BufferGeometry,mat:THREE.Material,matrices:THREE.Matrix4[])=>{const mesh=new THREE.InstancedMesh(geometry,mat,matrices.length);matrices.forEach((m,i)=>mesh.setMatrixAt(i,m));mesh.instanceMatrix.needsUpdate=true;mesh.computeBoundingSphere();world.add(mesh);};
   plants(new THREE.CylinderGeometry(.65,1,1,9),new THREE.MeshStandardMaterial({color:0x574231,roughness:.96}),treeTrunks);
   plants(new THREE.CylinderGeometry(.38,1,1,7),new THREE.MeshStandardMaterial({color:0x604735,roughness:.9}),treeBranches);
-  plants(new THREE.IcosahedronGeometry(1,2),new THREE.MeshStandardMaterial({color:0x36583e,roughness:.86,flatShading:true}),treeCanopies);
+  plants(foliageGeometry(mobile),new THREE.MeshStandardMaterial({vertexColors:true,roughness:.86,side:THREE.DoubleSide}),treeCanopies);
   const carPositions = [
     [-4.9, -17, 0], [4.9, -31, Math.PI], [-4.9, -50, 0], [4.9, -67, Math.PI]
   ] as const;
   // Shared original automotive shell: curved longitudinal sections, no stock cube cabin.
-  const shell=(sections:number[][])=>{const vertices:number[]=[],indices:number[]=[];for(const [z,w,bottom,top] of sections){for(let i=0;i<12;i++){const a=i/12*Math.PI*2;vertices.push(Math.cos(a)*w,(bottom+top)/2+Math.sin(a)*(top-bottom)/2,z);}}for(let i=0;i<sections.length-1;i++)for(let k=0;k<12;k++){const a=i*12+k,b=i*12+(k+1)%12;indices.push(a,b,a+12,b,b+12,a+12);}for(let i=1;i<11;i++){indices.push(0,i+1,i);const n=(sections.length-1)*12;indices.push(n,n+i,n+i+1);}const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(vertices,3));g.setIndex(indices);g.computeVertexNormals();return g;};
-  const bodyShell=shell([[-1.68,.62,.35,.55],[-1.38,.86,.28,.7],[-.6,.91,.25,.77],[.65,.91,.25,.73],[1.38,.83,.28,.58],[1.67,.62,.35,.49]]);
-  const roofShell=shell([[-.97,.59,.60,.71],[-.52,.67,.63,1.15],[.40,.66,.63,1.17],[.95,.62,.61,.72]]);
+  const bodyShell=automotiveShell([[-1.78,.64,.36,.51],[-1.65,.77,.29,.59],[-1.35,.89,.25,.72],[-.72,.93,.24,.79],[.52,.93,.24,.75],[1.24,.88,.26,.60],[1.58,.77,.30,.53],[1.75,.64,.34,.46]],mobile?16:28);
+  const roofShell=automotiveShell([[-1.02,.58,.59,.71],[-.78,.63,.65,.91],[-.44,.67,.67,1.15],[.28,.67,.67,1.18],[.58,.64,.65,1.06],[.99,.59,.59,.72]],mobile?16:28);
+  const roofCap=automotiveShell([[-.52,.44,1.05,1.12],[-.32,.59,1.08,1.17],[.28,.60,1.09,1.20],[.48,.45,1.05,1.13]],mobile?12:24);
+  const trimMat=new THREE.MeshStandardMaterial({color:0x191d20,roughness:.48,metalness:.32});
+  const chrome=new THREE.MeshStandardMaterial({color:0xa8aeb2,roughness:.26,metalness:.8});
+  const grilleGeo=new THREE.BoxGeometry(.91,.12,.055),mirrorGeo=new THREE.SphereGeometry(1,12,8),plateGeo=new THREE.BoxGeometry(.29,.12,.025);
+  const plateMat=new THREE.MeshStandardMaterial({color:0xccc8b6,roughness:.66});
   const wheelGeo=new THREE.CylinderGeometry(.29,.29,.20,22),rimGeo=new THREE.CylinderGeometry(.18,.18,.212,16);
+  const hubGeo=new THREE.CylinderGeometry(.07,.07,.23,12),spokeGeo=new THREE.BoxGeometry(.023,.28,.022);
   const rimMat=new THREE.MeshStandardMaterial({color:0x8b9a9e,metalness:.82,roughness:.25}),headMat=new THREE.MeshBasicMaterial({color:0xffebc9}),tailMat=new THREE.MeshBasicMaterial({color:0xbe273b});
   const lampGeo=new THREE.BoxGeometry(.34,.095,.045);
   carPositions.forEach(([x, z, rotation], index) => {
@@ -180,12 +188,16 @@ function addStreetWorld(scene: THREE.Scene,signal:AbortSignal,mobile:boolean): T
     car.add(body);
     const cabin = new THREE.Mesh(roofShell, glass);
     cabin.position.set(0, 0, 0);
-    car.add(cabin);
+    car.add(cabin);car.add(new THREE.Mesh(roofCap,carMats[index%carMats.length]));
+    const grille=new THREE.Mesh(grilleGeo,trimMat);grille.position.set(0,.40,1.76);car.add(grille);
+    const plate=new THREE.Mesh(plateGeo,plateMat);plate.position.set(0,.40,-1.79);car.add(plate);
+    for(const side of [-1,1]){const mirror=new THREE.Mesh(mirrorGeo,carMats[index%carMats.length]);mirror.position.set(side*.86,.83,.52);mirror.scale.set(.14,.066,.11);car.add(mirror);}
     for (const sx of [-.74, .74]) for (const sz of [-1.08, 1.08]) {
       const wheel = new THREE.Mesh(wheelGeo, tire);
       wheel.rotation.z = Math.PI / 2;
       wheel.position.set(sx, .29, sz);
-      car.add(wheel);const rim=new THREE.Mesh(rimGeo,rimMat);rim.rotation.z=Math.PI/2;rim.position.copy(wheel.position);car.add(rim);
+      car.add(wheel);const rim=new THREE.Mesh(rimGeo,rimMat);rim.rotation.z=Math.PI/2;rim.position.copy(wheel.position);car.add(rim);const hub=new THREE.Mesh(hubGeo,chrome);hub.rotation.z=Math.PI/2;hub.position.copy(wheel.position);car.add(hub);
+      for(let i=0;i<3;i++){const spoke=new THREE.Mesh(spokeGeo,trimMat);spoke.position.set(sx+Math.sign(sx)*.115,.29,sz);spoke.rotation.x=i*Math.PI/3;car.add(spoke);}
     }
     for(const x of [-.42,.42]){const front=new THREE.Mesh(lampGeo,headMat);front.position.set(x,.48,1.67);car.add(front);const rear=new THREE.Mesh(lampGeo,tailMat);rear.position.set(x,.51,-1.68);car.add(rear);}
     addShade(x,.011,z,2.55,4.15);car.position.set(x, 0, z);
