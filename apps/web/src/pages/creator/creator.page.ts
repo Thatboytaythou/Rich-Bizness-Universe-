@@ -44,16 +44,16 @@ export async function mount():Promise<void>{
   try{
    const id=user.id;
    const r=await Promise.all([
-    supabase.from('profiles').select('*').eq('id',id).single(),
-    supabase.from('creator_page_settings').select('*').eq('user_id',id).maybeSingle(),
-    supabase.from('creator_available_balances').select('*').eq('artist_user_id',id).maybeSingle(),
-    supabase.from('music_tracks').select('*').eq('user_id',id).order('created_at',{ascending:false}).limit(30),
-    supabase.from('products').select('*').eq('seller_id',id).order('created_at',{ascending:false}).limit(30),
-    supabase.from('live_streams').select('*').eq('creator_id',id).order('created_at',{ascending:false}).limit(30),
-    supabase.from('meta_worlds').select('*').eq('owner_id',id).order('created_at',{ascending:false}).limit(30),
-    supabase.from('feed_posts').select('*').eq('user_id',id).order('created_at',{ascending:false}).limit(30),
-    supabase.from('creator_alert_subscriptions').select('id',{count:'exact',head:true}).eq('creator_id',id).eq('is_active',true),
-    supabase.from('games').select('*').eq('is_active',true).order('created_at',{ascending:false}).limit(30)
+    supabase.from('profiles').select('*').eq('id',id).single().abortSignal(lifetime.signal),
+    supabase.from('creator_page_settings').select('*').eq('user_id',id).maybeSingle().abortSignal(lifetime.signal),
+    supabase.from('creator_available_balances').select('*').eq('artist_user_id',id).maybeSingle().abortSignal(lifetime.signal),
+    supabase.from('music_tracks').select('*').eq('user_id',id).order('created_at',{ascending:false}).limit(30).abortSignal(lifetime.signal),
+    supabase.from('products').select('*').eq('seller_id',id).order('created_at',{ascending:false}).limit(30).abortSignal(lifetime.signal),
+    supabase.from('live_streams').select('*').eq('creator_id',id).order('created_at',{ascending:false}).limit(30).abortSignal(lifetime.signal),
+    supabase.from('meta_worlds').select('*').eq('owner_id',id).order('created_at',{ascending:false}).limit(30).abortSignal(lifetime.signal),
+    supabase.from('feed_posts').select('*').eq('user_id',id).order('created_at',{ascending:false}).limit(30).abortSignal(lifetime.signal),
+    supabase.from('creator_alert_subscriptions').select('id',{count:'exact',head:true}).eq('creator_id',id).eq('is_active',true).abortSignal(lifetime.signal),
+    supabase.from('games').select('*').eq('is_active',true).order('created_at',{ascending:false}).limit(30).abortSignal(lifetime.signal)
    ]);
    if(!isCurrent()||current!==requestId)return;
    const failed=r.find(result=>result.error);if(failed?.error)throw failed.error;
@@ -62,8 +62,10 @@ export async function mount():Promise<void>{
   }catch(caught){if(isCurrent())setStatus(caught instanceof Error?caught.message:'Unable to sync creator universe.',true);}finally{loading=false;if(queued&&isCurrent()){queued=false;void load();}}
  };
  const requestedLane=new URLSearchParams(location.search).get('lane');if(requestedLane&&lanes.some(([key])=>key===requestedLane))lane=requestedLane;
+ const lifetime=new AbortController();
+ const cleanup=async()=>{if(destroyed)return;destroyed=true;stopElite();lifetime.abort();requestId++;clearTimeout(refreshTimer);await Promise.allSettled(channels.map(c=>supabase.removeChannel(c)));};(window as CleanupHost).__rbPageCleanup=cleanup;window.addEventListener('pagehide',()=>void cleanup(),{once:true,signal:lifetime.signal});
  await load();if(!isCurrent())return;
  const realtimeOwners:[string,string][]=[['creator_page_settings','user_id'],['creator_available_balances','artist_user_id'],['creator_alert_subscriptions','creator_id'],['creator_dimension_access','user_id']];
  realtimeOwners.forEach(([table,column])=>channels.push(supabase.channel(`creator:${mountEpoch}:${table}:${user.id}`).on('postgres_changes',{event:'*',schema:'public',table,filter:`${column}=eq.${user.id}`},()=>{clearTimeout(refreshTimer);refreshTimer=window.setTimeout(()=>void load(),180);}).subscribe()));
- const cleanup=async()=>{if(destroyed)return;destroyed=true;stopElite();requestId+=1;clearTimeout(refreshTimer);await Promise.all(channels.map(c=>supabase.removeChannel(c)));};(window as CleanupHost).__rbPageCleanup=cleanup;
+
 }
