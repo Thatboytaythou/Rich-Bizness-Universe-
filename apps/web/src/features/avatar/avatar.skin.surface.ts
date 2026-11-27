@@ -36,3 +36,11 @@ export function applyNaturalSkin(material:THREE.MeshStandardMaterial,finish:stri
   if(!material.roughnessMap){material.roughnessMap=makeSurface();material.needsUpdate=true;}
  }
 }
+
+// Apply a conservative directional sheen to the existing hair/facial-hair mesh.
+// Retain opacity, hair-card textures, normals, and the chosen hair color.
+export function naturalHairMaterial(material:THREE.MeshStandardMaterial,kind:'hair'|'facial'){
+ material.metalness=0;
+ material.roughness=kind==='facial'?.78:.64;
+ material.envMapIntensity=kind==='facial'?.28:.42;
+}

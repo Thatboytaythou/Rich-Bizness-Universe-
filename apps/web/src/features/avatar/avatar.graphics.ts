@@ -3,6 +3,7 @@ import {studioFrameInterval,oneShotActive} from './avatar.energy.motion';
 import {createGroundShade,groundShadeMesh} from './avatar.cinematic.depth';
 import {phoneRenderLimit} from './avatar.quality.v31';
 import {nextRenderScale} from './avatar.render.budget';
+import {createExpressionControl} from './avatar.expression.control';
 import {createCharacterLightMap} from './avatar.light-map';
 import {createTexturedAvatar} from './avatar.textured.runtime';
 import {disposeSkinnedAvatar,setAvatarMotion,updateSkinnedAvatar,playAvatarGesture,type AvatarMotion,type AvatarExpression,type SkinnedAvatarRuntime} from './avatar.skinned.runtime';
@@ -32,11 +33,13 @@ export function createStudioGraphics(canvas:HTMLCanvasElement,initial:CharacterC
   const ring=new THREE.Mesh(new THREE.TorusGeometry(.83,.013,6,48),new THREE.MeshBasicMaterial({color:aura(initial.aura)}));ring.rotation.x=-Math.PI/2;ring.position.y=.008;scene.add(ring);
   let runtime:SkinnedAvatarRuntime|null=null;
   let shot:'portrait'|'full'|'orbit'='full',orbitAngle=0,lighting:'studio'|'warm'|'night'='studio';let yaw=0,zoom=1,face=false,active:AvatarMotion='idle',disposed=false,failed=false,raf=0,previous=0,deadline=0,dirty=true;
-  let modelKey='',pendingKey='',desired:CharacterConfig|null=null,loading=false,awaitingFrame=false,shaderError=false;let revision=0,fitTimer=0;let quality:'auto'|'detail'='auto',mood:AvatarExpression='neutral',latest=initial;let expressionUntil=0;let sequence:MotionStep[]=[];let routineActive=false,bodyTime=0,expressionClock=0;let loadStarted=0;let phoneLimit=640;let drawCost=0;let frameScale=1,frameAverage=mobile?50:17,measured=0,lastAdapt=0,lastTelemetry=0,visible=true;
+  let modelKey='',pendingKey='',desired:CharacterConfig|null=null,loading=false,awaitingFrame=false,shaderError=false;let revision=0,fitTimer=0;let quality:'auto'|'detail'='auto',latest=initial;const expressionControl=createExpressionControl<AvatarExpression>('neutral');let expressionUntil=0;let sequence:MotionStep[]=[];let routineActive=false,bodyTime=0,expressionClock=0;let loadStarted=0;let phoneLimit=640;let drawCost=0;let frameScale=1,frameAverage=mobile?50:17,measured=0,lastAdapt=0,lastTelemetry=0,visible=true;
   const controller=new AbortController(),signal=controller.signal;
   let experience=getExperience();
   renderer.debug.checkShaderErrors=true;renderer.debug.onShaderError=()=>{shaderError=true;};
   const fail=(message:string)=>{if(disposed||failed)return;failed=true;cancelAnimationFrame(raf);raf=0;onFailure(message);};
+  const applyExpression=()=>expressionControl.apply(runtime?.expression);
+  const automaticExpression=(value:AvatarExpression,strength=1)=>{if(expressionControl.automatic(value,strength))applyExpression();};
   const pose=()=>{
     if(!runtime)return;
     const h=runtime.height, aspect=Math.max(.25,camera.aspect),fov=face?24:34;
@@ -58,14 +61,14 @@ export function createStudioGraphics(canvas:HTMLCanvasElement,initial:CharacterC
       if(runtime){
         runtime.lookAt?.(experience.behavior!=='manual'&&active==='idle'&&!reduced.matches?camera.position:null);
         if(anim||living)updateSkinnedAvatar(runtime,dt);
-        if(active==='idle'&&living&&experience.behavior!=='manual'&&!reduced.matches){bodyTime+=dt;expressionClock+=dt;if(expressionClock>6.5){expressionClock=0;runtime.expression?.(Math.floor(bodyTime/6.5)%3===1?'confident':'neutral',.25);}}
-        if(routineActive&&runtime.currentAction&&(runtime.currentAction.paused||runtime.currentAction.time>=runtime.currentAction.getClip().duration-.001)){const next=sequence.shift();if(next){beginGesture(next.clip,next.speed,next.blend);}else{routineActive=false;active='idle';setAvatarMotion(runtime,'idle',.22);runtime.expression?.('neutral');}}
+        if(active==='idle'&&living&&experience.behavior!=='manual'&&!reduced.matches){bodyTime+=dt;expressionClock+=dt;if(expressionClock>6.5){expressionClock=0;automaticExpression(Math.floor(bodyTime/6.5)%3===1?'confident':'neutral',.25);}}
+        if(routineActive&&runtime.currentAction&&(runtime.currentAction.paused||runtime.currentAction.time>=runtime.currentAction.getClip().duration-.001)){const next=sequence.shift();if(next){beginGesture(next.clip,next.speed,next.blend);}else{routineActive=false;active='idle';setAvatarMotion(runtime,'idle',.22);if(experience.behavior!=='manual')automaticExpression('neutral');}}
         if(active==='jump'){
           const action=runtime.currentAction;
           const t=action?Math.min(1,action.time/action.getClip().duration):1;
           runtime.root.position.y=.38*4*t*(1-t);
         }
-        if(!anim&&active!=='idle'){if(experience.behavior!=='manual'){mood='neutral';runtime.expression?.(mood);}active='idle';runtime.root.position.y=0;setAvatarMotion(runtime,'idle',.22);runtime.mixer.update(0);}
+        if(!anim&&active!=='idle'){if(experience.behavior!=='manual')automaticExpression('neutral');active='idle';runtime.root.position.y=0;setAvatarMotion(runtime,'idle',.22);runtime.mixer.update(0);}
       }
       if(runtime){contact.material.opacity=Math.max(.14,1-runtime.root.position.y*1.6);contact.scale.setScalar(1+runtime.root.position.y*.6);directionalShade.material.opacity=Math.max(.12,.86-runtime.root.position.y);directionalShade.scale.setScalar(1+runtime.root.position.y*.4);}
       if(shot==='orbit'&&runtime&&!reduced.matches){orbitAngle=(orbitAngle+dt*.38)%(Math.PI*2);pose();}
@@ -86,7 +89,7 @@ export function createStudioGraphics(canvas:HTMLCanvasElement,initial:CharacterC
     (scene.background as THREE.Color).setHex(cinematic?0x1b2325:expressive?0x293333:0x11152a);
     (scene.fog as THREE.FogExp2).color.copy(scene.background as THREE.Color);
     floor.material.color.setHex(cinematic?0x333537:expressive?0x414847:0x201c3b);ring.visible=mode==='fantasy';directionalShade.visible=mobile&&mode!=='fantasy';
-    if(value.behavior==='manual'){mood='neutral';runtime?.expression?.(mood);expressionUntil=performance.now()+1000;}
+    if(value.behavior==='manual'){automaticExpression('neutral');expressionUntil=performance.now()+1000;}
     if(lighting!=='studio'){key.color.setHex(lighting==='warm'?0xffd0a0:0x8eafff);rim.color.setHex(lighting==='warm'?0xffbc72:0x9c7cde);key.intensity=lighting==='warm'?2.4:1.55;fill.intensity=lighting==='warm'?1.15:1.4;}
     invalidate();
   };
@@ -107,7 +110,7 @@ export function createStudioGraphics(canvas:HTMLCanvasElement,initial:CharacterC
         if(disposed||failed||generation!==revision){disposeSkinnedAvatar(next);continue;}
         // Swap only after the new complete fitted mesh exists; keep old render on a failed download.
         if(runtime){scene.remove(runtime.root);disposeSkinnedAvatar(runtime);}
-        runtime=next;sequence=[];routineActive=false;measured=0;frameAverage=mobile?34:17;drawCost=0;phoneLimit=640;canvas.dataset.rbAssetLoadMs=String(Math.round(performance.now()-loadStarted));runtime.expression?.(mood);expressionUntil=performance.now()+1000;runtime.root.rotation.y=yaw;setAvatarMotion(runtime,'idle',0);runtime.mixer.update(0);
+        runtime=next;sequence=[];routineActive=false;measured=0;frameAverage=mobile?34:17;drawCost=0;phoneLimit=640;canvas.dataset.rbAssetLoadMs=String(Math.round(performance.now()-loadStarted));applyExpression();expressionUntil=performance.now()+1000;runtime.root.rotation.y=yaw;setAvatarMotion(runtime,'idle',0);runtime.mixer.update(0);
         scene.add(runtime.root);modelKey=key;active='idle';previous=0;pose();if(mobile)resize();awaitingFrame=true;invalidate();
       }
     }catch(error){if(!disposed)fail(error instanceof Error?error.message:'Textured human asset failed');}
@@ -117,8 +120,8 @@ export function createStudioGraphics(canvas:HTMLCanvasElement,initial:CharacterC
     if(disposed||failed)return;
     latest=config;ring.material.color.setHex(aura(config.aura));const nextKey=JSON.stringify([config.gender,config.build,config.look,quality]);if(runtime&&nextKey===modelKey&&!loading){desired=null;clearTimeout(fitTimer);revision++;awaitingFrame=true;invalidate();return;}if(loading&&!desired&&nextKey===pendingKey)return;desired={...config,look:{...config.look}};revision++;awaitingFrame=false;onAssetStatus('loading','Applying selected appearance…');clearTimeout(fitTimer);fitTimer=window.setTimeout(()=>void drain(),180);
   };
-  const motion=(value:AvatarMotion)=>{if(!runtime||failed||disposed)return;sequence=[];routineActive=false;if(experience.behavior!=='manual'){mood=value==='power'?'confident':value==='run'?'focused':value==='jump'?'surprised':'neutral';runtime.expression?.(mood);}active=value;runtime.root.position.y=0;setAvatarMotion(runtime,value,value==='idle'?0:.18);if(value==='idle')runtime.mixer.update(0);else{face=false;zoom=1;pose();}deadline=performance.now()+((value==='jump'||value==='power')?(runtime.currentAction?.getClip().duration??1)*1000+120:5000);previous=0;invalidate();};
-  const beginGesture=(name:string,speed=1,blend=.2)=>{if(!runtime||failed||disposed)return false;const duration=playAvatarGesture(runtime,name,speed,blend);if(!duration)return false;active='power';runtime.root.position.y=0;face=false;zoom=1;pose();if(experience.behavior!=='manual')runtime.expression?.(['wave','soft laugh','laugh','groove','bounce'].includes(name)?'smile':'neutral');deadline=performance.now()+duration*1000+180;invalidate();return true;};
+  const motion=(value:AvatarMotion)=>{if(!runtime||failed||disposed)return;sequence=[];routineActive=false;if(experience.behavior!=='manual')automaticExpression(value==='power'?'confident':value==='run'?'focused':value==='jump'?'surprised':'neutral');active=value;runtime.root.position.y=0;setAvatarMotion(runtime,value,value==='idle'?0:.18);if(value==='idle')runtime.mixer.update(0);else{face=false;zoom=1;pose();}deadline=performance.now()+((value==='jump'||value==='power')?(runtime.currentAction?.getClip().duration??1)*1000+120:5000);previous=0;invalidate();};
+  const beginGesture=(name:string,speed=1,blend=.2)=>{if(!runtime||failed||disposed)return false;const duration=playAvatarGesture(runtime,name,speed,blend);if(!duration)return false;active='power';runtime.root.position.y=0;face=false;zoom=1;pose();if(experience.behavior!=='manual')automaticExpression(['wave','soft laugh','laugh','groove','bounce'].includes(name)?'smile':'neutral');deadline=performance.now()+duration*1000+180;invalidate();return true;};
   const rotate=(radians:number)=>{yaw+=radians;if(runtime)runtime.root.rotation.y=yaw;invalidate();};
   let pointer:number|null=null,lastX=0;
   canvas.addEventListener('pointerdown',e=>{pointer=e.pointerId;lastX=e.clientX;canvas.setPointerCapture(e.pointerId);},{signal});
@@ -129,5 +132,5 @@ export function createStudioGraphics(canvas:HTMLCanvasElement,initial:CharacterC
   const observer=new ResizeObserver(resize);observer.observe(canvas);const visibility=new IntersectionObserver(entries=>{visible=entries[0]?.isIntersecting??true;if(!visible){cancelAnimationFrame(raf);raf=0;previous=0;}else invalidate();},{threshold:.05});visibility.observe(canvas);
   const dispose=()=>{if(disposed)return;disposed=true;desired=null;clearTimeout(fitTimer);controller.abort();stopExperience();observer.disconnect();visibility.disconnect();cancelAnimationFrame(raf);if(runtime){scene.remove(runtime.root);disposeSkinnedAvatar(runtime);runtime=null;}floor.geometry.dispose();floor.material.dispose();contact.geometry.dispose();contact.material.dispose();contactMap.dispose();directionalShade.geometry.dispose();directionalShade.material.dispose();shadeMap.dispose();key.shadow.dispose();ring.geometry.dispose();ring.material.dispose();lightMap?.dispose();renderer.dispose();renderer.forceContextLoss();};
   applyExperience(experience);update(initial);resize();
-  return {shot:value=>{shot=value;orbitAngle=0;face=value==='portrait';zoom=1;pose();invalidate();},lighting:value=>{lighting=value;applyExperience(experience);},still:()=>new Promise<Blob>((resolve,reject)=>{if(disposed||failed||!runtime||loading){reject(Error('Wait for the current character to render.'));return;}try{renderer.render(scene,camera);canvas.toBlob(blob=>blob?resolve(blob):reject(Error('Image export unavailable')),'image/png');}catch(e){reject(e);}}),routine:names=>{const steps=normalizeTimeline([...names]);if(!runtime||!steps.length||steps.length!==names.length||!steps.every(n=>runtime!.actions.has(n.clip)))return false;sequence=steps.slice(1);routineActive=true;const ok=beginGesture(steps[0].clip,steps[0].speed,steps[0].blend);if(!ok){routineActive=false;sequence=[];}return ok;},gesture:name=>{sequence=[];routineActive=false;return beginGesture(name);},expression:(value,strength=1)=>{mood=value;runtime?.expression?.(value,THREE.MathUtils.clamp(strength,0,1));expressionUntil=performance.now()+1000;face=true;zoom=1;pose();invalidate();},quality:value=>{if(quality===value)return;quality=value;phoneLimit=640;frameAverage=mobile?34:17;drawCost=0;frameScale=1;measured=0;resize();update(latest);},update,motion,rotate,zoom:delta=>{zoom=THREE.MathUtils.clamp(zoom+delta,.8,1.6);pose();invalidate();},face:enabled=>{shot=enabled?'portrait':'full';orbitAngle=0;face=enabled;zoom=1;pose();invalidate();},reset:()=>{shot='full';orbitAngle=0;yaw=0;zoom=1;face=false;if(runtime)runtime.root.rotation.y=0;pose();motion('idle');},dispose};
+  return {shot:value=>{shot=value;orbitAngle=0;face=value==='portrait';zoom=1;pose();invalidate();},lighting:value=>{lighting=value;applyExperience(experience);},still:()=>new Promise<Blob>((resolve,reject)=>{if(disposed||failed||!runtime||loading){reject(Error('Wait for the current character to render.'));return;}try{renderer.render(scene,camera);canvas.toBlob(blob=>blob?resolve(blob):reject(Error('Image export unavailable')),'image/png');}catch(e){reject(e);}}),routine:names=>{const steps=normalizeTimeline([...names]);if(!runtime||!steps.length||steps.length!==names.length||!steps.every(n=>runtime!.actions.has(n.clip)))return false;sequence=steps.slice(1);routineActive=true;const ok=beginGesture(steps[0].clip,steps[0].speed,steps[0].blend);if(!ok){routineActive=false;sequence=[];}return ok;},gesture:name=>{sequence=[];routineActive=false;return beginGesture(name);},expression:(value,strength=1)=>{expressionControl.select(value,strength);applyExpression();expressionUntil=performance.now()+1000;shot='portrait';orbitAngle=0;face=true;zoom=1;pose();invalidate();},quality:value=>{if(quality===value)return;quality=value;phoneLimit=640;frameAverage=mobile?34:17;drawCost=0;frameScale=1;measured=0;resize();update(latest);},update,motion,rotate,zoom:delta=>{zoom=THREE.MathUtils.clamp(zoom+delta,.8,1.6);pose();invalidate();},face:enabled=>{shot=enabled?'portrait':'full';orbitAngle=0;face=enabled;zoom=1;pose();invalidate();},reset:()=>{expressionControl.release();applyExpression();shot='full';orbitAngle=0;yaw=0;zoom=1;face=false;if(runtime)runtime.root.rotation.y=0;pose();motion('idle');},dispose};
 }
