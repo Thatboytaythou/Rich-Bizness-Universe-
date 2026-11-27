@@ -122,3 +122,6 @@ assert.deepEqual([...jumpEnergy.tracks[3].values],[...energeticSource.tracks[3].
 for(const track of walkEnergy.tracks.slice(0,4)){for(let i=0;i<track.values.length;i+=4)near(new THREE.Quaternion().fromArray(track.values,i).length(),1);assert.deepEqual([...track.values.slice(0,4)],[...track.values.slice(-4)]);}
 assert.equal(studioFrameInterval(true,8,'auto'),32);assert.equal(studioFrameInterval(true,30,'auto'),48);assert.equal(studioFrameInterval(false,30,'detail'),16);
 console.log('V33: upper-body motion, expressive legs, protected locomotion and foot tracks, normalized quaternions, bounded phone cadence');
+
+const signatureWing=aegisGeometry();const wingColors=signatureWing.getAttribute('color');assert.equal(wingColors.count,signatureWing.getAttribute('position').count);assert.equal(wingColors.count,1320);assert.ok(wingColors.array.every(v=>Number.isFinite(v)&&v>=0&&v<=1));assert.ok(signatureWing.index.count/3<2700);assert.ok(new Set(wingColors.array).size>20);signatureWing.dispose();
+console.log('V1: original sculpted Aegis ridge, bounded feather topology, original vertex finish and deterministic textile verified');

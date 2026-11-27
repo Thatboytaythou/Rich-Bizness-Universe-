@@ -24,3 +24,6 @@ Current status: **V1 foundation candidate; production build of V34 passed, actua
 
 ## V1 interface stabilization
 The Studio groups existing controls into Character, Style, Motion, Quality, Creator and World. Keep one canvas and one Rich ID save pipeline. Do not duplicate tool panels. Mobile users retain explicit 3D startup and adaptive quality limits. Optional wardrobe and creator reads stay deferred until their tabs open.
+
+## V1 original asset quality
+The Aegis and Crown lattice are original procedural Rich Bizness designs, while the base human and fitted garment library remain vendor-derived. Maintain shared geometry between the live renderer and standalone GLB exports, preserve explicit limits on geometry and texture cost, and do not describe prototype footwear as an integrated fitted shoe.

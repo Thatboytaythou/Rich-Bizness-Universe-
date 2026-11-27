@@ -3,19 +3,19 @@ import {mantleGeometry,animateMantle} from './avatar.atlas.art.ts';
 // Original Rich Bizness "Aegis" swept feather profiles and Crown Sigil wearable.
 // Units: metres at adult scale. Closed cross-sections, mirrored at the wing hinge.
 export function aegisGeometry(){
- const positions:number[]=[],indices:number[]=[];
+ const positions:number[]=[],indices:number[]=[],colors:number[]=[];const segments=10;
  for(let feather=0;feather<12;feather++){
   const reach=.38+feather*.045, rise=.34-feather*.061, originX=.025+feather*.013,originY=.10-feather*.018;
   const base=positions.length/3;
   for(let i=0;i<=10;i++){
    const t=i/10,cx=originX+reach*t,cy=originY+rise*t+.14*Math.sin(Math.PI*t),cz=-.045*Math.sin(Math.PI*t);
    const width=(.012+.043*Math.sin(Math.PI*t))*(1-.82*t),thickness=.003+.009*Math.sin(Math.PI*t);
-   for(let k=0;k<8;k++){const a=k*Math.PI/4;positions.push(cx,cy+Math.cos(a)*width,cz+Math.sin(a)*thickness);}
+   for(let k=0;k<segments;k++){const a=k*Math.PI*2/segments,edge=Math.abs(Math.cos(a)),ridge=Math.pow(Math.abs(Math.sin(a)),8);positions.push(cx,cy+Math.cos(a)*width,cz+Math.sin(a)*(thickness+.005*ridge*Math.sin(Math.PI*t)));const polish=.62+.26*t+.12*edge;const band=feather%3===0?.07:0;colors.push(Math.min(1,polish+band),Math.min(1,polish*.95+band),Math.min(1,polish*.86+band));}
   }
-  for(let i=0;i<10;i++)for(let k=0;k<8;k++){const a=base+i*8+k,b=base+i*8+(k+1)%8,c=b+8,d=a+8;indices.push(a,b,d,b,c,d);}
-  for(let k=1;k<7;k++){indices.push(base,base+k+1,base+k);const tip=base+80;indices.push(tip,tip+k,tip+k+1);}
+  for(let i=0;i<10;i++)for(let k=0;k<segments;k++){const a=base+i*segments+k,b=base+i*segments+(k+1)%segments,c=b+segments,d=a+segments;indices.push(a,b,d,b,c,d);}
+  for(let k=1;k<segments-1;k++){indices.push(base,base+k+1,base+k);const tip=base+10*segments;indices.push(tip,tip+k,tip+k+1);}
  }
- const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(positions,3));g.setIndex(indices);g.computeVertexNormals();g.computeBoundingBox();return g;
+ const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(positions,3));g.setAttribute('color',new THREE.Float32BufferAttribute(colors,3));g.setIndex(indices);g.computeVertexNormals();g.computeBoundingBox();return g;
 }
 export function crownGeometry(){
  const shape=new THREE.Shape();shape.moveTo(-.041,-.027);shape.lineTo(-.052,.029);shape.lineTo(-.022,.008);shape.lineTo(0,.049);shape.lineTo(.022,.008);shape.lineTo(.052,.029);shape.lineTo(.041,-.027);shape.closePath();
@@ -45,7 +45,9 @@ export function regaliaGeometry(){
 // A deterministic original diamond/crown jacquard tile, used by runtime and asset build.
 export function regaliaTextile(style:string,size=128){
  const data=new Uint8Array(size*size*4);const palette=style==='obsidian'?[20,24,32,162,182,196]:[19,53,39,192,155,79];
- for(let y=0;y<size;y++)for(let x=0;x<size;x++){const a=x%32,b=y%32,d=Math.abs(a-16)+Math.abs(b-16);const line=Math.abs(d-13)<1.6||Math.abs(d-8)<.9;const crown=b>=13&&b<=21&&a>=10&&a<=22&&(b===21||Math.abs(a-16)+b<=18);const thread=((x+y)%3)-1;const k=(y*size+x)*4;for(let c=0;c<3;c++)data[k+c]=Math.max(0,Math.min(255,palette[(line||crown?3:0)+c]+thread*7));data[k+3]=255;}
+ // Original RB Crown lattice: an interlocked lozenge border and three-point crown,
+ // with alternating satin thread direction and recessed dark seams.
+ for(let y=0;y<size;y++)for(let x=0;x<size;x++){const a=x%64,b=y%64,dx=Math.abs(a-32),dy=Math.abs(b-32),d=dx+dy;const border=Math.abs(d-27)<1.7||Math.abs(d-22)<1.1;const tips=b>=24&&b<=37&&dx<=12&&(b>=34||Math.abs(dx-9)<2.2&&b>=26||dx<2.2);const stitch=(x+y)%4===0?.86:1;const seam=Math.abs(d-30)<1||Math.abs(d-19)<.8;const thread=Math.sin(x*Math.PI/2)*2.5+Math.cos(y*Math.PI/2)*2.5;const k=(y*size+x)*4;for(let c=0;c<3;c++)data[k+c]=Math.round(Math.max(0,Math.min(255,palette[(border||tips?3:0)+c]*(seam?.69:stitch)+thread)));data[k+3]=255;}
  return data;
 }
 
@@ -84,7 +86,7 @@ export function originalWearables(root:THREE.Group,bones:Set<THREE.Bone>,height:
  }
  if(look.wings!=='none'){
   const mount=attach(0,height*.76,-height*.10);
-  for(const side of [-1,1]){const hinge=new THREE.Group();hinge.position.x=side*.105;hinge.scale.x=side;mount.add(hinge);const m=new THREE.Mesh(aegisGeometry(),metal(look.wings==='celestial-aegis'?0xc9bd9d:0x253341));m.material.emissive.setHex(look.wings==='celestial-aegis'?0x57418a:0x0c5d52);m.material.emissiveIntensity=.2;hinge.add(m);parts.push(m);hinges.push(hinge);}
+  for(const side of [-1,1]){const hinge=new THREE.Group();hinge.position.x=side*.105;hinge.scale.x=side;mount.add(hinge);const m=new THREE.Mesh(aegisGeometry(),metal(look.wings==='celestial-aegis'?0xc9bd9d:0x253341));m.material.vertexColors=true;m.material.emissive.setHex(look.wings==='celestial-aegis'?0x57418a:0x0c5d52);m.material.emissiveIntensity=.2;hinge.add(m);parts.push(m);hinges.push(hinge);}
  }
  return {width:look.wings==='none'?0:height*1.22,tick:(dt:number)=>{time+=Math.min(.075,dt);if(mantle&&mantleBase&&time-lastMantle>.067){lastMantle=time;animateMantle(mantle,mantleBase,time);}hinges.forEach((h,i)=>{h.rotation.y=(i?1:-1)*(.18+.13*Math.sin(time*1.7));h.rotation.z=(i?1:-1)*.045*Math.sin(time*1.7+.6);});},dispose:()=>{for(const p of parts){if((p as THREE.InstancedMesh).isInstancedMesh)(p as THREE.InstancedMesh).dispose();p.geometry.dispose();(p.material as THREE.Material).dispose();}textures.forEach(t=>t.dispose());anchors.forEach(a=>a.removeFromParent());}};
 }
