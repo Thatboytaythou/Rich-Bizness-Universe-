@@ -108,15 +108,19 @@ function addStreetWorld(scene: THREE.Scene,signal:AbortSignal,mobile:boolean): T
     [-16, 15, -59, 7, 6.5], [16, 14, -62, 6, 6],
     [-14, 11, -76, 6, 5], [14, 16, -78, 7, 6]
   ] as const;
-  const windows:THREE.Matrix4[]=[],frames:THREE.Matrix4[]=[],shopfronts:THREE.Matrix4[]=[],awnings:THREE.Matrix4[]=[];const dummy=new THREE.Object3D();const record=(arr:THREE.Matrix4[],x:number,y:number,z:number,sx:number,sy:number,sz:number)=>{dummy.position.set(x,y,z);dummy.scale.set(sx,sy,sz);dummy.updateMatrix();arr.push(dummy.matrix.clone());};
+  const windows:THREE.Matrix4[]=[],frames:THREE.Matrix4[]=[],shopfronts:THREE.Matrix4[]=[],awnings:THREE.Matrix4[]=[],balconies:THREE.Matrix4[]=[],railings:THREE.Matrix4[]=[],piers:THREE.Matrix4[]=[];const dummy=new THREE.Object3D();const record=(arr:THREE.Matrix4[],x:number,y:number,z:number,sx:number,sy:number,sz:number)=>{dummy.position.set(x,y,z);dummy.scale.set(sx,sy,sz);dummy.updateMatrix();arr.push(dummy.matrix.clone());};
   blocks.forEach(([x, h, z, w, d], index) => {
     const building = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), wallMats[index % wallMats.length]);
     building.position.set(x, h / 2, z);
     building.castShadow = true;
     building.receiveShadow = true;
     world.add(building);
-    for(let y=1.8;y<h-.6;y+=1.35){for(let offset=-d/2+.65;offset<d/2-.35;offset+=1.1){const side=x+(x<0?w/2+.035:-w/2-.035);record(frames,side,y,z+offset,.13,.99,.91);record(windows,side+(x<0?.072:-.072),y,z+offset,.035,.86,.76);}}
-    for(let y=1.25;y<h;y+=2.7){record(frames,x+(x<0?w/2+.08:-w/2-.08),y,z,.18,.085,d+.1);}
+    for(let y=3.15;y<h-.6;y+=1.35){for(let offset=-d/2+.65;offset<d/2-.35;offset+=1.1){const side=x+(x<0?w/2+.035:-w/2-.035);record(frames,side,y,z+offset,.13,.99,.91);record(windows,side+(x<0?.072:-.072),y,z+offset,.035,.86,.76);}}
+    const face=x+(x<0?w/2:-w/2),out=x<0?1:-1;
+    for(let offset=-d/2+.85;offset<d/2-.45;offset+=1.65){record(frames,face+out*.10,1.16,z+offset,.20,2.13,1.48);record(shopfronts,face+out*.22,1.16,z+offset,.055,1.89,1.24);}
+    record(awnings,face+out*.39,2.45,z,.85,.16,d+.2);
+    for(const dz of [-d/2+.16,d/2-.16])record(piers,face+out*.10,h*.5,z+dz,.25,h,.30);
+    for(let y=3.15;y<h-.9;y+=2.7){record(frames,face+out*.08,y-.68,z,.20,.10,d+.12);if(index%2===0){record(balconies,face+out*.38,y-.53,z,.78,.13,d*.72);record(railings,face+out*.75,y-.08,z,.06,.78,d*.72);for(const dz of [-d*.35,d*.35])record(railings,face+out*.38,y-.08,z+dz,.72,.78,.055);}}
     // Front-facing windows and a recessed ground-floor shop row.
     for(let y=2.9;y<h-.5;y+=1.35)for(let offset=-w/2+.72;offset<w/2-.35;offset+=1.15){
       record(frames,x+offset,y,z+d/2+.055,.96,1.02,.13);
@@ -138,6 +142,8 @@ function addStreetWorld(scene: THREE.Scene,signal:AbortSignal,mobile:boolean): T
   batch(new THREE.MeshStandardMaterial({color:0xb9d4df,map:reflection,metalness:.16,roughness:.31,emissive:0x172b36,emissiveIntensity:.24}),windows);
   batch(new THREE.MeshStandardMaterial({color:0x829496,map:reflection,metalness:.12,roughness:.38}),shopfronts);
   batch(new THREE.MeshStandardMaterial({color:0x6e513a,roughness:.74}),awnings);
+  batch(new THREE.MeshStandardMaterial({color:0xa19a86,roughness:.88}),piers.concat(balconies));
+  batch(new THREE.MeshStandardMaterial({color:0x32454a,metalness:.25,roughness:.45}),railings);
   // Pavement expansion joints, grouped in a single draw call.
   const joints:THREE.Matrix4[]=[];
   for(const x of [-8.1,8.1])for(let z=-85;z<8;z+=2)record(joints,x,.162,z,3.65,.006,.022);
@@ -184,7 +190,7 @@ function addStreetWorld(scene: THREE.Scene,signal:AbortSignal,mobile:boolean): T
   const hubGeo=new THREE.CylinderGeometry(.07,.07,.23,12),spokeGeo=new THREE.BoxGeometry(.023,.28,.022);
   const rimMat=new THREE.MeshStandardMaterial({color:0x8b9a9e,metalness:.82,roughness:.25}),headMat=new THREE.MeshBasicMaterial({color:0xffebc9}),tailMat=new THREE.MeshBasicMaterial({color:0xbe273b});
   const lampGeo=new THREE.BoxGeometry(.34,.095,.045);
-  const spokeMatrices:THREE.Matrix4[]=[];const spokeDummy=new THREE.Object3D();
+  const spokeMatrices:THREE.Matrix4[]=[];const spokeDummy=new THREE.Object3D();let showcase:THREE.Group|undefined;
   carPositions.forEach(([x, z, rotation], index) => {
     const car = new THREE.Group();
     const body = new THREE.Mesh(bodyShell, carMats[index % carMats.length]);
@@ -207,10 +213,12 @@ function addStreetWorld(scene: THREE.Scene,signal:AbortSignal,mobile:boolean): T
     for(const x of [-.42,.42]){const front=new THREE.Mesh(lampGeo,headMat);front.position.set(x,.48,1.67);car.add(front);const rear=new THREE.Mesh(lampGeo,tailMat);rear.position.set(x,.51,-1.68);car.add(rear);}
     addShade(x,.011,z,2.55,4.15);car.position.set(x, 0, z);
     car.rotation.y = rotation;
-    world.add(car);
+    world.add(car);if(index===0)showcase=car;
   });
 
   const spokes=new THREE.InstancedMesh(spokeGeo,trimMat,spokeMatrices.length);spokeMatrices.forEach((m,i)=>spokes.setMatrixAt(i,m));spokes.instanceMatrix.needsUpdate=true;spokes.computeBoundingSphere();world.add(spokes);
+  let detailedAttempted=false;
+  world.userData.tryDetailedVehicle=async()=>{if(detailedAttempted||signal.aborted||!showcase)return;detailedAttempted=true;world.userData.vehicleStatus='checking';try{const {loadDetailedVehicle,disposeDetailedVehicle}=await import('./avatar.world.vehicle');const model=await loadDetailedVehicle(signal,mobile);if(!model){world.userData.vehicleStatus='fallback';return;}if(signal.aborted){disposeDetailedVehicle(model);return;}const holder=new THREE.Group();holder.position.copy(showcase.position);holder.rotation.copy(showcase.rotation);holder.add(model);world.add(holder);showcase.visible=false;const hiddenMatrix=new THREE.Matrix4().makeScale(0,0,0);for(let i=0;i<12&&i<spokeMatrices.length;i++)spokes.setMatrixAt(i,hiddenMatrix);spokes.instanceMatrix.needsUpdate=true;world.userData.vehicleStatus='detailed';}catch{world.userData.vehicleStatus='fallback';}};
   const occlusion=new THREE.InstancedMesh(new THREE.PlaneGeometry(1,1),new THREE.MeshBasicMaterial({map:shadeMap,transparent:true,depthWrite:false,polygonOffset:true,polygonOffsetFactor:-1}),shades.length);shades.forEach((m,i)=>occlusion.setMatrixAt(i,m));occlusion.instanceMatrix.needsUpdate=true;occlusion.computeBoundingSphere();world.add(occlusion);
   scene.add(world);
   return world;
@@ -450,6 +458,7 @@ export async function mount(): Promise<void> {
     if(now-lastTelemetry>1000){lastTelemetry=now;const status=root.querySelector<HTMLElement>('#alPerformance');if(status)status.textContent='~'+Math.round(1000/averageFrame)+' fps · '+Math.round(renderScale*100)+'% render scale';}
     const dt = Math.min(clock.getDelta(), .075);
     world?.userData.tickFoliage?.(dt);
+    if(frameSamples>=90&&averageFrame<(mobile?39:30)&&avatarRuntime.root.position.distanceTo(new THREE.Vector3(-4.9,0,-17))<23){void world?.userData.tryDetailedVehicle?.();}
     try{
     const inputMagnitude = Math.min(1, Math.hypot(joyX, joyY));
     const moving = inputMagnitude > .10;
