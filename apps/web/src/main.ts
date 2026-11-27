@@ -43,6 +43,7 @@ async function mountGlobalRuntime(page:string):Promise<void>{
   const epoch=String(Number(body.dataset[GLOBAL_RUNTIME_EPOCH_KEY]??'0')+1);
   body.dataset[GLOBAL_RUNTIME_EPOCH_KEY]=epoch;
 
+  if(page==='home'||page==='tap-in')return;
   if(page==='search'&&matchMedia('(max-width: 760px)').matches)blurActiveField();
   if(page==='portal')blurActiveField();
 
@@ -93,16 +94,12 @@ window.addEventListener('pagehide',cleanupOnExit,{once:true});
 window.addEventListener('beforeunload',cleanupOnExit,{once:true});
 
 const currentPage=document.body.dataset.page??'';
-const miniTask=currentPage==='avatar-characters'
-  ? import('./core/navigation/omni-mini').then(({mountOmniMini})=>mountOmniMini(currentPage)).catch(error=>console.warn('[Rich Bizness Mini Omni]',error))
-  : Promise.resolve();
-void bootstrap().then(async()=>{
+void bootstrap().then(async(mounted)=>{
+  if(!mounted)return;
   const page=document.body.dataset.page??'';
-  if(page!=='home'&&page!=='portal'&&page!=='tap-in'){
+  if(page==='home'||page==='tap-in')return;
+  if(page!=='portal'){
     await import('./core/navigation/omni-mini').then(({mountOmniMini})=>mountOmniMini(page)).catch(error=>console.warn('[Rich Bizness Mini Omni]',error));
   }
   await mountGlobalRuntime(page);
-}).catch(error=>{
-  console.error('[Rich Bizness bootstrap]',error);
-  if(currentPage==='avatar-characters') void miniTask.then(()=>import('./core/navigation/omni-mini')).then(({mountOmniMini})=>mountOmniMini(currentPage,true)).catch(()=>{});
-});
+}).catch(error=>console.error('[Rich Bizness bootstrap]',error));

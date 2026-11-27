@@ -29,9 +29,10 @@ const badge=(count:number,label:string)=>count>0?`<b data-count="${count}" aria-
 
 export async function mountPortalPage():Promise<void>{
  const app=document.querySelector<HTMLDivElement>('#app');if(!app)throw new Error('Missing #app mount');
- const mountEpoch=app.dataset.pageEpoch??'';let disposed=false;const isCurrent=()=>!disposed&&app.dataset.pageEpoch===mountEpoch&&app.dataset.pageOwner===CANONICAL_OWNER;
- const user=getAuthSnapshot().user;if(!user||!isCurrent())return;
- let snapshot:PortalSnapshot={};const{data,error}=await supabase.rpc('rb_portal_elite_snapshot',{});if(!isCurrent())return;if(!error)snapshot=(data??{}) as PortalSnapshot;
+ const mountEpoch=app.dataset.pageEpoch??'';let disposed=false;const user=getAuthSnapshot().user;const isCurrent=()=>!disposed&&!app.hidden&&getAuthSnapshot().user?.id===user?.id&&app.dataset.pageEpoch===mountEpoch&&app.dataset.pageOwner===CANONICAL_OWNER;
+ if(!user||!isCurrent())return;
+ const abort=new AbortController();const timer=window.setTimeout(()=>abort.abort(),9000);const cancel=()=>{disposed=true;abort.abort();};window.addEventListener('pagehide',cancel,{once:true});
+ let snapshot:PortalSnapshot={};try{const{data,error}=await supabase.rpc('rb_portal_elite_snapshot',{}).abortSignal(abort.signal);if(!error)snapshot=(data??{}) as PortalSnapshot;}catch{/* Keep navigation available if optional dashboard data is unavailable. */}finally{clearTimeout(timer);window.removeEventListener('pagehide',cancel);}if(!isCurrent())return;
  const profile=snapshot.profile??{},level=snapshot.level??{},avatar=snapshot.avatar??{},settings=snapshot.settings??{},pulse=snapshot.section_pulse??{};
  const name=String(profile.display_name??profile.username??avatar.display_name??user.email?.split('@')[0]??'RICH BIZNESS');
  const avatarUrl=safeUrl(profile.avatar_url??avatar.avatar_url);const accent=String(settings.accent_color??'#31ff63');const richLevel=Number(level.level??profile.rich_level??avatar.level??1);const xpCurrent=Number(level.xp_current??0),xpNext=Math.max(1,Number(level.xp_next??100)),xpPercent=Math.min(100,Math.max(0,(xpCurrent/xpNext)*100));

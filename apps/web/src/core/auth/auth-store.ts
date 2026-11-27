@@ -45,19 +45,23 @@ export function subscribeAuth(listener: Listener): () => void {
   return () => listeners.delete(listener);
 }
 
+// Network failure is not a confirmed sign-out.
+const sessionRejected=(error:{status?:number;name?:string}|null|undefined)=>!!error&&(error.status===401||error.status===403||error.name==='AuthSessionMissingError');
 async function resolveVerifiedSession(): Promise<AuthSnapshot> {
   const revision=authRevision;
   const current=await withTimeout(supabase.auth.getSession(),null);
   if(authRevision!==revision&&snapshot.ready)return snapshot;
   if(!current)return publish({session:null,user:null,ready:false});
   const session=current.data.session;
-  if(current.error||!session)return publish({session:null,user:null,ready:true});
+  if(current.error)return publish({session:null,user:null,ready:sessionRejected(current.error)});
+  if(!session)return publish({session:null,user:null,ready:true});
   const verifyRevision=authRevision;
   const verified=await withTimeout(supabase.auth.getUser(session.access_token),null);
   // A newer sign-in/sign-out/refresh event must not be overwritten by an older request.
   if(authRevision!==verifyRevision&&snapshot.ready)return snapshot;
   if(!verified)return publish({session:null,user:null,ready:false});
-  if(verified.error||!verified.data.user)return publish({session:null,user:null,ready:true});
+  if(verified.error)return publish({session:null,user:null,ready:sessionRejected(verified.error)});
+  if(!verified.data.user)return publish({session:null,user:null,ready:true});
   return publish({session,user:verified.data.user,ready:true});
 }
 

@@ -21,7 +21,7 @@ export async function mountTapInPage(): Promise<void> {
   const rawNext=safeInternalRoute(params.get('next'));
   const target=new URL(rawNext,location.origin);
   const next=target.origin===location.origin&&!/^\/tap-in(?:\.html)?\/?$/i.test(target.pathname)?target.pathname+target.search+target.hash:'/portal.html';
-  const recoveryMode = params.get('mode') === 'recovery';
+  const recoveryMode = params.get('mode') === 'recovery'||new URLSearchParams(location.hash.slice(1)).get('type')==='recovery';
   const reason = params.get('reason');
   // Render the gateway before attempting any navigation.
 
@@ -131,11 +131,11 @@ export async function mountTapInPage(): Promise<void> {
     if (!form || !password || !submit) throw new Error('Recovery form failed to mount');
     form.addEventListener('submit', async (event) => {
       event.preventDefault();
-      if (!isCurrent() || !form.reportValidity()) return;
+      if (!isCurrent() || submit.disabled || navigating || !form.reportValidity()) return;
       submit.disabled = true;
       setStatus('LOCKIN’ YOUR NEW ACCESS...', false, true);
-      try {const {error}=await authDeadline(supabase.auth.updateUser({password:password.value}));if(!isCurrent())return;if(error)return setStatus(error.message,true);setStatus('ACCESS LOCKED — YOU TAPPED IN');redirectTimer=window.setTimeout(()=>{if(isCurrent())location.replace(next);},500);}
-      catch(error){setStatus(error instanceof Error?error.message:'Unable to update password. Try again.',true);}finally{if(isCurrent())submit.disabled=false;}
+      try {const auth=await authDeadline(initializeAuth(),12000);if(!isCurrent())return;if(!auth.ready||!auth.user){setStatus('Recovery session unavailable. Open your recovery email link again.',true);return;}const {error}=await authDeadline(supabase.auth.updateUser({password:password.value}));if(!isCurrent())return;if(error)return setStatus(error.message,true);navigating=true;setStatus('ACCESS LOCKED — YOU TAPPED IN');redirectTimer=window.setTimeout(()=>{if(isCurrent())location.replace(next);},500);}
+      catch(error){setStatus(error instanceof Error?error.message:'Unable to update password. Try again.',true);}finally{if(isCurrent()&&!navigating)submit.disabled=false;}
     }, { signal });
     return;
   }
@@ -176,11 +176,11 @@ export async function mountTapInPage(): Promise<void> {
   },{signal});
   unsubscribeAuth=subscribeAuth((current)=>{
     // Never redirect within an SDK auth event callback.
-    if(current.session&&current.user&&reason!=='session'&&!pending)window.setTimeout(()=>{if(!pending&&getAuthSnapshot().session)enter();},0);
+    if(current.session&&current.user&&reason!=='session'&&!pending)window.setTimeout(()=>{if(!pending&&!navigating&&getAuthSnapshot().ready&&getAuthSnapshot().user?.id===current.user?.id&&getAuthSnapshot().session)enter();},0);
   });
   app.querySelectorAll<HTMLButtonElement>('[data-auth-mode]').forEach((button) => {
     button.addEventListener('click', () => {
-      if (!isCurrent() || pending) return;
+      if (!isCurrent() || pending || navigating) return;
       mode = button.dataset.authMode === 'signup' ? 'signup' : 'signin';
       app.querySelectorAll<HTMLButtonElement>('[data-auth-mode]').forEach((node) => {
         const active = node === button;
@@ -198,7 +198,7 @@ export async function mountTapInPage(): Promise<void> {
 
   form.addEventListener('submit', async (event) => {
     event.preventDefault();
-    if (!isCurrent() || pending || !form.reportValidity()) return;
+    if (!isCurrent() || pending || navigating || !form.reportValidity()) return;
     if(touch)touch.textContent='Touch: sign-in submitted';
     pending = true;
     submitButton.disabled = true;
@@ -225,7 +225,7 @@ export async function mountTapInPage(): Promise<void> {
   }, { signal });
 
   recoverButton.addEventListener('click', async () => {
-    if (!isCurrent() || pending) return;
+    if (!isCurrent() || pending || navigating) return;
     if (!email.value.trim()) return setStatus('DROP YOUR EMAIL FIRST', true);
     pending = true;
     recoverButton.disabled = true;

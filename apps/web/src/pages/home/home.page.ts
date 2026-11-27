@@ -1,4 +1,4 @@
-import { getAuthSnapshot } from '../../core/auth/auth-store';
+import { getAuthSnapshot, subscribeAuth } from '../../core/auth/auth-store';
 import './home.css';
 
 const BACKGROUND='/images/0E886281-8F03-4288-B3CA-C45369B7B58E.png';
@@ -48,7 +48,11 @@ export async function mountHomePage():Promise<void>{
     </section>
   </main>`;
 
-  const cleanup=()=>{if(disposed)return;disposed=true;};
+  const unsubscribe=subscribeAuth(state=>{
+    if(!isCurrent())return;const signedIn=Boolean(state.user),href=signedIn?'/portal.html':'/tap-in.html?next=%2Fportal.html',label=signedIn?'ENTER UNIVERSE':'TAP IN';
+    for(const link of app.querySelectorAll<HTMLAnchorElement>('.rb-home__enter,.rb-home__actions .primary,.rb-home__gateway')){link.href=href;if(link.classList.contains('rb-home__gateway')){link.setAttribute('aria-label',label);const small=link.querySelector('small');if(small)small.textContent=label;}else link.textContent=label;}
+  });
+  const cleanup=()=>{if(disposed)return;disposed=true;unsubscribe();};
   (window as Window&{__rbPageCleanup?:(()=>void|Promise<void>)|null}).__rbPageCleanup=cleanup;
   window.addEventListener('pagehide',cleanup,{once:true});
   window.addEventListener('beforeunload',cleanup,{once:true});

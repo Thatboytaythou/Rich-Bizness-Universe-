@@ -31,6 +31,7 @@ function resetMountState(app: HTMLElement): void {
   delete app.dataset[MOUNTED_KEY];
 }
 
+let mountTail:Promise<void>=Promise.resolve();
 function guardedRegistration({ auth, owner, loadModule, exportName = 'mount', preload = [] }: RegistrationOptions): PageRegistration {
   return {
     auth,
@@ -42,16 +43,16 @@ function guardedRegistration({ auth, owner, loadModule, exportName = 'mount', pr
       if (typeof mount !== 'function') throw new Error(`Missing ${exportName}() for ${owner}`);
 
       return {
-        mount: async () => {
+        mount: () => {
+          const job=mountTail.then(async()=>{
           const app = document.querySelector<HTMLElement>('#app');
           if (!app) throw new Error('Missing #app mount');
-
-          const epoch = String(Number(app.dataset[EPOCH_KEY] ?? '0') + 1);
-          app.dataset[EPOCH_KEY] = epoch;
 
           const activeOwner = app.dataset[OWNER_KEY];
           const alreadyMounted = activeOwner === owner && app.dataset[MOUNTED_KEY] === 'true';
           if (alreadyMounted) return;
+          const epoch = String(Number(app.dataset[EPOCH_KEY] ?? '0') + 1);
+          app.dataset[EPOCH_KEY] = epoch;
 
           await runPreviousCleanup();
           resetMountState(app);
@@ -63,9 +64,10 @@ function guardedRegistration({ auth, owner, loadModule, exportName = 'mount', pr
             if (app.dataset[EPOCH_KEY] !== epoch) return;
             app.dataset[MOUNTED_KEY] = 'true';
           } catch (error) {
-            if (app.dataset[EPOCH_KEY] === epoch) resetMountState(app);
+            if (app.dataset[EPOCH_KEY] === epoch) {await runPreviousCleanup();resetMountState(app);}
             throw error;
           }
+          });mountTail=job.then(()=>{},()=>{});return job;
         }
       };
     }
