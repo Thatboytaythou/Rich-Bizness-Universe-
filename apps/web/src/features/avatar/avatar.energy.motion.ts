@@ -34,6 +34,9 @@ export function energeticClip(source:THREE.AnimationClip, name:string, bones:Ite
  return clip;
 }
 
+// Blend weight shifts across more of the captured step when switching locomotion.
+export function naturalMotionFade(from:string,to:string,requested:number){if(!Number.isFinite(requested)||requested<=0)return 0;const gait=(s:string)=>s==='walk'||s==='run';return Math.min(.65,Math.max(requested,gait(from)&&gait(to)&&from!==to?.28:gait(from)&&to==='idle'||from==='idle'&&gait(to)?.22:.12));}
+
 // A draw-cost controller separate from measured FPS: the previous 48ms
 // safe cap could never reach the 30fps target even on a fast phone.
 export function studioFrameInterval(mobile:boolean,drawCost:number,quality:'auto'|'detail'){

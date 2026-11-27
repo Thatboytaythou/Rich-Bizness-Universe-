@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import {naturalMotionFade} from './avatar.energy.motion';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 
 export type AvatarGender = 'boy' | 'girl';
@@ -186,7 +187,8 @@ export function setAvatarMotion(runtime: SkinnedAvatarRuntime, motion: AvatarMot
   }
   next.play();
   if (previous && previous !== next) {
-    if(fadeSeconds<=0)previous.stop();else previous.crossFadeTo(next, fadeSeconds, false);
+    const fade=naturalMotionFade(runtime.currentMotion,motion,fadeSeconds);
+    if(fade<=0)previous.stop();else previous.crossFadeTo(next, fade, false);
   }
   runtime.currentAction = next;
   runtime.currentMotion = motion;
@@ -197,7 +199,7 @@ export function playAvatarGesture(runtime:SkinnedAvatarRuntime,name:string,speed
 }
 
 export function updateSkinnedAvatar(runtime: SkinnedAvatarRuntime, deltaSeconds: number): void {
-  const dt=Math.min(Math.max(deltaSeconds,0),0.075);runtime.mixer.update(dt);
+  const dt=Number.isFinite(deltaSeconds)?Math.min(Math.max(deltaSeconds,0),0.075):0;runtime.mixer.update(dt);
   // Retire fully faded actions, preventing dormant skeletal tracks accumulating after movement or gesture changes.
   for(const action of runtime.actions.values()){if(action!==runtime.currentAction&&action.isScheduled()&&action.getEffectiveWeight()<=.0001)action.stop();}
   runtime.animateFace?.(dt);

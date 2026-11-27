@@ -3,7 +3,7 @@ import {profileOffsets} from './avatar.sculpt.profiles.ts';
 import {designerWardrobe} from './avatar.elite.catalog.ts';
 export const HD_VERSION='0.19.0';
 export const HD_CLIPS=['idle','walk','run','jump','cheer','wave','look_around','bow','talk_gestures','walk_slouch','model_walk','clap','point','thumbs_up','dance_groove','dance_bounce','laugh_hard','turn_left_90','turn_right_90','talk','laugh'] as const;
-const hair:Record<string,string>={fade:'short01',curls:'afro01',braids:'braid01',long:'long01',bald:'none','short-crop':'short04','short-swept':'short02','short-classic':'short03',ponytail:'ponytail01',bob:'bob02'};
+const hair:Record<string,string>={fade:'short01',curls:'afro01',braids:'braid01',long:'long01',bald:'none','short-crop':'short04','short-swept':'short02','short-classic':'short03',ponytail:'ponytail01',bob:'bob02','bob-classic':'bob01'};
 const maleOutfits:Record<string,string>={casual:'male_casualsuit02',sport:'male_casualsuit04',formal:'male_elegantsuit01',workwear:'male_worksuit01','casual-alt':'male_casualsuit05'};
 const femaleOutfits:Record<string,string>={casual:'female_casualsuit01',sport:'female_sportsuit01',formal:'female_elegantsuit01',workwear:'female_casualsuit02','casual-alt':'female_casualsuit02'};
 const shoes:Record<string,string>={sneakers:'shoes01',boots:'shoes03','high-tops':'shoes02','shoe-4':'shoes04','shoe-5':'shoes05','shoe-6':'shoes06'};

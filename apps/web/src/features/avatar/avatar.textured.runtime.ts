@@ -23,7 +23,7 @@ const pkg=()=>packagePromise??=loadHumanPackage(ASSETS,{
     try{return await new THREE.TextureLoader().loadAsync(local);}finally{URL.revokeObjectURL(local);}
   }
 }).catch(error=>{packagePromise=null;throw error;});
-const hairIds:Record<string,string|null>={fade:'short01',curls:'afro01',braids:'braid01',long:'long01',bald:null,'short-crop':'short04','short-swept':'short02','short-classic':'short03',ponytail:'ponytail01',bob:'bob02','blunt-bangs':'cortu_straight_bangs',bun:'rehmanpolanski_hair_bun_brown','natural-volume':'culturalibre_hair_01'};
+const hairIds:Record<string,string|null>={fade:'short01',curls:'afro01',braids:'braid01',long:'long01',bald:null,'short-crop':'short04','short-swept':'short02','short-classic':'short03',ponytail:'ponytail01',bob:'bob02','bob-classic':'bob01','blunt-bangs':'cortu_straight_bangs',bun:'rehmanpolanski_hair_bun_brown','natural-volume':'culturalibre_hair_01'};
 const colors:Record<string,string>={black:'#1a1412','dark-brown':'#34251e',brown:'#69452b',blond:'#b89b67',silver:'#a6a3a2'};
 const shoes:Record<string,string>={sneakers:'shoes01',boots:'shoes03','high-tops':'shoes02','shoe-4':'shoes04','shoe-5':'shoes05','shoe-6':'shoes06'};
 export function humanConfig(gender:AvatarGender,look:CharacterLook,build:string):Partial<HumanConfig>{

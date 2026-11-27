@@ -16,10 +16,10 @@ export const FACE_REGIONS=[
  {title:'Ears',fields:['earSize','earAngle']}
 ] as const;
 export const BODY_PRESETS={
- balanced:{build:'athletic',values:{}},
- runner:{build:'lean',values:{waist:'-20',thigh:'20',calf:'20',torsoLength:'20'}},
- power:{build:'heroic',values:{shoulders:'60',neckWidth:'20',chest:'60',backWidth:'60',upperArm:'80',forearm:'60',thigh:'60',calf:'40',waist:'-40'}},
- heavyweight:{build:'heroic',values:{shoulders:'40',waist:'40',neckWidth:'40',chest:'60',hips:'40',upperArm:'60',forearm:'40',thigh:'60',calf:'40',gluteVolume:'40'}}
+ balanced:{build:'athletic',values:{weight:'average'}},
+ runner:{build:'lean',values:{weight:'slim',waist:'-20',thigh:'20',calf:'20',torsoLength:'20'}},
+ power:{build:'heroic',values:{weight:'average',shoulders:'60',neckWidth:'20',chest:'60',backWidth:'60',upperArm:'80',forearm:'60',thigh:'60',calf:'40',waist:'-40'}},
+ heavyweight:{build:'heroic',values:{weight:'heavy',shoulders:'40',waist:'40',neckWidth:'40',chest:'60',hips:'40',upperArm:'60',forearm:'40',thigh:'60',calf:'40',gluteVolume:'40'}}
 } as const;
 export function resetSculpt(raw:unknown,fields:readonly string[]):CharacterLook{
  const look=normalizeLook(raw);for(const key of SCULPT_FIELDS)if(fields.includes(key))look[key]='0';return look;

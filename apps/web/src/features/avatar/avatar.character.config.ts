@@ -1,10 +1,10 @@
 export const CHARACTER_RIG='rb-original-human-v1';
-export const SCULPT_STEPS=['0','-100','-80','-60','-40','-20','20','40','60','80','100'] as const;
+export const SCULPT_STEPS:readonly string[]=Object.freeze(['0',...Array.from({length:41},(_,i)=>String(i*5-100)).filter(v=>v!=='0')]);
 export const SCULPT_FIELDS=['headWidth','cheekVolume','chinProminence','eyeSpacing','noseBridge','mouthDepth','shoulders','waist','headHeight','faceFat','foreheadHeight','chinWidth','eyeSize','eyeTilt','eyeFold','browHeight','noseLength','noseTip','nostrils','upperLip','lowerLip','earSize','earAngle','neckWidth','chest','hips','upperArm','forearm','thigh','calf','handSize','footSize','torsoLength','backWidth','gluteVolume'] as const;
 export const CHARACTER_OPTIONS={
   skin:['deep','warm','tan','light','ebony','brown','caramel','olive'],
   face:['angular','soft','strong'],
-  hair:['fade','curls','braids','long','bald','short-crop','short-swept','short-classic','ponytail','bob','blunt-bangs','bun','natural-volume'],
+  hair:['fade','curls','braids','long','bald','short-crop','short-swept','short-classic','ponytail','bob','bob-classic','blunt-bangs','bun','natural-volume'],
   eyes:['brown','hazel','blue','green','grey','deepblue','bluegreen','ice','lightblue'],
   top:['jacket','tee','hoodie','vest'],
   pants:['cargo','denim','tailored'],
