@@ -11,6 +11,11 @@ export function compactMobileVehicle(bytes,json){
  const counts=()=>{let triangles=0,primitives=0;for(const n of j.nodes??[]){if(n.mesh===undefined)continue;for(const p of j.meshes[n.mesh].primitives){triangles+=j.accessors[p.indices??p.attributes.POSITION].count/3;primitives++;}}return {triangles,primitives};};
  const removed=[];
  for(const pattern of [hidden,fine,cockpit]){for(const n of j.nodes??[]){if(n.mesh!==undefined&&pattern.test(name(n))){removed.push(name(n));delete n.mesh;}}if(counts().triangles<=85000)break;}
+ // Secondary exterior accessories may be dropped in priority order, but never primary body, glazing, wheels or lights.
+ const essential=/^(?:BODY_Shell_Hero|CABIN_Roof_Shell|Front_Windshield|Rear_Windshield|Panoramic_Roof_Glass|[LR]_Glass_|(?:Front|Rear)_(?:Left|Right)_(?:Tire(?:\.|$)|Rim_Base)|Headlight_(?:Housing|Main)|Tail_Light_(?:Housing|Bar)|Hood_Center_Panel|Front_Grille_Deep|Active_Wing_Blade|Rear_Diffuser|Front_Splitter|Aero_Undertray)/i;
+ const nodeTriangles=n=>j.meshes[n.mesh].primitives.reduce((sum,p)=>sum+j.accessors[p.indices??p.attributes.POSITION].count/3,0);
+ const lowerPriority=n=>/(?:Fender_Lip|Brake_Caliper|Seat_|Wheel_Hub|Mirror_Stalk|Hood_Vent_|Wing_Endplate_|Wing_Post_|Exhaust_Inner_|Headlight_LED_|Tail_Light_Accent_)/i.test(name(n))?0:1;
+ if(counts().triangles>85000){let total=counts().triangles;const extras=j.nodes.filter(n=>n.mesh!==undefined&&!essential.test(name(n))).sort((a,b)=>lowerPriority(a)-lowerPriority(b)||nodeTriangles(b)-nodeTriangles(a));for(const n of extras){if(total<=85000)break;total-=nodeTriangles(n);removed.push(name(n));delete n.mesh;}}
  const metrics=counts();if(!metrics.triangles||metrics.triangles>85000)throw Error('Mobile exterior still exceeds budget: '+metrics.triangles);
  const names=j.nodes.filter(n=>n.mesh!==undefined).map(name);
  for(const key of ['BODY_Shell_Hero','CABIN_Roof_Shell','Front_Windshield','Rear_Windshield','Front_Left_Tire','Front_Right_Tire','Rear_Left_Tire','Rear_Right_Tire','Front_Left_Rim_Base','Front_Right_Rim_Base','Rear_Left_Rim_Base','Rear_Right_Rim_Base'])if(!names.some(n=>n===key||n.startsWith(key+'.')))throw Error('Mobile exterior missing '+key);
