@@ -47,16 +47,21 @@ function disposeObject(root: THREE.Object3D): void {
   });textures.forEach(t=>t.dispose());materials.forEach(m=>m.dispose());geometries.forEach(g=>g.dispose());
 }
 
-function addStreetWorld(scene: THREE.Scene): THREE.Group {
+function addStreetWorld(scene: THREE.Scene,signal:AbortSignal,mobile:boolean): THREE.Group {
   const world = new THREE.Group();
   world.name = 'rb-avatar-street';
   // Original seamless asphalt surface, shared across the city instead of flat color.
   const surface=document.createElement('canvas');surface.width=surface.height=256;const ctx=surface.getContext('2d')!;ctx.fillStyle='#b5b5b5';ctx.fillRect(0,0,256,256);let seed=9137;const rand=()=>{seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed/4294967296;};for(let i=0;i<7500;i++){const v=85+Math.floor(rand()*160);ctx.fillStyle='rgb('+v+','+v+','+v+')';ctx.fillRect(rand()*256,rand()*256,1+rand()*2,1+rand()*2);}const roadMap=new THREE.CanvasTexture(surface);roadMap.colorSpace=THREE.SRGBColorSpace;roadMap.wrapS=roadMap.wrapT=THREE.RepeatWrapping;roadMap.repeat.set(7,50);
-  const asphalt = new THREE.MeshStandardMaterial({ color: 0x40464a, roughness: .92,map:roadMap });
+  const asphalt = new THREE.MeshStandardMaterial({ color: 0x777772, roughness: .9,map:roadMap });
   const sidewalk = new THREE.MeshStandardMaterial({ color: 0xa8b0ac, roughness: .9 });
   const curb = new THREE.MeshStandardMaterial({ color: 0xd1d6d2, roughness: .86 });
   const stripeMat = new THREE.MeshStandardMaterial({ color: 0xf0cf52, roughness: .72 });
   const wallMats = [0x52636d, 0x62717a, 0x6e706c, 0x455e57].map((color) => new THREE.MeshStandardMaterial({ color, roughness: .82 }));
+  const loadSurface=(name:string,repeatX:number,repeatY:number,srgb:boolean,apply:(texture:THREE.Texture)=>void)=>{new THREE.TextureLoader().load('/world-surfaces/'+name+'.jpg',texture=>{if(signal.aborted){texture.dispose();return;}texture.colorSpace=srgb?THREE.SRGBColorSpace:THREE.NoColorSpace;texture.wrapS=texture.wrapT=THREE.RepeatWrapping;texture.repeat.set(repeatX,repeatY);texture.anisotropy=mobile?1:4;apply(texture);},undefined,()=>{});};
+  loadSurface('asphalt_02_diff',7,50,true,texture=>{const previous=asphalt.map;asphalt.map=texture;asphalt.color.setHex(0xb6b6b2);asphalt.needsUpdate=true;previous?.dispose();});
+  if(!mobile)loadSurface('asphalt_02_nor',7,50,false,texture=>{asphalt.normalMap=texture;asphalt.normalScale.set(.45,.45);asphalt.needsUpdate=true;});
+  loadSurface('concrete_wall_008_diff',2,10,true,texture=>{sidewalk.map=texture;sidewalk.color.setHex(0xc8c3b8);sidewalk.needsUpdate=true;curb.map=texture;curb.color.setHex(0xd2ccc0);curb.needsUpdate=true;});
+  loadSurface('brick_wall_001_diff',3,5,true,texture=>{for(const mat of wallMats){mat.map=texture;mat.color.multiplyScalar(1.65);mat.needsUpdate=true;}});
   const glass = new THREE.MeshPhysicalMaterial({ color: 0x84bed1, roughness: .22, metalness: .04, transparent: true, opacity: .7 });
   const poleMat = new THREE.MeshStandardMaterial({ color: 0x252b2d, roughness: .48, metalness: .48 });
   const glowMat = new THREE.MeshBasicMaterial({ color: 0xffe7a8 });
@@ -242,7 +247,7 @@ export async function mount(): Promise<void> {
   let cameraMode:'close'|'wide'='close',cameraYaw=0;const cameraTools=root.querySelectorAll<HTMLButtonElement>('[data-camera]');
   const baseHeight = Math.min(2.5,Math.max(1.5, Number(cameraConfig.height ?? 2.2)||2.2));
 
-  const mobile=matchMedia('(pointer:coarse),(max-width:860px)').matches;
+  const mobile=matchMedia('(any-pointer:coarse),(max-width:860px)').matches;
   const failure=(message:string)=>{cancelAnimationFrame(raf);stopLife();root.querySelector<HTMLElement>('#avatarLoading')?.remove();const panel=document.createElement('div');panel.className='al-loading';panel.setAttribute('role','status');panel.textContent=message+' ';const link=document.createElement('a');link.href='/avatar-characters.html';link.textContent='Return to Avatar Studio';panel.append(link);canvas.parentElement?.append(panel);root.querySelectorAll<HTMLButtonElement>('[data-action]').forEach(button=>button.disabled=true);};
   try{renderer = new THREE.WebGLRenderer({ canvas, antialias: !mobile, powerPreference: mobile?'low-power':'high-performance' });}catch{failure('3D graphics unavailable. Your saved Rich ID is unchanged.');return;}
   canvas.addEventListener('webglcontextlost',event=>{event.preventDefault();failure('3D graphics paused. Your saved Rich ID is unchanged.');},{signal:abort.signal,once:true});
@@ -250,13 +255,13 @@ export async function mount(): Promise<void> {
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   renderer.toneMapping = THREE.ACESFilmicToneMapping;
   renderer.toneMappingExposure = 1.08;
-  try{lightMap=createCharacterLightMap(renderer);scene.environment=lightMap.texture;scene.environmentIntensity=.4;}catch{ /* direct lights remain available */ }
+  try{if(!mobile){lightMap=createCharacterLightMap(renderer);scene.environment=lightMap.texture;scene.environmentIntensity=.4;}}catch{ /* direct lights remain available */ }
   renderer.shadowMap.enabled = !mobile;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 
   const hemi=new THREE.HemisphereLight(0xf3fbff,0x5d675f,2.7);scene.add(hemi);
   const sun = new THREE.DirectionalLight(0xfff2d9, 3.2);
-  sun.position.set(8, 13, 6);
+  sun.position.set(-9, 9, 6);
   sun.castShadow = true;
   sun.shadow.mapSize.set(quality.shadowSize, quality.shadowSize);
   sun.shadow.camera.near = .5;
@@ -268,17 +273,17 @@ export async function mount(): Promise<void> {
   const rim = new THREE.DirectionalLight(0x80ffc0, .7);
   rim.position.set(4, 4, -6);
   scene.add(rim);
-  world=district==='city'?addStreetWorld(scene):new THREE.Group();if(district!=='city')scene.add(world);
+  world=district==='city'?addStreetWorld(scene,abort.signal,mobile):new THREE.Group();if(district!=='city')scene.add(world);
   const districtScene=createDistrictScene(district);world.add(districtScene.group);
   let experience=getExperience();
   const applyExperience=(value:Experience)=>{experience=value;const mode=resolveVisual(value.visual,'avatar');canvas.dataset.rbVisualMode=mode;canvas.dataset.rbBehaviorMode=value.behavior;
     const fantasy=mode==='fantasy',expressive=mode==='expressive';
-    (scene.background as THREE.Color).setHex(district==='city'?(fantasy?0x292645:expressive?0xc7dbe3:0xa9c9d8):(fantasy?0x211b32:0x141d19));(scene.fog as THREE.Fog).color.copy(scene.background as THREE.Color);
-    fill.intensity=1.15;fill.color.setHex(0xd2e1f0);sun.color.setHex(fantasy?0xc6b4ff:0xfff2d9);sun.intensity=fantasy?2.0:3.2;hemi.intensity=expressive?3.1:fantasy?1.6:2.5;rim.color.setHex(fantasy?0x9e86ff:0x80ffc0);rim.intensity=fantasy?3.1:.7;
+    (scene.background as THREE.Color).setHex(district==='city'?(fantasy?0x292645:expressive?0xa4c6d9:0xb1c5ce):(fantasy?0x211b32:0x141d19));(scene.fog as THREE.Fog).color.copy(scene.background as THREE.Color);
+    fill.intensity=.48;fill.color.setHex(0xb8d7f5);sun.color.setHex(fantasy?0xc6b4ff:0xffd5a3);sun.intensity=fantasy?2.0:3.05;hemi.intensity=expressive?1.5:fantasy?1.6:1.05;rim.color.setHex(fantasy?0x9e86ff:0xffe0bd);rim.intensity=fantasy?3.1:.45;
     if(district==='personal'&&evening){sun.intensity=1.1;hemi.intensity=.95;fill.intensity=.85;rim.color.setHex(0xffbd72);rim.intensity=1.7;}
     if(district==='creative'){sun.intensity=1.8;hemi.intensity=1.6;rim.color.setHex(0x57c8a5);rim.intensity=2.7;}
     if(district==='personal'&&!evening){sun.intensity=2.25;hemi.intensity=1.55;fill.intensity=1.2;rim.intensity=1.4;}
-    if(renderer)renderer.toneMappingExposure=expressive?1.05:.98;
+    if(renderer)renderer.toneMappingExposure=expressive?1.0:.94;
     root.querySelector<HTMLElement>('#alExperienceMode')!.textContent=mode+' · '+value.behavior;
     const guide=root.querySelector<HTMLElement>('#alGuide')!;guide.hidden=value.behavior!=='guided';guide.textContent='Use joystick to move. Sprint, jump or pose, then explore a world.';
     if(value.behavior==='manual')avatarRuntime?.expression?.('neutral');
@@ -372,7 +377,7 @@ export async function mount(): Promise<void> {
   resize = () => {
     if (!renderer) return;
     const rect = canvas.getBoundingClientRect();
-    const limit=mobile?960:1440;const scale=Math.min(1,limit/Math.max(1,rect.width,rect.height))*renderScale;renderer.setSize(Math.max(1,Math.round(rect.width*scale)),Math.max(1,Math.round(rect.height*scale)),false);
+    const limit=mobile?640:1440;const scale=Math.min(1,limit/Math.max(1,rect.width,rect.height))*renderScale;const w=Math.max(1,Math.round(rect.width*scale)),h=Math.max(1,Math.round(rect.height*scale));if(canvas.width!==w||canvas.height!==h)renderer.setSize(w,h,false);
     camera.aspect = rect.width / Math.max(1, rect.height);
     camera.updateProjectionMatrix();
   };
