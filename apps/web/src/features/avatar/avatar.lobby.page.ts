@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import {createCinematicSky,createGroundShade,glassGradient} from './avatar.cinematic.depth';
 import {nextRenderScale} from './avatar.render.budget';
 import {createCharacterLightMap} from './avatar.light-map';
 import { getAuthSnapshot } from '../../core/auth/auth-store';
@@ -50,6 +51,9 @@ function disposeObject(root: THREE.Object3D): void {
 function addStreetWorld(scene: THREE.Scene,signal:AbortSignal,mobile:boolean): THREE.Group {
   const world = new THREE.Group();
   world.name = 'rb-avatar-street';
+  const sky=createCinematicSky();sky.name='rb-cinematic-sky';world.add(sky);
+  const shadeMap=createGroundShade();const shades:THREE.Matrix4[]=[];const shadeDummy=new THREE.Object3D();shadeDummy.rotation.x=-Math.PI/2;
+  const addShade=(x:number,y:number,z:number,w:number,l:number)=>{shadeDummy.position.set(x,y,z);shadeDummy.scale.set(w,l,1);shadeDummy.updateMatrix();shades.push(shadeDummy.matrix.clone());};
   // Original seamless asphalt surface, shared across the city instead of flat color.
   const surface=document.createElement('canvas');surface.width=surface.height=256;const ctx=surface.getContext('2d')!;ctx.fillStyle='#b5b5b5';ctx.fillRect(0,0,256,256);let seed=9137;const rand=()=>{seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed/4294967296;};for(let i=0;i<7500;i++){const v=85+Math.floor(rand()*160);ctx.fillStyle='rgb('+v+','+v+','+v+')';ctx.fillRect(rand()*256,rand()*256,1+rand()*2,1+rand()*2);}const roadMap=new THREE.CanvasTexture(surface);roadMap.colorSpace=THREE.SRGBColorSpace;roadMap.wrapS=roadMap.wrapT=THREE.RepeatWrapping;roadMap.repeat.set(7,50);
   const asphalt = new THREE.MeshStandardMaterial({ color: 0x777772, roughness: .9,map:roadMap });
@@ -102,7 +106,7 @@ function addStreetWorld(scene: THREE.Scene,signal:AbortSignal,mobile:boolean): T
     [-16, 15, -59, 7, 6.5], [16, 14, -62, 6, 6],
     [-14, 11, -76, 6, 5], [14, 16, -78, 7, 6]
   ] as const;
-  const windows:THREE.Matrix4[]=[],frames:THREE.Matrix4[]=[];const dummy=new THREE.Object3D();const record=(arr:THREE.Matrix4[],x:number,y:number,z:number,sx:number,sy:number,sz:number)=>{dummy.position.set(x,y,z);dummy.scale.set(sx,sy,sz);dummy.updateMatrix();arr.push(dummy.matrix.clone());};
+  const windows:THREE.Matrix4[]=[],frames:THREE.Matrix4[]=[],shopfronts:THREE.Matrix4[]=[],awnings:THREE.Matrix4[]=[];const dummy=new THREE.Object3D();const record=(arr:THREE.Matrix4[],x:number,y:number,z:number,sx:number,sy:number,sz:number)=>{dummy.position.set(x,y,z);dummy.scale.set(sx,sy,sz);dummy.updateMatrix();arr.push(dummy.matrix.clone());};
   blocks.forEach(([x, h, z, w, d], index) => {
     const building = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), wallMats[index % wallMats.length]);
     building.position.set(x, h / 2, z);
@@ -111,13 +115,31 @@ function addStreetWorld(scene: THREE.Scene,signal:AbortSignal,mobile:boolean): T
     world.add(building);
     for(let y=1.8;y<h-.6;y+=1.35){for(let offset=-d/2+.65;offset<d/2-.35;offset+=1.1){const side=x+(x<0?w/2+.035:-w/2-.035);record(frames,side,y,z+offset,.13,.99,.91);record(windows,side+(x<0?.072:-.072),y,z+offset,.035,.86,.76);}}
     for(let y=1.25;y<h;y+=2.7){record(frames,x+(x<0?w/2+.08:-w/2-.08),y,z,.18,.085,d+.1);}
+    // Front-facing windows and a recessed ground-floor shop row.
+    for(let y=2.9;y<h-.5;y+=1.35)for(let offset=-w/2+.72;offset<w/2-.35;offset+=1.15){
+      record(frames,x+offset,y,z+d/2+.055,.96,1.02,.13);
+      record(windows,x+offset,y,z+d/2+.13,.79,.86,.04);
+    }
+    for(let offset=-w/2+.85;offset<w/2-.5;offset+=1.65){
+      record(frames,x+offset,1.12,z+d/2+.08,1.46,2.12,.20);
+      record(shopfronts,x+offset,1.12,z+d/2+.195,1.24,1.84,.06);
+    }
+    record(awnings,x,2.37,z+d/2+.35,w+.16,.13,.78);
     record(frames,x,h+.16,z,w+.25,.32,d+.25);
+    addShade(x,.168,z+d/2+.8,w+1.1,2.8);
   });
 
   // Two instanced batches replace hundreds of individually submitted façade pieces.
   const batch=(mat:THREE.Material,items:THREE.Matrix4[])=>{const mesh=new THREE.InstancedMesh(new THREE.BoxGeometry(1,1,1),mat,items.length);items.forEach((m,i)=>mesh.setMatrixAt(i,m));mesh.instanceMatrix.needsUpdate=true;world.add(mesh);};
   batch(new THREE.MeshStandardMaterial({color:0x263137,roughness:.61,metalness:.23}),frames);
-  batch(new THREE.MeshStandardMaterial({color:0x538197,metalness:.48,roughness:.26,emissive:0x12232b,emissiveIntensity:.45}),windows);
+  const reflection=glassGradient();
+  batch(new THREE.MeshStandardMaterial({color:0xb9d4df,map:reflection,metalness:.16,roughness:.31,emissive:0x172b36,emissiveIntensity:.24}),windows);
+  batch(new THREE.MeshStandardMaterial({color:0x829496,map:reflection,metalness:.12,roughness:.38}),shopfronts);
+  batch(new THREE.MeshStandardMaterial({color:0x6e513a,roughness:.74}),awnings);
+  // Pavement expansion joints, grouped in a single draw call.
+  const joints:THREE.Matrix4[]=[];
+  for(const x of [-8.1,8.1])for(let z=-85;z<8;z+=2)record(joints,x,.162,z,3.65,.006,.022);
+  batch(new THREE.MeshStandardMaterial({color:0x676761,roughness:1}),joints);
   for (const z of [-14, -29, -44, -59, -74]) {
     for (const x of [-7.3, 7.3]) {
       const pole = new THREE.Mesh(new THREE.CylinderGeometry(.045, .055, 3.9, 10), poleMat);
@@ -135,7 +157,7 @@ function addStreetWorld(scene: THREE.Scene,signal:AbortSignal,mobile:boolean): T
   // Original street planting: repeated branch silhouettes and faceted foliage in three GPU batches.
   const treeTrunks:THREE.Matrix4[]=[],treeBranches:THREE.Matrix4[]=[],treeCanopies:THREE.Matrix4[]=[];
   const plant=new THREE.Object3D();const place=(list:THREE.Matrix4[],x:number,y:number,z:number,sx:number,sy:number,sz:number,tilt=0)=>{plant.position.set(x,y,z);plant.rotation.set(0,0,tilt);plant.scale.set(sx,sy,sz);plant.updateMatrix();list.push(plant.matrix.clone());};
-  for(const x of [-10.1,10.1])for(let z=-9;z>=-81;z-=9){place(treeTrunks,x,1.55,z,.15,2.8,.15);for(const side of [-1,1]){place(treeBranches,x+side*.28,2.45,z,.07,1.1,.07,-side*.56);place(treeCanopies,x+side*.43,3.0,z+.14,.84,.93,.78);}place(treeCanopies,x,3.65,z,1.0,1.05,.88);}
+  for(const x of [-10.1,10.1])for(let z=-9;z>=-81;z-=9){addShade(x,.168,z,2.7,2.2);place(treeTrunks,x,1.55,z,.15,2.8,.15);for(const side of [-1,1]){place(treeBranches,x+side*.28,2.45,z,.07,1.1,.07,-side*.56);place(treeCanopies,x+side*.43,3.0,z+.14,.84,.93,.78);}place(treeCanopies,x,3.65,z,1.0,1.05,.88);}
   const plants=(geometry:THREE.BufferGeometry,mat:THREE.Material,matrices:THREE.Matrix4[])=>{const mesh=new THREE.InstancedMesh(geometry,mat,matrices.length);matrices.forEach((m,i)=>mesh.setMatrixAt(i,m));mesh.instanceMatrix.needsUpdate=true;mesh.computeBoundingSphere();world.add(mesh);};
   plants(new THREE.CylinderGeometry(.65,1,1,9),new THREE.MeshStandardMaterial({color:0x574231,roughness:.96}),treeTrunks);
   plants(new THREE.CylinderGeometry(.38,1,1,7),new THREE.MeshStandardMaterial({color:0x604735,roughness:.9}),treeBranches);
@@ -166,11 +188,12 @@ function addStreetWorld(scene: THREE.Scene,signal:AbortSignal,mobile:boolean): T
       car.add(wheel);const rim=new THREE.Mesh(rimGeo,rimMat);rim.rotation.z=Math.PI/2;rim.position.copy(wheel.position);car.add(rim);
     }
     for(const x of [-.42,.42]){const front=new THREE.Mesh(lampGeo,headMat);front.position.set(x,.48,1.67);car.add(front);const rear=new THREE.Mesh(lampGeo,tailMat);rear.position.set(x,.51,-1.68);car.add(rear);}
-    car.position.set(x, 0, z);
+    addShade(x,.011,z,2.55,4.15);car.position.set(x, 0, z);
     car.rotation.y = rotation;
     world.add(car);
   });
 
+  const occlusion=new THREE.InstancedMesh(new THREE.PlaneGeometry(1,1),new THREE.MeshBasicMaterial({map:shadeMap,transparent:true,depthWrite:false,polygonOffset:true,polygonOffsetFactor:-1}),shades.length);shades.forEach((m,i)=>occlusion.setMatrixAt(i,m));occlusion.instanceMatrix.needsUpdate=true;occlusion.computeBoundingSphere();world.add(occlusion);
   scene.add(world);
   return world;
 }
@@ -279,6 +302,7 @@ export async function mount(): Promise<void> {
   const applyExperience=(value:Experience)=>{experience=value;const mode=resolveVisual(value.visual,'avatar');canvas.dataset.rbVisualMode=mode;canvas.dataset.rbBehaviorMode=value.behavior;
     const fantasy=mode==='fantasy',expressive=mode==='expressive';
     (scene.background as THREE.Color).setHex(district==='city'?(fantasy?0x292645:expressive?0xa4c6d9:0xb1c5ce):(fantasy?0x211b32:0x141d19));(scene.fog as THREE.Fog).color.copy(scene.background as THREE.Color);
+    const sky=world?.getObjectByName('rb-cinematic-sky');if(sky)sky.visible=!fantasy;
     fill.intensity=.48;fill.color.setHex(0xb8d7f5);sun.color.setHex(fantasy?0xc6b4ff:0xffd5a3);sun.intensity=fantasy?2.0:3.05;hemi.intensity=expressive?1.5:fantasy?1.6:1.05;rim.color.setHex(fantasy?0x9e86ff:0xffe0bd);rim.intensity=fantasy?3.1:.45;
     if(district==='personal'&&evening){sun.intensity=1.1;hemi.intensity=.95;fill.intensity=.85;rim.color.setHex(0xffbd72);rim.intensity=1.7;}
     if(district==='creative'){sun.intensity=1.8;hemi.intensity=1.6;rim.color.setHex(0x57c8a5);rim.intensity=2.7;}
@@ -480,7 +504,8 @@ export async function mount(): Promise<void> {
 
     districtScene.tick(now/1000,activeAction?.id,camera.quaternion);presence.tick(dt,now/1000);
     if(now-lastGuide>500){lastGuide=now;const guide=root.querySelector<HTMLElement>('#rbWayfinder'),selection=root.querySelector<HTMLSelectElement>('#rbTarget');if(guide){const p=avatarRuntime.root.position;const target=definition.actions.find(a=>a.id===selection?.value)??[...definition.actions].sort((a,b)=>Math.hypot(a.x-p.x,a.z-p.z)-Math.hypot(b.x-p.x,b.z-p.z))[0];if(target){const distance=Math.hypot(target.x-p.x,target.z-p.z);const direction=target.z<p.z?'ahead (north)':'behind (south)';guide.textContent=target.label+' · '+distance.toFixed(1)+' m · '+(distance<1.85?'within interaction range':direction+' / '+(target.x<p.x?'west':'east'));}}}
-    if(!mobile){sun.position.set(position.x+8,13,position.z+6);sun.target.position.set(position.x,0,position.z);sun.target.updateMatrixWorld();}
+    const sky=world.getObjectByName('rb-cinematic-sky');if(sky)sky.position.copy(camera.position);
+    if(!mobile){sun.position.set(position.x-9,9,position.z+6);sun.target.position.set(position.x,0,position.z);sun.target.updateMatrixWorld();}
     renderer.render(scene, camera);canvas.dataset.rbRenderState='frame-rendered';canvas.dataset.rbDistrict=district;
     }catch(error){failure('Graphics stopped. Saved appearance is unchanged.');console.warn('[Avatar Lobby]',error);}
   };
