@@ -196,7 +196,10 @@ export function playAvatarGesture(runtime:SkinnedAvatarRuntime,name:string,speed
 }
 
 export function updateSkinnedAvatar(runtime: SkinnedAvatarRuntime, deltaSeconds: number): void {
-  const dt=Math.min(Math.max(deltaSeconds,0),0.075);runtime.mixer.update(dt);runtime.animateFace?.(dt);
+  const dt=Math.min(Math.max(deltaSeconds,0),0.075);runtime.mixer.update(dt);
+  // Retire fully faded actions, preventing dormant skeletal tracks accumulating after movement or gesture changes.
+  for(const action of runtime.actions.values()){if(action!==runtime.currentAction&&action.isScheduled()&&action.getEffectiveWeight()<=.0001)action.stop();}
+  runtime.animateFace?.(dt);
 }
 
 export function refreshAvatarBounds(runtime: SkinnedAvatarRuntime): THREE.Box3 {
