@@ -29,7 +29,7 @@ export async function createHDCharacter(gender:AvatarGender,raw:unknown,build:st
   const cinematic=look.identityMode==='cinematic',fantasy=look.identityMode==='phantom';
   const clips:THREE.AnimationClip[]=[];const names:Record<string,string>={idle:'idle',walk:look.presence==='editorial'?'model_walk':look.presence==='relaxed'?'walk_slouch':'walk',run:'run',jump:'jump',power:'cheer',wave:'wave','look around':'look_around',bow:'bow','talk gestures':'talk_gestures','catwalk':'model_walk','relaxed walk':'walk_slouch','clap':'clap','point':'point','thumbs up':'thumbs_up','groove':'dance_groove','bounce':'dance_bounce','laugh':'laugh_hard','turn left':'turn_left_90','turn right':'turn_right_90',talk:'talk','soft laugh':'laugh'};
   mixer=new THREE.AnimationMixer(root);const actions=new Map<string,THREE.AnimationAction>();
-  for(const [name,id] of Object.entries(names)){const src=hero.clip(id);if(!src||!src.tracks.length||!Number.isFinite(src.duration)||src.duration<=0)throw Error('Missing retargeted clip: '+id);const clip=energeticClip(src,name,bones);clips.push(clip);actions.set(name,mixer.clipAction(clip,hero.scene));}
+  for(const [name,id] of Object.entries(names)){const src=hero.clip(id);if(!src||!src.tracks.length||!Number.isFinite(src.duration)||src.duration<=0)throw Error('Missing retargeted clip: '+id);const clip=energeticClip(src,name,bones,look.identityMode);clips.push(clip);actions.set(name,mixer.clipAction(clip,hero.scene));}
   // One material owner for skin; authored color and normal maps remain intact.
   const portrait=look.surfaceDetail==='portrait'||cinematic;
   const touchedSkin=new Set<THREE.Material>();

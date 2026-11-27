@@ -2,7 +2,10 @@ import * as THREE from 'three';
 
 // Original RB motion direction over the existing retargeted rig. Bake once per fit,
 // never alter bone transforms every frame or rescale the root / foot contact tracks.
-export function energeticClip(source:THREE.AnimationClip, name:string, bones:Iterable<THREE.Bone>){
+export function energeticClip(source:THREE.AnimationClip, name:string, bones:Iterable<THREE.Bone>,mode='phantom'){
+ // Human and cinematic retain captured motion much more closely; fantasy retains
+ // the stronger existing exaggeration. No live bone edits or changes to foot contact.
+ const emphasis=mode==='human'?.24:mode==='cinematic'?.44:1;
  const clip=source.clone();clip.name=name;
  const lookup=new Map<string,string>();for(const bone of bones){lookup.set(bone.name,bone.name);lookup.set(bone.uuid,bone.name);}
  const gait=['walk','run','catwalk','relaxed walk'].includes(name);
@@ -21,6 +24,7 @@ export function energeticClip(source:THREE.AnimationClip, name:string, bones:Ite
   // Preserve gait leg angles and all foot keys; only reinforce non-locomotion
   // knee/thigh movement, with a deliberately small angular limit.
   else if(expressive&&/thigh|upleg|upperleg|lowerleg|shin|calf|leftleg|rightleg|knee/.test(joint)){gain=1.12;cap=.075;}
+  gain=1+(gain-1)*emphasis;cap*=emphasis;
   if(gain===1)continue;
   const values=track.values,count=values.length/4;
   let valid=true;for(let i=0;i<count;i++){q.fromArray(values,i*4);if(!Number.isFinite(q.lengthSq())||q.lengthSq()<.5){valid=false;break;}q.normalize();if(i===0)center.copy(q);else center.slerp(q,1/(i+1));}
