@@ -21,3 +21,6 @@ V34 development history is retained. The complete V34 source at commit `67e51231
 7. Verify locked Omni navigation and unaffected routes. Confirm no unintended persistence or payment changes.
 
 Current status: **V1 foundation candidate; production build of V34 passed, actual rendering and physical-device acceptance not yet verified.** A passing build alone does not constitute stable-release certification.
+
+## V1 interface stabilization
+The Studio groups existing controls into Character, Style, Motion, Quality, Creator and World. Keep one canvas and one Rich ID save pipeline. Do not duplicate tool panels. Mobile users retain explicit 3D startup and adaptive quality limits. Optional wardrobe and creator reads stay deferred until their tabs open.

@@ -177,3 +177,16 @@ body[data-page="avatar-characters"] .ac-shell .ac-editor{width:100%;padding:12px
 @media(any-pointer:coarse){
   body[data-page="avatar-characters"] .ac-shell .ac-layout{grid-template-columns:minmax(0,1fr)}
 }
+
+/* V1: compact Studio-only navigation, retaining a single preview canvas. */
+.ac-shell .ac-v1-tabs{position:sticky;top:env(safe-area-inset-top,0px);z-index:8;display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:3px;padding:5px;border:1px solid #4c6050;border-radius:14px;background:#101d18;box-shadow:0 6px 14px #0005;min-width:0;align-self:start}
+.ac-shell .ac-v1-tabs button{display:grid;place-items:center;align-content:center;gap:2px;min-height:52px;padding:3px 1px;border-color:transparent;border-radius:9px;background:transparent;color:#b8cbbf;font-size:10px;font-weight:700;line-height:1.15;min-width:0;white-space:nowrap;overflow-wrap:normal}
+.ac-shell .ac-v1-tabs button span{font-size:19px;line-height:1;color:#d9c88e}.ac-shell .ac-v1-tabs button b{font-size:inherit;font-weight:700}
+.ac-shell .ac-v1-tabs button[aria-selected="true"]{background:#c5d797;color:#102019;border-color:#e0d9a0}.ac-shell .ac-v1-tabs button[aria-selected="true"] span{color:inherit}
+.ac-shell .ac-editor{scroll-margin-top:calc(env(safe-area-inset-top,0px) + 76px)}
+.ac-shell .ac-workspace-panel .ac-motion-tools{padding:10px;border:1px solid #405346;border-radius:12px;background:#0b1714}.ac-shell .ac-workspace-panel .ac-motion-tools summary{color:#e6cf94;font-size:13px;font-weight:750;min-height:44px;display:flex;align-items:center;cursor:pointer}
+.ac-shell .ac-workspace-panel .ac-motion-tools:not([open])>:not(summary){display:none!important}
+.ac-shell .ac-workspace-panel .ac-category-tabs{grid-template-columns:repeat(3,minmax(0,1fr))}.ac-shell .ac-workspace-panel .ac-category-tabs button{font-size:11px}
+.ac-shell .ac-workspace-panel .ac-direct-lobby{display:grid;place-items:center;min-height:44px}
+@media(min-width:700px){.ac-shell .ac-v1-tabs button{font-size:13px;min-height:56px}}
+@media(max-width:360px){.ac-shell .ac-v1-tabs button{font-size:9px}.ac-shell .ac-v1-tabs{gap:2px;padding:3px}}
