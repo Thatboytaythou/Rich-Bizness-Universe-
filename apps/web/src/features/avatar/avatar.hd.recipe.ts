@@ -1,4 +1,5 @@
 import {normalizeLook,SCULPT_FIELDS} from './avatar.character.config.ts';
+import {profileOffsets} from './avatar.sculpt.profiles.ts';
 import {designerWardrobe} from './avatar.elite.catalog.ts';
 export const HD_VERSION='0.19.0';
 export const HD_CLIPS=['idle','walk','run','jump','cheer','wave','look_around','bow','talk_gestures','walk_slouch','model_walk','clap','point','thumbs_up','dance_groove','dance_bounce','laugh_hard','turn_left_90','turn_right_90','talk','laugh'] as const;
@@ -28,6 +29,7 @@ export function hdRecipe(gender:'boy'|'girl',raw:unknown,build:string){
  if(look.eyeShape!=='balanced')modifiers['eyes/eye-height1']=look.eyeShape==='open'?.45:-.4;
  if(look.mouth==='wide')modifiers['mouth/mouth-scale-horiz']=.55;
  if(look.mouth==='full'||look.mouth==='thin'){modifiers['mouth/mouth-upperlip-volume']=look.mouth==='full'?.55:-.55;modifiers['mouth/mouth-lowerlip-volume']=modifiers['mouth/mouth-upperlip-volume'];}
+ for(const [field,offset] of Object.entries(profileOffsets(look.identityMode))){const target=morphs[field as keyof typeof morphs];if(target)modifiers[target]=Math.max(-1,Math.min(1,(modifiers[target]??0)+offset));}
  for(const key of SCULPT_FIELDS){const target=morphs[key];if(target&&look[key]!=='0')modifiers[target]=Math.max(-1,Math.min(1,(modifiers[target]??0)+Number(look[key])*.0065));}
  if(look.evolution!=='none'){modifiers['head/head-scale-horiz']=Math.max(-1,Math.min(1,(modifiers['head/head-scale-horiz']??0)-.12));modifiers['eyes/eye-scale']=Math.max(-1,Math.min(1,(modifiers['eyes/eye-scale']??0)+.28));modifiers['chin/chin-width']=Math.max(-1,Math.min(1,(modifiers['chin/chin-width']??0)-.16));}
  const family=['deep','warm','ebony','brown'].includes(look.skin)?'african':['tan','caramel','olive'].includes(look.skin)?'asian':'caucasian';

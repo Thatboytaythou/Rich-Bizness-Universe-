@@ -27,3 +27,6 @@ The Studio groups existing controls into Character, Style, Motion, Quality, Crea
 
 ## V1 original asset quality
 The Aegis and Crown lattice are original procedural Rich Bizness designs, while the base human and fitted garment library remain vendor-derived. Maintain shared geometry between the live renderer and standalone GLB exports, preserve explicit limits on geometry and texture cost, and do not describe prototype footwear as an integrated fitted shoe.
+
+## Owner-approved V1 development direction
+Selectable human, cinematic and anime/fantasy presentation; complete body customization; all original fashion collections; full movement system; connected universe; customizable street vehicles; complete creator marketplace; selectable adaptive graphics with protection; uncluttered six-tab immersive interface. Priority: character and body realism before expanding world or commerce. Use the existing Rich ID appearance recipe; do not fork identity or change payment/database infrastructure for graphics work. These are targets, not claims of completion.

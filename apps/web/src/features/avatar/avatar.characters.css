@@ -190,3 +190,6 @@ body[data-page="avatar-characters"] .ac-shell .ac-editor{width:100%;padding:12px
 .ac-shell .ac-workspace-panel .ac-direct-lobby{display:grid;place-items:center;min-height:44px}
 @media(min-width:700px){.ac-shell .ac-v1-tabs button{font-size:13px;min-height:56px}}
 @media(max-width:360px){.ac-shell .ac-v1-tabs button{font-size:9px}.ac-shell .ac-v1-tabs{gap:2px;padding:3px}}
+
+/* V1 character-first profiles and regional sculpt controls */
+.ac-shell .ac-realism-options{display:grid;grid-template-columns:minmax(0,1fr);gap:6px}.ac-shell .ac-realism-options button{display:grid;gap:3px;text-align:left;min-height:56px;padding:10px}.ac-shell .ac-realism-options button small{font-size:11px;font-weight:500;color:inherit;opacity:.88}.ac-shell .ac-body-presets{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;margin:8px 0}.ac-shell .ac-body-presets button{text-transform:capitalize}.ac-shell .ac-region{margin:6px 0;min-width:0}.ac-shell .ac-region button{width:100%;margin-top:8px}.ac-shell .ac-region:not([open])>:not(summary){display:none!important}
