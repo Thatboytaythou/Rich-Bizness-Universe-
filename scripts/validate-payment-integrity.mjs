@@ -1,0 +1,16 @@
+import assert from 'node:assert/strict';
+import crypto from 'node:crypto';
+import {readFileSync} from 'node:fs';
+import {verifyStripeSignature} from '../api/stripe-webhook.js';
+const now=1700000000000,ts=String(now/1000),secret='local-unit-test',raw=Buffer.from('{"id":"evt_test"}');
+const mac=crypto.createHmac('sha256',secret).update(ts+'.').update(raw).digest('hex');
+assert.equal(verifyStripeSignature(raw,'t='+ts+',v1='+mac,secret,now),true);
+assert.equal(verifyStripeSignature(Buffer.from('{}'),'t='+ts+',v1='+mac,secret,now),false);
+assert.equal(verifyStripeSignature(raw,'t='+ts+',v1='+mac,secret,now+301000),false);
+assert.equal(verifyStripeSignature(raw,'t='+ts+',t='+ts+',v1='+mac,secret,now),false);
+assert.equal(verifyStripeSignature(raw,['t='+ts+',v1='+mac],secret,now),false);
+assert.equal(verifyStripeSignature(raw,'t='+ts+',v1='+mac+'0',secret,now),false);
+for(const path of ['api/stripe-webhook.js','supabase/functions/stripe-webhook/index.ts']){const s=readFileSync(path,'utf8');assert.match(s,/rb_process_stripe_event/);assert.doesNotMatch(s,/\.from\(['"]api_webhook_events/);assert.match(s,/livemode\s*!==\s*true/);}
+const sql=readFileSync('supabase/migrations/20261127121151_v1_atomic_stripe_and_xp_integrity.sql','utf8');assert.match(sql,/pg_advisory_xact_lock/);assert.match(sql,/payment_status'='paid'/);assert.match(sql,/creator_balance_currency_mismatch/);assert.match(sql,/grant execute on function public.rb_process_stripe_event\(jsonb\) to service_role/);
+const xp=readFileSync('apps/web/src/core/xp/xp-runtime.ts','utf8');assert.match(xp,/return cleanup/);assert.match(xp,/loadRevision/);assert.match(xp,/abortSignal\(signal\)/);
+console.log('V1 payment integrity: raw signature, tamper and replay rejection, shared settlement, XP cancellation');

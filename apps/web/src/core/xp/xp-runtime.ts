@@ -50,7 +50,11 @@ function placeDock(dock:HTMLElement,section:string):void{
   (document.querySelector<HTMLElement>('#app')??document.body).append(dock);
 }
 
-export async function mountXpRuntime():Promise<void>{
+let mountEpoch=0;
+export async function mountXpRuntime():Promise<(()=>Promise<void>)|undefined>{
+  const epoch=++mountEpoch;
+  const pending=new AbortController();
+  window.addEventListener('pagehide',()=>{mountEpoch++;pending.abort();},{once:true,signal:pending.signal});
   const section=pageSection();
   if(hiddenDockPages.has(section)){
     if(window.__rbXpRuntime)await window.__rbXpRuntime.cleanup();
@@ -59,6 +63,7 @@ export async function mountXpRuntime():Promise<void>{
   }
 
   const {data:{session}}=await supabase.auth.getSession();
+  if(epoch!==mountEpoch||pending.signal.aborted){pending.abort();return;}
   if(!session){
     if(window.__rbXpRuntime)await window.__rbXpRuntime.cleanup();
     removeStaleDocks();
@@ -66,11 +71,12 @@ export async function mountXpRuntime():Promise<void>{
   }
 
   const existing=window.__rbXpRuntime;
-  if(existing?.owner===RUNTIME_OWNER&&existing.section===section&&existing.sessionId===session.user.id&&document.querySelector('#rbXpDock'))return;
+  if(existing?.owner===RUNTIME_OWNER&&existing.section===section&&existing.sessionId===session.user.id&&document.querySelector('#rbXpDock')){pending.abort();return existing.cleanup;}
   if(existing)await existing.cleanup();
+  if(epoch!==mountEpoch||pending.signal.aborted){pending.abort();return;}
   removeStaleDocks();
 
-  const lifecycle=new AbortController();
+  const lifecycle=pending;
   const signal=lifecycle.signal;
   const dock=document.createElement('aside');
   dock.id='rbXpDock';
@@ -96,26 +102,33 @@ export async function mountXpRuntime():Promise<void>{
     const recent=Array.isArray(data.recent)?data.recent.slice(0,5):[];
     panel.querySelector<HTMLElement>('#rbXpRecent')!.innerHTML=recent.length?recent.map(row=>`<article><span>${esc(String(row.event_key??'XP EARNED').replaceAll('_',' ').toUpperCase())}</span><strong>+${Number(row.xp??0)} XP</strong></article>`).join(''):'<p>Your XP activity will appear here.</p>';
   };
-  const load=async()=>{const {data}=await supabase.rpc('rb_xp_snapshot',{p_user_id:session.user.id});render(data as XpSnapshot|null);};
+  let loadRevision=0;
+  const load=async()=>{const own=++loadRevision;try{const {data,error}=await supabase.rpc('rb_xp_snapshot',{p_user_id:session.user.id}).abortSignal(signal);if(!signal.aborted&&own===loadRevision&&!error)render(data as XpSnapshot|null);}catch(error){if(!signal.aborted)console.warn('[Rich XP] snapshot unavailable',error);}};
 
   toggle.addEventListener('click',()=>{panel.hidden=!panel.hidden;toggle.setAttribute('aria-expanded',String(!panel.hidden));},{signal});
   close.addEventListener('click',()=>{panel.hidden=true;toggle.setAttribute('aria-expanded','false');},{signal});
 
-  await supabase.rpc('rb_award_xp',{p_event_key:'daily_tap_in',p_section:'auth',p_source_table:null,p_source_id:null,p_amount:null});
-  if(section!=='home')await supabase.rpc('rb_award_xp',{p_event_key:'section_visit',p_section:section,p_source_table:null,p_source_id:null,p_amount:null});
-  await load();
-
-  const channel=supabase.channel(`xp-runtime:${session.user.id}:${section}`).on('postgres_changes',{event:'*',schema:'public',table:'user_levels',filter:`user_id=eq.${session.user.id}`},()=>void load()).subscribe();
+  let channel:ReturnType<typeof supabase.channel>|null=null;
   let cleaned=false;
   const cleanup=async()=>{
     if(cleaned)return;
-    cleaned=true;
-    lifecycle.abort();
-    dock.remove();
-    await supabase.removeChannel(channel);
-    if(window.__rbXpRuntime?.owner===RUNTIME_OWNER&&window.__rbXpRuntime.section===section)delete window.__rbXpRuntime;
+    cleaned=true;lifecycle.abort();dock.remove();
+    if(window.__rbXpRuntime?.cleanup===cleanup)delete window.__rbXpRuntime;
+    if(channel)await supabase.removeChannel(channel);
   };
-
   window.__rbXpRuntime={owner:RUNTIME_OWNER,section,sessionId:session.user.id,cleanup};
   window.addEventListener('pagehide',()=>void cleanup(),{once:true,signal});
+  const initialize=async()=>{
+    try{
+      await supabase.rpc('rb_award_xp',{p_event_key:'daily_tap_in',p_section:'auth',p_source_table:null,p_source_id:null,p_amount:null}).abortSignal(signal);
+      if(signal.aborted)return;
+      if(section!=='home')await supabase.rpc('rb_award_xp',{p_event_key:'section_visit',p_section:section,p_source_table:null,p_source_id:null,p_amount:null}).abortSignal(signal);
+      if(signal.aborted)return;
+      await load();
+      if(signal.aborted)return;
+      channel=supabase.channel(`xp-runtime:${session.user.id}:${section}`).on('postgres_changes',{event:'*',schema:'public',table:'user_levels',filter:`user_id=eq.${session.user.id}`},()=>void load()).subscribe();
+    }catch(error){if(!signal.aborted)console.warn('[Rich XP] initialization failed',error);}
+  };
+  void initialize();
+  return cleanup;
 }

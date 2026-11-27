@@ -89,7 +89,7 @@ async function mountGlobalRuntime(page:string):Promise<void>{
   };
 }
 
-const cleanupOnExit=()=>{void clearGlobalRuntime();};
+const cleanupOnExit=()=>{const body=document.body;body.dataset[GLOBAL_RUNTIME_EPOCH_KEY]=String(Number(body.dataset[GLOBAL_RUNTIME_EPOCH_KEY]??'0')+1);void clearGlobalRuntime();};
 window.addEventListener('pagehide',cleanupOnExit,{once:true});
 // A cached document must not resume a disposed page or an obsolete Rich ID.
 window.addEventListener('pageshow',event=>{if(event.persisted)location.reload();});
