@@ -91,9 +91,9 @@ async function mountGlobalRuntime(page:string):Promise<void>{
 
 const cleanupOnExit=()=>{void clearGlobalRuntime();};
 window.addEventListener('pagehide',cleanupOnExit,{once:true});
-window.addEventListener('beforeunload',cleanupOnExit,{once:true});
+// A cached document must not resume a disposed page or an obsolete Rich ID.
+window.addEventListener('pageshow',event=>{if(event.persisted)location.reload();});
 
-const currentPage=document.body.dataset.page??'';
 void bootstrap().then(async(mounted)=>{
   if(!mounted)return;
   const page=document.body.dataset.page??'';

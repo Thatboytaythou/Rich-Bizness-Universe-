@@ -32,7 +32,7 @@ function resetMountState(app: HTMLElement): void {
 }
 
 let mountTail:Promise<void>=Promise.resolve();
-function guardedRegistration({ auth, owner, loadModule, exportName = 'mount', preload = [] }: RegistrationOptions): PageRegistration {
+export function guardedRegistration({ auth, owner, loadModule, exportName = 'mount', preload = [] }: RegistrationOptions): PageRegistration {
   return {
     auth,
     owner,

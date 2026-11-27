@@ -61,7 +61,7 @@ export async function bootstrap(): Promise<boolean> {
   if(!isCurrentBoot())return false;
   if(registration.auth==='required'){
     const owner=getAuthSnapshot().user?.id;
-    if(!owner)return false;
+    if(!owner){location.replace('/tap-in.html?reason=session&next='+encodeURIComponent(location.pathname+location.search+location.hash));return false;}
     let leaving=false;const stop=subscribeAuth(state=>{
       if(!isCurrentBoot()||leaving||!state.ready)return;
       if(!state.user||state.user.id!==owner){leaving=true;app.hidden=true;const cleanup=(window as Window&{__rbPageCleanup?:()=>void|Promise<void>}).__rbPageCleanup;void Promise.resolve().then(()=>cleanup?.()).catch(()=>{});if(!state.user)location.replace('/tap-in.html?reason=session&next='+encodeURIComponent(location.pathname+location.search+location.hash));else location.reload();}

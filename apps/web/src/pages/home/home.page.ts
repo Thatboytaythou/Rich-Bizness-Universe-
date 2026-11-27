@@ -55,5 +55,4 @@ export async function mountHomePage():Promise<void>{
   const cleanup=()=>{if(disposed)return;disposed=true;unsubscribe();};
   (window as Window&{__rbPageCleanup?:(()=>void|Promise<void>)|null}).__rbPageCleanup=cleanup;
   window.addEventListener('pagehide',cleanup,{once:true});
-  window.addEventListener('beforeunload',cleanup,{once:true});
 }
