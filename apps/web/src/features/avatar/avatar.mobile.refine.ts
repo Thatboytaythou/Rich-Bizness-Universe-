@@ -12,7 +12,7 @@ export function refinePhoneSkin(g:THREE.BufferGeometry,skinMaterials:readonly nu
  if(all.some(a=>!(a instanceof THREE.BufferAttribute)||a.normalized||a.count!==p.count))return null;
  if(attributes.some(([name,a])=>name!=='skinIndex'&&!(a.array instanceof Float32Array))||morphEntries.some(e=>!(e.attribute.array instanceof Float32Array)))return null;
  const perVertex=all.reduce((sum,a)=>sum+a.itemSize*a.array.BYTES_PER_ELEMENT,0);
- const max=Math.min(6000,Math.floor(triangleHeadroom/2),Math.floor(vertexHeadroom),45000-p.count,Math.floor((byteLimit-index.count*4-p.count*perVertex)/(perVertex+24)));
+ const max=Math.min(12000,Math.floor(triangleHeadroom/2),Math.floor(vertexHeadroom),45000-p.count,Math.floor((byteLimit-index.count*4-p.count*perVertex)/(perVertex+24)));
  if(max<1)return null;
  const groups=g.groups.length?g.groups:materialCount===1?[{start:0,count:index.count,materialIndex:0}]:[];
  if(!groups.length||groups.reduce((sum,group)=>sum+group.count,0)!==index.count||g.drawRange.start!==0||g.drawRange.count<index.count)return null;
@@ -30,7 +30,7 @@ export function refinePhoneSkin(g:THREE.BufferGeometry,skinMaterials:readonly nu
   const dominant=sorted[0][0];if(ids.some(i=>{let w=0;for(let k=0;k<4;k++)if(si.getComponent(i,k)===dominant)w+=sw.getComponent(i,k);return w<.70;}))continue;
   a.fromBufferAttribute(p,ids[0]);b.fromBufferAttribute(p,ids[1]);c.fromBufferAttribute(p,ids[2]);na.fromBufferAttribute(n,ids[0]).normalize();nb.fromBufferAttribute(n,ids[1]).normalize();nc.fromBufferAttribute(n,ids[2]).normalize();
   const length=Math.max(a.distanceTo(b),b.distanceTo(c),c.distanceTo(a));if(!Number.isFinite(length)||length<.001||length>.15)continue;
-  const curvature=Math.max(0,1-Math.min(na.dot(nb),nb.dot(nc),nc.dot(na)));if(!Number.isFinite(curvature)||curvature<.012||curvature>.65)continue;
+  const curvature=Math.max(0,1-Math.min(na.dot(nb),nb.dot(nc),nc.dot(na)));if(!Number.isFinite(curvature)||curvature<(headWeight>.8?.006:.012)||curvature>.65)continue;
   center.copy(a).add(b).add(c).multiplyScalar(1/3);normal.copy(na).add(nb).add(nc).normalize();if(normal.lengthSq()<.5)continue;
   // Project the centroid toward the three authored tangent planes, bounded
   // to a small fraction of edge length. This adds useful curved surface detail.
