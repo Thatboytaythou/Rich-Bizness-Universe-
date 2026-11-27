@@ -81,8 +81,8 @@ export function originalWearables(root:THREE.Group,bones:Set<THREE.Bone>,height:
  }
  if(look.mantle&&look.mantle!=='none'){
   const mount=attach(0,height*.82,-height*.095);mantle=mantleGeometry();mantleBase=new Float32Array(mantle.getAttribute('position').array);
-  const tex=new THREE.DataTexture(regaliaTextile(look.mantle),128,128,THREE.RGBAFormat);tex.colorSpace=THREE.SRGBColorSpace;tex.wrapS=tex.wrapT=THREE.RepeatWrapping;tex.repeat.set(3,4);tex.needsUpdate=true;textures.push(tex);
-  const m=new THREE.Mesh(mantle,new THREE.MeshStandardMaterial({map:tex,roughness:.79,side:THREE.DoubleSide}));mount.add(m);parts.push(m);
+  const tex=new THREE.DataTexture(regaliaTextile(look.mantle),128,128,THREE.RGBAFormat);tex.colorSpace=THREE.SRGBColorSpace;tex.wrapS=tex.wrapT=THREE.RepeatWrapping;tex.repeat.set(3,4);tex.magFilter=THREE.LinearFilter;tex.minFilter=THREE.LinearMipmapLinearFilter;tex.generateMipmaps=true;tex.needsUpdate=true;textures.push(tex);
+  const m=new THREE.Mesh(mantle,new THREE.MeshStandardMaterial({map:tex,vertexColors:true,roughness:.79,side:THREE.DoubleSide}));mount.add(m);parts.push(m);
  }
  if(look.wings!=='none'){
   const mount=attach(0,height*.76,-height*.10);

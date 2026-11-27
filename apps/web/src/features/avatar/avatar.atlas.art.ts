@@ -9,13 +9,35 @@ export function atlasShoeGeometry(){
  for(let k=1;k<23;k++){ix.push(0,k+1,k);const n=(sections.length-1)*24;ix.push(n,n+k,n+k+1);}
  const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(v,3));g.setAttribute('uv',new THREE.Float32BufferAttribute(uv,2));g.setIndex(ix);g.computeVertexNormals();g.computeBoundingBox();return g;
 }
-// Original draped mantle; three-dimensional ripple profile, independent of the human mesh.
+// Original Sovereign mantle: shaped shoulder yoke, tailored waist, scalloped hem,
+// woven edge finish and controlled cloth ripples. Same 837-vertex mobile budget.
 export function mantleGeometry(){
- const v:number[]=[],uv:number[]=[],ix:number[]=[];const rows=26,cols=30;
- for(let j=0;j<=rows;j++)for(let i=0;i<=cols;i++){const t=j/rows,u=i/cols,x=(u-.5)*(.30+.42*t);v.push(x,.12-.83*t,-.035-.10*t-.065*Math.sin(u*Math.PI*7)*t);uv.push(u,1-t);}
+ const v:number[]=[],uv:number[]=[],ix:number[]=[],color:number[]=[];const rows=26,cols=30;
+ for(let j=0;j<=rows;j++)for(let i=0;i<=cols;i++){
+  const t=j/rows,u=i/cols,s=u*2-1,edge=Math.abs(s);
+  const width=.36+.32*t+.10*t*t-.08*Math.sin(Math.PI*t);
+  const x=s*width/2;
+  const y=.12-.83*t-.035*t*t*(1-edge*edge)+.033*t*t*Math.cos(s*Math.PI*2);
+  const fold=.023*Math.sin(s*Math.PI*4)*Math.sin(Math.PI*t*.85)+.025*Math.cos(s*Math.PI*3)*t*t;
+  const z=-.035-.105*t-.035*edge*edge*(1-t)-fold;
+  v.push(x,y,z);uv.push(u,1-t);
+  const trim=Math.max(0,(edge-.86)/.14, (t-.91)/.09);
+  const shade=.87+.08*Math.cos(s*Math.PI*4)*Math.sin(Math.PI*t);
+  color.push(shade+(1-shade)*trim,shade*(1-.13*trim),shade*(1-.22*trim));
+ }
  for(let j=0;j<rows;j++)for(let i=0;i<cols;i++){const a=j*(cols+1)+i,b=a+1,c=a+cols+1;ix.push(a,c,b,b,c,c+1);}
- const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(v,3));g.setAttribute('uv',new THREE.Float32BufferAttribute(uv,2));g.setIndex(ix);g.computeVertexNormals();g.computeBoundingBox();return g;
+ const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(v,3));g.setAttribute('uv',new THREE.Float32BufferAttribute(uv,2));g.setAttribute('color',new THREE.Float32BufferAttribute(color,3));g.setIndex(ix);g.computeVertexNormals();g.computeBoundingBox();g.computeBoundingSphere();
+ // Conservative motion bounds avoid frame-dependent culling at the hem.
+ if(g.boundingSphere)g.boundingSphere.radius+=.07;
+ if(g.boundingBox){g.boundingBox.min.z-=.055;g.boundingBox.max.z+=.055;}
+ return g;
 }
 export function animateMantle(g:THREE.BufferGeometry,base:Float32Array,time:number){
- const p=g.getAttribute('position');for(let i=0;i<p.count;i++){const t=Math.max(0,(.12-base[i*3+1])/.83);p.setZ(i,base[i*3+2]-.032*t*t*Math.sin(time*2.1+base[i*3]*9));}p.needsUpdate=true;g.computeVertexNormals();
+ const p=g.getAttribute('position'),uv=g.getAttribute('uv');if(!Number.isFinite(time)||base.length!==p.count*3)return;
+ for(let i=0;i<p.count;i++){
+  const t=1-uv.getY(i),x=base[i*3],weight=t*t;
+  const ripple=.028*Math.sin(time*2.1+x*9)+.012*Math.sin(time*3.4-x*17)+.009*Math.sin(time*1.3);
+  p.setZ(i,base[i*3+2]-weight*ripple);
+ }
+ p.needsUpdate=true;g.computeVertexNormals();
 }
