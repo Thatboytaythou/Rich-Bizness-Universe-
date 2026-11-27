@@ -45,6 +45,15 @@ export function regaliaTextile(style:string,size=128){
  return data;
 }
 
+// Original pendant chain: alternating interlocking elliptical links, shaped along a collar curve.
+// All links share one geometry/material and one instanced draw submission.
+export function crownChain(material:THREE.Material){
+ const chain=new THREE.InstancedMesh(new THREE.TorusGeometry(.009,.0025,6,14),material,34);
+ const dummy=new THREE.Object3D();
+ for(let i=0;i<34;i++){const u=i/33*2-1;dummy.position.set(u*.137,.057+.137*Math.pow(Math.abs(u),1.5),-.066*Math.pow(Math.abs(u),1.8));dummy.rotation.set(.15+Math.abs(u)*.38,(i%2)*Math.PI/2,Math.atan2(.137*1.5*Math.pow(Math.abs(u),.5)*Math.sign(u),.137));dummy.scale.set(1.12,.85,1);dummy.updateMatrix();chain.setMatrixAt(i,dummy.matrix);}
+ chain.instanceMatrix.needsUpdate=true;chain.computeBoundingSphere();return chain;
+}
+
 export function originalWearables(root:THREE.Group,bones:Set<THREE.Bone>,height:number,look:{signature:string;wings:string;regalia?:string;mantle?:string}){
  const parts:THREE.Mesh[]=[],hinges:THREE.Group[]=[];const anchors:THREE.Group[]=[];const textures:THREE.Texture[]=[];let time=0,lastMantle=0;let mantle:THREE.BufferGeometry|undefined,mantleBase:Float32Array|undefined;
  if(look.signature==='none'&&look.wings==='none'&&(!look.regalia||look.regalia==='none')&&(!look.mantle||look.mantle==='none'))return {tick:(_dt:number)=>{},dispose:()=>{},width:0};
@@ -54,7 +63,11 @@ export function originalWearables(root:THREE.Group,bones:Set<THREE.Bone>,height:
  const attach=(x:number,y:number,z:number)=>{const g=new THREE.Group();root.add(g);g.position.set(x,y,z);g.scale.setScalar(height/1.78);root.updateMatrixWorld(true);chest.attach(g);anchors.push(g);return g;};
  const metal=(color:number)=>new THREE.MeshStandardMaterial({color,metalness:.7,roughness:.27,side:THREE.DoubleSide});
  if(look.signature!=='none'){
-  const mount=attach(0,height*.76,height*.087);const m=new THREE.Mesh(crownGeometry(),metal(look.signature==='silver-crown'?0xc4d4df:0xc9a45a));mount.add(m);parts.push(m);
+  const mount=attach(0,height*.76,height*.087);const color=look.signature==='silver-crown'?0xc4d4df:0xc9a45a;
+  const m=new THREE.Mesh(crownGeometry(),metal(color));mount.add(m);parts.push(m);
+  const chain=crownChain(new THREE.MeshStandardMaterial({color,metalness:.48,roughness:.28}));mount.add(chain);parts.push(chain);
+  const bezel=new THREE.Mesh(new THREE.TorusGeometry(.013,.0028,8,24),new THREE.MeshStandardMaterial({color,metalness:.48,roughness:.24}));bezel.position.set(0,.005,.008);bezel.scale.set(.65,1,1);mount.add(bezel);parts.push(bezel);
+  const gem=new THREE.Mesh(new THREE.OctahedronGeometry(.010,0),new THREE.MeshStandardMaterial({color:0x245a48,metalness:.12,roughness:.16}));gem.scale.set(.62,1,.65);gem.position.set(0,.005,.01);mount.add(gem);parts.push(gem);
  }
  if(look.regalia&&look.regalia!=='none'){
   const mount=attach(0,height*.73,height*.046);const tex=new THREE.DataTexture(regaliaTextile(look.regalia),128,128,THREE.RGBAFormat);tex.colorSpace=THREE.SRGBColorSpace;tex.wrapS=tex.wrapT=THREE.RepeatWrapping;tex.repeat.set(2,2);tex.magFilter=THREE.LinearFilter;tex.minFilter=THREE.LinearMipmapLinearFilter;tex.generateMipmaps=true;tex.needsUpdate=true;textures.push(tex);
@@ -69,5 +82,5 @@ export function originalWearables(root:THREE.Group,bones:Set<THREE.Bone>,height:
   const mount=attach(0,height*.76,-height*.10);
   for(const side of [-1,1]){const hinge=new THREE.Group();hinge.position.x=side*.105;hinge.scale.x=side;mount.add(hinge);const m=new THREE.Mesh(aegisGeometry(),metal(look.wings==='celestial-aegis'?0xc9bd9d:0x253341));m.material.emissive.setHex(look.wings==='celestial-aegis'?0x57418a:0x0c5d52);m.material.emissiveIntensity=.2;hinge.add(m);parts.push(m);hinges.push(hinge);}
  }
- return {width:look.wings==='none'?0:height*1.22,tick:(dt:number)=>{time+=Math.min(.075,dt);if(mantle&&mantleBase&&time-lastMantle>.067){lastMantle=time;animateMantle(mantle,mantleBase,time);}hinges.forEach((h,i)=>{h.rotation.y=(i?1:-1)*(.18+.13*Math.sin(time*1.7));h.rotation.z=(i?1:-1)*.045*Math.sin(time*1.7+.6);});},dispose:()=>{for(const p of parts){p.geometry.dispose();(p.material as THREE.Material).dispose();}textures.forEach(t=>t.dispose());anchors.forEach(a=>a.removeFromParent());}};
+ return {width:look.wings==='none'?0:height*1.22,tick:(dt:number)=>{time+=Math.min(.075,dt);if(mantle&&mantleBase&&time-lastMantle>.067){lastMantle=time;animateMantle(mantle,mantleBase,time);}hinges.forEach((h,i)=>{h.rotation.y=(i?1:-1)*(.18+.13*Math.sin(time*1.7));h.rotation.z=(i?1:-1)*.045*Math.sin(time*1.7+.6);});},dispose:()=>{for(const p of parts){if((p as THREE.InstancedMesh).isInstancedMesh)(p as THREE.InstancedMesh).dispose();p.geometry.dispose();(p.material as THREE.Material).dispose();}textures.forEach(t=>t.dispose());anchors.forEach(a=>a.removeFromParent());}};
 }
