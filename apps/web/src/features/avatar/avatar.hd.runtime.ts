@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import {createCharacter} from 'ara3d';
 import {mobileDetail} from './avatar.quality.v31';
 import {energeticClip} from './avatar.energy.motion';
+import {sculptSurfaceGeometry} from './avatar.sculpt.surface';
 import {surfaceRole,fabricFinish,hairStrandNormal} from './avatar.material.roles';
 import {weaveNormal} from './avatar.visual.assets';
 import {applyNaturalSkin,skinMicroSurface,naturalHairMaterial} from './avatar.skin.surface';
@@ -34,7 +35,8 @@ export async function createHDCharacter(gender:AvatarGender,raw:unknown,build:st
   // One pass, one material owner; match actual vendor IDs and preserve the original accessory finish.
   const portrait=look.surfaceDetail==='portrait'||cinematic,enhanced=!mobile||quality==='detail';
   const surfaces=new Map<THREE.Material,ReturnType<typeof surfaceRole>>();
-  hero.scene.traverse(o=>{const mesh=o as THREE.Mesh;if(!mesh.isMesh)return;const uv=!!mesh.geometry.getAttribute('uv');
+  const meshUse=new Map<THREE.BufferGeometry,number>();hero.scene.traverse(o=>{const m=o as THREE.Mesh;if(m.isMesh)meshUse.set(m.geometry,(meshUse.get(m.geometry)??0)+1);});let sculptedVertices=0;
+  hero.scene.traverse(o=>{const mesh=o as THREE.Mesh;if(!mesh.isMesh)return;const uv=!!mesh.geometry.getAttribute('uv');const materials=Array.isArray(mesh.material)?mesh.material:[mesh.material];const role=surfaceRole(materials[0]?.name??'',mesh.name);if(meshUse.get(mesh.geometry)===1&&materials.every(m=>surfaceRole(m.name,mesh.name)===role))sculptedVertices+=sculptSurfaceGeometry(mesh.geometry,role,enhanced);
    for(const material of Array.isArray(mesh.material)?mesh.material:[mesh.material]){
     const mat=material as THREE.MeshStandardMaterial;if(!mat.isMeshStandardMaterial||surfaces.has(mat))continue;
     const role=surfaceRole(mat.name,mesh.name);surfaces.set(mat,role);
@@ -49,6 +51,6 @@ export async function createHDCharacter(gender:AvatarGender,raw:unknown,build:st
    }
   });
   const moods:Record<AvatarExpression,string>={neutral:'neutral',smile:'happy',focused:'determined',surprised:'surprised',confident:'happy',laugh:'laughing',sad:'sad',angry:'angry'};
-  return {root,mixer,actions,clips,bounds,height,currentMotion:'idle',currentAction:null,accessoryWidth:wearables.width,assetLabel:(look.evolution!=='none'?'EVOLUTION '+look.evolution:look.designerCut!=='collection'||look.designerPalette!=='collection'||look.designerAccent!=='collection'||look.designerFootwear!=='collection'?'CUSTOM ATELIER':look.collection==='none'?'HD skeletal mesh':'ELITE '+look.collection.replace(/-/g,' '))+' · '+(cinematic?'CINEMATIC':fantasy?'FANTASY':'HUMAN')+' · '+detail.toUpperCase()+' · '+Math.round(triangles/1000)+'k triangles · '+bones.size+' bones',locomotionSpeed:{walk:1.5*height/1.78,run:3.7*height/1.78},expression:(value,strength=1)=>hero.setExpression(moods[value],value==='confident'?strength*.35:strength),animateFace:dt=>{hero.update(dt);wearables?.tick(dt);},lookAt:target=>hero.lookAt(target,{amount:.35,smoothing:.45}),dispose:()=>{mixer?.stopAllAction();mixer?.uncacheRoot(hero.scene);wearables?.dispose();microSkin?.dispose();textile?.dispose();strands?.dispose();hero.dispose();root.clear();}};
+  return {root,mixer,actions,clips,bounds,height,currentMotion:'idle',currentAction:null,accessoryWidth:wearables.width,assetLabel:(look.evolution!=='none'?'EVOLUTION '+look.evolution:look.designerCut!=='collection'||look.designerPalette!=='collection'||look.designerAccent!=='collection'||look.designerFootwear!=='collection'?'CUSTOM ATELIER':look.collection==='none'?'HD skeletal mesh':'ELITE '+look.collection.replace(/-/g,' '))+' · '+(cinematic?'CINEMATIC':fantasy?'FANTASY':'HUMAN')+' · '+detail.toUpperCase()+' · '+Math.round(triangles/1000)+'k triangles · '+bones.size+' bones'+(sculptedVertices?' · refined surface':'') ,locomotionSpeed:{walk:1.5*height/1.78,run:3.7*height/1.78},expression:(value,strength=1)=>hero.setExpression(moods[value],value==='confident'?strength*.35:strength),animateFace:dt=>{hero.update(dt);wearables?.tick(dt);},lookAt:target=>hero.lookAt(target,{amount:.35,smoothing:.45}),dispose:()=>{mixer?.stopAllAction();mixer?.uncacheRoot(hero.scene);wearables?.dispose();microSkin?.dispose();textile?.dispose();strands?.dispose();hero.dispose();root.clear();}};
  }catch(error){mixer?.stopAllAction();wearables?.dispose();microSkin?.dispose();textile?.dispose();strands?.dispose();hero.dispose();throw error;}
 }

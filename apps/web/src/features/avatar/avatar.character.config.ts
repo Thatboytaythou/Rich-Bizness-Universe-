@@ -1,6 +1,6 @@
 export const CHARACTER_RIG='rb-original-human-v1';
 export const SCULPT_STEPS:readonly string[]=Object.freeze(['0',...Array.from({length:41},(_,i)=>String(i*5-100)).filter(v=>v!=='0')]);
-export const SCULPT_FIELDS=['headWidth','cheekVolume','chinProminence','eyeSpacing','noseBridge','mouthDepth','shoulders','waist','headHeight','faceFat','foreheadHeight','chinWidth','eyeSize','eyeTilt','eyeFold','browHeight','noseLength','noseTip','nostrils','upperLip','lowerLip','earSize','earAngle','neckWidth','chest','hips','upperArm','forearm','thigh','calf','handSize','footSize','torsoLength','backWidth','gluteVolume'] as const;
+export const SCULPT_FIELDS=['headWidth','cheekVolume','chinProminence','eyeSpacing','noseBridge','mouthDepth','shoulders','waist','headHeight','faceFat','foreheadHeight','chinWidth','eyeSize','eyeTilt','eyeFold','browHeight','noseLength','noseTip','nostrils','upperLip','lowerLip','earSize','earAngle','neckWidth','chest','hips','upperArm','forearm','thigh','calf','handSize','footSize','torsoLength','backWidth','gluteVolume','abdominalTone','hipDepth','neckDepth'] as const;
 export const CHARACTER_OPTIONS={
   skin:['deep','warm','tan','light','ebony','brown','caramel','olive'],
   face:['angular','soft','strong'],
@@ -45,7 +45,7 @@ export const CHARACTER_OPTIONS={
   regalia:['none','emerald','obsidian'],
   mantle:['none','emerald','obsidian'],
   headHeight:SCULPT_STEPS,faceFat:SCULPT_STEPS,foreheadHeight:SCULPT_STEPS,chinWidth:SCULPT_STEPS,eyeSize:SCULPT_STEPS,eyeTilt:SCULPT_STEPS,eyeFold:SCULPT_STEPS,browHeight:SCULPT_STEPS,noseLength:SCULPT_STEPS,noseTip:SCULPT_STEPS,nostrils:SCULPT_STEPS,upperLip:SCULPT_STEPS,lowerLip:SCULPT_STEPS,earSize:SCULPT_STEPS,earAngle:SCULPT_STEPS,neckWidth:SCULPT_STEPS,chest:SCULPT_STEPS,hips:SCULPT_STEPS,
-  upperArm:SCULPT_STEPS,forearm:SCULPT_STEPS,thigh:SCULPT_STEPS,calf:SCULPT_STEPS,handSize:SCULPT_STEPS,footSize:SCULPT_STEPS,torsoLength:SCULPT_STEPS,backWidth:SCULPT_STEPS,gluteVolume:SCULPT_STEPS,
+  upperArm:SCULPT_STEPS,forearm:SCULPT_STEPS,thigh:SCULPT_STEPS,calf:SCULPT_STEPS,handSize:SCULPT_STEPS,footSize:SCULPT_STEPS,torsoLength:SCULPT_STEPS,backWidth:SCULPT_STEPS,gluteVolume:SCULPT_STEPS,abdominalTone:SCULPT_STEPS,hipDepth:SCULPT_STEPS,neckDepth:SCULPT_STEPS,
   headWidth:SCULPT_STEPS,cheekVolume:SCULPT_STEPS,chinProminence:SCULPT_STEPS,eyeSpacing:SCULPT_STEPS,noseBridge:SCULPT_STEPS,mouthDepth:SCULPT_STEPS,shoulders:SCULPT_STEPS,waist:SCULPT_STEPS
 } as const;
 export type CharacterLook=Record<keyof typeof CHARACTER_OPTIONS,string>;
