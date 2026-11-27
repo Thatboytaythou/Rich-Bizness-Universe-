@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import {createCharacter} from 'ara3d';
 import {mobileDetail} from './avatar.quality.v31';
 import {energeticClip} from './avatar.energy.motion';
-import {editableSurface,originalForm,secondarySurface,secondaryEligible,secondaryResponse} from './avatar.original.forms';
+import {editableSurface,originalForm,secondarySurface,secondaryEligible,secondaryResponse,formSelection,cloneFormGeometry} from './avatar.original.forms';
 import {sculptSurfaceGeometry} from './avatar.sculpt.surface';
 import {surfaceRole,fabricFinish,hairStrandNormal} from './avatar.material.roles';
 import {weaveNormal} from './avatar.visual.assets';
@@ -38,19 +38,16 @@ export async function createHDCharacter(gender:AvatarGender,raw:unknown,build:st
   const surfaces=new Map<THREE.Material,ReturnType<typeof surfaceRole>>();
   const meshUse=new Map<THREE.BufferGeometry,number>();hero.scene.traverse(o=>{const m=o as THREE.Mesh;if(m.isMesh)meshUse.set(m.geometry,(meshUse.get(m.geometry)??0)+1);});let sculptedVertices=0,waveVertices=0,sovereignVertices=0,secondaryCount=0,refinedCount=0;const secondary:NonNullable<ReturnType<typeof secondarySurface>>[]=[];const secondaryBudget=mobile?6000:18000;
   const head=[...bones].find(b=>/^head$/i.test(b.name)),chest=[...bones].find(b=>/^(spine2|chest|upperchest)$/i.test(b.name))??[...bones].find(b=>/spine/i.test(b.name));
-  hero.scene.traverse(o=>{const mesh=o as THREE.Mesh;if(!mesh.isMesh)return;const uv=!!mesh.geometry.getAttribute('uv');const materials=Array.isArray(mesh.material)?mesh.material:[mesh.material];const role=surfaceRole(materials[0]?.name??'',mesh.name);if(meshUse.get(mesh.geometry)===1&&materials.every(m=>surfaceRole(m.name,mesh.name)===role)&&editableSurface(mesh.geometry)){
-    const selected=look.hair==='wave-crop'&&role==='hair'?'wave-crop':look.designerCut==='sovereign'&&role==='techwear'&&/jacket/i.test(mesh.name+' '+materials.map(m=>m.name).join(' '))?'sovereign':null;
-    const eligible=role==='hair'||['denim','tailoring','knit','techwear','fabric'].includes(role);
-    const count=mesh.geometry.getAttribute('position').count;
-    if(eligible&&(enhanced||selected)&&(!mobile||refinedCount+count<=(selected?45000:30000))){
-     refinedCount+=count;
-     // Own modified geometry for this fit only. Restore the authored geometry before
-     // the vendor disposer; no shared source/cache mutation or persistent extra objects.
-     const original=mesh.geometry,refined=original.clone();mesh.geometry=refined;replacements.push({mesh,original,refined});
-     if(selected==='wave-crop')waveVertices+=originalForm(refined,selected);else if(selected==='sovereign')sovereignVertices+=originalForm(refined,selected);else sculptedVertices+=sculptSurfaceGeometry(refined,role,enhanced);
-     if(enhanced&&secondaryEligible(role,look.hair)&&secondaryCount+refined.getAttribute('position').count<=secondaryBudget&&(role==='hair'?head:chest)){
-      const driver=secondarySurface(refined,role==='hair'?'hair':'fabric');if(driver){secondary.push(driver);secondaryCount+=driver.count;}
-     }
+  hero.scene.traverse(o=>{const mesh=o as THREE.Mesh;if(!mesh.isMesh)return;const uv=!!mesh.geometry.getAttribute('uv');const materials=Array.isArray(mesh.material)?mesh.material:[mesh.material];const role=surfaceRole(materials[0]?.name??'',mesh.name);if(meshUse.get(mesh.geometry)===1){
+    const selectedKinds=[{kind:'wave-crop' as const,enabled:look.hair==='wave-crop',match:(m:THREE.Material)=>surfaceRole(m.name,mesh.name)==='hair'},{kind:'sovereign' as const,enabled:look.designerCut==='sovereign',match:(m:THREE.Material)=>surfaceRole(m.name,mesh.name)==='techwear'&&/jacket/i.test(mesh.name+' '+m.name)}];
+    const selections=selectedKinds.filter(k=>k.enabled).map(k=>({kind:k.kind,vertices:formSelection(mesh.geometry,materials.map((m,i)=>k.match(m)?i:-1).filter(i=>i>=0),materials.length)})).filter(k=>k.vertices.length>=24);
+    const count=mesh.geometry.getAttribute('position')?.count??0;
+    if(selections.length&&(!mobile||refinedCount+count<=45000)){
+     const original=mesh.geometry,refined=cloneFormGeometry(original);mesh.geometry=refined;replacements.push({mesh,original,refined});refinedCount+=count;
+     for(const selected of selections){const edited=originalForm(refined,selected.kind,selected.vertices);if(selected.kind==='wave-crop')waveVertices+=edited;else sovereignVertices+=edited;}
+    }else if(enhanced&&materials.every(m=>surfaceRole(m.name,mesh.name)===role)&&editableSurface(mesh.geometry)&&(role==='hair'||['denim','tailoring','knit','techwear','fabric'].includes(role))&&(!mobile||refinedCount+count<=30000)){
+     const original=mesh.geometry,refined=cloneFormGeometry(original);mesh.geometry=refined;replacements.push({mesh,original,refined});refinedCount+=count;sculptedVertices+=sculptSurfaceGeometry(refined,role,true);
+     if(secondaryEligible(role,look.hair)&&secondaryCount+count<=secondaryBudget&&(role==='hair'?head:chest)){const driver=secondarySurface(refined,role==='hair'?'hair':'fabric');if(driver){secondary.push(driver);secondaryCount+=driver.count;}}
     }
    }
    for(const material of Array.isArray(mesh.material)?mesh.material:[mesh.material]){

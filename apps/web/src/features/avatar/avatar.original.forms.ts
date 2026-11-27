@@ -6,12 +6,12 @@ export function editableSurface(g:THREE.BufferGeometry){
  const p=g.getAttribute('position'),n=g.getAttribute('normal');
  return !!p&&!!n&&p.count===n.count&&p.count>=24&&p.count<=85000&&!g.morphAttributes.position?.length&&!(p instanceof THREE.InterleavedBufferAttribute)&&!(n instanceof THREE.InterleavedBufferAttribute);
 }
-export function originalForm(g:THREE.BufferGeometry,kind:'wave-crop'|'sovereign'){
- if(!editableSurface(g))return 0;const p=g.getAttribute('position'),n=g.getAttribute('normal');
- g.computeBoundingBox();const box=g.boundingBox!,size=box.getSize(new THREE.Vector3()),span=Math.min(size.x,size.y,size.z);
+export function originalForm(g:THREE.BufferGeometry,kind:'wave-crop'|'sovereign',selection?:readonly number[]){
+ const p=g.getAttribute('position'),n=g.getAttribute('normal');if(!p||!n||p.count!==n.count||p.count>250000||p.count<24||(g.morphAttributes.position?.length&&!g.morphTargetsRelative))return 0;
+ const vertices=selection??Array.from({length:p.count},(_,i)=>i);if(vertices.length<24||vertices.length>85000)return 0;const box=new THREE.Box3(),point=new THREE.Vector3();for(const i of vertices){if(i<0||i>=p.count)return 0;point.fromBufferAttribute(p,i);box.expandByPoint(point);}const size=box.getSize(new THREE.Vector3()),span=Math.min(size.x,size.y,size.z);
  if(!Number.isFinite(span)||span<.00001)return 0;
  const normal=new THREE.Vector3();let count=0;
- for(let i=0;i<p.count;i++){
+ for(const i of vertices){
   const x=p.getX(i),y=p.getY(i),z=p.getZ(i),u=(x-box.min.x)/size.x,v=(y-box.min.y)/size.y,w=(z-box.min.z)/size.z;
   if(!Number.isFinite(u+v+w))continue;normal.fromBufferAttribute(n,i);if(!Number.isFinite(normal.lengthSq())||normal.lengthSq()<.25)continue;normal.normalize();
   let d:number;
@@ -49,3 +49,13 @@ export function secondaryResponse(previous:number,angle:number,dt:number){
  if(!Number.isFinite(previous+angle+dt)||dt<=0)return 0;
  return THREE.MathUtils.lerp(THREE.MathUtils.clamp(previous,-1,1),THREE.MathUtils.clamp(angle/Math.max(.008,dt)*.18,-1,1),1-Math.exp(-Math.min(dt,.075)*8));
 }
+
+// Material groups in merged skinned geometry may share vertices. Leave boundary
+// vertices used by another material unchanged. No changes to relative morph deltas.
+export function formSelection(g:THREE.BufferGeometry,selectedMaterials:readonly number[],materialCount:number){
+ const p=g.getAttribute('position');if(!p)return [];if(materialCount===1&&selectedMaterials.includes(0))return Array.from({length:p.count},(_,i)=>i);if(!g.groups.length)return [];
+ const flags=new Uint8Array(p.count),selected=new Set(selectedMaterials),index=g.index;for(const group of g.groups){const flag=selected.has(group.materialIndex??0)?1:2;for(let j=group.start;j<group.start+group.count;j++){const i=index?index.getX(j):j;if(i>=0&&i<p.count)flags[i]|=flag;}}
+ const result:number[]=[];for(let i=0;i<flags.length;i++)if(flags[i]===1)result.push(i);return result;
+}
+// Only duplicate the edited position buffer, not 34 face morph arrays.
+export function cloneFormGeometry(g:THREE.BufferGeometry){const copy=new THREE.BufferGeometry();copy.name=g.name;for(const [key,attribute] of Object.entries(g.attributes))copy.setAttribute(key,key==='position'?attribute.clone():attribute);copy.setIndex(g.index);copy.morphAttributes={...g.morphAttributes};copy.morphTargetsRelative=g.morphTargetsRelative;for(const group of g.groups)copy.addGroup(group.start,group.count,group.materialIndex);copy.setDrawRange(g.drawRange.start,g.drawRange.count);return copy;}
