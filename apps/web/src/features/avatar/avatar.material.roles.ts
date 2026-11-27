@@ -5,7 +5,8 @@ export type SurfaceRole='skin'|'hair'|'facial-hair'|'eye'|'cornea'|'face-detail'
 const norm=(s:string)=>s.toLowerCase().replace(/[^a-z0-9]/g,'');
 export function surfaceRole(material:string,mesh=''):SurfaceRole{
  const m=norm(material),n=norm(mesh),both=m+' '+n;
- if(/eyelash|eylash|eyebrow|teeth|tongue|gum|tooth|nail/.test(both))return 'face-detail';
+ // Eye_brown normalizes to eyebrown, not eyebrow: require a distinct brow match.
+ if(/eyelash|eylash|eyebrow(?!n)|teeth|tongue|gum|tooth|nail/.test(both))return 'face-detail';
  if(/beard|mustache|moustache|stubble|facialhair/.test(both))return 'facial-hair';
  if(/cornea/.test(both))return 'cornea';
  if(/^eye(?:s|blue|brown|black|deep|green|grey|ice|light|mesh|material|ball|iris|[0-9]|$)/.test(m)||/eyeball|eyemesh|iris/.test(n))return 'eye';
