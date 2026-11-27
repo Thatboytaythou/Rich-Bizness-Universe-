@@ -16,9 +16,9 @@ console.log('Avatar Studio: four workspaces, unique control IDs, mobile-first la
 const graphics=readFileSync(root+'avatar.graphics.ts','utf8');
 assert.match(graphics,/if\(mobile&&runtime\)\{scene.remove\(runtime.root\);disposeSkinnedAvatar\(runtime\);runtime=null/);
 assert.match(graphics,/mobileFitTail=job\.then/);
-assert.match(graphics,/const limit=mobile\?640:1600/);
+assert.match(graphics,/let phoneLimit=640/);assert.match(graphics,/const limit=mobile\?phoneLimit:1600/);
 assert.match(graphics,/if\(canvas.width!==width\|\|canvas.height!==height\)renderer.setSize/);
-assert.match(graphics,/if\(mobile\)value='auto'/);
+assert.match(graphics,/safe fallback \(enhanced fit unavailable\)/);
 assert.match(source,/if\(!mobile&&!graphics&&!graphicsLoading\)void enable\(\)/);
 assert.match(source,/onWorkspace=key=>/);
 assert.ok(!html.includes('id="app" aria-live'));
@@ -28,7 +28,7 @@ import {createCinematicSky,createGroundShade,glassGradient,groundShadeMesh} from
 const sky=createCinematicSky();assert.equal(sky.material.depthWrite,false);assert.ok(sky.geometry.attributes.position.count<400);assert.ok(sky.material.fragmentShader.includes('#include <colorspace_fragment>'));sky.geometry.dispose();sky.material.dispose();
 const shade=createGroundShade(),glass=glassGradient();assert.equal(shade.image.data.length,64*64*4);assert.equal(shade.image.data[3],0);assert.ok(shade.image.data[(32*64+32)*4+3]>170);assert.equal(glass.image.data.length,16*64*4);
 const plane=groundShadeMesh(shade,1.35,2.5);assert.equal(plane.material.depthWrite,false);plane.geometry.dispose();plane.material.dispose();shade.dispose();glass.dispose();
-const lobby=readFileSync(root+'avatar.lobby.page.ts','utf8');assert.match(lobby,/const limit=mobile\?640:1440/);assert.match(lobby,/new THREE.InstancedMesh\(new THREE.PlaneGeometry\(1,1\)/);
+const lobby=readFileSync(root+'avatar.lobby.page.ts','utf8');assert.match(lobby,/let phoneLimit=640/);assert.match(lobby,/const limit=mobile\?phoneLimit:1440/);assert.match(lobby,/new THREE.InstancedMesh\(new THREE.PlaneGeometry\(1,1\)/);
 assert.match(graphics,/renderer.shadowMap.enabled=!mobile/);
 console.log('V29: bounded sky geometry, soft shade and glass textures, desktop-only shadow map, mobile buffer protection');
 
@@ -39,3 +39,16 @@ for(const mobile of [true,false]){const leaves=foliageGeometry(mobile);assert.eq
 const weave=weaveNormal();assert.equal(weave.image.data.length,64*64*4);assert.equal(weave.repeat.x,20);assert.ok(weave.image.data[2]>245);weave.dispose();
 assert.match(lobby,/world\?\.userData\.tickFoliage\?\.\(dt\)/);assert.match(lobby,/const spokes=new THREE.InstancedMesh/);
 console.log('V30: generated vehicle UVs and normals, bounded leaf geometry and woven textile map, instanced detail');
+
+import * as THREE from 'three';
+import {phoneRenderLimit,mobileDetail,smoothPlayback} from '../apps/web/src/features/avatar/avatar.quality.v31.ts';
+import {crownChain} from '../apps/web/src/features/avatar/avatar.original.wearables.ts';
+import {mergeStaticVehicle,disposeDetailedVehicle} from '../apps/web/src/features/avatar/avatar.world.vehicle.ts';
+assert.equal(mobileDetail('auto'),'low');assert.equal(mobileDetail('detail'),'medium');
+assert.equal(phoneRenderLimit('detail',33,89,640),640);assert.equal(phoneRenderLimit('detail',33,90,640),704);assert.equal(phoneRenderLimit('detail',33,100,875),900);assert.equal(phoneRenderLimit('detail',58,100,900),820);assert.equal(phoneRenderLimit('auto',33,100,640),640);
+assert.ok(smoothPlayback(1,1.4,.033)>1&&smoothPlayback(1,1.4,.033)<1.4);
+const chainMat=new THREE.MeshStandardMaterial(),chain=crownChain(chainMat);assert.equal(chain.count,34);assert.ok(Number.isFinite(chain.boundingSphere.radius));chain.dispose();chain.geometry.dispose();chainMat.dispose();
+const sourceVehicle=new THREE.Group(),vehicleMat=new THREE.MeshStandardMaterial();for(const x of [-1,1]){const panel=new THREE.Mesh(new THREE.BoxGeometry(1.6,1.2,1.8),vehicleMat);panel.position.set(x,.6,0);sourceVehicle.add(panel);}
+const mergedVehicle=mergeStaticVehicle(sourceVehicle,true);assert.equal(mergedVehicle.children.length,1);assert.equal(mergedVehicle.userData.rbVehicleTriangles,24);mergedVehicle.updateMatrixWorld(true);const vehicleBounds=new THREE.Box3().setFromObject(mergedVehicle);assert.ok(Math.abs(vehicleBounds.getSize(new THREE.Vector3()).z-3.55)<.01);assert.ok(Math.abs(vehicleBounds.min.y)<.01);disposeDetailedVehicle(mergedVehicle);sourceVehicle.traverse(o=>{if(o.isMesh)o.geometry.dispose();});
+assert.match(graphics,/fitQuality!=='detail'/);assert.match(lobby,/tryDetailedVehicle/);assert.match(source,/Enhanced • medium mesh/);
+console.log('V31: mobile safe startup and enhanced limits, bounded animation rate, original chain geometry, merged vehicle fit and fallback paths verified');
