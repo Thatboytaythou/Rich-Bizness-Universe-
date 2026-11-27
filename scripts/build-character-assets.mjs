@@ -29,7 +29,7 @@ try{
   assert.ok((j.images??[]).length>=3);assert.ok((j.animations??[]).length>=HD_CLIPS.length);
   assert.ok((j.animations??[]).every(a=>a.channels.some(c=>c.target.path==='rotation')));
   const names=j.animations.map(a=>a.name);for(const clip of ['idle','walk','run','jump'])assert.ok(names.some(n=>n.toLowerCase().includes(clip)),clip+' missing');
-  const filename=look.designerCut?'rb-elite-custom-design.glb':look.collection?'rb-elite-'+look.collection+'.glb':'rb-'+gender+'-'+detail+'.glb';writeFileSync(join(dest,filename),b);
+  const filename=look.identityMode==='cinematic'?'rb-cinematic-body-medium.glb':look.designerCut?'rb-elite-custom-design.glb':look.collection?'rb-elite-'+look.collection+'.glb':'rb-'+gender+'-'+detail+'.glb';writeFileSync(join(dest,filename),b);
   reports.push({gender,detail,collection:look.collection??null,customDesign:look.designerCut??null,filename,triangles:Math.round(triangles),joints,morphs,bytes:b.length,clips:names,sha256:createHash('sha256').update(b).digest('hex')});
  }
  const femaleLow=reports.find(m=>m.gender==='girl'&&m.detail==='low'&&!m.collection),femaleMedium=reports.find(m=>m.gender==='girl'&&m.detail==='medium'&&!m.collection);assert.ok(femaleMedium.triangles>femaleLow.triangles,'Enhanced mobile detail must increase actual mesh density');
