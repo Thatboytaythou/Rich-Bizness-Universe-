@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import {automotiveShell,foliageGeometry} from './avatar.visual.assets';
 import {createCinematicSky,createGroundShade,glassGradient} from './avatar.cinematic.depth';
+import {phoneRenderLimit,smoothPlayback} from './avatar.quality.v31';
 import {nextRenderScale} from './avatar.render.budget';
 import {createCharacterLightMap} from './avatar.light-map';
 import { getAuthSnapshot } from '../../core/auth/auth-store';
@@ -224,7 +225,7 @@ export async function mount(): Promise<void> {
   let avatarRuntime: SkinnedAvatarRuntime | null = null;
   let world: THREE.Group | null = null;
   let raf = 0;
-  let renderScale=1,averageFrame=32,frameSamples=0,lastAdapt=0,lastTelemetry=0;let resize = () => {};let observer:ResizeObserver|undefined;let worldVisibility:IntersectionObserver|undefined;let worldVisible=true;let stopExperience=()=>{};let stopLife=()=>{};
+  let phoneLimit=640,playbackRate=1;let renderScale=1,averageFrame=32,frameSamples=0,lastAdapt=0,lastTelemetry=0;let resize = () => {};let observer:ResizeObserver|undefined;let worldVisibility:IntersectionObserver|undefined;let worldVisible=true;let stopExperience=()=>{};let stopLife=()=>{};
   const abort = new AbortController();
   const isCurrent = () => !disposed && root.dataset.pageEpoch === epoch && root.dataset.pageOwner === OWNER;
 
@@ -418,7 +419,7 @@ export async function mount(): Promise<void> {
   resize = () => {
     if (!renderer) return;
     const rect = canvas.getBoundingClientRect();
-    const limit=mobile?640:1440;const scale=Math.min(1,limit/Math.max(1,rect.width,rect.height))*renderScale;const w=Math.max(1,Math.round(rect.width*scale)),h=Math.max(1,Math.round(rect.height*scale));if(canvas.width!==w||canvas.height!==h)renderer.setSize(w,h,false);
+    const limit=mobile?phoneLimit:1440;const scale=Math.min(mobile?1.6:1,limit/Math.max(1,rect.width,rect.height))*renderScale;const w=Math.max(1,Math.round(rect.width*scale)),h=Math.max(1,Math.round(rect.height*scale));if(canvas.width!==w||canvas.height!==h)renderer.setSize(w,h,false);
     camera.aspect = rect.width / Math.max(1, rect.height);
     camera.updateProjectionMatrix();
   };
@@ -445,7 +446,7 @@ export async function mount(): Promise<void> {
     raf=requestAnimationFrame(loop);
     if(document.hidden||!worldVisible){lastFrame=0;return;}if(now-lastFrame<(mobile?32:16))return;
     const interval=lastFrame?now-lastFrame:0;lastFrame=now;if(interval>0&&interval<250){averageFrame+=(interval-averageFrame)*.08;frameSamples++;}
-    if(frameSamples>30&&now-lastAdapt>3000){lastAdapt=now;const next=nextRenderScale(renderScale,averageFrame,frameSamples,mobile);if(Math.abs(next-renderScale)>.01){renderScale=next;resize();}}
+    if(frameSamples>30&&now-lastAdapt>3000){lastAdapt=now;if(mobile){const next=phoneRenderLimit('auto',averageFrame,frameSamples,phoneLimit);if(next!==phoneLimit){phoneLimit=next;resize();}}else{const next=nextRenderScale(renderScale,averageFrame,frameSamples,false);if(Math.abs(next-renderScale)>.01){renderScale=next;resize();}}}
     if(now-lastTelemetry>1000){lastTelemetry=now;const status=root.querySelector<HTMLElement>('#alPerformance');if(status)status.textContent='~'+Math.round(1000/averageFrame)+' fps · '+Math.round(renderScale*100)+'% render scale';}
     const dt = Math.min(clock.getDelta(), .075);
     world?.userData.tickFoliage?.(dt);
@@ -469,7 +470,7 @@ export async function mount(): Promise<void> {
     const actualSpeed=Math.hypot(nx-ox,nz-oz)/Math.max(dt,.001);
     const nearby=nearbyAction(definition.actions,nx,nz);if(nearby?.id!==activeAction?.id){activeAction=nearby;root.querySelector<HTMLElement>('#alActionTitle')!.textContent=nearby?.label??'Explore the environment';root.querySelector<HTMLElement>('#alActionDescription')!.textContent=nearby?.description??definition.description;interaction.disabled=!nearby;interaction.textContent=nearby?(nearby.effect==='lighting'?(evening?'SWITCH TO DAYLIGHT':'SWITCH TO EVENING'):'OPEN '+nearby.label.toUpperCase()):'MOVE TO A MARKER';}
     if (actualSpeed > .11) {
-      const targetYaw = Math.atan2(velocity.x, velocity.z);
+      const targetYaw = Math.atan2(nx-ox,nz-oz);
       const turnBlend = 1-Math.exp(-turnSpeed*dt);
       const deltaYaw=Math.atan2(Math.sin(targetYaw-avatarRuntime.root.rotation.y),Math.cos(targetYaw-avatarRuntime.root.rotation.y));avatarRuntime.root.rotation.y+=deltaYaw*turnBlend;
     }
@@ -485,14 +486,15 @@ export async function mount(): Promise<void> {
     }
 
     powerTimer = Math.max(0, powerTimer - dt);
-    const nextMotion: AvatarMotion = powerTimer > 0 ? 'power' : !grounded ? 'jump' : actualSpeed>.11 ? (sprint&&actualSpeed>(avatarRuntime.locomotionSpeed?.walk??1.1)*1.25?'run':'walk') : 'idle';
+    const nextMotion: AvatarMotion = powerTimer > 0 ? 'power' : !grounded ? 'jump' : actualSpeed>(activeMotion==='idle'?.19:.09) ? (sprint&&actualSpeed>(avatarRuntime.locomotionSpeed?.walk??1.1)*(activeMotion==='run'?1.12:1.34)?'run':'walk') : 'idle';
     if (nextMotion !== activeMotion) {
       activeMotion = nextMotion;
-      setAvatarMotion(avatarRuntime, nextMotion);
+      setAvatarMotion(avatarRuntime, nextMotion,nextMotion==='idle'?.26:nextMotion==='jump'?.12:.24);
       if(experience.behavior!=='manual')avatarRuntime.expression?.(nextMotion==='power'?'confident':nextMotion==='jump'?'surprised':nextMotion==='run'?'focused':'neutral');
       if(experience.behavior==='guided')root.querySelector<HTMLElement>('#alGuide')!.textContent=nextMotion==='run'?'Sprint active. Release sprint to walk.':nextMotion==='jump'?'Landing returns you to movement.':nextMotion==='power'?'Pose active. You remain in control.':nextMotion==='walk'?'Explore the district or enter Worlds.':'Choose a direction or open Worlds.';
     }
-    if(nextMotion==='walk'||nextMotion==='run'){const strideSpeed=avatarRuntime.locomotionSpeed?.[nextMotion]??(nextMotion==='run'?3.8:1.9);avatarRuntime.currentAction?.setEffectiveTimeScale(THREE.MathUtils.clamp(actualSpeed/strideSpeed,.08,1.45));}else if(nextMotion==='jump'&&avatarRuntime.currentAction){avatarRuntime.currentAction.setEffectiveTimeScale(THREE.MathUtils.clamp(avatarRuntime.currentAction.getClip().duration/Math.max(.3,2*jumpForce/gravity),.6,2));}
+    if(nextMotion==='walk'||nextMotion==='run'){const strideSpeed=avatarRuntime.locomotionSpeed?.[nextMotion]??(nextMotion==='run'?3.8:1.9);playbackRate=smoothPlayback(playbackRate,THREE.MathUtils.clamp(actualSpeed/strideSpeed,.12,1.45),dt);avatarRuntime.currentAction?.setEffectiveTimeScale(playbackRate);}else if(nextMotion==='jump'&&avatarRuntime.currentAction){avatarRuntime.currentAction.setEffectiveTimeScale(THREE.MathUtils.clamp(avatarRuntime.currentAction.getClip().duration/Math.max(.3,2*jumpForce/gravity),.6,2));}
+    if(nextMotion==='idle')playbackRate=1;
     avatarRuntime.lookAt?.(experience.behavior!=='manual'&&activeMotion==='idle'?camera.position:null);
     updateSkinnedAvatar(avatarRuntime, dt);
 
@@ -502,7 +504,7 @@ export async function mount(): Promise<void> {
     const clearance=cameraClearance(position.x,position.z,targetCamera.x,targetCamera.z,districtScene.obstacles);targetCamera.x=position.x+(targetCamera.x-position.x)*clearance;targetCamera.z=position.z+(targetCamera.z-position.z)*clearance;
     // Collision moves inward immediately; outward motion eases back to the preferred view.
     if(clearance<.99)camera.position.copy(targetCamera);else camera.position.lerp(targetCamera,1-Math.exp(-6.5*dt));
-    cameraLook.set(position.x,position.y+avatarRuntime.height*.52,position.z);
+    cameraLook.set(position.x,position.y+avatarRuntime.height*.58,position.z);
     contact.position.set(position.x,.025,position.z);contact.material.opacity=Math.max(.13,1-position.y*.8);
     camera.lookAt(cameraLook);
 
