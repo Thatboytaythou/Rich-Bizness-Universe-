@@ -161,10 +161,13 @@ function addStreetWorld(scene: THREE.Scene,signal:AbortSignal,mobile:boolean): T
   const treeTrunks:THREE.Matrix4[]=[],treeBranches:THREE.Matrix4[]=[],treeCanopies:THREE.Matrix4[]=[];
   const plant=new THREE.Object3D();const place=(list:THREE.Matrix4[],x:number,y:number,z:number,sx:number,sy:number,sz:number,tilt=0)=>{plant.position.set(x,y,z);plant.rotation.set(0,0,tilt);plant.scale.set(sx,sy,sz);plant.updateMatrix();list.push(plant.matrix.clone());};
   for(const x of [-10.1,10.1])for(let z=-9;z>=-81;z-=9){addShade(x,.168,z,2.7,2.2);place(treeTrunks,x,1.55,z,.15,2.8,.15);for(const side of [-1,1]){place(treeBranches,x+side*.28,2.45,z,.07,1.1,.07,-side*.56);place(treeCanopies,x+side*.43,3.0,z+.14,.84,.93,.78);}place(treeCanopies,x,3.65,z,1.0,1.05,.88);}
-  const plants=(geometry:THREE.BufferGeometry,mat:THREE.Material,matrices:THREE.Matrix4[])=>{const mesh=new THREE.InstancedMesh(geometry,mat,matrices.length);matrices.forEach((m,i)=>mesh.setMatrixAt(i,m));mesh.instanceMatrix.needsUpdate=true;mesh.computeBoundingSphere();world.add(mesh);};
+  const plants=(geometry:THREE.BufferGeometry,mat:THREE.Material,matrices:THREE.Matrix4[])=>{const mesh=new THREE.InstancedMesh(geometry,mat,matrices.length);matrices.forEach((m,i)=>mesh.setMatrixAt(i,m));mesh.instanceMatrix.needsUpdate=true;mesh.computeBoundingSphere();world.add(mesh);return mesh;};
   plants(new THREE.CylinderGeometry(.65,1,1,9),new THREE.MeshStandardMaterial({color:0x574231,roughness:.96}),treeTrunks);
   plants(new THREE.CylinderGeometry(.38,1,1,7),new THREE.MeshStandardMaterial({color:0x604735,roughness:.9}),treeBranches);
-  plants(foliageGeometry(mobile),new THREE.MeshStandardMaterial({vertexColors:true,roughness:.86,side:THREE.DoubleSide}),treeCanopies);
+  const crowns=plants(foliageGeometry(mobile),new THREE.MeshStandardMaterial({vertexColors:true,roughness:.86,side:THREE.DoubleSide}),treeCanopies);
+  crowns.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+  const breeze=new THREE.Matrix4(),windMatrix=new THREE.Matrix4();let windTime=0,lastWind=0;
+  world.userData.tickFoliage=(dt:number)=>{windTime+=dt;if(windTime-lastWind<.125)return;lastWind=windTime;for(let i=0;i<treeCanopies.length;i++){breeze.makeRotationZ(Math.sin(windTime*1.3+i*.41)*.026);windMatrix.multiplyMatrices(treeCanopies[i],breeze);crowns.setMatrixAt(i,windMatrix);}crowns.instanceMatrix.needsUpdate=true;};
   const carPositions = [
     [-4.9, -17, 0], [4.9, -31, Math.PI], [-4.9, -50, 0], [4.9, -67, Math.PI]
   ] as const;
@@ -180,6 +183,7 @@ function addStreetWorld(scene: THREE.Scene,signal:AbortSignal,mobile:boolean): T
   const hubGeo=new THREE.CylinderGeometry(.07,.07,.23,12),spokeGeo=new THREE.BoxGeometry(.023,.28,.022);
   const rimMat=new THREE.MeshStandardMaterial({color:0x8b9a9e,metalness:.82,roughness:.25}),headMat=new THREE.MeshBasicMaterial({color:0xffebc9}),tailMat=new THREE.MeshBasicMaterial({color:0xbe273b});
   const lampGeo=new THREE.BoxGeometry(.34,.095,.045);
+  const spokeMatrices:THREE.Matrix4[]=[];const spokeDummy=new THREE.Object3D();
   carPositions.forEach(([x, z, rotation], index) => {
     const car = new THREE.Group();
     const body = new THREE.Mesh(bodyShell, carMats[index % carMats.length]);
@@ -197,7 +201,7 @@ function addStreetWorld(scene: THREE.Scene,signal:AbortSignal,mobile:boolean): T
       wheel.rotation.z = Math.PI / 2;
       wheel.position.set(sx, .29, sz);
       car.add(wheel);const rim=new THREE.Mesh(rimGeo,rimMat);rim.rotation.z=Math.PI/2;rim.position.copy(wheel.position);car.add(rim);const hub=new THREE.Mesh(hubGeo,chrome);hub.rotation.z=Math.PI/2;hub.position.copy(wheel.position);car.add(hub);
-      for(let i=0;i<3;i++){const spoke=new THREE.Mesh(spokeGeo,trimMat);spoke.position.set(sx+Math.sign(sx)*.115,.29,sz);spoke.rotation.x=i*Math.PI/3;car.add(spoke);}
+      for(let i=0;i<3;i++){spokeDummy.position.set(sx+Math.sign(sx)*.115,.29,sz);spokeDummy.rotation.set(i*Math.PI/3,0,0);spokeDummy.updateMatrix();const matrix=new THREE.Matrix4().makeRotationY(rotation);matrix.setPosition(x,0,z);spokeMatrices.push(matrix.multiply(spokeDummy.matrix));}
     }
     for(const x of [-.42,.42]){const front=new THREE.Mesh(lampGeo,headMat);front.position.set(x,.48,1.67);car.add(front);const rear=new THREE.Mesh(lampGeo,tailMat);rear.position.set(x,.51,-1.68);car.add(rear);}
     addShade(x,.011,z,2.55,4.15);car.position.set(x, 0, z);
@@ -205,6 +209,7 @@ function addStreetWorld(scene: THREE.Scene,signal:AbortSignal,mobile:boolean): T
     world.add(car);
   });
 
+  const spokes=new THREE.InstancedMesh(spokeGeo,trimMat,spokeMatrices.length);spokeMatrices.forEach((m,i)=>spokes.setMatrixAt(i,m));spokes.instanceMatrix.needsUpdate=true;spokes.computeBoundingSphere();world.add(spokes);
   const occlusion=new THREE.InstancedMesh(new THREE.PlaneGeometry(1,1),new THREE.MeshBasicMaterial({map:shadeMap,transparent:true,depthWrite:false,polygonOffset:true,polygonOffsetFactor:-1}),shades.length);shades.forEach((m,i)=>occlusion.setMatrixAt(i,m));occlusion.instanceMatrix.needsUpdate=true;occlusion.computeBoundingSphere();world.add(occlusion);
   scene.add(world);
   return world;
@@ -443,6 +448,7 @@ export async function mount(): Promise<void> {
     if(frameSamples>30&&now-lastAdapt>3000){lastAdapt=now;const next=nextRenderScale(renderScale,averageFrame,frameSamples,mobile);if(Math.abs(next-renderScale)>.01){renderScale=next;resize();}}
     if(now-lastTelemetry>1000){lastTelemetry=now;const status=root.querySelector<HTMLElement>('#alPerformance');if(status)status.textContent='~'+Math.round(1000/averageFrame)+' fps · '+Math.round(renderScale*100)+'% render scale';}
     const dt = Math.min(clock.getDelta(), .075);
+    world?.userData.tickFoliage?.(dt);
     try{
     const inputMagnitude = Math.min(1, Math.hypot(joyX, joyY));
     const moving = inputMagnitude > .10;
