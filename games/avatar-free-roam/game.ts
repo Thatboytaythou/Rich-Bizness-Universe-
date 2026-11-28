@@ -22,17 +22,13 @@ root.innerHTML = `
     <div class="checkpoint" id="checkpoint" aria-label="Mission checkpoint"></div>
   </div>`;
 
-const player = document.querySelector<HTMLElement>('#player');
-const checkpoint = document.querySelector<HTMLElement>('#checkpoint');
-const scoreLabel = document.querySelector<HTMLElement>('#score');
-const missionLabel = document.querySelector<HTMLElement>('#mission');
-const statusLabel = document.querySelector<HTMLElement>('#status');
-if (!player || !checkpoint || !scoreLabel || !missionLabel || !statusLabel) {
-  throw new Error('Game HUD failed to mount');
-}
+function requireHud(selector:string):HTMLElement{const el=root!.querySelector<HTMLElement>(selector);if(!el)throw Error('Game HUD failed to mount: '+selector);return el;}
+const player=requireHud('#player'),checkpoint=requireHud('#checkpoint'),scoreLabel=requireHud('#score'),missionLabel=requireHud('#mission'),statusLabel=requireHud('#status');
 
-const readKeyboard = createControls();
-const readMobile = mountMobileControls(root);
+const lifetime=new AbortController();
+const readKeyboard = createControls(lifetime.signal);
+const readMobile = mountMobileControls(root,lifetime.signal);
+let raf=0,lastSavedAt=performance.now(),disposed=false;
 const startedAt = performance.now();
 const storageKey = 'rb.avatar-free-roam.save.v1';
 const saved = loadSave();
@@ -53,7 +49,7 @@ const state = {
 function loadSave(): AvatarFreeRoamSave {
   try {
     const raw = localStorage.getItem(storageKey);
-    return raw ? (JSON.parse(raw) as AvatarFreeRoamSave) : createDefaultFreeRoamSave();
+    if(!raw)return createDefaultFreeRoamSave();const v=JSON.parse(raw);if(!v||v.version!==1||!v.position||![v.position.x,v.position.y,v.position.z,v.bestScore,v.totalDistance,v.totalPlaySeconds].every(Number.isFinite)||!Array.isArray(v.completedMissionIds))return createDefaultFreeRoamSave();return {...v,position:{x:clampToWorld(v.position.x),z:clampToWorld(v.position.z),y:Math.max(0,Math.min(20,v.position.y))},completedMissionIds:[...new Set<string>(v.completedMissionIds.filter((id:unknown)=>typeof id==='string'&&FREE_ROAM_MISSIONS.some(m=>m.id===id)))]};
   } catch {
     return createDefaultFreeRoamSave();
   }
@@ -78,7 +74,7 @@ function saveProgress(score: number): void {
     totalPlaySeconds: saved.totalPlaySeconds + Math.floor((performance.now() - startedAt) / 1000),
     updatedAt: new Date().toISOString()
   };
-  localStorage.setItem(storageKey, JSON.stringify(data));
+  try{localStorage.setItem(storageKey,JSON.stringify(data));}catch{}
 }
 
 function updateMissionHud(): void {
@@ -94,7 +90,7 @@ function updateMissionHud(): void {
 }
 
 function frame(now: number): void {
-  const dt = Math.min((now - state.last) / 1000, 0.05);
+  raf=0;if(disposed||document.hidden)return;const dt = Math.max(0,Math.min((now - state.last) / 1000, 0.05));
   state.last = now;
 
   const keyboard = readKeyboard();
@@ -138,14 +134,16 @@ function frame(now: number): void {
   player.style.transform = `translate3d(${state.x * 18}px, ${-state.y * 22 + state.z * 8}px, 0) scale(${1 + state.z * 0.002})`;
   scoreLabel.textContent = score.toLocaleString();
 
-  if (Math.floor(elapsedSeconds) % 5 === 0) saveProgress(score);
-  requestAnimationFrame(frame);
+  if(now-lastSavedAt>=5000){lastSavedAt=now;saveProgress(score);}
+  raf=requestAnimationFrame(frame);
 }
 
-addEventListener('beforeunload', () => {
+function saveNow(){
   const score = calculateFreeRoamScore(state.distance, state.checkpoints, (performance.now() - startedAt) / 1000);
   saveProgress(score);
-});
-
+}
+addEventListener('pagehide',()=>{if(disposed)return;disposed=true;cancelAnimationFrame(raf);saveNow();lifetime.abort();},{once:true});
+addEventListener('pageshow',e=>{if(e.persisted)location.reload()});
+document.addEventListener('visibilitychange',()=>{cancelAnimationFrame(raf);raf=0;if(disposed)return;if(document.hidden)saveNow();else{state.last=performance.now();raf=requestAnimationFrame(frame);}},{signal:lifetime.signal});
 updateMissionHud();
-requestAnimationFrame(frame);
+if(!document.hidden)raf=requestAnimationFrame(frame);

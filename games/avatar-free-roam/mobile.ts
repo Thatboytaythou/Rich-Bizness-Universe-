@@ -5,7 +5,7 @@ export type MobileControlState = {
   jump: boolean;
 };
 
-export function mountMobileControls(root: HTMLElement): () => MobileControlState {
+export function mountMobileControls(root: HTMLElement,signal?:AbortSignal): () => MobileControlState {
   const state: MobileControlState = { forward: 0, strafe: 0, sprint: false, jump: false };
   const controls = document.createElement('div');
   controls.className = 'mobile-controls';
@@ -34,11 +34,12 @@ export function mountMobileControls(root: HTMLElement): () => MobileControlState
     if (!key) return;
     const start = (event: Event) => { event.preventDefault(); active.add(key); update(); };
     const end = (event: Event) => { event.preventDefault(); active.delete(key); update(); };
-    button.addEventListener('pointerdown', start);
-    button.addEventListener('pointerup', end);
-    button.addEventListener('pointercancel', end);
-    button.addEventListener('pointerleave', end);
+    button.addEventListener('pointerdown',start,signal?{signal}:undefined);
+    button.addEventListener('pointerup',end,signal?{signal}:undefined);
+    button.addEventListener('pointercancel',end,signal?{signal}:undefined);
+    button.addEventListener('pointerleave',end,signal?{signal}:undefined);
   });
 
+  signal?.addEventListener('abort',()=>{active.clear();update();controls.remove();},{once:true});
   return () => ({ ...state });
 }
