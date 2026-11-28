@@ -16,9 +16,9 @@ export async function readCharacterIdentity(userId:string,signal?:AbortSignal):P
   const timer=window.setTimeout(stop,9000);
   try{
     const request=Promise.all([
-      supabase.from('profiles').select('id,display_name,username,preferred_avatar_loadout_id,has_avatar').eq('id',userId).maybeSingle().abortSignal(controller.signal),
-      supabase.from('user_avatar_loadouts').select('*').eq('user_id',userId).maybeSingle().abortSignal(controller.signal),
-      supabase.from('meta_avatars').select('*').eq('user_id',userId).maybeSingle().abortSignal(controller.signal)
+      supabase.from('profiles').select('id,display_name,username,preferred_avatar_loadout_id,has_avatar').eq('id',userId).abortSignal(controller.signal).maybeSingle(),
+      supabase.from('user_avatar_loadouts').select('*').eq('user_id',userId).abortSignal(controller.signal).maybeSingle(),
+      supabase.from('meta_avatars').select('*').eq('user_id',userId).abortSignal(controller.signal).maybeSingle()
     ]);
     const [profile,loadout,avatar]=await Promise.race([request,new Promise<never>((_,reject)=>controller.signal.addEventListener('abort',()=>reject(new Error('Rich ID read timed out. Retry connection.')),{once:true}))]);
     if(profile.error||loadout.error||avatar.error)fail('Identity read: '+(profile.error??loadout.error??avatar.error)?.message);

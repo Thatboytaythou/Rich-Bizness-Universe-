@@ -28,7 +28,7 @@ async function fitHDCharacter(gender:AvatarGender,raw:unknown,build:string,quali
  try{
   const root=new THREE.Group();root.name='rb-hd-character-v33';root.add(hero.scene);
   const bones=new Set<THREE.Bone>();let triangles=0,meshes=0,faceMorphs=0;
-  root.traverse(o=>{const mesh=o as THREE.SkinnedMesh;if(!mesh.isSkinnedMesh)return;meshes++;mesh.skeleton.bones.forEach(b=>bones.add(b));triangles+=(mesh.geometry.index?.count??mesh.geometry.attributes.position.count)/3;faceMorphs+=Object.keys(mesh.morphTargetDictionary??{}).length;mesh.frustumCulled=false;mesh.castShadow=!mobile;});
+  root.traverse(o=>{const mesh=o as THREE.SkinnedMesh;if(!mesh.isSkinnedMesh)return;meshes++;mesh.skeleton.bones.forEach(b=>bones.add(b));triangles+=(mesh.geometry.index?.count??mesh.geometry.getAttribute('position')?.count??0)/3;faceMorphs+=Object.keys(mesh.morphTargetDictionary??{}).length;mesh.frustumCulled=false;mesh.castShadow=!mobile;});
   if(mobile&&!admitsPhoneMesh(quality,triangles)&&(!fallback||triangles>180000))throw new PhoneFitBudgetError('Character exceeds '+phoneTriangleBudget(quality)+' triangle budget: '+Math.round(triangles));
   if(!meshes||bones.size<30||triangles<15000||(!mobile&&triangles>(detail==='high'?220000:100000))||faceMorphs<5)throw Error('HD mesh failed anatomy/rig budget: '+Math.round(triangles)+' triangles, '+bones.size+' bones');
   // Reject an enhanced phone fit before uploading it to the WebGL renderer if its texture footprint exceeds budget.
@@ -70,7 +70,7 @@ async function fitHDCharacter(gender:AvatarGender,raw:unknown,build:string,quali
      for(const selected of selections){const edited=originalForm(refined,selected.kind,selected.vertices);if(selected.kind==='wave-crop')waveVertices+=edited;else sovereignVertices+=edited;}
      if(muscleRefine)anatomyVertices+=sculptLimbRelief(refined,skinVertices,muscleSegments);
      if(!selections.length&&staticRefine)sculptedVertices+=sculptSurfaceGeometry(refined,role,true);
-     if(densityRefine){const dense=refinePhoneSkin(refined,skinMaterials,materials.length,head?skinned.skeleton.bones.indexOf(head):-1,phoneTriangleBudget(quality)-triangles,Math.min(quality==='detail'?12000:6000,45000-refinedCount));if(dense){const prior=refined;refined=dense.geometry;mesh.geometry=refined;replacements[replacements.length-1].refined=refined;prior.dispose();triangles+=dense.addedTriangles;densityAdded+=dense.addedTriangles;refinedCount+=dense.addedVertices;}}
+     if(densityRefine){const dense=refinePhoneSkin(refined,skinMaterials,materials.length,head?skinned.skeleton.bones.indexOf(head):-1,phoneTriangleBudget(quality)-triangles,Math.min(quality==='detail'?12000:6000,45000-refinedCount));if(dense){const prior=refined;refined=dense.geometry;mesh.geometry=refined;const replacement=replacements.at(-1);if(!replacement)throw Error('Missing geometry ownership');replacement.refined=refined;prior.dispose();triangles+=dense.addedTriangles;densityAdded+=dense.addedTriangles;refinedCount+=dense.addedVertices;}}
      for(const candidate of drivers){const driver=secondarySurface(refined,candidate.kind,candidate.vertices);if(driver){secondary.push(driver);secondaryCount+=driver.count;}}
     }
    }

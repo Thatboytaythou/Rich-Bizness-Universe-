@@ -171,7 +171,7 @@ function addStreetWorld(scene: THREE.Scene,signal:AbortSignal,mobile:boolean): T
   const crowns=plants(foliageGeometry(mobile),new THREE.MeshStandardMaterial({vertexColors:true,roughness:.86,side:THREE.DoubleSide}),treeCanopies);
   crowns.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
   const breeze=new THREE.Matrix4(),windMatrix=new THREE.Matrix4();let windTime=0,lastWind=0;
-  world.userData.tickFoliage=(dt:number)=>{windTime+=dt;if(windTime-lastWind<.125)return;lastWind=windTime;for(let i=0;i<treeCanopies.length;i++){breeze.makeRotationZ(Math.sin(windTime*1.3+i*.41)*.026);windMatrix.multiplyMatrices(treeCanopies[i],breeze);crowns.setMatrixAt(i,windMatrix);}crowns.instanceMatrix.needsUpdate=true;};
+  world.userData.tickFoliage=(dt:number)=>{windTime+=dt;if(windTime-lastWind<.125)return;lastWind=windTime;for(let i=0;i<treeCanopies.length;i++){breeze.makeRotationZ(Math.sin(windTime*1.3+i*.41)*.026);const canopy=treeCanopies[i];if(!canopy)continue;windMatrix.multiplyMatrices(canopy,breeze);crowns.setMatrixAt(i,windMatrix);}crowns.instanceMatrix.needsUpdate=true;};
   const carPositions = [
     [-4.9, -17, 0], [4.9, -31, Math.PI], [-4.9, -50, 0], [4.9, -67, Math.PI]
   ] as const;
@@ -262,7 +262,7 @@ export async function mount(): Promise<void> {
   const original=hasSavedOriginal(snap);
   let controller:Record<string,any>={};
   if(snap.loadout.controller_profile_id){
-    const {data}=await supabase.from('avatar_controller_profiles').select('*').eq('id',snap.loadout.controller_profile_id).maybeSingle().abortSignal(abort.signal);
+    const {data}=await supabase.from('avatar_controller_profiles').select('*').eq('id',snap.loadout.controller_profile_id).abortSignal(abort.signal).maybeSingle();
     controller=(data??{}) as Record<string,any>;
   }
   if(!isCurrent())return;
@@ -283,7 +283,7 @@ export async function mount(): Promise<void> {
   let residence:Residence={...defaultResidence};let evening=false,residenceReady=false,residenceSaving=false;
   const canvas = root.querySelector<HTMLCanvasElement>('#lobbyCanvas')!;
   // Only the public catalog template is entered; personal room geometry is local to this session.
-  void (async()=>{try{const {data,error}=await supabase.from('meta_worlds').select('id,access_type').eq('slug',definition.slug).eq('status','active').eq('access_type','public').maybeSingle().abortSignal(abort.signal);if(!isCurrent())return;if(error||!data){worldStatus.textContent='Catalog entry unavailable • local exploration';return;}if(!original){worldStatus.textContent='Preview identity • save a character to link visits';return;}const entered=await supabase.rpc('rb_enter_meta_world',{p_world_id:data.id}).abortSignal(abort.signal);if(!isCurrent())return;worldStatus.textContent=!entered.error&&(entered.data as any)?.entered===true?'Rich ID world entry confirmed':'World entry not confirmed • local exploration';}catch{if(isCurrent())worldStatus.textContent='World service unavailable • local exploration';}})();
+  void (async()=>{try{const {data,error}=await supabase.from('meta_worlds').select('id,access_type').eq('slug',definition.slug).eq('status','active').eq('access_type','public').abortSignal(abort.signal).maybeSingle();if(!isCurrent())return;if(error||!data){worldStatus.textContent='Catalog entry unavailable • local exploration';return;}if(!original){worldStatus.textContent='Preview identity • save a character to link visits';return;}const entered=await supabase.rpc('rb_enter_meta_world',{p_world_id:data.id}).abortSignal(abort.signal);if(!isCurrent())return;worldStatus.textContent=!entered.error&&(entered.data as any)?.entered===true?'Rich ID world entry confirmed':'World entry not confirmed • local exploration';}catch{if(isCurrent())worldStatus.textContent='World service unavailable • local exploration';}})();
   const quality = qualityProfile();
   const scene = new THREE.Scene();
   scene.background = new THREE.Color(0xa9c9d8);
