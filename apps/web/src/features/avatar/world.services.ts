@@ -4,7 +4,7 @@ import {getAuthSnapshot} from '../../core/auth/auth-store';
 export type Residence={lighting:'daylight'|'evening';furnishing:'emerald'|'onyx'|'cognac'};
 export const defaultResidence:Residence={lighting:'daylight',furnishing:'emerald'};
 export async function readResidence(userId:string,signal:AbortSignal):Promise<Residence>{
-  const {data,error}=await supabase.from('rb_residence_settings').select('lighting,furnishing').eq('user_id',userId).maybeSingle().abortSignal(signal);
+  const {data,error}=await supabase.from('rb_residence_settings').select('lighting,furnishing').eq('user_id',userId).abortSignal(signal).maybeSingle();
   if(error)throw Error(error.message);return data?data as Residence:{...defaultResidence};
 }
 export async function saveResidence(userId:string,value:Residence,signal:AbortSignal):Promise<Residence>{

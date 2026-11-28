@@ -25,7 +25,7 @@ export type Database = {
       podcast_comments: Table; podcast_episodes: Table; podcast_likes: Table; podcast_shows: Table;
       product_likes: Table; product_views: Table; products: Table;
       profile_theme_settings: Table; profile_view_events: Table; profiles: Table; public_profile_cards: Table; push_devices: Table;
-      radio_likes: Table; radio_sessions: Table; radio_stations: Table; rank_rules: Table; rb_personality_settings: Table; rb_secret_rooms: Table; rich_notifications: Table; route_access_rules: Table; route_registry: Table;
+      radio_likes: Table; radio_sessions: Table; radio_stations: Table; rank_rules: Table; rb_personality_settings: Table; rb_secret_rooms: Table; rb_world_presence: Table; rb_residence_settings: Table; rich_notifications: Table; route_access_rules: Table; route_registry: Table;
       search_clicks: Table; search_queries: Table; section_theme_settings: Table;
       sports_alert_subscriptions: Table; sports_brackets: Table; sports_broadcasts: Table; sports_comments: Table; sports_leagues: Table; sports_pick_results: Table; sports_picks: Table; sports_posts: Table; sports_profiles: Table; sports_reactions: Table; sports_teams: Table; sports_uploads: Table;
       storage_bucket_routes: Table; store_cart_items: Table; store_comments: Table; store_notifications: Table; store_orders: Table; store_seller_profiles: Table; stripe_sync_events: Table; system_health_checks: Table;

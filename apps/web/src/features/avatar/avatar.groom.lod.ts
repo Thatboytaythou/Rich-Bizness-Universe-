@@ -15,10 +15,11 @@ export function thinBeardIndices(position:THREE.BufferAttribute|THREE.Interleave
   const box=new THREE.Box3();for(const i of item.vertices){const p=new THREE.Vector3().fromBufferAttribute(position,i);if(!Number.isFinite(p.x+p.y+p.z))return null;box.expandByPoint(p);}
   const size=box.getSize(new THREE.Vector3());const center=box.getCenter(new THREE.Vector3());
   if(item.faces.length<2||item.faces.length>96||item.vertices.size<4||Math.max(size.x,size.y,size.z)>.035||[...item.vertices].some(i=>protectedVertices.has(i))){for(const f of item.faces)keep.add(f);continue;}
-  const key=[center.x,center.y,center.z].map(v=>Math.floor(v/.009)).join(':');let list=cells.get(key);if(!list)cells.set(key,list=[]);list.push(item);eligible+=item.faces.length;count++;
+  const cellSize=target<=1500?.024:.009;
+  const key=[center.x,center.y,center.z].map(v=>Math.floor(v/cellSize)).join(':');let list=cells.get(key);if(!list)cells.set(key,list=[]);list.push(item);eligible+=item.faces.length;count++;
  }
  if(count<64||eligible<indices.length/3*.65)return null;
- const ratio=Math.max(.18,Math.min(1,(target-keep.size)/eligible));
+ const ratio=Math.max(target<=1500?.025:.18,Math.min(1,(target-keep.size)/eligible));
  for(const list of cells.values()){const n=Math.max(1,Math.ceil(list.length*ratio));for(let i=0;i<n;i++){const cluster=list[Math.floor(i*list.length/n)]!;for(const f of cluster.faces)keep.add(f);}}
  if(keep.size>=indices.length/3)return null;const result:number[]=[];for(let i=0;i<indices.length;i+=3)if(keep.has(i))result.push(indices[i]!,indices[i+1]!,indices[i+2]!);
  return {indices:result,removedTriangles:(indices.length-result.length)/3,clusters:count,cells:cells.size};

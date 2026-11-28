@@ -3,8 +3,8 @@ import * as THREE from 'three';
 // The standalone asset is not a replacement for the existing skinned shoe fit.
 export function atlasShoeGeometry(){
  const v:number[]=[],uv:number[]=[],ix:number[]=[];
- const sections=[[-.135,.039,.027],[-.109,.049,.095],[-.065,.053,.116],[0,.054,.079],[.057,.061,.057],[.108,.055,.047],[.143,.036,.032],[.152,.009,.024]];
- for(let j=0;j<sections.length;j++){const [z,w,h]=sections[j];for(let k=0;k<24;k++){const a=2*Math.PI*k/24;v.push(Math.cos(a)*w,.02+Math.max(0,Math.sin(a))*h+Math.min(0,Math.sin(a))*.018,z);uv.push(k/24,j/(sections.length-1));}}
+ const sections: [number,number,number][]=[[-.135,.039,.027],[-.109,.049,.095],[-.065,.053,.116],[0,.054,.079],[.057,.061,.057],[.108,.055,.047],[.143,.036,.032],[.152,.009,.024]];
+ for(let j=0;j<sections.length;j++){const [z,w,h]=sections[j]!;for(let k=0;k<24;k++){const a=2*Math.PI*k/24;v.push(Math.cos(a)*w,.02+Math.max(0,Math.sin(a))*h+Math.min(0,Math.sin(a))*.018,z);uv.push(k/24,j/(sections.length-1));}}
  for(let j=0;j<sections.length-1;j++)for(let k=0;k<24;k++){const a=j*24+k,b=j*24+(k+1)%24;ix.push(a,b,a+24,b,b+24,a+24);}
  for(let k=1;k<23;k++){ix.push(0,k+1,k);const n=(sections.length-1)*24;ix.push(n,n+k,n+k+1);}
  const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(v,3));g.setAttribute('uv',new THREE.Float32BufferAttribute(uv,2));g.setIndex(ix);g.computeVertexNormals();g.computeBoundingBox();return g;

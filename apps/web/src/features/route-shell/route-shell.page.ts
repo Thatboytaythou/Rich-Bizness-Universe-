@@ -1,6 +1,7 @@
 import { ROUTES } from '@rb/config/routes';
 import { getAuthSnapshot } from '../../core/auth/auth-store';
 import { supabase } from '../../core/supabase/client';
+import type { Database } from '../../core/supabase/database.types';
 
 const LABELS: Record<string, string> = {
   'edit-profile': 'EDIT PROFILE',
@@ -14,7 +15,7 @@ const LABELS: Record<string, string> = {
 };
 
 async function loadCount(page: string, userId: string): Promise<number | null> {
-  const targets: Record<string, { table: string; column: string }> = {
+  const targets: Record<string, { table: keyof Database['public']['Tables']; column: string }> = {
     notifications: { table: 'rich_notifications', column: 'user_id' },
     messages: { table: 'dm_thread_members', column: 'user_id' },
     upload: { table: 'uploads', column: 'user_id' },

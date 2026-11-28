@@ -1,10 +1,11 @@
 import { mountAppShell } from '../../app-shell';
 import { supabase } from '../../core/supabase/client';
+import type { Database } from '../../core/supabase/database.types';
 
 export type SectionPageConfig = Readonly<{
   title: string;
   route: string;
-  table: string;
+  table: keyof Database['public']['Tables'];
   section?: string;
   emptyMessage: string;
   columns?: string;
@@ -28,7 +29,8 @@ export async function mountSectionPage(config: SectionPageConfig): Promise<void>
     return;
   }
 
-  const rows = Array.isArray(data) ? data : [];
+  const raw: unknown = data;
+  const rows = (Array.isArray(raw) ? raw : []).filter((record): record is Record<string, unknown> => !!record && typeof record === 'object' && !Array.isArray(record));
   state.dataset.state = rows.length ? 'ready' : 'empty';
   state.innerHTML = rows.length
     ? `<div class="rb-card-grid">${rows.map(renderRecord).join('')}</div>`
