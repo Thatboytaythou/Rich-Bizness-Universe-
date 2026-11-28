@@ -7,3 +7,7 @@ playwright-report/
 test-results/
 .DS_Store
 *.log
+
+# Generated from tracked original universe artwork at build time
+apps/web/public/images/brand/rb-universe-*.webp
+apps/web/public/images/brand/rb-universe-art.json

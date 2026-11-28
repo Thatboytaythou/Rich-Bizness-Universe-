@@ -46,3 +46,5 @@ const total=files=>[...files].filter(p=>p.endsWith('.js')).reduce((sum,p)=>sum+s
 console.log('Maximum Evolution cold module gate: Live '+total(liveCold)+' bytes; character dispatcher '+total(fitCold)+' bytes; six shell routes free of eager 3D/video dependencies');
 
 assert.ok([...fitCold].every(p=>!p.includes('vendor-three')),'Character configuration dispatcher still imports Three.js');assert.ok(total(fitCold)<350000,'Character dispatcher exceeds 350 KB cold dependency budget');console.log('Maximum Evolution actual dispatcher reduction: '+(1017221-total(fitCold))+' bytes versus c2a925db baseline');
+
+const art=JSON.parse(read('images/brand/rb-universe-art.json'));assert.equal(art.variants.length,3);for(const [i,w] of [1080,1920,3840].entries()){const v=art.variants[i];assert.equal(v.width,w);assert.ok(v.height>0&&Math.abs(v.width/v.height-art.original.width/art.original.height)<.005);assert.equal(statSync(resolve(dist,'images/brand',v.file)).size,v.bytes);assert.ok(v.bytes<=v.budget);}console.log('Responsive cinematic artwork budgets verified: '+art.variants.map(v=>v.width+'px / '+v.bytes+' bytes').join(', '));

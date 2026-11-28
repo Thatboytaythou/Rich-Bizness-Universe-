@@ -1,7 +1,6 @@
 import { getAuthSnapshot, subscribeAuth } from '../../core/auth/auth-store';
 import './home.css';
 
-const BACKGROUND='/images/0E886281-8F03-4288-B3CA-C45369B7B58E.png';
 const HOME_OWNER='rich-bizness-home-v1';
 
 export async function mountHomePage():Promise<void>{
@@ -16,7 +15,7 @@ export async function mountHomePage():Promise<void>{
   const primaryHref=signedIn?'/portal.html':'/tap-in.html?next=%2Fportal.html';
   const primaryLabel=signedIn?'ENTER UNIVERSE':'TAP IN';
 
-  app.innerHTML=`<main class="rb-home" style="--rb-home-bg:url('${BACKGROUND}')">
+  app.innerHTML=`<main class="rb-home" data-rb-universe-art="cinematic">
     <div class="rb-home__bg" aria-hidden="true"></div>
     <div class="rb-home__shade" aria-hidden="true"></div>
 
