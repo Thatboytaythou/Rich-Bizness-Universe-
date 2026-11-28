@@ -1,6 +1,6 @@
 import {renderScheduler} from '../../core/experience/render-scheduler';
 import * as THREE from 'three';
-import {automotiveShell,foliageGeometry,streetVehicleBody} from './avatar.visual.assets';
+import {automotiveShell,foliageGeometry,streetVehicleBody,streetLampLens} from './avatar.visual.assets';
 import {createCinematicSky,createGroundShade,glassGradient} from './avatar.cinematic.depth';
 import {phoneRenderLimit,smoothPlayback} from './avatar.quality.v31';
 import {studioFrameInterval} from './avatar.energy.motion';
@@ -187,7 +187,7 @@ function addStreetWorld(scene: THREE.Scene,signal:AbortSignal,mobile:boolean): T
   const wheelGeo=new THREE.CylinderGeometry(.29,.29,.20,22),rimGeo=new THREE.CylinderGeometry(.18,.18,.212,16);
   const hubGeo=new THREE.CylinderGeometry(.07,.07,.23,12),spokeGeo=new THREE.BoxGeometry(.023,.28,.022);
   const rimMat=new THREE.MeshStandardMaterial({color:0x8b9a9e,metalness:.82,roughness:.25}),headMat=new THREE.MeshBasicMaterial({color:0xffebc9}),tailMat=new THREE.MeshBasicMaterial({color:0xbe273b});
-  const lampGeo=new THREE.BoxGeometry(.34,.095,.045);
+  const lampLenses=[-1,1].map(side=>({front:streetLampLens(false,side,mobile),rear:streetLampLens(true,side,mobile)}));
   const spokeMatrices:THREE.Matrix4[]=[];const spokeDummy=new THREE.Object3D();let showcase:THREE.Group|undefined;
   carPositions.forEach(([x, z, rotation], index) => {
     const car = new THREE.Group();
@@ -208,7 +208,7 @@ function addStreetWorld(scene: THREE.Scene,signal:AbortSignal,mobile:boolean): T
       car.add(wheel);const rim=new THREE.Mesh(rimGeo,rimMat);rim.rotation.z=Math.PI/2;rim.position.copy(wheel.position);car.add(rim);const hub=new THREE.Mesh(hubGeo,chrome);hub.rotation.z=Math.PI/2;hub.position.copy(wheel.position);car.add(hub);
       for(let i=0;i<3;i++){spokeDummy.position.set(sx+Math.sign(sx)*.115,.29,sz);spokeDummy.rotation.set(i*Math.PI/3,0,0);spokeDummy.updateMatrix();const matrix=new THREE.Matrix4().makeRotationY(rotation);matrix.setPosition(x,0,z);spokeMatrices.push(matrix.multiply(spokeDummy.matrix));}
     }
-    for(const x of [-.42,.42]){const front=new THREE.Mesh(lampGeo,headMat);front.position.set(x,.48,1.67);car.add(front);const rear=new THREE.Mesh(lampGeo,tailMat);rear.position.set(x,.51,-1.68);car.add(rear);}
+    for(const lenses of lampLenses){car.add(new THREE.Mesh(lenses.front,headMat),new THREE.Mesh(lenses.rear,tailMat));}
     addShade(x,.011,z,2.55,4.15);car.position.set(x, 0, z);
     car.rotation.y = rotation;
     world.add(car);if(index===0)showcase=car;

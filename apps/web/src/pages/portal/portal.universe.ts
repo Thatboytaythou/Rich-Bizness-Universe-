@@ -33,6 +33,6 @@ export async function mountPortalPage():Promise<void>{
  window.addEventListener('online',()=>void refresh(),{signal:lifecycle.signal});
  prefers.addEventListener('change',()=>{setMotion(prefers.matches||memberReduced);},{signal:lifecycle.signal});
  get('rbPortalRefresh')?.addEventListener('click',()=>void refresh(),{signal:lifecycle.signal});
- const host=window as Window&{__rbPageCleanup?:(()=>void|Promise<void>)|null};const cleanup=()=>{if(disposed)return;disposed=true;lifecycle.abort();pending?.abort();clearTimeout(timeout);clearInterval(poll);cleanupMotion();if(host.__rbPageCleanup===cleanup)host.__rbPageCleanup=null;};host.__rbPageCleanup=cleanup;window.addEventListener('pagehide',cleanup,{signal:lifecycle.signal,once:true});
+ const host=window as Window&{__rbPageCleanup?:(()=>void|Promise<void>)|null};const cleanup=()=>{if(disposed)return;disposed=true;lifecycle.abort();pending?.abort();clearTimeout(timeout);clearInterval(poll);cleanupMotion();if(host.__rbPageCleanup===cleanup)host.__rbPageCleanup=null;};host.__rbPageCleanup=cleanup;window.addEventListener('pagehide',event=>{if(!event.persisted)cleanup();else{pending?.abort();}},{signal:lifecycle.signal});window.addEventListener('pageshow',event=>{if(event.persisted&&isCurrent()){pauseVisuals();void refresh();}},{signal:lifecycle.signal});
  void refresh();
 }

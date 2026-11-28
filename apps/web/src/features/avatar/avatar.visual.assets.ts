@@ -40,3 +40,16 @@ export function streetVehicleBody(variant:number,mobile:boolean){
  const sections=base.map(([z,w,b,t],i)=>{const middle=Math.sin(Math.PI*i/(base.length-1));return [z,w+(variant===2?.045*middle:variant===1?-.025*middle:0),b,t+(variant===1?.045*middle:variant===2?.018*middle:0)] as const;});
  return automotiveShell(sections,mobile?16:28);
 }
+
+/** Original swept LED signature, closed lens volume; mirror on the opposite side.
+ * No texture, network dependency, or additional draw call relative to the old lamp. */
+export function streetLampLens(rear:boolean,side:number,mobile:boolean){
+ const segments=mobile?6:12,vertices:number[]=[],indices:number[]=[];
+ for(let i=0;i<=segments;i++){const t=i/segments,x=(.25+.38*t)*side,y=(rear?.50:.48)+.055*t-.025*Math.sin(Math.PI*t),z=(rear?-1:1)*(1.70-.14*t*t),h=.021+.015*Math.sin(Math.PI*t),depth=.022;
+ vertices.push(x,y-h,z-depth,x,y+h,z-depth,x,y+h,z+depth,x,y-h,z+depth);
+ if(i){const a=(i-1)*4,b=i*4;for(let k=0;k<4;k++){const next=(k+1)%4;indices.push(a+k,b+k,b+next,a+k,b+next,a+next);}}
+ }
+ const end=segments*4;indices.push(0,1,2,0,2,3,end,end+2,end+1,end,end+3,end+2);
+ if(side<0)for(let i=0;i<indices.length;i+=3){const t=indices[i+1]!;indices[i+1]=indices[i+2]!;indices[i+2]=t;}
+ const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(vertices,3));g.setIndex(indices);g.computeVertexNormals();g.computeBoundingBox();g.computeBoundingSphere();return g;
+}
