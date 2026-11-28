@@ -120,7 +120,7 @@ export async function mount(): Promise<void> {
     if (shouldPlay) await playActive();
   };
 
-  const moveQueue = async (direction: number) => { const catalog = tracks(); if (!catalog.length || !isCurrent()) return; const current = activeIndex(); const next = current < 0 ? 0 : (current + direction + catalog.length) % catalog.length; countedTrack = null; await openTrack(catalog[next], true); };
+  const moveQueue = async (direction: number) => { const catalog = tracks(); if (!catalog.length || !isCurrent()) return; const current = activeIndex(); const next = current < 0 ? 0 : (current + direction + catalog.length) % catalog.length; const selected=catalog[next];if(!selected)return;countedTrack = null; await openTrack(selected, true); };
 
   commentForm.onsubmit = async (event) => { event.preventDefault(); if (!active || !requireUser() || !isCurrent()) return; const value = commentInput.value.trim(); if (!value) return; try { await action('comment', { track_id: active.id, comment: value }); commentInput.value = ''; await load(active.id); } catch (error) { setStatus(error instanceof Error ? error.message : 'Comment failed.', true); } };
   q<HTMLButtonElement>('#musicPrev').onclick = () => void moveQueue(-1);
