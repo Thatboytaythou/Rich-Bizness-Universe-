@@ -38,9 +38,9 @@ export function mountPortalMotion(options: MotionOptions): () => void {
   let disposed = false;
 
   const resize = () => {
-    dpr = Math.min(window.devicePixelRatio || 1, 2);
     width = Math.max(1, stage.clientWidth);
     height = Math.max(1, stage.clientHeight);
+    dpr = Math.min(window.devicePixelRatio || 1, 2, Math.sqrt(1800000 / (width * height)));
     canvas.width = Math.floor(width * dpr);
     canvas.height = Math.floor(height * dpr);
     canvas.style.width = `${width}px`;
@@ -93,8 +93,14 @@ export function mountPortalMotion(options: MotionOptions): () => void {
   };
 
   const animate = () => {
+    frame = 0;
+    if (disposed || document.hidden) return;
     paint(true);
     frame = window.requestAnimationFrame(animate);
+  };
+  const visibility = () => {
+    if(document.hidden){window.cancelAnimationFrame(frame);frame=0;}
+    else if(!options.reduced&&!disposed&&!frame)animate();
   };
 
   const move = (event: PointerEvent) => {
@@ -130,6 +136,7 @@ export function mountPortalMotion(options: MotionOptions): () => void {
   } else {
     stage.addEventListener('pointermove', move, { signal: lifecycle.signal, passive: true });
     stage.addEventListener('pointerleave', resetTilt, { signal: lifecycle.signal });
+    document.addEventListener('visibilitychange',visibility,{signal:lifecycle.signal});
     animate();
   }
 

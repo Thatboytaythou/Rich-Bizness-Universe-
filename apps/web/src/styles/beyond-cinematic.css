@@ -1,0 +1,35 @@
+/* Beyond cinematic V1. Paint-only, no hit targets, stacking, layout or identity changes. */
+body[data-rb-visual]{--rb-beyond-cinematic:1;--rb-metal:#efd69a;--rb-emerald:#79e9ab;--rb-depth:#07130f}
+body[data-rb-visual] :is(button,a,input,select,textarea):focus-visible{outline:2px solid #a9f7c4;outline-offset:3px}
+body[data-page="home"][data-rb-visual] .rb-home__bg{background-image:linear-gradient(180deg,rgba(2,8,5,.02),rgba(0,0,0,.68)),var(--rb-home-bg),linear-gradient(160deg,#0b2b1e,#020402 65%);background-position:center}
+body[data-page="home"][data-rb-visual] .rb-home__shade{background:radial-gradient(ellipse at 74% 38%,#86ffd322,transparent 36%),linear-gradient(90deg,#000d,#0003 50%,#0007)}
+body[data-page="home"][data-rb-visual] .rb-home__copy h1{color:#fff7e2;text-shadow:0 3px 12px #000a}
+body[data-page="home"][data-rb-visual] .rb-home__copy h1 span{color:#b1f7cd;text-shadow:0 2px 0 #174e32,0 0 24px #45c98e65}
+body[data-page="home"][data-rb-visual] .rb-home__enter,body[data-page="home"][data-rb-visual] .rb-home__actions a:not(.primary){border-color:#e5c87970;background:linear-gradient(145deg,#183b2ce8,#06110eeb);box-shadow:inset 0 1px #ffffff20,0 8px 22px #0007}
+body[data-page="portal"][data-rb-visual] .portal-bg{filter:none;background-image:linear-gradient(180deg,#00110a0a,#000a),var(--portal-bg),linear-gradient(150deg,#153e2b,#020402)}
+body[data-page="portal"][data-rb-visual] :is(.portal-node,.portal-media-node,.portal-profile,.portal-stats article,.portal-actions a){border-color:#d9bb6d7a;box-shadow:inset 0 1px #fff3,0 5px 20px #0009}
+body[data-page="portal"][data-rb-visual] :is(.portal-node,.portal-media-node){background-image:linear-gradient(150deg,#25503d55,#030c09b8)}
+body[data-page="tap-in"][data-rb-visual] .auth-shell{background:radial-gradient(ellipse at 14% 24%,#21654280,transparent 47%),linear-gradient(145deg,#102b20,#020906 70%)}
+body[data-page="tap-in"][data-rb-visual] .auth-visual h1{color:#f8edce;text-shadow:0 3px 0 #382b12,0 10px 25px #0008}
+body[data-page="tap-in"][data-rb-visual] .auth-mark{background:radial-gradient(circle at 35% 28%,#70bb8b,#184c32 40%,#06150e 72%);border-color:#ffe0a0;box-shadow:inset 0 1px #fff5,0 0 28px #51ce9440}
+body[data-page="tap-in"][data-rb-visual] .auth-card{background:linear-gradient(150deg,#173629,#07120d 50%,#040c08);border-color:#d7bc7070;box-shadow:inset 0 1px #fff3,0 20px 48px #0009}
+body[data-page="tap-in"][data-rb-visual] .auth-primary{background:linear-gradient(115deg,#a9f7c4,#eacf8d 65%,#b28b40);box-shadow:inset 0 1px #fff8,0 5px 15px #0005}
+body[data-rb-visual="universe"] :is(.deep-shell,.upload-shell,.store-shell,.feed-shell,.search-shell,.ac-shell){background-image:radial-gradient(ellipse at 10% 0%,#2b745335,transparent 43%),radial-gradient(ellipse at 90% 5%,#9a73331c,transparent 35%),linear-gradient(160deg,#0b1d17,#040b08 45%,#020504)}
+body[data-rb-visual="universe"] :is(.deep-top,.upload-head,.store-head,.feed-top,.search-head,.ac-shell>header){border-color:#d9bf7c68;background-image:linear-gradient(145deg,#173a2b,#07130f 75%);box-shadow:inset 0 1px #fff2,0 8px 20px #0005}
+body[data-rb-visual="universe"] :is(.deep-top,.upload-head,.store-head,.feed-top,.search-head,.ac-shell>header) h1{color:#f6e4b8;text-shadow:0 2px 0 #4b3317,0 4px 12px #0006}
+body[data-rb-visual="universe"] :is(.upload-card,.store-card,.feed-card,.search-card,.ac-editor,.ac-stage,.deep-card,.gallery-card){border-color:#d2b77c50;box-shadow:inset 0 1px #fff1,0 9px 24px #0005}
+body[data-rb-visual="universe"] :is(.store-media,.search-media,.upload-preview,.feed-media,.ac-viewport){background-color:#071711;outline:1px solid #d5bd7350;outline-offset:-1px}
+body[data-rb-visual="universe"] :is(.store-media,.search-media,.upload-preview) img{image-rendering:auto}
+body[data-rb-visual="game"]{--rb-game-accent:#88e9b1;--rb-game-glow:#33865a;--rb-game-gold:#ebcf91}
+body[data-rb-visual="game"]:is([data-page="aura-shinobi-clash"],[data-page="rich-samurais-son-ninja"],[data-page="hero-villain-showdown"],[data-page="smoke-burst-arena"]){--rb-game-accent:#c1a5ff;--rb-game-glow:#6445a8}
+body[data-rb-visual="game"]:is([data-page="dj-radio-run"],[data-page="portal-dash"],[data-page="portal-room-rush"],[data-page="rich-color-clash"]){--rb-game-accent:#94e5ff;--rb-game-glow:#266c8a}
+body[data-rb-visual="game"]:is([data-page="treehouse-ride"],[data-page="smoke-city-hustle"],[data-page="money-road-runner"],[data-page="avatar-free-roam"]){--rb-game-accent:#f4cb88;--rb-game-glow:#8c642d}
+body[data-rb-visual="game"] #app>main{background-image:radial-gradient(ellipse at 50% 0%,color-mix(in srgb,var(--rb-game-glow) 28%,transparent),transparent 46%),linear-gradient(160deg,#11201b,#040908 55%,#020504)}
+body[data-rb-visual="game"] #app>main header:first-of-type{border-color:#d1b77a70;background-image:linear-gradient(135deg,#1b3a2e,#06120e);box-shadow:inset 0 1px #fff2,0 6px 18px #0008}
+body[data-rb-visual="game"] #app>main header:first-of-type h1{color:var(--rb-game-gold);text-shadow:0 2px 0 #47371f,0 4px 12px #0008}
+body[data-rb-visual="game"] #app>main :is(section,div)[class$="-hero"]{border-color:#d2b77560;background-image:linear-gradient(105deg,#0b1915ed,#101c18b0),radial-gradient(ellipse at 78% 20%,var(--rb-game-glow),transparent 60%)}
+body[data-rb-visual="game"] #app>main :is(section,div)[class$="-hero"] h2{color:var(--rb-game-gold);text-shadow:0 2px 0 #50391b,0 0 18px #0008}
+body[data-rb-visual="game"] #app>main :is(section,div):is([class$="-stage"],[class$="-arena"],[class$="-board-shell"],[class$="-board-wrap"],[class$="-table"],[class$="-map"],[class$="-market"]){border-color:var(--rb-game-accent);box-shadow:inset 0 0 0 1px #fff1,0 0 18px color-mix(in srgb,var(--rb-game-glow) 40%,transparent),0 12px 30px #0008}
+body[data-rb-visual="game"] #app>main :is(section,article):is([class$="-card"],[class$="-panel"]){border-color:#d4bc7850;box-shadow:inset 0 1px #fff1,0 6px 18px #0006}
+body[data-rb-visual="game"] #app>main canvas{image-rendering:auto}
+@media(max-width:760px){body[data-rb-visual="game"] #app>main :is(section,article):is([class$="-card"],[class$="-panel"]){box-shadow:inset 0 1px #fff1}body[data-page="home"][data-rb-visual] .rb-home__shade{background:linear-gradient(180deg,#0003,#000b 82%)}}

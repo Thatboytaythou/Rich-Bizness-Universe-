@@ -1,10 +1,10 @@
 // Resolution limits are in actual canvas pixels, not CSS pixels. Start safe.
 export type PhoneQuality='auto'|'detail';
 export function phoneRenderLimit(quality:PhoneQuality,frameMs:number,samples:number,current:number){
- const maximum=quality==='detail'?900:640;
+ const maximum=quality==='detail'?1080:800;
  if(!Number.isFinite(frameMs)||samples<90)return Math.min(640,maximum,current);
  if(frameMs>51)return Math.max(480,Math.min(maximum,current-80));
- if(frameMs<37)return Math.min(maximum,current+64);
+ if(frameMs<35)return Math.min(maximum,current+48);
  return Math.min(maximum,current);
 }
 export const PHONE_TRIANGLE_BUDGET={auto:60000,detail:75000} as const;

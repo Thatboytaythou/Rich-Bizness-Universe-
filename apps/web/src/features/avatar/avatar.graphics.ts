@@ -72,7 +72,7 @@ export function createStudioGraphics(canvas:HTMLCanvasElement,initial:CharacterC
       }
       if(runtime){contact.material.opacity=Math.max(.14,1-runtime.root.position.y*1.6);contact.scale.setScalar(1+runtime.root.position.y*.6);directionalShade.material.opacity=Math.max(.12,.86-runtime.root.position.y);directionalShade.scale.setScalar(1+runtime.root.position.y*.4);}
       if(shot==='orbit'&&runtime&&!reduced.matches){orbitAngle=(orbitAngle+dt*.38)%(Math.PI*2);pose();}
-      renderer.render(scene,camera);drawCost+=.12*(performance.now()-drawStarted-drawCost);if(mobile&&runtime&&!loading&&measured>=90&&now-lastAdapt>3200){lastAdapt=now;const limit=phoneRenderLimit(quality,frameAverage,measured,phoneLimit);if(limit!==phoneLimit){phoneLimit=limit;resize();}}if(!mobile&&measured>30&&now-lastAdapt>2500&&!loading){lastAdapt=now;const next=nextRenderScale(frameScale,frameAverage,measured,mobile);if(Math.abs(next-frameScale)>.01){frameScale=next;resize();}}if(now-lastTelemetry>1000){lastTelemetry=now;canvas.dataset.rbFps=String(Math.round(1000/frameAverage));canvas.dataset.rbResolution=renderer.domElement.width+'×'+renderer.domElement.height;canvas.dataset.rbRenderScale=String(Math.round(frameScale*100));canvas.dataset.rbDrawCalls=String(renderer.info.render.calls);canvas.dataset.rbTriangles=String(renderer.info.render.triangles);canvas.dataset.rbTextures=String(renderer.info.memory.textures);}if(shaderError){fail('Material shader compilation failed');return;}dirty=false;if(runtime){if(awaitingFrame){awaitingFrame=false;onAssetStatus('ready',runtime.assetLabel??'Selected fitted wardrobe rendered');}onFrame();}
+      renderer.render(scene,camera);drawCost+=.12*(performance.now()-drawStarted-drawCost);if(mobile&&runtime&&!loading&&measured>=90&&now-lastAdapt>3200){lastAdapt=now;const limit=phoneRenderLimit(quality,drawCost>24?Math.max(52,frameAverage):frameAverage,measured,phoneLimit);if(limit!==phoneLimit){phoneLimit=limit;resize();}}if(!mobile&&measured>30&&now-lastAdapt>2500&&!loading){lastAdapt=now;const next=nextRenderScale(frameScale,frameAverage,measured,mobile);if(Math.abs(next-frameScale)>.01){frameScale=next;resize();}}if(now-lastTelemetry>1000){lastTelemetry=now;canvas.dataset.rbFps=String(Math.round(1000/frameAverage));canvas.dataset.rbResolution=renderer.domElement.width+'×'+renderer.domElement.height;canvas.dataset.rbRenderScale=String(Math.round(frameScale*100));canvas.dataset.rbDrawCalls=String(renderer.info.render.calls);canvas.dataset.rbTriangles=String(renderer.info.render.triangles);canvas.dataset.rbTextures=String(renderer.info.memory.textures);}if(shaderError){fail('Material shader compilation failed');return;}dirty=false;if(runtime){if(awaitingFrame){awaitingFrame=false;onAssetStatus('ready',runtime.assetLabel??'Selected fitted wardrobe rendered');}onFrame();}
       if(anim||living){dirty=true;schedule();}else previous=0;
     }catch(error){fail(error instanceof Error?error.message:'WebGL draw failed');}
   };
@@ -82,10 +82,10 @@ export function createStudioGraphics(canvas:HTMLCanvasElement,initial:CharacterC
     canvas.dataset.rbVisualMode=mode;canvas.dataset.rbBehaviorMode=value.behavior;
     const cinematic=mode==='cinematic',expressive=mode==='expressive';
     renderer.toneMappingExposure=cinematic?1.0:expressive?1.0:.94;
-    hemi.intensity=cinematic?.78:expressive?1.02:.85;
-    key.color.setHex(cinematic?0xfff0df:expressive?0xfff2da:0xc3adff);key.intensity=cinematic?2.45:expressive?2.25:2.85;
-    fill.color.setHex(mode==='fantasy'?0x9e74ff:0xdce9ff);fill.intensity=mode==='fantasy'?1.6:cinematic?.60:.82;
-    rim.color.setHex(mode==='fantasy'?aura(latest.aura):0xf1ddc0);rim.intensity=mode==='fantasy'?2.8:cinematic?1.10:1.45;
+    hemi.intensity=cinematic?.72:expressive?1.02:.85;
+    key.color.setHex(cinematic?0xfff0df:expressive?0xfff2da:0xc3adff);key.intensity=cinematic?2.65:expressive?2.25:2.85;
+    fill.color.setHex(mode==='fantasy'?0x9e74ff:0xdce9ff);fill.intensity=mode==='fantasy'?1.6:cinematic?.84:.82;
+    rim.color.setHex(mode==='fantasy'?aura(latest.aura):0xf1ddc0);rim.intensity=mode==='fantasy'?2.8:cinematic?1.55:1.45;
     (scene.background as THREE.Color).setHex(cinematic?0x1b2325:expressive?0x293333:0x11152a);
     (scene.fog as THREE.FogExp2).color.copy(scene.background as THREE.Color);
     floor.material.color.setHex(cinematic?0x333537:expressive?0x414847:0x201c3b);ring.visible=mode==='fantasy';directionalShade.visible=mobile&&mode!=='fantasy';
@@ -94,7 +94,7 @@ export function createStudioGraphics(canvas:HTMLCanvasElement,initial:CharacterC
     invalidate();
   };
   const stopExperience=subscribeExperience(applyExperience);
-  const resize=()=>{if(disposed||failed)return;const rect=canvas.getBoundingClientRect();if(rect.width<2||rect.height<2)return;const limit=mobile?phoneLimit:1600;const scale=Math.min(mobile?(quality==='detail'?2.25:1.65):quality==='detail'?1.5:1,limit/Math.max(rect.width,rect.height))*frameScale;const width=Math.max(1,Math.round(rect.width*scale)),height=Math.max(1,Math.round(rect.height*scale));if(canvas.width!==width||canvas.height!==height)renderer.setSize(width,height,false);const aspect=rect.width/rect.height;if(Math.abs(camera.aspect-aspect)>.0001){camera.aspect=aspect;pose();}invalidate();};
+  const resize=()=>{if(disposed||failed)return;const rect=canvas.getBoundingClientRect();if(rect.width<2||rect.height<2)return;const limit=mobile?phoneLimit:1920;const scale=Math.min(mobile?(quality==='detail'?2.5:2):quality==='detail'?1.75:1.25,limit/Math.max(rect.width,rect.height))*frameScale;const width=Math.max(1,Math.round(rect.width*scale)),height=Math.max(1,Math.round(rect.height*scale));if(canvas.width!==width||canvas.height!==height)renderer.setSize(width,height,false);const aspect=rect.width/rect.height;if(Math.abs(camera.aspect-aspect)>.0001){camera.aspect=aspect;pose();}invalidate();};
   const drain=async()=>{
     if(loading||disposed||failed)return;loading=true;
     try{
