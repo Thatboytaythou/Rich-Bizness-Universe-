@@ -48,6 +48,14 @@ export function createOriginalAvatar(gender:AvatarGender,raw:unknown,build='athl
   if(look.top==='vest'){for(const s of[-1,1]){box(spine,trim,s*.075,.17,.104,.095,.13,.025);box(spine,gold,s*.075,.23,.123,.035,.008,.008);}}
   if(look.top==='tee')box(spine,trim,0,.03,.085,.23,.025,.013);
   box(spine,gold,0,.11,.10,.043,.027,.013);
+  // Original tailored lapels and pocket welts follow the fitted torso.
+  if(look.top==='jacket'){
+    for(const side of [-1,1]){
+      const lapel=new THREE.Shape();lapel.moveTo(side*.035,.365);lapel.lineTo(side*.112,.31);lapel.lineTo(side*.075,.20);lapel.lineTo(side*.024,.29);lapel.closePath();
+      const g=new THREE.ExtrudeGeometry(lapel,{depth:.008,bevelEnabled:false,steps:1});mesh(spine,g,trim,0,0,.105);
+      const welt=box(spine,gold,side*.084,.145,.112,.064,.008,.009);welt.rotation.z=side*.12;
+    }
+  }
   const neck=group(spine,'rbNeck',0,.39,0);limb(neck,skin,[[.064,-.025],[.051,.012],[.043,.060],[.048,.104],[.057,.12]],0,.90);
   const head=group(neck,'rbHead',0,.13,0);
   const jaw=look.face==='strong'?1.12:look.face==='soft'?.9:1;
