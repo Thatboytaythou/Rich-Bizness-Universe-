@@ -9,7 +9,7 @@ type CleanupHost = Window & { __rbPageCleanup?: (() => void | Promise<void>) | n
 
 const esc = (value: unknown) => String(value ?? '').replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char] ?? char));
 const fmt = (value: unknown) => Number(value ?? 0).toLocaleString();
-const safeMedia = (value: unknown) => { try { const url = new URL(String(value || ''), location.origin); return ['http:', 'https:'].includes(url.protocol) ? url.href : ''; } catch { return ''; } };
+const safeMedia = (value: unknown) => { if(typeof value!=='string'||!value.trim())return '';try { const url = new URL(String(value || ''), location.origin); return ['http:', 'https:'].includes(url.protocol) ? url.href : ''; } catch { return ''; } };
 
 export async function mount(): Promise<void> {
   const root = document.querySelector<HTMLElement>('#app');
@@ -50,7 +50,7 @@ export async function mount(): Promise<void> {
   let catalogChannel: Channel | null = null;
   let commentChannel: Channel | null = null;
   let listenerChannel: Channel | null = null;
-  let loading = false;
+  let loading = false;let selection=0,commentBusy=false;const actions=new Set<string>();
   let queued = false;
   let refreshTimer = 0;
   let statusTimer = 0;
@@ -86,7 +86,7 @@ export async function mount(): Promise<void> {
       if (error) throw error;
       if (!isCurrent()) return;
       snapshot = (data ?? {}) as Snapshot;
-      if (active) active = tracks().find((row) => String(row.id) === String(active?.id)) ?? active;
+      if(active){const verified=tracks().find(row=>String(row.id)===String(active?.id));if(!verified){active=null;audio.pause();audio.removeAttribute('src');audio.load();player.hidden=true;hero.innerHTML='<div class="sound-empty">Track unavailable.</div>';}else active=verified;}
       renderCatalog(); renderComments();
     } catch (error) {
       if (!isCurrent()) return;
@@ -99,9 +99,9 @@ export async function mount(): Promise<void> {
 
   const openTrack = async (track: Row, shouldPlay = false) => {
     if (!isCurrent()) return;
-    active = track;
+    const revision=++selection;active = track;
     await load(track.id);
-    if (!isCurrent()) return;
+    if (!isCurrent()||revision!==selection||String(active?.id)!==String(track.id)) return;
     const state = snapshot.active_state ?? {};
     const cover = safeMedia(track.cover_url) || '/images/brand/IMG_5997.png';
     hero.innerHTML = `<img src="${esc(cover)}" alt=""><div class="sound-copy"><span>RICH SOUND · ${esc(track.genre || 'MUSIC')}</span><h2>${esc(track.title || 'Untitled Track')}</h2><p>${esc(track.description || track.display_name || track.username || 'Rich Bizness Artist')}</p><div class="sound-actions"><button id="musicPlayBtn" class="sound-btn primary">▶ PLAY</button><button id="musicLikeBtn" class="sound-btn">${state.liked ? '♥ LIKED' : '♡ LIKE'}</button><button id="musicRotationBtn" class="sound-btn">${state.in_rotation ? 'REMOVE ROTATION' : 'ADD ROTATION'}</button></div></div>`;
@@ -109,10 +109,10 @@ export async function mount(): Promise<void> {
     q<HTMLImageElement>('#musicPlayerCover').src = cover;
     q<HTMLElement>('#musicPlayerTitle').textContent = track.title || 'Untitled Track';
     q<HTMLElement>('#musicPlayerMeta').textContent = `${track.display_name || track.username || 'Rich Bizness Artist'} · ${track.genre || 'Music'}`;
-    audio.src = safeMedia(track.audio_url || track.file_url);
+    const source=safeMedia(track.audio_url||track.file_url);if(source!==audio.getAttribute('src')){audio.pause();if(source)audio.src=source;else{audio.removeAttribute('src');audio.load();}}
     q<HTMLButtonElement>('#musicPlayBtn').onclick = () => void playActive();
-    q<HTMLButtonElement>('#musicLikeBtn').onclick = async () => { if (!requireUser()) return; try { await action('toggle_like', { track_id: track.id }); await openTrack(track, false); } catch (error) { setStatus(error instanceof Error ? error.message : 'Like failed.', true); } };
-    q<HTMLButtonElement>('#musicRotationBtn').onclick = async () => { if (!requireUser()) return; try { await action('toggle_rotation', { track_id: track.id }); await openTrack(track, false); } catch (error) { setStatus(error instanceof Error ? error.message : 'Rotation failed.', true); } };
+    q<HTMLButtonElement>('#musicLikeBtn').onclick = async () => { if (!requireUser()||actions.has('like')) return;actions.add('like');try{await action('toggle_like',{track_id:track.id});if(isCurrent()&&String(active?.id)===String(track.id))await openTrack(track,false);}catch{setStatus('Like not confirmed.',true);}finally{actions.delete('like');} };
+    q<HTMLButtonElement>('#musicRotationBtn').onclick = async () => { if (!requireUser()||actions.has('rotation')) return;actions.add('rotation');try{await action('toggle_rotation',{track_id:track.id});if(isCurrent()&&String(active?.id)===String(track.id))await openTrack(track,false);}catch{setStatus('Rotation not confirmed.',true);}finally{actions.delete('rotation');} };
     syncUrl(String(track.id));
     if (commentChannel) await supabase.removeChannel(commentChannel);
     if (!isCurrent()) return;
@@ -122,7 +122,7 @@ export async function mount(): Promise<void> {
 
   const moveQueue = async (direction: number) => { const catalog = tracks(); if (!catalog.length || !isCurrent()) return; const current = activeIndex(); const next = current < 0 ? 0 : (current + direction + catalog.length) % catalog.length; const selected=catalog[next];if(!selected)return;countedTrack = null; await openTrack(selected, true); };
 
-  commentForm.onsubmit = async (event) => { event.preventDefault(); if (!active || !requireUser() || !isCurrent()) return; const value = commentInput.value.trim(); if (!value) return; try { await action('comment', { track_id: active.id, comment: value }); commentInput.value = ''; await load(active.id); } catch (error) { setStatus(error instanceof Error ? error.message : 'Comment failed.', true); } };
+  commentForm.onsubmit = async (event) => { event.preventDefault(); if (!active || !requireUser() || !isCurrent()||commentBusy) return;const value=commentInput.value.trim(),trackId=String(active.id);if(!value)return;commentBusy=true;try{await action('comment',{track_id:trackId,comment:value});if(isCurrent()&&String(active?.id)===trackId){commentInput.value='';await load(trackId);}}catch{setStatus('Comment delivery not confirmed.',true);}finally{commentBusy=false;} };
   q<HTMLButtonElement>('#musicPrev').onclick = () => void moveQueue(-1);
   q<HTMLButtonElement>('#musicNext').onclick = () => void moveQueue(1);
   q<HTMLButtonElement>('#musicToggle').onclick = () => { if (audio.paused) void playActive(); else audio.pause(); };
@@ -130,8 +130,9 @@ export async function mount(): Promise<void> {
   catalogChannel = supabase.channel(`music-catalog:${mountEpoch}`).on('postgres_changes', { event: '*', schema: 'public', table: 'music_tracks' }, scheduleLoad).subscribe();
   if (userId) listenerChannel = supabase.channel(`music-listener:${mountEpoch}:${userId}`).on('postgres_changes', { event: '*', schema: 'public', table: 'music_playlists', filter: `user_id=eq.${userId}` }, scheduleLoad).subscribe();
 
-  const cleanup = async () => { if (destroyed) return; destroyed = true; clearTimeout(refreshTimer); clearTimeout(statusTimer); audio.pause(); audio.removeAttribute('src'); if (catalogChannel) await supabase.removeChannel(catalogChannel); if (commentChannel) await supabase.removeChannel(commentChannel); if (listenerChannel) await supabase.removeChannel(listenerChannel); if (host.__rbPageCleanup === cleanup) host.__rbPageCleanup = null; };
-  host.__rbPageCleanup = cleanup;
+  const recover=()=>{if(isCurrent()&&document.visibilityState==='visible')scheduleLoad();};window.addEventListener('online',recover);document.addEventListener('visibilitychange',recover);
+  const cleanup = async () => { if (destroyed) return; destroyed = true;selection++;window.removeEventListener('online',recover);document.removeEventListener('visibilitychange',recover); clearTimeout(refreshTimer); clearTimeout(statusTimer); audio.pause(); audio.removeAttribute('src');audio.load(); if (catalogChannel) await supabase.removeChannel(catalogChannel); if (commentChannel) await supabase.removeChannel(commentChannel); if (listenerChannel) await supabase.removeChannel(listenerChannel); if (host.__rbPageCleanup === cleanup) host.__rbPageCleanup = null; };
+  host.__rbPageCleanup = cleanup;window.addEventListener('pagehide',()=>void cleanup(),{once:true});
 
   await load(requestedTrack);
   if (!isCurrent()) return;

@@ -177,7 +177,7 @@ export async function mount(): Promise<void> {
       stations = snapshot.stations ?? [];
       active = stations.find((station) => String(station.id) === String(snapshot.active_id)) ?? stations[0] ?? null;
       renderMetrics(); renderList(); renderComments();
-      if (active) bindActive(); else { hero.innerHTML = '<div class="sound-empty">No radio stations are public yet.</div>'; player.hidden = true; }
+      if (active) bindActive(); else {audio.pause();audio.removeAttribute('src');audio.load();hero.innerHTML = '<div class="sound-empty">No radio stations are public yet.</div>'; player.hidden = true; }
     } catch (error) {
       if (!isCurrent()||selection!==selectionEpoch) return;
       snapshot = {};
@@ -215,9 +215,10 @@ export async function mount(): Promise<void> {
   audio.onplay = () => { if (isCurrent()){q<HTMLButtonElement>('#radioToggle').textContent = 'Ⅱ';void startSession().catch(()=>undefined);} };
   audio.onpause = () => { if (isCurrent()){q<HTMLButtonElement>('#radioToggle').textContent = '▶';void closeSession();} };
 
+  const recover=()=>{if(isCurrent()&&document.visibilityState==='visible')scheduleLoad();};window.addEventListener('online',recover);document.addEventListener('visibilitychange',recover);
   const cleanup = async () => {
     if (destroyed) return;
-    destroyed = true;selectionEpoch++;commentEpoch++;
+    destroyed = true;window.removeEventListener('online',recover);document.removeEventListener('visibilitychange',recover);selectionEpoch++;commentEpoch++;
     window.clearTimeout(refreshTimer); window.clearTimeout(messageTimer);
     audio.pause(); audio.removeAttribute('src'); audio.load();
     await closeSession();

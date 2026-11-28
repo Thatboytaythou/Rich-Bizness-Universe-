@@ -65,6 +65,7 @@ export async function mount():Promise<void>{
  };
  const requestedLane=new URLSearchParams(location.search).get('lane');if(requestedLane&&lanes.some(([key])=>key===requestedLane))lane=requestedLane;
  const lifetime=new AbortController();
+ const recover=()=>{if(isCurrent()&&document.visibilityState==='visible'){clearTimeout(refreshTimer);refreshTimer=window.setTimeout(()=>void load(),180);}};window.addEventListener('online',recover,{signal:lifetime.signal});document.addEventListener('visibilitychange',recover,{signal:lifetime.signal});
  const cleanup=async()=>{if(destroyed)return;destroyed=true;stopElite();lifetime.abort();requestId++;clearTimeout(refreshTimer);await Promise.allSettled(channels.map(c=>supabase.removeChannel(c)));};(window as CleanupHost).__rbPageCleanup=cleanup;window.addEventListener('pagehide',()=>void cleanup(),{once:true,signal:lifetime.signal});
  await load();if(!isCurrent())return;
  const realtimeOwners:[string,string][]=[['creator_page_settings','user_id'],['creator_available_balances','artist_user_id'],['creator_alert_subscriptions','creator_id'],['creator_dimension_access','user_id']];
