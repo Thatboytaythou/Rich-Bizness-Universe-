@@ -1,0 +1,27 @@
+// Isolated real-browser component verification. No session, credentials, database, or deployed test route.
+import assert from 'node:assert/strict';
+import {createServer} from 'node:http';
+import {readFileSync} from 'node:fs';
+import {createRequire} from 'node:module';
+import {resolve} from 'node:path';
+const require=createRequire(resolve(process.env.RB_BROWSER_PREFIX??'.','package.json'));
+const {chromium}=require('playwright'),ts=require('typescript');
+const root='apps/web/src/pages/portal/';
+const files={'/shell':root+'portal.shell.ts','/motion':root+'portal.motion.ts','/portal.projection':root+'portal.projection.ts','/core/experience/render-scheduler':'apps/web/src/core/experience/render-scheduler.ts','/routes':'packages/config/src/routes.ts'};
+const html='<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="stylesheet" href="/portal.css"></head><body data-page="portal"><div id="app"></div><script type="module" src="/fixture"></script></body></html>';
+const fixture="import {renderPortalShell,bindPortalDestinations} from '/shell';import {mountPortalMotion} from '/motion';const app=document.querySelector('#app');renderPortalShell(app);const life=new AbortController();bindPortalDestinations(app,life,()=>true);const reduced=matchMedia('(prefers-reduced-motion:reduce)').matches;app.querySelector('.portal-command').dataset.motion=reduced?'reduced':'full';const cleanup=mountPortalMotion({reduced});window.rbFixtureCleanup=()=>{life.abort();cleanup();};";
+const server=createServer((req,res)=>{try{const p=new URL(req.url,'http://127.0.0.1').pathname;let type='text/javascript',body;if(p==='/'){type='text/html';body=html;}else if(p==='/fixture')body=fixture;else if(p==='/portal.css'){type='text/css';body=readFileSync(root+'portal.command.css');}else if(p==='/images/brand/portal-command-city.svg'){type='image/svg+xml';body=readFileSync('apps/web/public'+p);}else if(files[p]){body=ts.transpileModule(readFileSync(files[p],'utf8'),{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ESNext}}).outputText.replaceAll("'@rb/config/routes'","'/routes'").replaceAll('"@rb/config/routes"','"/routes"');}else {res.writeHead(404);res.end();return;}res.writeHead(200,{'Content-Type':type,'Cache-Control':'no-store'});res.end(body);}catch{res.writeHead(500);res.end('fixture error');}});
+await new Promise(r=>server.listen(0,'127.0.0.1',r));const origin='http://127.0.0.1:'+server.address().port;
+let browser;
+try{browser=await chromium.launch({headless:true});
+ for(const [width,height,motion] of [[320,700,'reduce'],[390,844,'no-preference'],[430,932,'reduce'],[820,900,'no-preference'],[1440,900,'no-preference']]){
+ const context=await browser.newContext({viewport:{width,height},deviceScaleFactor:3,reducedMotion:motion,hasTouch:width<600,isMobile:width<600});
+ await context.route('**/*',route=>new URL(route.request().url()).origin===origin?route.continue():route.abort());
+ const page=await context.newPage(),errors=[];page.on('pageerror',e=>errors.push(e.message));
+ await page.goto(origin);await page.waitForSelector('.portal-world[data-rb-canvas-state="painted"]',{timeout:10000});
+ const layout=await page.evaluate(()=>{const world=document.querySelector('.portal-world'),r=world.getBoundingClientRect(),c=document.querySelector('canvas'),nodes=[...document.querySelectorAll('.portal-route-layer a')];const pixels=c.getContext('2d').getImageData(0,0,c.width,c.height).data;let painted=false;for(let i=3;i<pixels.length;i+=4){if(pixels[i]>0){painted=true;break;}}return {square:Math.abs(r.width-r.height)<2,overflow:document.documentElement.scrollWidth>innerWidth+2,painted,pixels:c.width*c.height,nodes:nodes.map(n=>{const q=n.getBoundingClientRect();return {href:n.getAttribute('href'),fits:q.left>=r.left-1&&q.right<=r.right+1&&q.top>=r.top-1&&q.bottom<=r.bottom+1,target:q.width>=44&&q.height>=44};})};});
+ assert.ok(layout.square,'Non-square Portal '+width);assert.equal(layout.overflow,false);assert.ok(layout.painted);assert.ok(layout.pixels<=(width<=860?900000:1800000));assert.equal(layout.nodes.length,8);assert.equal(new Set(layout.nodes.map(n=>n.href)).size,8);assert.ok(layout.nodes.every(n=>n.fits&&n.target),'Clipped/undersized navigation at '+width);
+ await page.locator('.portal-route-layer [data-portal-focus="gaming"]').focus();assert.equal(await page.locator('#rbPortalSelectedTitle').textContent(),'Gaming');assert.equal(await page.locator('#rbPortalSelectedLink').getAttribute('href'),'/gaming.html');assert.equal(await page.locator('.portal-world').getAttribute('data-destination'),'gaming');
+ await page.evaluate(()=>window.rbFixtureCleanup());assert.equal(await page.locator('.portal-world').getAttribute('data-rb-canvas-state'),'stopped');assert.deepEqual(errors,[]);await context.close();console.log('Real Chromium isolated Portal PASS: '+width+'px, painted canvas, eight full-size routes, destination focus and cleanup');
+ }
+}finally{await browser?.close();await new Promise(r=>server.close(r));}

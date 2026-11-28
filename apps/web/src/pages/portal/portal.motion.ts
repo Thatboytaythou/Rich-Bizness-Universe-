@@ -18,7 +18,7 @@ export function mountPortalMotion(options: MotionOptions): () => void {
   if (!canvas || !world || !stage) return () => {};
 
   const context = canvas.getContext('2d', { alpha: true });
-  if (!context) return () => {};
+  if (!context) {stage.dataset.rbCanvasState='unavailable';return () => {};}
 
   const lifecycle = new AbortController();
   const particles: Particle[] = Array.from({ length: options.reduced ? 20 : 52 }, (_, index) => ({
@@ -100,6 +100,7 @@ export function mountPortalMotion(options: MotionOptions): () => void {
     gradient.addColorStop(1, 'rgba(0,0,0,0)');
     context.fillStyle = gradient;
     context.fillRect(0, 0, width, height);
+    if(stage.dataset.rbCanvasState!=='painted')stage.dataset.rbCanvasState='painted';
   };
 
   const frames=renderScheduler(now=>{if(!lastPaint||now-lastPaint>=32){lastPaint=now;paint(true);}},cb=>window.requestAnimationFrame(cb),id=>window.cancelAnimationFrame(id));
@@ -154,6 +155,6 @@ export function mountPortalMotion(options: MotionOptions): () => void {
     resizeObserver.disconnect();
     frames.stop();viewport.disconnect();
     resetTilt();
-    context.clearRect(0, 0, width, height);
+    context.clearRect(0, 0, width, height);stage.dataset.rbCanvasState='stopped';
   };
 }
