@@ -29,6 +29,7 @@ do $$begin if has_function_privilege(current_user,'public.rb_org_invite(uuid,uui
 reset role;
 
 \ir ../docs/development/dash-schema-proposal.sql
+\ir ../docs/development/dash-pricing-proposal.sql
 set role authenticated;
 select set_config('request.jwt.claim.sub','11111111-1111-4111-8111-111111111111',false);
 insert into public.rb_dash_listings(id,org_id,title,city,service,price_mode,price_cents,online) values ('bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb','aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','Fixture delivery','Fixture City','food','fixed',1000,true);
@@ -37,6 +38,16 @@ insert into public.rb_dash_bookings(id,listing_id,customer_id) values ('cccccccc
 do $$begin update public.rb_dash_bookings set status='accepted'; if found then raise exception 'customer accepted own booking'; end if; end$$;
 select set_config('request.jwt.claim.sub','33333333-3333-4333-8333-333333333333',false);
 do $$begin if exists(select 1 from public.rb_dash_bookings) then raise exception 'booking leaked'; end if; end$$;
+select set_config('request.jwt.claim.sub','11111111-1111-4111-8111-111111111111',false);
+do $begin
+ begin update public.rb_dash_bookings set status='accepted' where id='cccccccc-cccc-4ccc-8ccc-cccccccccccc'; raise exception 'accepted without quote'; exception when check_violation then null; end;
+end$;
+insert into public.rb_dash_quotes(booking_id,amount_cents) values ('cccccccc-cccc-4ccc-8ccc-cccccccccccc',1000);
+select set_config('request.jwt.claim.sub','22222222-2222-4222-8222-222222222222',false);
+update public.rb_dash_quotes set accepted=true where booking_id='cccccccc-cccc-4ccc-8ccc-cccccccccccc';
+do $begin
+ begin update public.rb_dash_quotes set amount_cents=1; raise exception 'price tampered'; exception when insufficient_privilege then null; end;
+end$;
 select set_config('request.jwt.claim.sub','11111111-1111-4111-8111-111111111111',false);
 update public.rb_dash_bookings set status='accepted' where id='cccccccc-cccc-4ccc-8ccc-cccccccccccc';
 update public.rb_dash_bookings set status='completed' where id='cccccccc-cccc-4ccc-8ccc-cccccccccccc';
