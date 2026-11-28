@@ -117,8 +117,8 @@ export async function mountProfilePage(): Promise<void> {
   if (!root) throw new Error('Missing #app mount');
   const mountEpoch = root.dataset.pageEpoch ?? '';
   let disposed = false;
-  const isCurrent = () => !disposed && root.dataset.pageEpoch === mountEpoch && root.dataset.pageOwner === 'rich-bizness-profile-v2';
   const session = getAuthSnapshot().session;
+  const isCurrent = () => !disposed && root.dataset.pageEpoch === mountEpoch && root.dataset.pageOwner === 'rich-bizness-profile-v2' && (getAuthSnapshot().session?.user.id??null)===(session?.user.id??null);
   const params = new URLSearchParams(location.search);
   const requested = params.get('id') || params.get('user') || params.get('u');
 
@@ -130,6 +130,8 @@ export async function mountProfilePage(): Promise<void> {
   const profileId = requested || session!.user.id;
   if(!uuid.test(profileId)){root.innerHTML='<main class="pu-fail"><a href="/portal.html">← Portal</a><h1>Profile unavailable</h1><p>This Rich ID link is invalid.</p></main>';return;}
   const life=new AbortController();const cleanup=()=>{disposed=true;life.abort();};
+  // Recover a failed identity snapshot when connectivity returns; do not replace a healthy editing session.
+  window.addEventListener('online',()=>{if(isCurrent()&&root.querySelector('#puRetry'))location.reload();},{signal:life.signal});
   (window as Window & {__rbPageCleanup?:()=>void}).__rbPageCleanup=cleanup;
   window.addEventListener('pagehide',cleanup,{once:true});
   root.innerHTML='<main class="pu-fail" role="status"><span class="pu-loading-mark">RB</span><h1>Connecting Rich ID</h1><p>Loading your universe…</p></main>';
