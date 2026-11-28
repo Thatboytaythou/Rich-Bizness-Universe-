@@ -96,6 +96,10 @@ try{
  // Cross-section new-user regressions: compiled, real Chromium, no fake login.
  await visit('/search.html','#searchInput');
  assert.equal(await page.locator('#searchInput').getAttribute('maxlength'),'100','Search query size constraint missing');
+ assert.equal(await page.locator('#searchInput').count(),1,'Duplicate Search input');
+ assert.equal(await page.locator('#searchForm').count(),1,'Duplicate Search form');
+ assert.equal(await page.locator('#rbAdminSecretDoor').count(),0,'Guest must not see Admin Secret Door');
+ for(const path of ['/rb-secret-door.html','/creator-dimensions.html','/on-the-go-dash.html'])assert.equal(await page.locator('nav[aria-label="Universe destinations"] a[href="'+path+'"]').count(),1,'Missing discovery destination: '+path);
  await page.locator('#rb-omni-mini').waitFor({state:'attached',timeout:15000});
  assert.ok(await page.locator('#rb-omni-mini').locator('a[href="/avatar-characters.html"]').count(),'Search Mini Omni must link to the canonical Avatar Studio');
  assert.ok(await page.locator('#rb-omni-mini').locator('a[href="/portal.html"]').count(),'Search Mini Omni must link to the canonical Portal');
@@ -104,7 +108,7 @@ try{
  assert.equal(await page.locator('#feedModalForm input').isDisabled(),true,'Guest must not comment as a Rich ID');
  await page.locator('#rb-omni-mini').waitFor({state:'attached',timeout:15000});
  assert.ok(await page.locator('#rb-omni-mini').locator('a[href="/profile.html"]').count(),'Feed Mini Omni missing Profile');
- for(const privateRoute of ['/profile.html','/edit-profile.html','/settings.html','/avatar-characters.html','/avatar.html']){
+ for(const privateRoute of ['/profile.html','/edit-profile.html','/settings.html','/admin.html','/avatar-characters.html','/avatar.html']){
   await visit(privateRoute,'#authForm');
   const redirect=new URL(page.url());
   assert.equal(redirect.pathname,'/tap-in.html','Protected guest route did not reach Tap In: '+privateRoute);

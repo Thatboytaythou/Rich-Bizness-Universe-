@@ -59,10 +59,14 @@ declare v_uid uuid;v_id uuid;
 begin
  v_uid:=auth.uid();
  if v_uid is null or coalesce((auth.jwt()->>'is_anonymous')::boolean,false)
+   or p_user_id is null or p_role is null
    or not exists(select 1 from public.rb_orgs where id=p_org_id and owner_id=v_uid)
    or p_user_id=v_uid or p_role not in ('manager','employee','member') then
    raise exception 'not_authorized' using errcode='42501';
  end if;
+ -- Serialize invitation, acceptance and removal for the same organization.
+ perform 1 from public.rb_orgs where id=p_org_id and owner_id=v_uid for update;
+ if not found then raise exception 'not_authorized' using errcode='42501'; end if;
  insert into public.rb_org_invites(org_id,invited_user_id,invited_by,role)
  values(p_org_id,p_user_id,v_uid,p_role)
  on conflict (org_id,invited_user_id) where status='pending'
@@ -72,12 +76,15 @@ begin
 end $$;
 create function public.rb_org_respond(p_invite_id uuid,p_accept boolean)
 returns boolean language plpgsql security definer set search_path='' as $$
-declare v_uid uuid;v_invite public.rb_org_invites%rowtype;
+declare v_uid uuid;v_invite public.rb_org_invites%rowtype;v_org uuid;
 begin
  v_uid:=auth.uid();
- if v_uid is null or coalesce((auth.jwt()->>'is_anonymous')::boolean,false) then
+ if v_uid is null or p_accept is null or coalesce((auth.jwt()->>'is_anonymous')::boolean,false) then
    raise exception 'not_authorized' using errcode='42501';
  end if;
+ select org_id into v_org from public.rb_org_invites where id=p_invite_id and invited_user_id=v_uid and status='pending';
+ if not found then raise exception 'invite_unavailable' using errcode='42501'; end if;
+ perform 1 from public.rb_orgs where id=v_org for update;
  select * into v_invite from public.rb_org_invites
   where id=p_invite_id and invited_user_id=v_uid and status='pending' for update;
  if not found then raise exception 'invite_unavailable' using errcode='42501';end if;
@@ -98,6 +105,8 @@ begin
  if v_uid is null or coalesce((auth.jwt()->>'is_anonymous')::boolean,false)
  or not exists(select 1 from public.rb_orgs where id=p_org_id and owner_id=v_uid)
  then raise exception 'not_authorized' using errcode='42501'; end if;
+ perform 1 from public.rb_orgs where id=p_org_id and owner_id=v_uid for update;
+ if not found then raise exception 'not_authorized' using errcode='42501'; end if;
  update public.rb_org_invites set status='declined',answered_at=now() where org_id=p_org_id and invited_user_id=p_user_id and status='pending';
  delete from public.rb_org_members where org_id=p_org_id and user_id=p_user_id;
  return found;
