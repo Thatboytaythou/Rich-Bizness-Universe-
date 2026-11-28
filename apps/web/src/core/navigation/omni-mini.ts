@@ -128,7 +128,7 @@ export function mountOmniMini(page: string, failure = false): void {
     ].join('\n');
   };
   // Read the canonical saved character only when the member opens the dial.
-  const character=document.createElement('a');character.href=ROUTES.avatarCharacters;character.hidden=true;character.style.cssText='margin-top:8px;min-height:44px;padding:6px';
+  const character=document.createElement('a');character.href=ROUTES.avatarCharacters;character.hidden=true;character.style.cssText='margin-top:8px;min-height:44px;padding:6px;align-items:center;gap:10px';
   panel.querySelector('.identity')?.after(character);
   let identityEpoch=0, identityAbort:AbortController|undefined;
   const clearCharacter=()=>{identityEpoch++;identityAbort?.abort();character.hidden=true;character.textContent='';};
@@ -141,7 +141,12 @@ export function mountOmniMini(page: string, failure = false): void {
       if(controller.signal.aborted)return;
       const saved=await readCharacterIdentity(user.id,controller.signal);
       if(epoch!==identityEpoch||getAuthSnapshot().user?.id!==user.id)return;
-      character.textContent=hasSavedOriginal(saved)?'Saved character: '+savedCharacter(saved).name:'Customize your character';
+      if(hasSavedOriginal(saved)){
+        const config=savedCharacter(saved);
+        const {characterPortrait}=await import('../../features/avatar/avatar.portrait');
+        if(epoch!==identityEpoch||controller.signal.aborted||getAuthSnapshot().user?.id!==user.id)return;
+        character.replaceChildren(characterPortrait(config),document.createTextNode('Saved character: '+config.name));
+      }else character.textContent='Customize your character';
     }catch{if(epoch===identityEpoch)character.textContent='Character unavailable · open Studio to retry';}
   };
   const setOpen=(open:boolean)=>{panel.hidden=!open;trigger.setAttribute('aria-expanded',String(open));trigger.setAttribute('aria-label',open?'Close Mini Omni Dial':'Open Mini Omni Dial');if(open){update();void refreshCharacter();panel.querySelector<HTMLButtonElement>('.close')?.focus();}else{clearCharacter();trigger.focus();}};
