@@ -72,3 +72,16 @@ jobs:
             sleep 1
           done
           node scripts/browser-release-smoke.mjs
+
+      - name: Test actual isolated two-participant LiveKit WebRTC transport
+        env:
+          RB_BROWSER_PREFIX: ${{ runner.temp }}/rb-browser
+        run: |
+          set -euo pipefail
+          docker run -d --name rb-fixture-livekit --network host livekit/livekit-server:v1.9.11 --dev --bind 127.0.0.1 --node-ip 127.0.0.1
+          trap 'docker logs --tail 50 rb-fixture-livekit; docker rm -f rb-fixture-livekit >/dev/null' EXIT
+          for i in {1..30}; do
+            if curl --silent --fail http://127.0.0.1:7880/ >/dev/null; then break; fi
+            sleep 1
+          done
+          node scripts/browser-livekit-transport.mjs
