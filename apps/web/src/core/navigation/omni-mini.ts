@@ -127,7 +127,24 @@ export function mountOmniMini(page: string, failure = false): void {
       'Network: '+(navigator.onLine?'browser online (services not verified)':'offline')
     ].join('\n');
   };
-  const setOpen=(open:boolean)=>{panel.hidden=!open;trigger.setAttribute('aria-expanded',String(open));trigger.setAttribute('aria-label',open?'Close Mini Omni Dial':'Open Mini Omni Dial');if(open){update();panel.querySelector<HTMLButtonElement>('.close')?.focus();}else trigger.focus();};
+  // Read the canonical saved character only when the member opens the dial.
+  const character=document.createElement('a');character.href=ROUTES.avatarCharacters;character.hidden=true;character.style.cssText='margin-top:8px;min-height:44px;padding:6px';
+  panel.querySelector('.identity')?.after(character);
+  let identityEpoch=0, identityAbort:AbortController|undefined;
+  const clearCharacter=()=>{identityEpoch++;identityAbort?.abort();character.hidden=true;character.textContent='';};
+  const refreshCharacter=async()=>{
+    clearCharacter();const user=getAuthSnapshot().user;if(!user||panel.hidden)return;
+    const epoch=identityEpoch,controller=new AbortController();identityAbort=controller;
+    character.hidden=false;character.textContent='Checking saved character…';
+    try{
+      const {readCharacterIdentity,savedCharacter,hasSavedOriginal}=await import('../../features/avatar/avatar.identity');
+      if(controller.signal.aborted)return;
+      const saved=await readCharacterIdentity(user.id,controller.signal);
+      if(epoch!==identityEpoch||getAuthSnapshot().user?.id!==user.id)return;
+      character.textContent=hasSavedOriginal(saved)?'Saved character: '+savedCharacter(saved).name:'Customize your character';
+    }catch{if(epoch===identityEpoch)character.textContent='Character unavailable · open Studio to retry';}
+  };
+  const setOpen=(open:boolean)=>{panel.hidden=!open;trigger.setAttribute('aria-expanded',String(open));trigger.setAttribute('aria-label',open?'Close Mini Omni Dial':'Open Mini Omni Dial');if(open){update();void refreshCharacter();panel.querySelector<HTMLButtonElement>('.close')?.focus();}else{clearCharacter();trigger.focus();}};
   trigger.onclick=()=>setOpen(panel.hidden);
   panel.querySelector<HTMLButtonElement>('.close')!.onclick=()=>setOpen(false);
   panel.querySelector('details')!.addEventListener('toggle',update);
@@ -136,11 +153,13 @@ export function mountOmniMini(page: string, failure = false): void {
     update();try{await navigator.clipboard.writeText(report.textContent??'');feedback.textContent='Screen status copied.';}
     catch{feedback.textContent='Clipboard unavailable. Select and copy the status text above.';}
   };
-  const unsubscribe=subscribeAuth(update);
+  const unsubscribe=subscribeAuth(()=>{update();if(panel.hidden)clearCharacter();else void refreshCharacter();});
+  const identityRefresh=()=>{if(!panel.hidden)void refreshCharacter();};
+  window.addEventListener('focus',identityRefresh);window.addEventListener('rb:section-update',identityRefresh);
   const refresh=()=>{if(!panel.hidden)update();};
   window.addEventListener('resize',refresh);
   window.addEventListener('online',refresh);window.addEventListener('offline',refresh);
-  window.addEventListener('pagehide',(event)=>{if(event.persisted)return;unsubscribe();stopPrefs();window.removeEventListener('resize',refresh);window.removeEventListener('online',refresh);window.removeEventListener('offline',refresh);host.remove();});
+  window.addEventListener('pagehide',(event)=>{if(event.persisted)return;clearCharacter();unsubscribe();stopPrefs();window.removeEventListener('focus',identityRefresh);window.removeEventListener('rb:section-update',identityRefresh);window.removeEventListener('resize',refresh);window.removeEventListener('online',refresh);window.removeEventListener('offline',refresh);host.remove();});
   const dockLabel=document.createElement('span');dockLabel.className='dock-label';dockLabel.textContent='RICH BIZNESS / OMNI';dockLabel.hidden=page==='avatar-characters';
   shadow.append(style,panel,dockLabel,trigger);
   if(page==='avatar-characters')document.body.append(host);else{host.dataset.docked='true';const root=document.querySelector<HTMLElement>('#app');if(root)root.prepend(host);else document.body.prepend(host);}

@@ -72,6 +72,13 @@ try{
   assert.ok(await page.locator('.pc-actions a[href="/avatar-characters.html"]').count(),'Missing Avatar Studio access');
   await visit('/avatar-characters.html','#app[data-page-mounted="true"]');
   await page.waitForFunction(()=>[...document.querySelectorAll('canvas')].some(c=>c.dataset.rbRenderState==='frame-rendered'),{},{timeout:90000});
+  for(const route of ['/profile.html','/edit-profile.html','/settings.html','/search.html','/feed.html']){
+    await visit(route,'#app[data-page-mounted="true"]');
+    assert.equal(new URL(page.url()).pathname,route,'Authenticated route redirected');
+    const mini=page.locator('#rb-omni-mini');await mini.waitFor({state:'attached'});
+    await mini.getByRole('button',{name:'Open Mini Omni Dial'}).click();
+    await mini.getByText(/Saved character:|Customize your character/).waitFor({state:'visible',timeout:20000});
+  }
   console.log('Real Chromium authenticated smoke: Rich ID, Portal snapshot, eight destinations, bounded canvas, character frame');
  }else console.log('Authenticated gate NOT RUN: dedicated test identity not configured.');
  assert.deepEqual(errors,[],'Browser page exceptions');
