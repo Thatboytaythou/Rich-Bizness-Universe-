@@ -98,6 +98,7 @@ begin
  if v_uid is null or coalesce((auth.jwt()->>'is_anonymous')::boolean,false)
  or not exists(select 1 from public.rb_orgs where id=p_org_id and owner_id=v_uid)
  then raise exception 'not_authorized' using errcode='42501'; end if;
+ update public.rb_org_invites set status='declined',answered_at=now() where org_id=p_org_id and invited_user_id=p_user_id and status='pending';
  delete from public.rb_org_members where org_id=p_org_id and user_id=p_user_id;
  return found;
 end $$;

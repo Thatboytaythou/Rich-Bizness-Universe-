@@ -1,0 +1,31 @@
+name: Omni isolated organization database
+on:
+  push:
+    branches: [development/omni-domain-adaptive]
+permissions:
+  contents: read
+jobs:
+  organization:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_PASSWORD: fixture_only
+          POSTGRES_DB: rb_fixture
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Test real PostgreSQL RLS and membership lifecycle with synthetic identities
+        env:
+          PGPASSWORD: fixture_only
+        run: psql -h 127.0.0.1 -U postgres -d rb_fixture -v ON_ERROR_STOP=1 -f scripts/test-organization-db.sql
