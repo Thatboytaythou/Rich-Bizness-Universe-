@@ -9,6 +9,9 @@ type RealtimeChannel = ReturnType<typeof supabase.channel>;
 
 const activeSessions = new Map<string, string>();
 const activeRooms = new Map<string, string>();
+const starting=new Map<string,Promise<StartResult>>();
+const finishing=new Map<string,Promise<FinishResult>>();
+const lifecycle=new AbortController();
 const realtimeChannels = new Set<RealtimeChannel>();
 let disposed = false;
 
@@ -39,7 +42,8 @@ function parseLocalSave(raw: string | null): Json | null {
 
 async function action<T>(fn: string, args: Json): Promise<T> {
   if (disposed) throw new Error('Game runtime has already been disposed');
-  const { data, error } = await supabase.rpc(fn, args);
+  const { data, error } = await supabase.rpc(fn, args).abortSignal(lifecycle.signal);
+  if(disposed)throw new Error('Game runtime disposed during request');
   if (error) throw error;
   return data as T;
 }
@@ -47,19 +51,21 @@ async function action<T>(fn: string, args: Json): Promise<T> {
 export async function startGameSession(gameSlug: string, metadata: Json = {}): Promise<StartResult> {
   const existing = activeSessions.get(gameSlug);
   if (existing) return { ok: true, session_key: existing, game_id: '', contract: 'client-v2' };
-  const result = await action<StartResult>('rb_game_action', {
+  const pending=starting.get(gameSlug);if(pending)return pending;
+  const job=(async()=>{const result = await action<StartResult>('rb_game_action', {
     p_action: 'start_session', p_game_slug: gameSlug,
     p_payload: { platform_type: 'web', device_info: deviceInfo(), metadata: { ...metadata, client_contract: 'rich-bizness-game-runtime-client-v3' } }
   });
   if (!result?.session_key) throw new Error('Game session did not return a session key');
   activeSessions.set(gameSlug, result.session_key);
-  return result;
+  return result;})();starting.set(gameSlug,job);try{return await job;}finally{if(starting.get(gameSlug)===job)starting.delete(gameSlug);}
 }
 
 export async function finishGameSession(gameSlug: string, input: Readonly<{ score?: number; result?: string; mode?: string; durationSeconds?: number; metadata?: Json }> = {}): Promise<FinishResult> {
+  const pending=finishing.get(gameSlug);if(pending)return pending;
   const sessionKey = activeSessions.get(gameSlug);
   if (!sessionKey) throw new Error(`No active canonical session for ${gameSlug}`);
-  const result = await action<FinishResult>('rb_game_action', {
+  const job=(async()=>{const result = await action<FinishResult>('rb_game_action', {
     p_action: 'finish_session', p_game_slug: gameSlug,
     p_payload: {
       session_key: sessionKey,
@@ -69,8 +75,8 @@ export async function finishGameSession(gameSlug: string, input: Readonly<{ scor
       platform_type: 'web', metadata: { ...(input.metadata ?? {}), client_contract: 'rich-bizness-game-runtime-client-v3' }
     }
   });
-  activeSessions.delete(gameSlug);
-  return result;
+  if(activeSessions.get(gameSlug)===sessionKey)activeSessions.delete(gameSlug);
+  return result;})();finishing.set(gameSlug,job);try{return await job;}finally{if(finishing.get(gameSlug)===job)finishing.delete(gameSlug);}
 }
 
 export async function saveGameCheckpoint(gameSlug: string, checkpoint: Json, input: Readonly<{ saveVersion?: number; metadata?: Json; mirrorLocal?: boolean }> = {}): Promise<SaveResult> {
@@ -150,7 +156,7 @@ export async function leaveGameRoom(gameSlug: string): Promise<RoomResult | null
   return result;
 }
 
-export function trackGameRealtimeChannel(channel: RealtimeChannel): RealtimeChannel { realtimeChannels.add(channel); return channel; }
+export function trackGameRealtimeChannel(channel: RealtimeChannel): RealtimeChannel { if(disposed){void supabase.removeChannel(channel);throw new Error('Game runtime disposed');}realtimeChannels.add(channel); return channel; }
 export async function releaseGameRealtimeChannel(channel: RealtimeChannel): Promise<void> { realtimeChannels.delete(channel); await supabase.removeChannel(channel); }
 export function getActiveGameSession(gameSlug: string): string | null { return activeSessions.get(gameSlug) ?? null; }
 export function getActiveGameRoom(gameSlug: string): string | null { return activeRooms.get(gameSlug) ?? null; }
@@ -158,6 +164,7 @@ export function getActiveGameRoom(gameSlug: string): string | null { return acti
 export async function disposeGameRuntime(): Promise<void> {
   if (disposed) return;
   disposed = true;
+  lifecycle.abort();starting.clear();finishing.clear();
   const channels = [...realtimeChannels];
   realtimeChannels.clear();
   await Promise.allSettled(channels.map((channel) => supabase.removeChannel(channel)));
