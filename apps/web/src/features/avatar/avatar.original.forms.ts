@@ -23,7 +23,7 @@ export function originalForm(g:THREE.BufferGeometry,kind:'wave-crop'|'sovereign'
    // Sculpted shoulder yoke, ribbed upper panel and tapered hem band.
    const yoke=Math.exp(-Math.pow((v-.78)/.10,2)),hem=Math.exp(-Math.pow((v-.15)/.06,2));
    const rib=Math.cos(Math.PI*(u*6+Math.abs(w-.5)*1.6))**8;
-   d=span*.024*Math.sin(Math.PI*v)**2*(.55*yoke+.30*hem+.15*rib);
+   d=span*.032*Math.sin(Math.PI*v)**2*(.48*yoke+.25*hem+.17*rib+.10*Math.cos(Math.PI*(u-.5)*2)**8);
   }
   if(d<1e-8)continue;p.setXYZ(i,x+normal.x*d,y+normal.y*d,z+normal.z*d);count++;
  }
@@ -46,9 +46,9 @@ export function secondarySurface(g:THREE.BufferGeometry,kind:'hair'|'fabric',sel
  const max=span*(kind==='hair'?.022:.012);
  for(const [k,i] of vertices.entries()){const x=p.getX(i),y=p.getY(i),z=p.getZ(i),v=THREE.MathUtils.clamp((y-box.min.y)/size.y,0,1),u=(x-box.min.x)/size.x;rest[k*3]=x;rest[k*3+1]=y;rest[k*3+2]=z;normal.fromBufferAttribute(n,i);if(!Number.isFinite(normal.lengthSq())||normal.lengthSq()<.25)continue;normal.normalize();const weight=kind==='hair'?(1-v)**2:Math.sin(Math.PI*v)**2;const d=max*weight*Math.sin((u*3+v*2)*Math.PI);delta[k*3]=normal.x*d;delta[k*3+1]=normal.y*d;delta[k*3+2]=normal.z*d;}
  g.computeBoundingBox();g.computeBoundingSphere();if(g.boundingBox)g.boundingBox.expandByScalar(max);if(g.boundingSphere)g.boundingSphere.radius+=max;
- let lo=Infinity,hi=-Infinity;for(const i of vertices){lo=Math.min(lo,i);hi=Math.max(hi,i);}let last=0;
- return {count:vertices.length,kind,max,apply:(amount:number)=>{const value=Number.isFinite(amount)?THREE.MathUtils.clamp(amount,-1,1):0;const a=Math.abs(value)<.001?0:value;if(a===last)return;last=a;
-  for(const [k,i] of vertices.entries()){const j=k*3,x=rest[j]!,y=rest[j+1]!,z=rest[j+2]!;if(a===0)p.setXYZ(i,x,y,z);else p.setXYZ(i,x+delta[j]!*a,y+delta[j+1]!*a,z+delta[j+2]!*a);}
+ let lo=Infinity,hi=-Infinity;for(const i of vertices){lo=Math.min(lo,i);hi=Math.max(hi,i);}let last=0;if(p instanceof THREE.BufferAttribute)p.setUsage(THREE.DynamicDrawUsage);
+ return {count:vertices.length,kind,max,apply:(amount:number)=>{const value=Number.isFinite(amount)?THREE.MathUtils.clamp(amount,-1,1):0;const a=Math.abs(value)<.015?0:Math.round(value*64)/64;if(a===last)return;last=a;
+  for(let k=0;k<vertices.length;k++){const i=vertices[k]!;const j=k*3,x=rest[j]!,y=rest[j+1]!,z=rest[j+2]!;if(a===0)p.setXYZ(i,x,y,z);else p.setXYZ(i,x+delta[j]!*a,y+delta[j+1]!*a,z+delta[j+2]!*a);}
   if(p instanceof THREE.BufferAttribute&&p.itemSize===3)p.addUpdateRange(lo*3,(hi-lo+1)*3);p.needsUpdate=true;
  }};
 }
