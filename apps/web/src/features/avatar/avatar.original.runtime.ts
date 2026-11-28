@@ -121,7 +121,7 @@ export function createOriginalAvatar(gender:AvatarGender,raw:unknown,build='athl
     ell(fore,skin,-s*.027,-.177,.015,.013,.027,.014);
     // Individually shaped fingers, sharing the existing low-poly sphere buffer.
     for(let digit=0;digit<4;digit++){
-      const length=[.037,.045,.042,.031][digit]*hand;
+      const length=([.037,.045,.042,.031][digit]??.037)*hand;
       const finger=ell(fore,skin,(digit-1.5)*.014*hand,-.225*hand-length*.25,.006,.007*hand,length*.62,.008*hand);
       finger.rotation.z=(digit-1.5)*.055;
     }
