@@ -71,7 +71,7 @@ export async function mountTapInPage(): Promise<void> {
         `}
         <p id="authStatus" class="auth-status" role="status" aria-live="polite">${reason === 'session' ? 'YOUR SESSION EXPIRED — TAP BACK IN' : 'SECURE GATEWAY READY'}</p>
         ${recoveryMode?'':'<button type="button" id="rbResumeSession" class="auth-link auth-resume">Continue existing session</button>'}
-        <details class="auth-support"><summary>Connection &amp; support</summary><div class="auth-support-content">
+        <p class="auth-release-label">Access design · Nexus 2</p><details class="auth-support"><summary>Connection &amp; support</summary><div class="auth-support-content">
           <small>ACCESS RELEASE • rich-id-single-layer-4</small>
           <small id="rbAccessNetwork" aria-live="polite">Connection: waiting for request</small>
           <small id="rbAccessTouch">Touch: ready</small>
