@@ -42,7 +42,7 @@ export async function mount(): Promise<void> {
   let networkChannel: Channel | null = null;
   let commentChannel: Channel | null = null;
   let listenerChannel: Channel | null = null;
-  let loading = false;
+  let loading = false;let commentBusy=false;
   let queued = false;
   let refreshTimer: number | undefined;
   let statusTimer: number | undefined;
@@ -174,15 +174,16 @@ export async function mount(): Promise<void> {
 
   const scheduleLoad = (episodeId?: string) => { if (!isCurrent()) return; window.clearTimeout(refreshTimer); refreshTimer = window.setTimeout(() => { if (isCurrent()&&(!episodeId||String(active?.id)===episodeId)) void load(active?.id ? String(active.id) : undefined, false); }, 180); };
 
-  form.onsubmit = async (event) => { event.preventDefault(); if (!active || !requireUser() || !isCurrent()) return; const body = input.value.trim(); if (!body) return; const button = form.querySelector<HTMLButtonElement>('button')!; button.disabled = true; try { await action('comment', { episode_id: active.id, body }); if (!isCurrent()) return; input.value = ''; await load(String(active.id), false); } catch (error) { setStatus(error instanceof Error ? error.message : 'Comment failed', true); } finally { if (isCurrent()) button.disabled = false; } };
+  form.onsubmit = async (event) => { event.preventDefault(); if (!active || !requireUser() || !isCurrent()||commentBusy) return; const body = input.value.trim(); if (!body) return; const button = form.querySelector<HTMLButtonElement>('button')!; button.disabled = true;commentBusy=true;const episodeId=String(active.id); try { await action('comment', { episode_id: episodeId, body }); if (!isCurrent()||String(active?.id)!==episodeId) return; input.value = ''; await load(episodeId, false); } catch (error) { setStatus(error instanceof Error ? error.message : 'Comment failed', true); } finally {commentBusy=false; if (isCurrent()) button.disabled = false; } };
 
   root.querySelector<HTMLButtonElement>('#podcastPrev')!.onclick = () => void moveQueue(-1);
   root.querySelector<HTMLButtonElement>('#podcastNext')!.onclick = () => void moveQueue(1);
   root.querySelector<HTMLButtonElement>('#podcastToggle')!.onclick = () => { const media = getMedia(); if (!media) return setStatus('This episode has no playable media source.', true); if (media.paused) void playActive(); else media.pause(); };
 
+  const recover=()=>{if(isCurrent()&&document.visibilityState==='visible')scheduleLoad();};window.addEventListener('online',recover);document.addEventListener('visibilitychange',recover);
   const cleanup = async () => {
     if (destroyed) return;
-    destroyed = true;
+    destroyed = true;window.removeEventListener('online',recover);document.removeEventListener('visibilitychange',recover);
     requestEpoch++;selectionEpoch++;commentEpoch++;
     window.clearTimeout(refreshTimer);
     window.clearTimeout(statusTimer);

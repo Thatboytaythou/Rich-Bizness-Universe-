@@ -10,7 +10,7 @@ type CleanupHost = Window & { __rbPageCleanup?: (() => void | Promise<void>) | n
 const esc = (value: unknown) => String(value ?? '').replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char] ?? char));
 const itemKey = (row: Row) => `${row.source_type}:${row.source_id}`;
 const progressPercent = (row: Row | undefined) => row && Number(row.duration_seconds) > 0 ? Math.min(100, Math.round(Number(row.position_seconds) / Number(row.duration_seconds) * 100)) : 0;
-const safeUrl = (value: unknown) => { try { const url = new URL(String(value || ''), location.origin); return ['http:', 'https:'].includes(url.protocol) ? url.href : ''; } catch { return ''; } };
+const safeUrl = (value: unknown) => { if(typeof value!=='string'||!value.trim())return '';try { const url = new URL(value, location.origin); return ['http:', 'https:'].includes(url.protocol) ? url.href : ''; } catch { return ''; } };
 
 export async function mount(): Promise<void> {
   const root = document.querySelector<HTMLElement>('#app');
@@ -41,6 +41,8 @@ export async function mount(): Promise<void> {
   let loading = false;
   let queued = false;
   let switching = false;
+  let pendingSelection:Row|null=null,commentBusy=false;
+  const pendingActions=new Set<string>();
   let activeSessionKey = '';
   let lastSyncedSecond = -1;
   let requestEpoch = 0;
@@ -157,12 +159,13 @@ export async function mount(): Promise<void> {
 
   const sync = async (force = false) => {
     if (!isCurrent() || !userId || !active || !player || (!force && player.currentTime < 1)) return;
+    const source=active,media=player;
     const duration = Number.isFinite(player.duration) ? Math.floor(player.duration) : Number(active.duration_seconds ?? 0);
     const position = Math.floor(player.currentTime);
     if (!force && position === lastSyncedSecond) return;
     const completed = duration > 0 && position / duration > 0.92;
     const { error } = await action('progress', active, { position_seconds: position, duration_seconds: duration, completed, session_id: sessionId, device_type: /Mobi|Android/i.test(navigator.userAgent) ? 'mobile' : 'desktop' });
-    if (error || !isCurrent()) return;
+    if (error || !isCurrent()||active!==source||player!==media) return;
     lastSyncedSecond = position;
     progress.set(itemKey(active), { source_type: active.source_type, source_id: active.source_id, position_seconds: position, duration_seconds: duration, completed, last_watched_at: new Date().toISOString() });
     metrics.continue_count = continueRows().length;
@@ -200,17 +203,19 @@ export async function mount(): Promise<void> {
   };
 
   const open = async (item: Row, savePrevious = true, refreshComments = true) => {
-    if (!isCurrent() || switching) return;
+    if (!isCurrent()) return;
+    if(switching){pendingSelection=item;return;}
     switching = true;
     try {
-      if (savePrevious) await teardown(true);
+      await teardown(savePrevious);
       if (!isCurrent()) return;
       active = item;
       setWatchUrl(item);
       if (refreshComments) {
         const epoch = ++requestEpoch;
         const { data, error } = await supabase.rpc('rb_watch_snapshot', { p_source_type: item.source_type, p_source_id: item.source_id });
-        if (!error && isCurrent() && epoch === requestEpoch) apply(data);
+        if(error||!isCurrent()||epoch!==requestEpoch)return;
+        apply(data);if(!active||!items.some(candidate=>itemKey(candidate)===itemKey(item))){heroEl.innerHTML='<div class="media-ultimate__empty">Video unavailable.</div>';return;}
       }
       if (!isCurrent()) return;
       heroEl.innerHTML = hero(item, liked.has(itemKey(item)), saved.has(itemKey(item)), Boolean(userId));
@@ -230,12 +235,12 @@ export async function mount(): Promise<void> {
         progressTimer = window.setInterval(() => { if (isCurrent()) void sync(false); }, 15000);
       }
       q<HTMLButtonElement>('#watchPlayBtn')?.addEventListener('click', () => { if (isCurrent()) void player?.play().catch(() => undefined); });
-      q<HTMLButtonElement>('#watchLikeBtn')?.addEventListener('click', async () => { if (!requireUser() || !isCurrent()) return; const { data, error } = await action('toggle_like', item); if (!error && isCurrent()) { if ((data as Row)?.active) liked.add(itemKey(item)); else liked.delete(itemKey(item)); await open(item, false, false); } });
-      q<HTMLButtonElement>('#watchSaveBtn')?.addEventListener('click', async () => { if (!requireUser() || !isCurrent()) return; const { data, error } = await action('toggle_save', item); if (!error && isCurrent()) { if ((data as Row)?.active) saved.add(itemKey(item)); else saved.delete(itemKey(item)); metrics.saved_count = saved.size; renderMetrics(); render(); await open(item, false, false); } });
+      q<HTMLButtonElement>('#watchLikeBtn')?.addEventListener('click', async () => { if (!requireUser() || !isCurrent()||pendingActions.has('like')) return; pendingActions.add('like');try{const { data, error } = await action('toggle_like', item); if (!error && isCurrent()&&active===item) { if ((data as Row)?.active) liked.add(itemKey(item)); else liked.delete(itemKey(item)); const button=q<HTMLButtonElement>('#watchLikeBtn');if(button){button.textContent=liked.has(itemKey(item))?'♥ LIKED':'♡ LIKE';button.setAttribute('aria-pressed',String(liked.has(itemKey(item))));} }}finally{pendingActions.delete('like');} });
+      q<HTMLButtonElement>('#watchSaveBtn')?.addEventListener('click', async () => { if (!requireUser() || !isCurrent()||pendingActions.has('save')) return; pendingActions.add('save');try{const { data, error } = await action('toggle_save', item); if (!error && isCurrent()&&active===item) { if ((data as Row)?.active) saved.add(itemKey(item)); else saved.delete(itemKey(item)); metrics.saved_count = saved.size; renderMetrics(); render(); const button=q<HTMLButtonElement>('#watchSaveBtn');if(button){button.textContent=saved.has(itemKey(item))?'✓ MY LIST':'+ MY LIST';button.setAttribute('aria-pressed',String(saved.has(itemKey(item))));} }}finally{pendingActions.delete('save');} });
       render();
       await replaceChannel(item);
     } finally {
-      switching = false;
+      switching = false;if(pendingSelection&&isCurrent()){const next=pendingSelection;pendingSelection=null;void open(next);}
     }
   };
 
@@ -268,27 +273,26 @@ export async function mount(): Promise<void> {
       q<HTMLElement>('#watchLaneTitle').textContent = button.textContent ?? 'Watch';
       render();
       const first = visible()[0] ?? null;
-      active = first;
-      setWatchUrl(first);
-      if (first) void open(first, true, true); else heroEl.innerHTML = '<div class="media-ultimate__empty">Nothing in this lane yet.</div>';
+      if(first)void open(first,true,true);else void teardown(true).then(()=>{if(!isCurrent())return;active=null;setWatchUrl(null);heroEl.innerHTML='<div class="media-ultimate__empty">Nothing in this lane yet.</div>';});
     };
   });
 
   q<HTMLFormElement>('#watchCommentForm').onsubmit = async (event) => {
     event.preventDefault();
-    if (!requireUser() || !active || !isCurrent()) return;
+    if (!requireUser() || !active || !isCurrent()||commentBusy) return;
     const input = q<HTMLInputElement>('#watchCommentInput');
     const body = input.value.trim();
     if (!body) return;
     const submit = event.submitter as HTMLButtonElement | null;
-    if (submit) submit.disabled = true;
-    try { const { error } = await action('comment', active, { body }); if (error) throw error; input.value = ''; await load(active); }
-    finally { if (submit) submit.disabled = false; }
+    commentBusy=true;const selected=active;if (submit) submit.disabled = true;
+    try { const { error } = await action('comment', selected, { body }); if (error) throw error; if(isCurrent()&&active===selected){input.value = ''; await load(selected);} }catch{if(isCurrent())detail.textContent='Comment delivery not confirmed. Please check before retrying.';}
+    finally {commentBusy=false; if (submit) submit.disabled = false; }
   };
 
+  const recover=()=>{if(isCurrent()&&document.visibilityState==='visible')void load(active);};window.addEventListener('online',recover);document.addEventListener('visibilitychange',recover);
   const cleanup = async () => {
     if (disposed) return;
-    disposed = true;
+    disposed = true;window.removeEventListener('online',recover);document.removeEventListener('visibilitychange',recover);
     requestEpoch++;
     queued = false;
     await teardown(true);

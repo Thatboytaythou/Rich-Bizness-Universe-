@@ -71,7 +71,7 @@ export async function mount():Promise<void>{
   const metricMoney=root.querySelector<HTMLElement>('#metricMoney')!;
   const metricSystem=root.querySelector<HTMLElement>('#metricSystem')!;
   let notices:Notice[]=[]; let authoritativeAll=0; let authoritativeUnread=0;
-  let loading=false; let refreshQueued=false; let refreshTimer=0; let statusTimer=0; let channel:ReturnType<typeof supabase.channel>|null=null; let requestId=0;
+  let loading=false;let actionPending=false; let refreshQueued=false; let refreshTimer=0; let statusTimer=0; let channel:ReturnType<typeof supabase.channel>|null=null; let requestId=0;
 
   const setStatus=(message:string)=>{if(!isCurrent())return;status.textContent=message;window.clearTimeout(statusTimer);if(message)statusTimer=window.setTimeout(()=>{if(isCurrent()&&status.textContent===message)status.textContent='';},3200);};
   const filteredNotices=()=>notices.filter((notice)=>activeFilter==='all'||(activeFilter==='unread'?!notice.is_read:categoryFor(notice)===activeFilter));
@@ -120,11 +120,11 @@ export async function mount():Promise<void>{
   const queueLoad=()=>{window.clearTimeout(refreshTimer);refreshTimer=window.setTimeout(()=>void load(),180);};
 
   list.addEventListener('click',async(event)=>{
-    if(!isCurrent())return;
+    if(!isCurrent()||actionPending)return;
     const target=event.target as HTMLElement; const readButton=target.closest<HTMLButtonElement>('[data-read]');
-    if(readButton){readButton.disabled=true;try{await markRead(readButton.dataset.read!);render();}catch(caught){setStatus(caught instanceof Error?caught.message:'Unable to update alert.');}return;}
+    if(readButton){actionPending=true;readButton.disabled=true;try{await markRead(readButton.dataset.read!);render();}catch(caught){setStatus(caught instanceof Error?caught.message:'Unable to update alert.');}finally{actionPending=false;if(readButton.isConnected)readButton.disabled=false;}return;}
     const openButton=target.closest<HTMLButtonElement>('[data-open]'); if(!openButton)return;
-    try{await markRead(openButton.dataset.open!);if(isCurrent())location.assign(openButton.dataset.target||ROUTES.notifications);}catch(caught){setStatus(caught instanceof Error?caught.message:'Unable to open alert.');}
+    actionPending=true;try{await markRead(openButton.dataset.open!);if(isCurrent())location.assign(openButton.dataset.target||ROUTES.notifications);}catch(caught){setStatus(caught instanceof Error?caught.message:'Unable to open alert.');}finally{actionPending=false;}
   });
   filterButtons.forEach((button)=>button.addEventListener('click',()=>{
     if(!isCurrent())return;
@@ -145,8 +145,9 @@ export async function mount():Promise<void>{
     finally{updateCounts();}
   });
 
-  const cleanup=async()=>{if(destroyed)return;destroyed=true;requestId+=1;window.clearTimeout(refreshTimer);window.clearTimeout(statusTimer);if(channel){await supabase.removeChannel(channel);channel=null;}};
-  (window as CleanupHost).__rbPageCleanup=cleanup;
+  const recover=()=>{if(isCurrent()&&document.visibilityState==='visible')queueLoad();};window.addEventListener('online',recover);document.addEventListener('visibilitychange',recover);
+  const cleanup=async()=>{if(destroyed)return;destroyed=true;window.removeEventListener('online',recover);document.removeEventListener('visibilitychange',recover);requestId+=1;window.clearTimeout(refreshTimer);window.clearTimeout(statusTimer);if(channel){await supabase.removeChannel(channel);channel=null;}};
+  (window as CleanupHost).__rbPageCleanup=cleanup;window.addEventListener('pagehide',()=>void cleanup(),{once:true});
 
   await load();
   if(!isCurrent())return;

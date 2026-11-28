@@ -122,7 +122,6 @@ export async function mount(): Promise<void> {
   };
 
   const initialStudio = user ? await supabase.rpc('rb_go_live_bootstrap', {}) : { data: {}, error: null };
-  if (initialStudio.error) throw initialStudio.error;
   if (root.dataset.pageEpoch !== mountEpoch) return;
   categories = ((initialStudio.data as Row)?.categories ?? []) as Row[];
   activeHostStream = (initialStudio.data as Row)?.active_stream ?? null;
@@ -231,15 +230,14 @@ export async function mount(): Promise<void> {
     if(snapshotBusy){snapshotQueued=true;return;}
     snapshotBusy=true;
     const epoch=++snapshotEpoch;
-    do{
+    try{do{
       snapshotQueued=false;
       const streamId=active?.id??null;
       const {data,error}=await supabase.rpc('rb_live_snapshot',{p_stream_id:streamId});
       if(!isCurrent()||epoch!==snapshotEpoch)break;
       if((active?.id??null)!==streamId){snapshotQueued=true;continue;}
-      if(error){showActionError(error.message);}else{applySnapshot(data);renderRoom();}
-    }while(snapshotQueued&&isCurrent());
-    snapshotBusy=false;
+      if(error){showActionError(error.message);}else{applySnapshot(data);if(viewerJoinedStreamId&&!streams.some(row=>String(row.id)===viewerJoinedStreamId&&liveNow(row))){roomEpoch++;await disconnectViewer(true,'stream-unavailable');}renderRoom();}
+    }while(snapshotQueued&&isCurrent());}catch{if(isCurrent())showActionError('Live network is temporarily unavailable. Retry when connected.');}finally{snapshotBusy=false;}
   };
 
   const open = async (row: Row) => {
@@ -266,7 +264,7 @@ export async function mount(): Promise<void> {
       .subscribe();
   };
 
-  const tokenFor = async (stream: Row, role: 'host'|'viewer') => { if(!requireUser())throw new Error('Tap in to enter Live rooms.');const {data:{session}}=await supabase.auth.getSession();if(!session)throw new Error('Your Rich ID session expired.');const response=await fetch('/api/live/token',{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${session.access_token}`},body:JSON.stringify({roomName:stream.livekit_room_name,streamId:stream.id,role})});const payload=await response.json();if(!response.ok)throw new Error(payload.error||'Live room token failed.');return payload; };
+  const tokenFor = async (stream: Row, role: 'host'|'viewer') => { if(!requireUser())throw new Error('Tap in to enter Live rooms.');const {data:{session}}=await supabase.auth.getSession();if(!session||session.user.id!==userId)throw new Error('Your Rich ID session expired.');const response=await fetch('/api/live/token',{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${session.access_token}`},body:JSON.stringify({roomName:stream.livekit_room_name,streamId:stream.id,role}),signal:AbortSignal.timeout(12000)});const payload=await response.json();if(!response.ok||payload.ok!==true||payload.roomName!==stream.livekit_room_name||payload.role!==role||typeof payload.token!=='string'||typeof payload.url!=='string'||!payload.url.startsWith('wss://'))throw new Error('Live room authorization unavailable.');return payload; };
 
   const popIn = async (stream: Row) => {
     if(viewerStarting||viewerDisconnecting||!isCurrent())return;
@@ -338,9 +336,10 @@ export async function mount(): Promise<void> {
   q<HTMLInputElement>('#liveTitle').addEventListener('input',(event)=>{q<HTMLElement>('#previewTitle').textContent=(event.target as HTMLInputElement).value||'Your Live Title';});
   q<HTMLFormElement>('#goLiveForm').onsubmit=async(event)=>{event.preventDefault();if(hostStarting||hostRoom||!requireUser()||!isCurrent())return;hostStarting=true;startButton.disabled=true;studioStatus.textContent='GETTIN’ THE BIZNESS PARTY RIGHT...';const title=q<HTMLInputElement>('#liveTitle').value.trim();if(!title){hostStarting=false;startButton.disabled=false;studioStatus.textContent='NAME THE LIVE FIRST.';return;}const {data,error}=await supabase.rpc('rb_start_live_stream',{p_title:title,p_description:q<HTMLTextAreaElement>('#liveDescription').value.trim()||null,p_category:selectedCategory,p_access_type:q<HTMLSelectElement>('#liveAccess').value,p_price_cents:Math.round(Number(q<HTMLInputElement>('#livePrice').value||0)*100),p_thumbnail_url:null,p_cover_url:null,p_is_chat_enabled:q<HTMLInputElement>('#liveChatEnabled').checked,p_is_cohost_enabled:q<HTMLInputElement>('#liveCohostEnabled').checked,p_recording_enabled:q<HTMLInputElement>('#liveRecordingEnabled').checked,p_transcription_enabled:q<HTMLInputElement>('#liveCaptionsEnabled').checked});if(error){hostStarting=false;startButton.disabled=false;studioStatus.textContent=error.message;studioStatus.dataset.error='true';return;}if(!isCurrent())return;const stream=(data as Row|null)?.stream as Row|undefined;if(!stream?.id){hostStarting=false;startButton.disabled=false;studioStatus.textContent='Live session response incomplete';return;}activeHostStream=stream;active=stream;try{await connectHost(stream);await refresh();}catch(connectError){await stopHost();if(activeHostStream?.id)await supabase.rpc('rb_end_live_stream',{p_stream_id:activeHostStream.id});activeHostStream=null;active=null;startButton.disabled=false;studioStatus.textContent=connectError instanceof Error?connectError.message:'Camera or live room failed.';}finally{hostStarting=false;}};
 
+  const recover=()=>{if(isCurrent()&&document.visibilityState==='visible')void refresh();};window.addEventListener('online',recover);document.addEventListener('visibilitychange',recover);
   const cleanup=async()=>{
     if(disposed)return;
-    disposed=true;
+    disposed=true;window.removeEventListener('online',recover);document.removeEventListener('visibilitychange',recover);
     receiptCheck?.abort();roomEpoch++;
     snapshotEpoch++;
     snapshotQueued=false;
