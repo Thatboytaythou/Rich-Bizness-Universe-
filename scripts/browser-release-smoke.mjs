@@ -40,6 +40,23 @@ try{
  await visit('/rb-secret-door.html?room=businesses','#app');
  assert.equal(await page.locator('#organization-workspace').count(),0,'Guest must never see organization registration');
  assert.ok(await page.locator('a[href="/tap-in.html"]').count(),'Private business directory must display Tap In');
+ // Cross-section new-user regressions: compiled, real Chromium, no fake login.
+ await visit('/search.html','#searchInput');
+ assert.equal(await page.locator('#searchInput').getAttribute('maxlength'),'100','Search query size constraint missing');
+ await page.locator('#rb-omni-mini').waitFor({state:'attached',timeout:15000});
+ assert.ok(await page.locator('#rb-omni-mini').locator('a[href="/avatar-characters.html"]').count(),'Search Mini Omni must link to the canonical Avatar Studio');
+ assert.ok(await page.locator('#rb-omni-mini').locator('a[href="/portal.html"]').count(),'Search Mini Omni must link to the canonical Portal');
+ await visit('/feed.html','#postBody');
+ assert.equal(await page.locator('#postBody').isDisabled(),true,'Guest must not post as a Rich ID');
+ assert.equal(await page.locator('#feedModalForm input').isDisabled(),true,'Guest must not comment as a Rich ID');
+ await page.locator('#rb-omni-mini').waitFor({state:'attached',timeout:15000});
+ assert.ok(await page.locator('#rb-omni-mini').locator('a[href="/profile.html"]').count(),'Feed Mini Omni missing Profile');
+ for(const privateRoute of ['/profile.html','/edit-profile.html','/settings.html','/avatar-characters.html','/avatar.html']){
+  await visit(privateRoute,'#authForm');
+  const redirect=new URL(page.url());
+  assert.equal(redirect.pathname,'/tap-in.html','Protected guest route did not reach Tap In: '+privateRoute);
+  assert.equal(redirect.searchParams.get('next'),privateRoute,'Sign-in return path lost: '+privateRoute);
+ }
  await visit('/tap-in.html','#authForm');
  await visit('/portal.html','#authForm');assert.match(new URL(page.url()).pathname,/tap-in/,'Private Portal must require a session');
  console.log('Real Chromium '+(local?'local compiled':'hosted')+' public smoke: exact commit, Home artwork decoded, Tap In, private Portal redirect, 390px viewport');
