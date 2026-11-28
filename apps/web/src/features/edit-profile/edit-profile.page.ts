@@ -85,7 +85,7 @@ export async function mount(): Promise<void> {
 
   const { data, error } = await supabase.from('profiles').select(PROFILE_COLUMNS).eq('id', user.id).single();
   if (!isCurrent()) return;
-  if (error) throw error;
+  if (error) { root.innerHTML='<main class="edit-profile-shell"><h1>Identity unavailable</h1><p role="status">Your saved profile could not be loaded. No changes have been made.</p><button type="button" id="retryIdentity">Retry connection</button><a href="/profile.html">Return to Profile</a></main>';root.querySelector<HTMLButtonElement>('#retryIdentity')!.onclick=()=>location.reload();return; }
   const profile = data as ProfileDraft;
   const avatarFallback = '/brand/icons/profile-placeholder.svg';
   const avatarInitial = profile.avatar_url || avatarFallback;
@@ -239,6 +239,7 @@ export async function mount(): Promise<void> {
     if (saveButton.disabled || !isCurrent()) return;
     saveButton.disabled = true;
     saveState.textContent = 'SAVING';
+    form.inert=true;
     message.textContent = 'Synchronizing your Rich Bizness identity…';
 
     try {
@@ -249,11 +250,6 @@ export async function mount(): Promise<void> {
 
       const avatar = avatarFile.files?.[0];
       const banner = bannerFile.files?.[0];
-      if (avatar) avatarUrl = await uploadProfileAsset(user.id, 'avatars', avatar);
-      if (!isCurrent()) return;
-      if (banner) bannerUrl = await uploadProfileAsset(user.id, 'profile-banners', banner);
-      if (!isCurrent()) return;
-
       const payload = {
         p_username: username,
         p_display_name: displayName,
@@ -269,6 +265,11 @@ export async function mount(): Promise<void> {
         p_snapchat_url: optionalUrl(field(form, 'snapchat_url'), 'Snapchat')
       };
 
+      if (avatar) avatarUrl = await uploadProfileAsset(user.id, 'avatars', avatar);
+      if (!isCurrent()) return;
+      if (banner) bannerUrl = await uploadProfileAsset(user.id, 'profile-banners', banner);
+      if (!isCurrent()) return;
+      payload.p_avatar_url=avatarUrl;payload.p_banner_url=bannerUrl;
       const { data: saved, error: saveError } = await supabase.rpc('rb_save_profile_identity', payload);
       if (!isCurrent()) return;
       if (saveError) throw saveError;
@@ -303,7 +304,7 @@ export async function mount(): Promise<void> {
       message.textContent = caught instanceof Error ? caught.message : 'Unable to save profile.';
       saveState.textContent = 'ERROR';
     } finally {
-      if (isCurrent()) saveButton.disabled = false;
+      if (isCurrent()) {form.inert=false;saveButton.disabled=false;}
     }
   };
 

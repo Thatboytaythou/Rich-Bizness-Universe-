@@ -41,7 +41,7 @@ export async function mount(): Promise<void> {
   ]);
   if (!isCurrent()) return;
   const loadError = profileError ?? settingsError ?? themeError;
-  if (loadError) throw loadError;
+  if (loadError) { root.innerHTML='<main class="comm-shell"><h1>Settings unavailable</h1><p role="status">Your saved settings could not be loaded. No defaults have been saved.</p><button type="button" id="retrySettings">Retry connection</button><a href="/profile.html">Return to Profile</a></main>';root.querySelector<HTMLButtonElement>('#retrySettings')!.onclick=()=>location.reload();return; }
 
   const profile = (profileData ?? {}) as JsonMap;
   const privacy = (profile.privacy_config ?? {}) as JsonMap;
@@ -123,7 +123,7 @@ export async function mount(): Promise<void> {
     updatePreview();
   };
   const guard = (event: BeforeUnloadEvent) => { if (dirty) { event.preventDefault(); event.returnValue = ''; } };
-  const verifySession = () => { if (!isCurrent()) return; saveSummary.textContent = 'SESSION VERIFIED'; status.textContent = `Session verified for ${user.email ?? 'this account'}.`; };
+  const verifySession = async () => { if (!isCurrent()||sessionButton.disabled) return; sessionButton.disabled=true; saveSummary.textContent='VERIFYING SESSION'; try{const {data,error}=await supabase.auth.getUser();if(!isCurrent())return;if(error||data.user?.id!==user.id)throw Error('Session unavailable');saveSummary.textContent='SESSION VERIFIED';status.textContent='Your Rich ID was verified by the authentication service.';}catch{if(isCurrent()){saveSummary.textContent='SESSION UNVERIFIED';status.textContent='Could not verify this session. Reconnect before making account changes.';}}finally{if(isCurrent())sessionButton.disabled=false;} };
   const signOut = async () => {
     signOutButton.disabled = true;
     status.textContent = 'Signing out…';
@@ -143,7 +143,8 @@ export async function mount(): Promise<void> {
     const data = new FormData(form);
     const notificationConfig = { dm:data.has('dm'), live:data.has('live'), music:data.has('music'), store:data.has('store'), sports:data.has('sports'), gaming:data.has('gaming') };
     const privacyConfig = { show_online:data.has('show_online'), allow_messages:data.has('allow_messages'), allow_follows:data.has('allow_follows'), allow_comments:data.has('allow_comments'), allow_calls:data.has('allow_calls') };
-    const { error } = await supabase.rpc('rb_save_universe_settings', {
+    form.inert=true;
+    try { const { error } = await supabase.rpc('rb_save_universe_settings', {
       p_notification_config:notificationConfig, p_privacy_config:privacyConfig,
       p_language:String(data.get('language') ?? 'en'), p_timezone:String(data.get('timezone') ?? 'America/New_York'),
       p_default_theme:String(data.get('default_theme') ?? 'rich-universe'), p_profile_visibility:String(data.get('profile_visibility') ?? 'public'),
@@ -165,8 +166,7 @@ export async function mount(): Promise<void> {
       saveSummary.textContent = 'UNIVERSE SYNCHRONIZED';
       status.textContent = 'Settings synchronized across Profile, Rich-DM, notifications, privacy, calls, comments and visual experience.';
     }
-    saving = false;
-    if (isCurrent()) saveButton.disabled = false;
+    } catch { if(isCurrent()){saveState.textContent='ERROR';saveSummary.textContent='SYNC UNCONFIRMED';status.textContent='Settings could not be confirmed. Reopen settings to verify before retrying.';} } finally { saving=false; if(isCurrent()){form.inert=false;saveButton.disabled=false;} }
   };
 
   accentInput.addEventListener('input', onAccent);
