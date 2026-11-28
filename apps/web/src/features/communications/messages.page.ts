@@ -25,7 +25,10 @@ const bytes = (value: number | null | undefined) => {
 };
 const safeHref = (value: string | null | undefined) => {
   try {
-    const url = new URL(value ?? '', location.origin);
+    if(!value?.trim())return '';
+    const url = new URL(value, location.origin);
+    // Legacy DM attachments used a public bucket; do not redisplay public object links.
+    if(url.pathname.includes('/storage/v1/object/public/'))return '';
     return ['http:', 'https:'].includes(url.protocol) ? url.href : '';
   } catch { return ''; }
 };
@@ -60,7 +63,7 @@ export async function mount(): Promise<void> {
   const attachmentState = root.querySelector<HTMLElement>('#attachmentState')!;
 
   const params = new URLSearchParams(location.search);
-  let activeThread = params.get('thread');
+  let activeThread = isUuid(params.get('thread'))?params.get('thread'):null;
   const requestedUser = params.get('to');
   const sharedPostId = isUuid(params.get('share')) ? params.get('share') : null;
   let sharedPostPending = sharedPostId;
@@ -72,6 +75,11 @@ export async function mount(): Promise<void> {
   let threads: Thread[] = [];
   let loadingThreads = false;
   let loadingThread = false;
+  let threadQueued=false,listQueued=false,opening=false,sending=false,sharing=false;
+  let threadRevision=0,threadRefreshTimer:number|undefined;
+  const drafts=new Map<string,string>();
+  const currentThread=(id:string)=>isCurrent()&&getAuthSnapshot().user?.id===user.id&&activeThread===id;
+  const scheduleThread=(id:string)=>{if(!currentThread(id))return;if(threadRefreshTimer)clearTimeout(threadRefreshTimer);threadRefreshTimer=window.setTimeout(()=>void refreshThread(id),160);};
 
   const setStatus = (message: string) => {
     if (!isCurrent()) return;
@@ -108,7 +116,9 @@ export async function mount(): Promise<void> {
   };
 
   const sendSharedPost = async (threadId: string) => {
-    if (!sharedPostPending || !isCurrent()) return;
+    if (!sharedPostPending || !currentThread(threadId)||sharing) return;
+    sharing=true;
+    try {
     const postId = sharedPostPending;
     const { data, error } = await supabase.rpc('rb_feed_snapshot', { p_section: 'all', p_limit: 1, p_post_id: postId });
     if (!isCurrent()) return;
@@ -125,21 +135,27 @@ export async function mount(): Promise<void> {
     params.set('thread', threadId);
     history.replaceState({}, '', `${ROUTES.messages}?${params.toString()}`);
     setStatus('Post shared to Rich-DM.');
+    } finally {sharing=false;}
   };
 
   const drawThread = async (threadId: string, snapshot: ThreadSnapshot) => {
     if (!isCurrent() || activeThread !== threadId) return;
     const thread = snapshot.thread ?? {};
-    const messages = snapshot.messages ?? [];
+    const messages = [...new Map((snapshot.messages??[]).filter(m=>m.thread_id===threadId).map(m=>[m.id,m])).values()];
     const attachments = snapshot.attachments ?? [];
     const reactions = snapshot.reactions ?? [];
     const typing = snapshot.typing ?? [];
     const calls = snapshot.calls ?? snapshot.call_sessions ?? [];
     const activeCall = calls.find((call) => ['ringing', 'active'].includes(String(call.call_status ?? '').toLowerCase())) ?? null;
     const defaultReaction = String((thread as any).default_reaction || '💨');
-    attachmentState.textContent = attachments.length ? String(attachments.length) : 'READY';
+    attachmentState.textContent = 'PRIVATE STORAGE REQUIRED';
+    const priorInput=panel.querySelector<HTMLInputElement>('#messageInput');
+    const priorFeed=panel.querySelector<HTMLElement>('#messageFeed');
+    const keepFocus=priorInput===document.activeElement;
+    const keepScroll=priorFeed&&priorFeed.scrollHeight-priorFeed.scrollTop-priorFeed.clientHeight>80;
+    const previousScroll=priorFeed?.scrollTop??0;
 
-    panel.innerHTML = `<header class="thread-title"><div><strong>${esc(String((thread as any).title || 'Rich Conversation'))}</strong><p>${esc(String((thread as any).typing_label || 'encrypted realtime room'))}</p></div><div class="thread-actions"><button id="audioCall" title="Audio call">☎</button><button id="videoCall" title="Video call">◉</button><button id="threadInfo" title="Thread info">⋯</button></div></header>${activeCall ? `<section class="active-call-strip"><div><small>${esc(String(activeCall.call_type || 'rich call').toUpperCase())}</small><strong>${esc(String(activeCall.call_status || 'ACTIVE').toUpperCase())}</strong></div><a href="${ROUTES.messages}?thread=${encodeURIComponent(threadId)}&call=${encodeURIComponent(activeCall.id)}">REJOIN CALL</a></section>` : ''}<div id="messageFeed" class="message-feed"></div><div id="typingRow" class="typing-row">${esc(typing[0]?.typing_label || '')}</div><form id="composer" class="composer"><button id="attachButton" class="icon-button" type="button" aria-label="Attach a file">＋</button><input id="messageInput" maxlength="2000" autocomplete="off" placeholder="Send a Rich-DM..."/><button class="comm-button primary">SEND</button><input id="attachmentInput" type="file" hidden accept="image/*,video/*,audio/*,.pdf,.doc,.docx"/></form>`;
+    panel.innerHTML = `<header class="thread-title"><div><strong>${esc(String((thread as any).title || 'Rich Conversation'))}</strong><p>${esc(String((thread as any).typing_label || 'Private member room'))}</p></div><div class="thread-actions"><button id="audioCall" title="Audio call">☎</button><button id="videoCall" title="Video call">◉</button><button id="threadInfo" title="Conversation settings">⋯</button></div></header>${activeCall ? `<section class="active-call-strip"><div><small>${esc(String(activeCall.call_type || 'rich call').toUpperCase())}</small><strong>${esc(String(activeCall.call_status || 'ACTIVE').toUpperCase())}</strong></div><a href="${ROUTES.messages}?thread=${encodeURIComponent(threadId)}&call=${encodeURIComponent(activeCall.id)}">REJOIN CALL</a></section>` : ''}<div id="messageFeed" class="message-feed"></div><div id="typingRow" class="typing-row">${esc(typing[0]?.typing_label || '')}</div><form id="composer" class="composer"><button id="attachButton" class="icon-button" type="button" aria-label="Private attachments unavailable" title="Private attachment storage is not verified" disabled>＋</button><input id="messageInput" maxlength="2000" autocomplete="off" placeholder="Send a Rich-DM..."/><button class="comm-button primary">SEND</button><input id="attachmentInput" type="file" disabled hidden accept="image/*,video/*,audio/*,.pdf,.doc,.docx"/></form>`;
 
     const feed = panel.querySelector<HTMLElement>('#messageFeed')!;
     feed.innerHTML = messages.length ? messages.map((message) => {
@@ -149,7 +165,7 @@ export async function mount(): Promise<void> {
       const mediaRows = linkedAttachments.length ? linkedAttachments : legacyMedia;
       const media = mediaRows.map((item) => {
         const href = safeHref(item.file_url || item.media_url);
-        if (!href) return '';
+        if (!href) return '<span class="message-attachment">Attachment unavailable until private storage is verified.</span>';
         const mime = String(item.mime_type || '').toLowerCase();
         const name = item.file_name || 'Rich attachment';
         if (mime.startsWith('image/')) return `<a class="message-media-preview image" href="${esc(href)}" target="_blank" rel="noopener"><img src="${esc(href)}" alt="${esc(name)}" loading="lazy"><span>${esc(name)}</span></a>`;
@@ -159,7 +175,7 @@ export async function mount(): Promise<void> {
       }).join('');
       return `<article class="bubble ${message.sender_id === user.id ? 'mine' : ''}" data-message="${message.id}"><p>${esc(message.body || '')}</p>${media}<small>${esc(message.display_name || message.username || 'Rich Member')} · ${stamp(message.created_at)}${message.is_edited ? ' · edited' : ''}</small><div class="bubble-tools"><button type="button" data-react="${esc(defaultReaction)}">${esc(defaultReaction)} ${counts[defaultReaction] || ''}</button><button type="button" data-react="🔥">🔥 ${counts['🔥'] || ''}</button><button type="button" data-react="💯">💯 ${counts['💯'] || ''}</button></div></article>`;
     }).join('') : '<div class="comm-empty rich-dm-empty"><span>💨</span><h2>Start the conversation</h2><p>Send a message, attachment, reaction or Rich Call.</p></div>';
-    feed.scrollTop = feed.scrollHeight;
+    feed.scrollTop = keepScroll?previousScroll:feed.scrollHeight;
 
     feed.querySelectorAll<HTMLButtonElement>('[data-react]').forEach((button) => button.onclick = async () => {
       const message = button.closest<HTMLElement>('[data-message]')?.dataset.message;
@@ -170,56 +186,36 @@ export async function mount(): Promise<void> {
     });
 
     const input = panel.querySelector<HTMLInputElement>('#messageInput')!;
-    const attachmentInput = panel.querySelector<HTMLInputElement>('#attachmentInput')!;
+    input.value=drafts.get(threadId)??'';
+    input.disabled=sending;
+    if(keepFocus&&!sending){input.focus({preventScroll:true});input.setSelectionRange(input.value.length,input.value.length);}
+    panel.querySelector<HTMLButtonElement>('#threadInfo')!.onclick=()=>location.assign(ROUTES.settings+'#privacy');
     panel.querySelector<HTMLFormElement>('#composer')!.onsubmit = async (event) => {
       event.preventDefault();
       const body = input.value.trim();
-      if (!body || input.disabled || !isCurrent()) return;
-      input.disabled = true;
+      if (!body || input.disabled || sending || !currentThread(threadId)) return;
+      sending=true;input.disabled = true;
       try {
-        const { error } = await supabase.rpc('rb_dm_send_message', { p_thread_id: threadId, p_body: body, p_reply_to: null });
-        if (!isCurrent()) return;
-        if (error) throw error;
-        input.value = '';
+        const { data,error } = await supabase.rpc('rb_dm_send_message', { p_thread_id: threadId, p_body: body, p_reply_to: null });
+        if (!currentThread(threadId)) return;
+        if (error||!data) throw Error('Delivery not confirmed. Check the conversation before retrying.');
+        drafts.delete(threadId);input.value = '';
         await setTyping(threadId, false);
       } catch (caught) {
         setStatus(caught instanceof Error ? caught.message : 'Unable to send message.');
       } finally {
-        if (isCurrent()) { input.disabled = false; input.focus(); }
+        sending=false;if(currentThread(threadId)){input.disabled=false;input.focus({preventScroll:true});scheduleThread(threadId);}
       }
     };
 
     input.oninput = () => {
+      if(!currentThread(threadId))return;drafts.set(threadId,input.value);
       void setTyping(threadId, true);
       if (typingTimer) window.clearTimeout(typingTimer);
       typingTimer = window.setTimeout(() => void setTyping(threadId, false), 1400);
     };
 
-    panel.querySelector<HTMLButtonElement>('#attachButton')!.onclick = () => attachmentInput.click();
-    attachmentInput.onchange = async () => {
-      const file = attachmentInput.files?.[0];
-      if (!file || !isCurrent()) return;
-      if (file.size > 25 * 1024 * 1024) { setStatus('Attachment must be 25 MB or smaller.'); return; }
-      const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, '_');
-      const path = `${user.id}/dm/${threadId}/${crypto.randomUUID()}-${safeName}`;
-      attachmentState.textContent = 'UPLOADING';
-      try {
-        const { error: uploadError } = await supabase.storage.from('general-uploads').upload(path, file, { contentType: file.type || 'application/octet-stream', cacheControl: '31536000', upsert: false });
-        if (!isCurrent()) return;
-        if (uploadError) throw uploadError;
-        const url = supabase.storage.from('general-uploads').getPublicUrl(path).data.publicUrl;
-        const { error } = await supabase.rpc('rb_dm_finalize_attachment', { p_thread_id: threadId, p_file_url: url, p_file_name: file.name, p_mime_type: file.type || 'application/octet-stream', p_file_size: file.size, p_storage_path: path });
-        if (!isCurrent()) return;
-        if (error) throw error;
-        attachmentInput.value = '';
-        attachmentState.textContent = 'READY';
-        setStatus('Attachment delivered.');
-        await refreshThread(threadId);
-      } catch (caught) {
-        if (isCurrent()) attachmentState.textContent = 'ERROR';
-        setStatus(caught instanceof Error ? caught.message : 'Unable to upload attachment.');
-      }
-    };
+    // Upload disabled until a member-scoped private bucket and authorized delivery exist.
 
     const startCall = async (type: 'audio' | 'video') => {
       if (!isCurrent()) return;
@@ -242,23 +238,28 @@ export async function mount(): Promise<void> {
   };
 
   const refreshThread = async (threadId: string) => {
-    if (!isCurrent() || activeThread !== threadId || loadingThread) return;
-    loadingThread = true;
+    if (!currentThread(threadId)) return;
+    if(loadingThread||sending||sharing){threadQueued=true;return;}
+    loadingThread = true;const revision=threadRevision;
     try {
       const { data, error } = await supabase.rpc('rb_dm_thread_snapshot', { p_thread_id: threadId, p_limit: 350 });
-      if (!isCurrent() || activeThread !== threadId) return;
-      if (error) throw error;
-      await drawThread(threadId, (data ?? {}) as ThreadSnapshot);
+      if (!currentThread(threadId)||revision!==threadRevision) return;
+      if (error||!data||!(data as ThreadSnapshot).thread) throw Error('Conversation could not be verified.');
+      if(sending||sharing){threadQueued=true;return;}
+      await drawThread(threadId, data as ThreadSnapshot);
     } catch (caught) {
-      setStatus(caught instanceof Error ? caught.message : 'Unable to open conversation.');
-    } finally { loadingThread = false; }
+      if(currentThread(threadId)){panel.innerHTML='<div class="comm-empty" role="status">Conversation unavailable. Reopen the thread to retry.</div>';activeState.textContent='UNVERIFIED';setStatus('Conversation could not be verified.');}
+    } finally { loadingThread = false;if(threadQueued&&activeThread){threadQueued=false;scheduleThread(activeThread);} }
   };
 
   const openThread = async (threadId: string) => {
-    if (!isCurrent() || loadingThread) return;
-    if (activeThread && activeThread !== threadId) await setTyping(activeThread, false);
+    if (!isCurrent() || opening||sending||sharing||!isUuid(threadId)) return;
+    opening=true;
+    try{
+    if (activeThread && activeThread !== threadId) {if(typingTimer)clearTimeout(typingTimer);void setTyping(activeThread,false);}
     if (!isCurrent()) return;
-    activeThread = threadId;
+    threadRevision++;activeThread = threadId;
+    panel.innerHTML='<div class="comm-empty" role="status">Verifying conversation…</div>';
     activeState.textContent = 'OPEN';
     drawThreads();
     params.set('thread', threadId);
@@ -266,32 +267,34 @@ export async function mount(): Promise<void> {
     if (threadChannel) await supabase.removeChannel(threadChannel);
     if (!isCurrent()) return;
     threadChannel = supabase.channel(`rich-dm:${mountEpoch}:${threadId}`)
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'dm_messages', filter: `thread_id=eq.${threadId}` }, () => void refreshThread(threadId))
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'dm_message_attachments' }, () => void refreshThread(threadId))
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'dm_message_reactions' }, () => void refreshThread(threadId))
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'dm_typing_status', filter: `thread_id=eq.${threadId}` }, () => void refreshThread(threadId))
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'dm_call_sessions', filter: `thread_id=eq.${threadId}` }, () => void refreshThread(threadId))
-      .subscribe();
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'dm_messages', filter: `thread_id=eq.${threadId}` }, () => scheduleThread(threadId))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'dm_message_attachments' }, () => scheduleThread(threadId))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'dm_message_reactions' }, () => scheduleThread(threadId))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'dm_typing_status', filter: `thread_id=eq.${threadId}` }, () => scheduleThread(threadId))
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'dm_call_sessions', filter: `thread_id=eq.${threadId}` }, () => scheduleThread(threadId))
+      .subscribe(state=>{if(state==='SUBSCRIBED')scheduleThread(threadId);});
     await refreshThread(threadId);
     if (sharedPostPending) {
       try { await sendSharedPost(threadId); await refreshThread(threadId); }
-      catch (caught) { setStatus(caught instanceof Error ? caught.message : 'Unable to share post.'); }
+      catch { setStatus('Share not confirmed. Check the conversation before retrying.'); }
     }
+    }finally{opening=false;}
   };
 
   const loadThreads = async () => {
-    if (!isCurrent() || loadingThreads) return;
+    if (!isCurrent()) return;
+    if(loadingThreads){listQueued=true;return;}
     loadingThreads = true;
     try {
       const { data, error } = await supabase.rpc('rb_dm_threads_snapshot', { p_limit: 150 });
       if (!isCurrent()) return;
       if (error) throw error;
-      threads = (((data as any)?.threads ?? []) as Thread[]);
+      threads = [...new Map((((data as any)?.threads ?? []) as Thread[]).map(t=>[t.id,t])).values()];
       drawThreads();
       if (activeThread && threads.some((thread) => thread.id === activeThread) && !threadChannel && !loadingThread) await openThread(activeThread);
     } catch (caught) {
       setStatus(caught instanceof Error ? caught.message : 'Unable to load conversations.');
-    } finally { loadingThreads = false; }
+    } finally { loadingThreads = false;if(listQueued){listQueued=false;scheduleThreads();} }
   };
 
   const openDirectFor = async (profileId: string) => {
@@ -318,11 +321,13 @@ export async function mount(): Promise<void> {
     const box = modal.querySelector<HTMLInputElement>('#profileSearch')!;
     const results = modal.querySelector<HTMLElement>('#profileResults')!;
     modal.querySelector<HTMLButtonElement>('#closeNew')!.onclick = () => modal.remove();
+    let searchRevision=0;
     box.oninput = async () => {
+      const revision=++searchRevision;
       const query = box.value.trim();
       if (query.length < 2) { results.innerHTML = ''; return; }
       const { data, error } = await supabase.rpc('rb_dm_search_profiles', { p_query: query, p_limit: 20 });
-      if (!isCurrent() || !document.body.contains(modal)) return;
+      if (!isCurrent() || !document.body.contains(modal)||revision!==searchRevision) return;
       if (error) { results.innerHTML = `<div class="comm-empty">${esc(error.message)}</div>`; return; }
       results.innerHTML = ((data ?? []) as Profile[]).map((profile) => `<article class="profile-result"><a href="/profile.html?id=${encodeURIComponent(profile.id)}"><img src="${esc(profile.avatar_url || '/brand/icons/profile-placeholder.svg')}" alt=""><div><strong>${esc(profile.display_name || profile.username || 'Rich Member')}</strong><p>@${esc(profile.username || 'member')} · ${esc(profile.online_status || 'offline')}</p></div></a><button class="comm-button primary" data-user="${profile.id}">${sharedPostPending ? 'SHARE' : 'MESSAGE'}</button></article>`).join('') || '<div class="comm-empty">No message-ready members found.</div>';
       results.querySelectorAll<HTMLButtonElement>('[data-user]').forEach((button) => button.onclick = async () => { modal.remove(); await openDirectFor(String(button.dataset.user || '')); });
@@ -343,17 +348,20 @@ export async function mount(): Promise<void> {
     .on('postgres_changes', { event: '*', schema: 'public', table: 'dm_messages' }, scheduleThreads)
     .subscribe();
 
+  const reconnect=()=>{if(document.visibilityState==='visible'){scheduleThreads();if(activeThread)scheduleThread(activeThread);}};
+  document.addEventListener('visibilitychange',reconnect);window.addEventListener('online',reconnect);
   const cleanup = async () => {
     if (destroyed) return;
-    destroyed = true;
+    destroyed = true;drafts.clear();document.removeEventListener('visibilitychange',reconnect);window.removeEventListener('online',reconnect);if(threadRefreshTimer)clearTimeout(threadRefreshTimer);
     if (typingTimer) window.clearTimeout(typingTimer);
     if (refreshTimer) window.clearTimeout(refreshTimer);
     if (statusTimer) window.clearTimeout(statusTimer);
-    if (activeThread) void supabase.rpc('rb_dm_set_typing', { p_thread_id: activeThread, p_is_typing: false });
+    if (activeThread&&getAuthSnapshot().user?.id===user.id) void supabase.rpc('rb_dm_set_typing', { p_thread_id: activeThread, p_is_typing: false });
     if (threadChannel) { await supabase.removeChannel(threadChannel); threadChannel = null; }
     if (listChannel) { await supabase.removeChannel(listChannel); listChannel = null; }
     document.querySelector('.new-thread-modal')?.remove();
     panel.querySelectorAll<HTMLMediaElement>('audio,video').forEach((media) => { media.pause(); media.removeAttribute('src'); media.load(); });
   };
   (window as CleanupHost).__rbPageCleanup = cleanup;
+  window.addEventListener('pagehide',()=>void cleanup(),{once:true});
 }
