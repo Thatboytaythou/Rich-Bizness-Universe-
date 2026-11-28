@@ -1,3 +1,4 @@
+import {renderScheduler,boundedCanvasPixels} from '../../core/experience/render-scheduler';
 type MotionOptions = { reduced: boolean };
 
 type Particle = {
@@ -31,7 +32,8 @@ export function mountPortalMotion(options: MotionOptions): () => void {
   let width = 0;
   let height = 0;
   let dpr = 1;
-  let frame = 0;
+  let inView = true;
+  const mobile=matchMedia('(any-pointer:coarse),(max-width:860px)').matches;
   let time = 0;
   let lastPaint = 0;
   let pointerX = 0.5;
@@ -41,8 +43,8 @@ export function mountPortalMotion(options: MotionOptions): () => void {
   const resize = () => {
     width = Math.max(1, stage.clientWidth);
     height = Math.max(1, stage.clientHeight);
-    dpr = Math.min(window.devicePixelRatio || 1, 2, Math.sqrt(1800000 / (width * height)));
-    const pixelWidth=Math.max(1,Math.floor(width*dpr)),pixelHeight=Math.max(1,Math.floor(height*dpr));
+    const budget=boundedCanvasPixels(width,height,Math.min(window.devicePixelRatio||1,2),mobile?900000:1800000,mobile?1080:1600);
+    dpr=budget.scale;const pixelWidth=budget.width,pixelHeight=budget.height;
     if(canvas.width!==pixelWidth||canvas.height!==pixelHeight){canvas.width=pixelWidth;canvas.height=pixelHeight;}
     canvas.style.width = `${width}px`;
     canvas.style.height = `${height}px`;
@@ -93,16 +95,10 @@ export function mountPortalMotion(options: MotionOptions): () => void {
     context.fillRect(0, 0, width, height);
   };
 
-  const animate = (now=0) => {
-    frame = 0;
-    if (disposed || document.hidden) return;
-    if(!lastPaint||now-lastPaint>=32){lastPaint=now;paint(true);}
-    frame = window.requestAnimationFrame(animate);
-  };
-  const visibility = () => {
-    if(document.hidden){window.cancelAnimationFrame(frame);frame=0;}
-    else if(!options.reduced&&!disposed&&!frame){lastPaint=0;animate();}
-  };
+  const frames=renderScheduler(now=>{if(!lastPaint||now-lastPaint>=32){lastPaint=now;paint(true);}},cb=>window.requestAnimationFrame(cb),id=>window.cancelAnimationFrame(id));
+  const visibility=()=>{lastPaint=0;const visible=inView&&!document.hidden;stage.dataset.rbCanvasVisible=String(visible);frames.setVisible(visible&&!options.reduced);};
+  const viewport=new IntersectionObserver(entries=>{inView=entries[0]?.isIntersecting??true;visibility();},{threshold:.02});
+  viewport.observe(stage);
 
   const move = (event: PointerEvent) => {
     const rect = stage.getBoundingClientRect();
@@ -138,14 +134,14 @@ export function mountPortalMotion(options: MotionOptions): () => void {
     if(matchMedia('(hover:hover) and (pointer:fine)').matches)stage.addEventListener('pointermove', move, { signal: lifecycle.signal, passive: true });
     stage.addEventListener('pointerleave', resetTilt, { signal: lifecycle.signal });
     document.addEventListener('visibilitychange',visibility,{signal:lifecycle.signal});
-    animate();
+    visibility();
   }
 
   return () => {
     disposed = true;
     lifecycle.abort();
     resizeObserver.disconnect();
-    window.cancelAnimationFrame(frame);
+    frames.stop();viewport.disconnect();
     resetTilt();
     context.clearRect(0, 0, width, height);
   };

@@ -28,3 +28,5 @@ body[data-page="portal"] #app{min-width:0;min-height:100svh}
 .portal-command[data-visibility="hidden"] .pc-ring{animation-play-state:paused}
 .portal-command[data-motion="reduced"] .pc-orbit{transform:none;transition:none}
 @media(max-width:360px){.portal-command .portal-node{width:54px}}
+
+.portal-world[data-rb-canvas-visible="false"] .pc-ring{animation-play-state:paused}

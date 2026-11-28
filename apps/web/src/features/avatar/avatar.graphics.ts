@@ -125,7 +125,7 @@ export function createStudioGraphics(canvas:HTMLCanvasElement,initial:CharacterC
   const beginGesture=(name:string,speed=1,blend=.2)=>{if(!runtime||failed||disposed)return false;const duration=playAvatarGesture(runtime,name,speed,blend);if(!duration)return false;active='power';runtime.root.position.y=0;face=false;zoom=1;pose();if(experience.behavior!=='manual')automaticExpression(['wave','soft laugh','laugh','groove','bounce'].includes(name)?'smile':'neutral');motionRemaining=0;invalidate();return true;};
   const rotate=(radians:number)=>{yaw+=radians;if(runtime)runtime.root.rotation.y=yaw;invalidate();};
   let pointer:number|null=null,lastX=0;
-  canvas.addEventListener('pointerdown',e=>{pointer=e.pointerId;lastX=e.clientX;canvas.setPointerCapture(e.pointerId);},{signal});
+  canvas.addEventListener('pointerdown',e=>{pointer=e.pointerId;lastX=e.clientX;try{canvas.setPointerCapture(e.pointerId);}catch{pointer=null;}},{signal});
   canvas.addEventListener('pointermove',e=>{if(pointer!==e.pointerId)return;rotate((e.clientX-lastX)*.012);lastX=e.clientX;},{signal});
   for(const event of ['pointerup','pointercancel','lostpointercapture'])canvas.addEventListener(event,()=>{pointer=null;},{signal});
   canvas.addEventListener('webglcontextlost',event=>{event.preventDefault();fail('WebGL context lost');},{signal});

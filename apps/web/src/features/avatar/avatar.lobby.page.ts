@@ -1,3 +1,4 @@
+import {renderScheduler} from '../../core/experience/render-scheduler';
 import * as THREE from 'three';
 import {automotiveShell,foliageGeometry,streetVehicleBody} from './avatar.visual.assets';
 import {createCinematicSky,createGroundShade,glassGradient} from './avatar.cinematic.depth';
@@ -229,7 +230,7 @@ export async function mount(): Promise<void> {
   let renderer: THREE.WebGLRenderer | null = null;let lightMap:THREE.WebGLRenderTarget|undefined;
   let avatarRuntime: SkinnedAvatarRuntime | null = null;
   let world: THREE.Group | null = null;
-  let raf = 0;
+  let graphicsFailed=false;let stopFrames=()=>{};let syncFrames=()=>{};
   let phoneLimit=640,playbackRate=1;let renderScale=1,averageFrame=32,frameSamples=0,lastAdapt=0,lastTelemetry=0;let resize = () => {};let observer:ResizeObserver|undefined;let worldVisibility:IntersectionObserver|undefined;let worldVisible=true;let stopExperience=()=>{};let stopLife=()=>{};
   const abort = new AbortController();
   const isCurrent = () => !disposed && root.dataset.pageEpoch === epoch && root.dataset.pageOwner === OWNER;
@@ -238,7 +239,7 @@ export async function mount(): Promise<void> {
     if (disposed) return;
     disposed = true;
     abort.abort();stopExperience();stopLife();
-    cancelAnimationFrame(raf);
+    stopFrames();
     window.removeEventListener('resize', resize);observer?.disconnect();worldVisibility?.disconnect();
     if (avatarRuntime) disposeSkinnedAvatar(avatarRuntime);
     if (world) disposeObject(world);
@@ -294,7 +295,7 @@ export async function mount(): Promise<void> {
   const baseHeight = Math.min(2.5,Math.max(1.5, Number(cameraConfig.height ?? 2.2)||2.2));
 
   const mobile=matchMedia('(any-pointer:coarse),(max-width:860px)').matches;
-  const failure=(message:string)=>{cancelAnimationFrame(raf);stopLife();root.querySelector<HTMLElement>('#avatarLoading')?.remove();const panel=document.createElement('div');panel.className='al-loading';panel.setAttribute('role','status');panel.textContent=message+' ';const link=document.createElement('a');link.href='/avatar-characters.html';link.textContent='Return to Avatar Studio';panel.append(link);canvas.parentElement?.append(panel);root.querySelectorAll<HTMLButtonElement>('[data-action]').forEach(button=>button.disabled=true);};
+  const failure=(message:string)=>{if(graphicsFailed||disposed)return;graphicsFailed=true;stopFrames();stopLife();root.querySelector<HTMLElement>('#avatarLoading')?.remove();const panel=document.createElement('div');panel.className='al-loading';panel.setAttribute('role','status');panel.textContent=message+' ';const link=document.createElement('a');link.href='/avatar-characters.html';link.textContent='Return to Avatar Studio';const retry=document.createElement('a');retry.href=location.pathname+location.search;retry.textContent='Retry 3D';retry.style.marginInlineStart='12px';panel.append(link,retry);canvas.parentElement?.append(panel);canvas.dataset.rbRenderState='failed';root.querySelectorAll<HTMLButtonElement>('[data-action]').forEach(button=>button.disabled=true);};
   try{renderer = new THREE.WebGLRenderer({ canvas, antialias: !mobile, powerPreference: mobile?'low-power':'high-performance' });}catch{failure('3D graphics unavailable. Your saved Rich ID is unchanged.');return;}
   canvas.addEventListener('webglcontextlost',event=>{event.preventDefault();failure('3D graphics paused. Your saved Rich ID is unchanged.');},{signal:abort.signal,once:true});
   renderer.setPixelRatio(1);
@@ -430,7 +431,7 @@ export async function mount(): Promise<void> {
     camera.aspect = rect.width / Math.max(1, rect.height);
     camera.updateProjectionMatrix();
   };
-  window.addEventListener('resize', resize);observer=new ResizeObserver(resize);observer.observe(canvas);worldVisibility=new IntersectionObserver(entries=>{worldVisible=entries[0]?.isIntersecting??true;},{threshold:.02});worldVisibility.observe(canvas);
+  window.addEventListener('resize', resize);observer=new ResizeObserver(resize);observer.observe(canvas);worldVisibility=new IntersectionObserver(entries=>{worldVisible=entries[0]?.isIntersecting??true;syncFrames();},{threshold:.02});worldVisibility.observe(canvas);
   resize();
   cameraTools.forEach(b=>b.onclick=()=>{if(b.dataset.camera==='turn'){cameraYaw=(cameraYaw+Math.PI/2)%(Math.PI*2);return;}cameraMode=b.dataset.camera==='wide'?'wide':'close';cameraTools.forEach(t=>{if(t.dataset.camera!=='turn')t.setAttribute('aria-pressed',String(t===b));});});
 
@@ -446,11 +447,9 @@ export async function mount(): Promise<void> {
 
   let lastFrame=0;
   const loop = (now=0) => {
-    if (disposed || !avatarRuntime || !renderer) return;
-    raf=requestAnimationFrame(loop);
-    if(document.hidden||!worldVisible){lastFrame=0;return;}if(lastFrame&&now-lastFrame<studioFrameInterval(mobile,drawCost,'auto'))return;
+    if (disposed || graphicsFailed || !avatarRuntime || !renderer || document.hidden || !worldVisible) return;if(lastFrame&&now-lastFrame<studioFrameInterval(mobile,drawCost,'auto'))return;
     const interval=lastFrame?now-lastFrame:0;lastFrame=now;if(interval>0&&interval<250){averageFrame+=(interval-averageFrame)*.08;frameSamples++;}
-    if(frameSamples>30&&now-lastAdapt>3000){lastAdapt=now;if(mobile){const next=Math.min(640,phoneRenderLimit('auto',averageFrame,frameSamples,phoneLimit));if(next!==phoneLimit){phoneLimit=next;resize();}}else{const next=nextRenderScale(renderScale,averageFrame,frameSamples,false);if(Math.abs(next-renderScale)>.01){renderScale=next;resize();}}}
+    if(frameSamples>30&&now-lastAdapt>3000){lastAdapt=now;if(mobile){const next=Math.min(640,phoneRenderLimit('auto',drawCost>24?Math.max(52,averageFrame):averageFrame,frameSamples,phoneLimit));if(next!==phoneLimit){phoneLimit=next;resize();}}else{const next=nextRenderScale(renderScale,averageFrame,frameSamples,false);if(Math.abs(next-renderScale)>.01){renderScale=next;resize();}}}
     if(now-lastTelemetry>1000){lastTelemetry=now;const status=root.querySelector<HTMLElement>('#alPerformance');if(status)status.textContent='~'+Math.round(1000/averageFrame)+' fps · '+Math.round(renderScale*100)+'% render scale';}
     const drawStarted=performance.now();const dt=Math.min(interval/1000,.075);
     try{
@@ -517,8 +516,8 @@ export async function mount(): Promise<void> {
     if(now-lastGuide>500){lastGuide=now;const guide=root.querySelector<HTMLElement>('#rbWayfinder'),selection=root.querySelector<HTMLSelectElement>('#rbTarget');if(guide){const p=avatarRuntime.root.position;const target=definition.actions.find(a=>a.id===selection?.value)??[...definition.actions].sort((a,b)=>Math.hypot(a.x-p.x,a.z-p.z)-Math.hypot(b.x-p.x,b.z-p.z))[0];if(target){const distance=Math.hypot(target.x-p.x,target.z-p.z);const direction=target.z<p.z?'ahead (north)':'behind (south)';guide.textContent=target.label+' · '+distance.toFixed(1)+' m · '+(distance<1.85?'within interaction range':direction+' / '+(target.x<p.x?'west':'east'));}}}
     const sky=world.getObjectByName('rb-cinematic-sky');if(sky)sky.position.copy(camera.position);
     if(!mobile){sun.position.set(position.x-9,9,position.z+6);sun.target.position.set(position.x,0,position.z);sun.target.updateMatrixWorld();}
-    renderer.render(scene, camera);drawCost+=.12*(performance.now()-drawStarted-drawCost);canvas.dataset.rbDrawCalls=String(renderer.info.render.calls);canvas.dataset.rbTriangles=String(renderer.info.render.triangles);canvas.dataset.rbResolution=canvas.width+'×'+canvas.height;canvas.dataset.rbRenderState='frame-rendered';canvas.dataset.rbDistrict=district;canvas.dataset.rbVehicleAsset=world.userData.vehicleStatus??'fallback';
+    renderer.render(scene, camera);drawCost+=.12*(performance.now()-drawStarted-drawCost);if(canvas.dataset.rbRenderState!=='frame-rendered'||now-lastTelemetry<40){canvas.dataset.rbDrawCalls=String(renderer.info.render.calls);canvas.dataset.rbTriangles=String(renderer.info.render.triangles);canvas.dataset.rbResolution=canvas.width+'×'+canvas.height;canvas.dataset.rbRenderState='frame-rendered';canvas.dataset.rbDistrict=district;canvas.dataset.rbVehicleAsset=world.userData.vehicleStatus??'fallback';}
     }catch(error){failure('Graphics stopped. Saved appearance is unchanged.');console.warn('[Avatar Lobby]',error);}
   };
-  raf=requestAnimationFrame(loop);
+  const frames=renderScheduler(loop,cb=>requestAnimationFrame(cb),id=>cancelAnimationFrame(id));stopFrames=frames.stop;syncFrames=()=>{lastFrame=0;frames.setVisible(!disposed&&!graphicsFailed&&!document.hidden&&worldVisible);};document.addEventListener('visibilitychange',syncFrames,{signal:abort.signal});syncFrames();
 }
