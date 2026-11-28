@@ -56,8 +56,8 @@ async function mountGlobalRuntime(page:string):Promise<void>{
     }));
   }
   if(ADMIN_SECRET_DOOR_PAGES.has(page)){
-    tasks.push(import('./core/admin/secret-door').then(({mountAdminSecretDoor})=>{
-      const cleanup=mountAdminSecretDoor();
+    tasks.push(import('./core/admin/secret-door').then(async ({mountAdminSecretDoor})=>{
+      const cleanup=await mountAdminSecretDoor();
       if(typeof cleanup==='function')cleanups.push(cleanup);
     }));
   }

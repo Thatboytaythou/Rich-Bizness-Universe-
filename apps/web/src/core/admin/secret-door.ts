@@ -1,4 +1,4 @@
-import { getAuthSnapshot } from '../auth/auth-store';
+import { getAuthSnapshot, subscribeAuth } from '../auth/auth-store';
 import { ROUTES } from '../config/routes';
 import { supabase } from '../supabase/client';
 
@@ -59,7 +59,7 @@ linear-gradient(150deg,#071109 0%,#010201 58%,#000 100%);color:#fff;font-family:
   document.head.append(style);
 }
 
-function revealDoor(): void {
+function revealDoor(): (()=>void)|undefined {
   if (document.getElementById(DOOR_ID)) return;
   ensureDoorStyle();
 
@@ -67,12 +67,13 @@ function revealDoor(): void {
   door.id = DOOR_ID;
   door.setAttribute('role', 'dialog');
   door.setAttribute('aria-modal', 'true');
-  door.setAttribute('aria-label', 'Founder Secret Door');
-  door.innerHTML = '<div class="rb-admin-core" aria-hidden="true"></div><section><small>FOUNDER AUTHORITY VERIFIED</small><strong>SECRET DOOR OPEN</strong><span>ENTERING PRIVATE COMMAND NETWORK</span><nav aria-label="Protected admin dimensions"><b>ON THE GO</b><b>DASH BUSINESSES</b><b>PRIVATE WORLD</b><b>MOVIES</b></nav></section>';
+  door.setAttribute('aria-label', 'Admin Secret Door');
+  door.innerHTML = '<div class="rb-admin-core" aria-hidden="true"></div><section><small>ADMIN ACCESS VERIFIED</small><strong>SECRET DOOR OPEN</strong><span>ENTERING PRIVATE COMMAND NETWORK</span><nav aria-label="Protected admin dimensions"><b>PLATFORM HEALTH</b><b>MODERATION</b><b>ACCESS CONTROL</b><b>AUDIT + TRUST</b></nav></section>';
 
   document.body.append(door);
   navigator.vibrate?.([35, 35, 80]);
-  window.setTimeout(() => location.assign(ROUTES.admin), 1125);
+  const timer=window.setTimeout(() => location.assign(ROUTES.admin), 1125);
+  return ()=>{window.clearTimeout(timer);door.remove();};
 }
 
 function findTrigger(): HTMLElement | null {
@@ -83,16 +84,17 @@ function findTrigger(): HTMLElement | null {
   return null;
 }
 
-export async function mountAdminSecretDoor(): Promise<void> {
+export async function mountAdminSecretDoor(): Promise<(()=>void)|undefined> {
   const page = document.body.dataset.page ?? '';
   if (!APPROVED_PAGES.has(page)) return;
-  if (!getAuthSnapshot().user) return;
+  const uid=getAuthSnapshot().user?.id;
+  if (!uid) return;
 
   const trigger = findTrigger();
   if (!trigger || trigger.dataset.adminDoorMounted === 'true') return;
 
   const { data: allowed, error } = await supabase.rpc('rb_is_admin', { p_min_permission: 1 });
-  if (error || !allowed) return;
+  if (error || allowed!==true || getAuthSnapshot().user?.id!==uid || !trigger.isConnected) return;
 
   trigger.dataset.adminDoorMounted = 'true';
   trigger.dataset.adminSecretDoor = 'ready';
@@ -102,6 +104,8 @@ export async function mountAdminSecretDoor(): Promise<void> {
   let tapReset: number | null = null;
   let holdTimer: number | null = null;
   let opened = false;
+  let disposed=false;
+  let closeDoor:(()=>void)|undefined;
 
   const clearHold = () => {
     if (holdTimer !== null) window.clearTimeout(holdTimer);
@@ -113,12 +117,10 @@ export async function mountAdminSecretDoor(): Promise<void> {
     tapReset = null;
   };
 
-  const open = () => {
-    if (opened) return;
-    opened = true;
-    clearHold();
-    clearTapReset();
-    revealDoor();
+  const open = async () => {
+    if (opened||disposed||getAuthSnapshot().user?.id!==uid) return;
+    opened=true;clearHold();clearTapReset();
+    try{const {data,error}=await supabase.rpc('rb_is_admin',{p_min_permission:1});if(disposed||getAuthSnapshot().user?.id!==uid)return;if(error||data!==true){opened=false;return;}closeDoor=revealDoor();}catch{opened=false;}
   };
 
   const startHold = () => {
@@ -146,10 +148,11 @@ export async function mountAdminSecretDoor(): Promise<void> {
   trigger.addEventListener('pointerleave', clearHold);
   trigger.addEventListener('click', registerTap);
   trigger.addEventListener('keydown', onKeyDown);
-  trigger.addEventListener('contextmenu', (event) => event.preventDefault());
-
-  window.addEventListener('pagehide', () => {
-    clearHold();
-    clearTapReset();
-  }, { once: true });
+  const preventMenu=(event:Event)=>event.preventDefault();
+  trigger.addEventListener('contextmenu',preventMenu);
+  let stopAuth=()=>{};
+  function cleanup(){if(disposed)return;disposed=true;clearHold();clearTapReset();closeDoor?.();stopAuth();trigger.removeEventListener('pointerdown',startHold);trigger.removeEventListener('pointerup',clearHold);trigger.removeEventListener('pointercancel',clearHold);trigger.removeEventListener('pointerleave',clearHold);trigger.removeEventListener('click',registerTap);trigger.removeEventListener('keydown',onKeyDown);trigger.removeEventListener('contextmenu',preventMenu);delete trigger.dataset.adminDoorMounted;delete trigger.dataset.adminSecretDoor;trigger.removeAttribute('aria-description');window.removeEventListener('pagehide',cleanup);}
+  stopAuth=subscribeAuth(s=>{if(s.ready&&s.user?.id!==uid)cleanup();});
+  window.addEventListener('pagehide',cleanup,{once:true});
+  return cleanup;
 }

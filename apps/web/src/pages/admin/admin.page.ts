@@ -50,6 +50,7 @@ export async function mount(): Promise<void> {
   let snapshot: Snapshot | null = null;
   let lane = 'overview';
   let loading = false;
+  let actionPending=false;
   let queued = false;
   let accessDenied = false;
   let statusTimer: number | undefined;
@@ -109,27 +110,27 @@ export async function mount(): Promise<void> {
     }
 
     content.querySelectorAll<HTMLButtonElement>('[data-review]').forEach((button) => button.onclick = async () => {
-      if (!isCurrent() || !snapshot?.permissions.moderate) return;
+      if (!isCurrent() || loading || actionPending || !snapshot?.permissions.moderate || !button.dataset.id) return;
       const decision = button.dataset.review!;
       if (!confirm(`${decision.toUpperCase()} THIS REVIEW?`)) return;
-      button.disabled = true;
-      setStatus(`APPLYING ${decision.toUpperCase()} DECISION…`);
+      actionPending=true;button.disabled = true;
+      try { setStatus(`APPLYING ${decision.toUpperCase()} DECISION…`);
       if(!button.dataset.id)return;const { error } = await supabase.rpc('rb_admin_action', { p_action: 'review_decision', p_target_id: button.dataset.id, p_value: { status: decision } });
       if (!isCurrent()) return;
       if (error) setStatus(error.message); else { setStatus(`REVIEW ${decision.toUpperCase()}`); await load(); }
-      if (isCurrent()) button.disabled = false;
+      } catch {setStatus('Action not confirmed. Refresh before retrying.');} finally {actionPending=false;if(isCurrent())button.disabled=false;}
     });
 
     content.querySelectorAll<HTMLButtonElement>('[data-flag]').forEach((button) => button.onclick = async () => {
-      if (!isCurrent() || !snapshot?.permissions.platform) return;
+      if (!isCurrent() || loading || actionPending || !snapshot?.permissions.platform || !button.dataset.flag) return;
       const enabled = button.dataset.enabled === 'true';
       if (!confirm(`${enabled ? 'ENABLE' : 'DISABLE'} THIS FEATURE FLAG?`)) return;
-      button.disabled = true;
-      setStatus(`${enabled ? 'ENABLING' : 'DISABLING'} FEATURE FLAG…`);
+      actionPending=true;button.disabled = true;
+      try { setStatus(`${enabled ? 'ENABLING' : 'DISABLING'} FEATURE FLAG…`);
       if(!button.dataset.flag)return;const { error } = await supabase.rpc('rb_admin_action', { p_action: 'feature_flag', p_target_id: button.dataset.flag, p_value: { enabled } });
       if (!isCurrent()) return;
       if (error) setStatus(error.message); else { setStatus(`FEATURE FLAG ${enabled ? 'ENABLED' : 'DISABLED'}`); await load(); }
-      if (isCurrent()) button.disabled = false;
+      } catch {setStatus('Action not confirmed. Refresh before retrying.');} finally {actionPending=false;if(isCurrent())button.disabled=false;}
     });
   };
 
@@ -137,6 +138,7 @@ export async function mount(): Promise<void> {
     if (!isCurrent() || accessDenied) return;
     if (loading) { queued = true; return; }
     loading = true;
+    snapshot=null;operatorDeck.replaceChildren();stats.replaceChildren();tabs.replaceChildren();content.replaceChildren();roleNode.textContent='VERIFYING';
     refresh.disabled = true;
     refresh.textContent = 'SYNCING…';
     root.classList.add('admin-loading');
@@ -144,7 +146,7 @@ export async function mount(): Promise<void> {
     try {
       const { data, error } = await supabase.rpc('rb_admin_snapshot', { p_limit: 100 });
       if (!isCurrent()) return;
-      if (error) throw error;
+      if (error||!data) throw Error('Admin access could not be verified');
       snapshot = data as Snapshot;
       renderTabs();
       render();
@@ -154,7 +156,7 @@ export async function mount(): Promise<void> {
       accessDenied = true;
       queued = false;
       if (statusTimer) clearTimeout(statusTimer);
-      root.innerHTML = `<main class="deep-shell"><div class="deep-wrap"><header class="deep-top"><a href="${ROUTES.portal}">←</a><div><p>RICH BIZNESS SECURITY</p><h1>Restricted</h1></div></header><section class="deep-hero"><div><small>ADMIN ACCESS REQUIRED</small><h2>FOUNDER GATE</h2><p>${esc(caught instanceof Error ? caught.message : 'This command center is protected by server-owned roles and permission levels.')}</p><div class="deep-actions"><a class="deep-btn primary" href="${ROUTES.portal}">RETURN TO PORTAL</a><a class="deep-btn" href="${ROUTES.profile}">PROFILE</a></div></div></section></div></main>`;
+      root.innerHTML = `<main class="deep-shell"><div class="deep-wrap"><header class="deep-top"><a href="${ROUTES.portal}">←</a><div><p>RICH BIZNESS SECURITY</p><h1>Restricted</h1></div></header><section class="deep-hero"><div><small>ADMIN ACCESS REQUIRED</small><h2>FOUNDER GATE</h2><p>Admin access could not be verified. This command center requires server-owned roles and permission levels.</p><div class="deep-actions"><a class="deep-btn primary" href="${ROUTES.portal}">RETURN TO PORTAL</a><a class="deep-btn" href="${ROUTES.admin}">RETRY ACCESS</a><a class="deep-btn" href="${ROUTES.profile}">PROFILE</a></div></div></section></div></main>`;
     } finally {
       loading = false;
       if (isCurrent() && !accessDenied) {
@@ -187,7 +189,10 @@ export async function mount(): Promise<void> {
     .on('postgres_changes', { event: '*', schema: 'public', table: 'system_health_checks' }, scheduleReload)
     .subscribe();
 
+  const refreshOnReturn=()=>{if(document.visibilityState==='visible')scheduleReload();};
+  document.addEventListener('visibilitychange',refreshOnReturn);window.addEventListener('online',refreshOnReturn);
   const cleanup = () => {
+    document.removeEventListener('visibilitychange',refreshOnReturn);window.removeEventListener('online',refreshOnReturn);
     if (destroyed) return;
     destroyed = true;
     if (statusTimer) clearTimeout(statusTimer);
