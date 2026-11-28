@@ -14,11 +14,11 @@ await new Promise(r=>server.listen(0,'127.0.0.1',r));const origin='http://127.0.
 let browser;
 async function token(identity){const t=new AccessToken('devkey','secret',{identity,ttl:'3m'});t.addGrant({roomJoin:true,room:'rb-local-media-test',canPublish:true,canSubscribe:true,canPublishData:false});return t.toJwt();}
 try{
- browser=await chromium.launch({headless:true,args:['--autoplay-policy=no-user-gesture-required']});
+ browser=await chromium.launch({headless:true,args:['--autoplay-policy=no-user-gesture-required','--disable-features=WebRtcHideLocalIpsWithMdns']});
  const pages=await Promise.all([browser.newPage(),browser.newPage()]);
  for(let i=0;i<2;i++){
   const page=pages[i];await page.goto(origin);await page.waitForFunction(()=>!!window.LK);
-  await page.evaluate(async({url,token})=>{const {Room,RoomEvent}=window.LK;window.room=new Room({adaptiveStream:false,dynacast:false});window.room.on(RoomEvent.TrackSubscribed,(track,_publication,participant)=>{if(track.kind==='video'){const v=track.attach();v.autoplay=true;v.muted=true;v.playsInline=true;v.dataset.peer=participant.identity;document.body.append(v);void v.play().catch(()=>{});}});await window.room.connect(url,token);},{url,token:await token('fixture-'+i)});
+  await page.evaluate(async({url,token})=>{const {Room,RoomEvent}=window.LK;window.room=new Room({adaptiveStream:false,dynacast:false});window.room.on(RoomEvent.TrackSubscribed,(track,_publication,participant)=>{if(track.kind==='video'){const v=track.attach();v.autoplay=true;v.muted=true;v.playsInline=true;v.dataset.peer=participant.identity;document.body.append(v);void v.play().catch(()=>{});}});await window.room.connect(url,token,{rtcConfig:{iceServers:[]}});},{url,token:await token('fixture-'+i)});
  }
  for(let i=0;i<2;i++)await pages[i].evaluate(async i=>{const canvas=document.createElement('canvas');canvas.width=160;canvas.height=120;const ctx=canvas.getContext('2d');const draw=()=>{ctx.fillStyle=i?'rgb(20,190,40)':'rgb(200,30,40)';ctx.fillRect(0,0,160,120);};draw();window.drawTimer=setInterval(draw,50);window.localTrack=canvas.captureStream(20).getVideoTracks()[0];await window.room.localParticipant.publishTrack(window.localTrack,{source:window.LK.Track.Source.Camera,simulcast:false});},i);
  for(let i=0;i<2;i++){
