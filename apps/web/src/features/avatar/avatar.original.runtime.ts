@@ -3,8 +3,8 @@ import type { AvatarGender, SkinnedAvatarRuntime } from './avatar.skinned.runtim
 
 // Original, source-generated stylized humanoid. No third-party character art.
 // Stable configuration is shared by studio, lobby and profile; this is not photorealistic art.
-import {normalizeLook} from './avatar.character.config';
-export {CHARACTER_RIG,CHARACTER_OPTIONS,normalizeLook,type CharacterLook} from './avatar.character.config';
+import {normalizeLook} from './avatar.character.config.ts';
+export {CHARACTER_RIG,CHARACTER_OPTIONS,normalizeLook,type CharacterLook} from './avatar.character.config.ts';
 export function createOriginalAvatar(gender:AvatarGender,raw:unknown,build='athletic'):SkinnedAvatarRuntime{
   const look=normalizeLook(raw),female=gender==='girl';
   const mobile=typeof window!=='undefined'&&window.matchMedia('(pointer:coarse),(max-width:860px)').matches;
