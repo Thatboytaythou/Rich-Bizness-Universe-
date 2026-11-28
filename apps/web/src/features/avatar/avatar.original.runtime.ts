@@ -11,12 +11,12 @@ export function createOriginalAvatar(gender:AvatarGender,raw:unknown,build='athl
   const radial=mobile?12:24;const sphereGeo=new THREE.SphereGeometry(1,mobile?14:28,mobile?10:20);
   const root=new THREE.Group();root.name='rb-original-human';
   const mat=(color:number,roughness=.65,metalness=0)=>new THREE.MeshStandardMaterial({color,roughness,metalness});
-  const skin=mat(({deep:0x754631,warm:0xad7352,tan:0xc88f68,light:0xe5b294} as Record<string,number>)[look.skin]??0xad7352,.72);
-  const hair=mat(0x201b19,.85),lip=mat(0x714737),white=mat(0xf3eee5),iris=mat(look.eyes==='blue'?0x6599c8:look.eyes==='hazel'?0x8f8e41:0x4a3023),black=mat(0x101512);
+  const skin=mat(({deep:0x754631,warm:0xad7352,tan:0xc88f68,light:0xe5b294,ebony:0x492d24,brown:0x885337,caramel:0xb77a50,olive:0xb39a70} as Record<string,number>)[look.skin]??0xad7352,.72);
+  const hair=mat(({black:0x201b19,'dark-brown':0x35241d,brown:0x66402c,blond:0xc5a46a,silver:0xc6c8ce} as Record<string,number>)[look.hairColor]??0x201b19,.85),lip=mat(0x714737),white=mat(0xf3eee5),iris=mat(look.eyes==='blue'?0x6599c8:look.eyes==='hazel'?0x8f8e41:0x4a3023),black=mat(0x101512);
   const fabric=mat(({emerald:0x285b48,onyx:0x20252a,gold:0xae803b,ice:0x587f91} as Record<string,number>)[look.color]??0x285b48,.88);
   const trim=mat(0x151d20,.83),denim=mat(look.pants==='denim'?0x31455e:look.pants==='tailored'?0x22232c:0x465044,.91),sole=mat(0xc9c5b8),gold=mat(0xe2b84e,.28,.82),ink=mat(0x242f2a,.9);
   const group=(p:THREE.Object3D,name:string,x=0,y=0,z=0)=>{const g=new THREE.Group();g.name=name;g.position.set(x,y,z);p.add(g);return g;};
-  const mesh=(p:THREE.Object3D,geometry:THREE.BufferGeometry,m:THREE.Material,x=0,y=0,z=0)=>{const o=new THREE.Mesh(geometry,m);o.position.set(x,y,z);o.castShadow=true;o.receiveShadow=true;p.add(o);return o;};
+  const mesh=(p:THREE.Object3D,geometry:THREE.BufferGeometry,m:THREE.Material,x=0,y=0,z=0)=>{const o=new THREE.Mesh(geometry,m);o.position.set(x,y,z);o.castShadow=!mobile;o.receiveShadow=!mobile;p.add(o);return o;};
   const ell=(p:THREE.Object3D,m:THREE.Material,x:number,y:number,z:number,rx:number,ry:number,rz:number)=>{const o=mesh(p,sphereGeo,m,x,y,z);o.scale.set(rx,ry,rz);return o;};
   const tube=(p:THREE.Object3D,m:THREE.Material,x:number,y:number,z:number,rt:number,rb:number,h:number,sz=1)=>{const o=mesh(p,new THREE.CylinderGeometry(rt,rb,h,mobile?10:16),m,x,y,z);o.scale.z=sz;return o;};
   const box=(p:THREE.Object3D,m:THREE.Material,x:number,y:number,z:number,w:number,h:number,d:number)=>mesh(p,new THREE.BoxGeometry(w,h,d),m,x,y,z);
@@ -40,7 +40,8 @@ export function createOriginalAvatar(gender:AvatarGender,raw:unknown,build='athl
   const jaw=look.face==='strong'?1.12:look.face==='soft'?.9:1;
   // One continuous anatomical surface: cheeks, nose bridge, nose tip, chin,
   // brow and sockets are deformations of the head itself, not separate balls.
-  const faceGeo=new THREE.SphereGeometry(1,64,48);
+  const faceGeo=new THREE.SphereGeometry(1,mobile?40:80,mobile?32:64);
+  const sculpt=(key:keyof typeof look)=>THREE.MathUtils.clamp(Number(look[key])||0,-100,100)/100;
   const pos=faceGeo.getAttribute('position');
   const gaussian=(x:number,y:number,cx:number,cy:number,sx:number,sy:number)=>Math.exp(-(((x-cx)/sx)**2+((y-cy)/sy)**2)*.5);
   const facialDepth=(x:number,y:number)=>{
@@ -57,9 +58,9 @@ export function createOriginalAvatar(gender:AvatarGender,raw:unknown,build='athl
   for(let i=0;i<pos.count;i++){
     const sx=pos.getX(i),sy=pos.getY(i),sz=pos.getZ(i);
     const taper=sy<-.12?1-(Math.abs(sy)-.12)*.28+(jaw-1)*.58:1;
-    const x=sx*.098*taper,y=sy*.133+.012;
+    const x=sx*.098*taper*(1+.12*sculpt('headWidth')),y=sy*.133*(1+.10*sculpt('headHeight'))+.012;
     const front=THREE.MathUtils.smoothstep(sz,0,.7);
-    pos.setXYZ(i,x,y,sz*.093+front*facialDepth(x,y));
+    pos.setXYZ(i,x,y,sz*.093+front*(facialDepth(x,y)+.009*sculpt('cheekVolume')*gaussian(Math.abs(x),y,.05,-.018,.025,.025)+.008*sculpt('noseBridge')*gaussian(x,y,0,.003,.012,.026)+.009*sculpt('chinProminence')*gaussian(x,y,0,-.096,.035,.018)));
   }
   pos.needsUpdate=true;faceGeo.computeVertexNormals();mesh(head,faceGeo,skin);
   const eyeWhite=mat(0xe5ddd0,.56);
@@ -80,7 +81,7 @@ export function createOriginalAvatar(gender:AvatarGender,raw:unknown,build='athl
   ell(head,mat(0x39221e,.9),0,-.057,.094,.021,.0014,.0015);
   if(look.hair!=='bald'){
     // A fitted scalp cap follows the head. No stacked sphere across the forehead.
-    const cap=new THREE.SphereGeometry(1,40,24,0,Math.PI*2,0,1.27);
+    const cap=new THREE.SphereGeometry(1,mobile?24:48,mobile?16:32,0,Math.PI*2,0,1.27);
     const hp=cap.getAttribute('position');
     for(let i=0;i<hp.count;i++){const x=hp.getX(i),y=hp.getY(i),z=hp.getZ(i);hp.setXYZ(i,x*.101,y*.139+.020,z*.096-.004);}
     cap.computeVertexNormals();mesh(head,cap,hair);
@@ -119,7 +120,7 @@ export function createOriginalAvatar(gender:AvatarGender,raw:unknown,build='athl
   }
   // Normalize to the same ground and height contract as the existing avatar runtime.
   root.updateMatrixWorld(true);
-  let bounds=new THREE.Box3().setFromObject(root);const target=female?1.72:1.82;
+  let bounds=new THREE.Box3().setFromObject(root);const target=(female?1.72:1.82)*(look.height==='short'?.94:look.height==='tall'?1.06:1);
   root.scale.setScalar(target/Math.max(.01,bounds.getSize(new THREE.Vector3()).y));root.updateMatrixWorld(true);
   bounds=new THREE.Box3().setFromObject(root);const base=group(root,'rbGround'); // preserve root world position for lobby
   for(const child of [...root.children])if(child!==base)base.add(child);
