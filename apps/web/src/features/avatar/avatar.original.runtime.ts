@@ -165,7 +165,24 @@ export function createOriginalAvatar(gender:AvatarGender,raw:unknown,build='athl
   const idle=new THREE.AnimationClip('idle',2.4,[track('rbSpine','x',[0,1.2,2.4],[0,.018,0]),track('rbHead','y',[0,1.2,2.4],[0,.035,0]),...[-1,1].flatMap(s=>{const x=s<0?'L':'R';return[track('rbLeg'+x,'x',[0,2.4],[0,0]),track('rbShin'+x,'x',[0,2.4],[0,0]),track('rbArm'+x,'x',[0,2.4],[0,0]),track('rbFore'+x,'x',[0,2.4],[-.08,-.08]),track('rbArm'+x,'z',[0,2.4],[s*.1,s*.1])];})]);
   const jump=new THREE.AnimationClip('jump',.85,[-1,1].flatMap(s=>{const x=s<0?'L':'R';return[track('rbLeg'+x,'x',[0,.24,.55,.85],[0,-.6,-.35,0]),track('rbShin'+x,'x',[0,.24,.55,.85],[0,1.0,.6,0]),track('rbArm'+x,'x',[0,.24,.55,.85],[0,-.8,-.45,0])];}));
   const pose=new THREE.AnimationClip('power pose',1.2,[-1,1].flatMap(s=>{const x=s<0?'L':'R';return[track('rbArm'+x,'z',[0,.45,1.2],[s*.1,s*1.05,s*.8]),track('rbFore'+x,'x',[0,.45,1.2],[-.08,-1.25,-.85]),track('rbLeg'+x,'x',[0,1.2],[0,0]),track('rbShin'+x,'x',[0,1.2],[0,0])];}));
-  const clips=[idle,movement('walk',1.04,.42,.77),movement('run',.72,.67,1.04),jump,pose];
+  const dance=new THREE.AnimationClip('dance',1.6,[
+    track('rbSpine','z',[0,.4,.8,1.2,1.6],[0,.13,0,-.13,0]),
+    track('rbPelvis','y',[0,.4,.8,1.2,1.6],[0,.22,0,-.22,0]),
+    ...[-1,1].flatMap(s=>{const x=s<0?'L':'R';return [
+      track('rbArm'+x,'z',[0,.4,.8,1.2,1.6],[s*.25,s*.95,s*.25,s*.65,s*.25]),
+      track('rbFore'+x,'x',[0,.4,.8,1.2,1.6],[-.4,-1.1,-.4,-.8,-.4]),
+      track('rbShin'+x,'x',[0,.4,.8,1.2,1.6],[.12,.35,.12,.35,.12])
+    ];})
+  ]);
+  const guard=new THREE.AnimationClip('combat',1.2,[
+    track('rbSpine','y',[0,.3,.6,.9,1.2],[0,.22,0,-.22,0]),
+    ...[-1,1].flatMap(s=>{const x=s<0?'L':'R';return [
+      track('rbArm'+x,'x',[0,.3,.6,.9,1.2],[-.65,s<0?-1.3:-.65,-.65,s>0?-1.3:-.65,-.65]),
+      track('rbFore'+x,'x',[0,.3,.6,.9,1.2],[-1.35,s<0?-.2:-1.35,-1.35,s>0?-.2:-1.35,-1.35]),
+      track('rbShin'+x,'x',[0,1.2],[.18,.18])
+    ];})
+  ]);
+  const clips=[idle,movement('walk',1.04,.42,.77),movement('run',.72,.67,1.04),jump,pose,dance,guard];
   const actions=new Map(clips.map(clip=>[clip.name.toLowerCase(),mixer.clipAction(clip)]));
   return {root,mixer,actions,clips,bounds,height:target,currentMotion:'idle',currentAction:null};
 }
