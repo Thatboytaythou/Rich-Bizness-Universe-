@@ -81,3 +81,5 @@ update public.rb_dash_presence set expires_at=now()-interval '1 second';
 set role authenticated;
 do $$begin if exists(select 1 from public.rb_dash_nearby(35.05,-78.88,'food','Fixture City')) then raise exception 'expired match'; end if; end$$;
 reset role;
+
+\ir test-dm-private-storage.sql
