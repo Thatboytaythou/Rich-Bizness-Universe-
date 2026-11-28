@@ -2,8 +2,8 @@ import {supabase} from '../supabase/client';
 import type {Room, RemoteTrack} from 'livekit-client';
 
 export type PrivateCallSession={close:()=>Promise<void>};
-type CallOptions={callId:string;kind:'audio'|'video';surface:HTMLElement;valid:()=>boolean;onStatus:(message:string)=>void};
-export async function connectPrivateCall({callId,kind,surface,valid,onStatus}:CallOptions):Promise<PrivateCallSession>{
+type CallOptions={callId:string;kind:'audio'|'video';surface:HTMLElement;valid:()=>boolean;onStatus:(message:string)=>void;onClosed:()=>void};
+export async function connectPrivateCall({callId,kind,surface,valid,onStatus,onClosed}:CallOptions):Promise<PrivateCallSession>{
   const {data:{session},error}=await supabase.auth.getSession();
   if(error||!session||!valid())throw Error('Verified Rich ID required.');
   const response=await fetch('/api/live/token',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+session.access_token},body:JSON.stringify({kind:'dm_call',callId}),signal:AbortSignal.timeout(12000)});
@@ -14,7 +14,7 @@ export async function connectPrivateCall({callId,kind,surface,valid,onStatus}:Ca
   const room:Room=new Room({adaptiveStream:true,dynacast:true});
   const tracks=new Map<RemoteTrack,HTMLElement>();
   let closed=false;
-  const close=async()=>{if(closed)return;closed=true;for(const [track,element] of tracks){track.detach(element as HTMLMediaElement);element.remove();}tracks.clear();await room.disconnect().catch(()=>undefined);surface.replaceChildren();};
+  const close=async()=>{if(closed)return;closed=true;for(const [track,element] of tracks){track.detach(element as HTMLMediaElement);element.remove();}tracks.clear();await room.disconnect().catch(()=>undefined);surface.replaceChildren();onClosed();};
   room.on(RoomEvent.TrackSubscribed,track=>{if(closed||!valid())return;const element=track.attach();element.autoplay=true;if(track.kind===Track.Kind.Video){(element as HTMLVideoElement).playsInline=true;element.style.maxWidth='100%';}tracks.set(track,element);surface.append(element);});
   room.on(RoomEvent.TrackUnsubscribed,track=>{const el=tracks.get(track);if(el){track.detach(el as HTMLMediaElement);el.remove();tracks.delete(track);}});
   room.on(RoomEvent.Reconnecting,()=>{if(!closed&&valid())onStatus('Reconnecting media transport…');});

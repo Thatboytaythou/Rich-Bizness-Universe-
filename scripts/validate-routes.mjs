@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { readFileSync,readdirSync } from 'node:fs';
+import { createHash } from 'node:crypto';
 import {safeInternalRoute} from '../packages/config/src/routes.ts';
 import { access } from 'node:fs/promises';
 import { resolve } from 'node:path';
@@ -8,9 +9,14 @@ const root = process.cwd();
 import {GAMES} from '../packages/config/src/games.ts';
 import {ROUTES} from '../packages/config/src/routes.ts';
 const routeNames=[...new Set(Object.values(ROUTES).map(route=>route==='/'?'index':route.slice(1).replace(/\.html$/,'')))];
-const implementedEntries=[...routeNames,...GAMES.map(game=>game.slug)].map(name=>'apps/web/'+name+'.html');
+const standaloneEntries=['rb-secret-door','on-the-go-dash'];
+const implementedEntries=[...routeNames,...GAMES.map(game=>game.slug),...standaloneEntries].map(name=>'apps/web/'+name+'.html');
 assert.equal(new Set(implementedEntries).size,implementedEntries.length);
 assert.equal(GAMES.length,28);
+const actualEntries=readdirSync(resolve(root,'apps/web'),{withFileTypes:true}).filter(e=>e.isFile()&&e.name.endsWith('.html')).map(e=>'apps/web/'+e.name).sort();
+assert.deepEqual([...implementedEntries].sort(),actualEntries,'Route registry must cover every real HTML entry');
+const nameGroups=new Map();for(const entry of actualEntries){const key=entry.toLowerCase().replace(/s(?=[.-])/g,'');const previous=nameGroups.get(key);assert.ok(!previous,'Possible duplicate singular/plural HTML entries: '+previous+' and '+entry);nameGroups.set(key,entry);}
+const sourceRoot=resolve(root,'apps/web/src');const hashes=new Map();for(const entry of readdirSync(sourceRoot,{recursive:true,withFileTypes:true})){if(!entry.isFile()||!/(?:\.page\.ts|\.css)$/.test(entry.name))continue;const path=resolve(entry.parentPath,entry.name);const bytes=readFileSync(path);if(!bytes.length)continue;const hash=createHash('sha256').update(bytes).digest('hex');const group=hashes.get(hash)??[];group.push(path.slice(sourceRoot.length+1));hashes.set(hash,group);}for(const group of hashes.values())if(group.length>1)console.warn('Review identical controller/style contents (not automatically removed): '+group.join(' | '));
 const vite=readFileSync(resolve(root,'vite.config.ts'),'utf8'),vercel=JSON.parse(readFileSync(resolve(root,'vercel.json'),'utf8'));
 for(const entry of implementedEntries){
  const name=entry.split('/').pop().replace(/\.html$/,'');

@@ -209,6 +209,8 @@
     }
   ],
   "rewrites": [
+    {"source":"/rb-secret-door","destination":"/rb-secret-door.html"},
+    {"source":"/on-the-go-dash","destination":"/on-the-go-dash.html"},
     {
       "source": "/portal",
       "destination": "/portal.html"

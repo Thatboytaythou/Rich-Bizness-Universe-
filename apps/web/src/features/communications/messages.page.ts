@@ -84,8 +84,8 @@ export async function mount(): Promise<void> {
   let directPending=false;
   let privateCall:import('../../core/livekit/private-call').PrivateCallSession|null=null;
   let callAttempt=0,callConnecting=false;
-  const callSurface=document.createElement('section');callSurface.className='comm-card active-call-strip';callSurface.hidden=true;callSurface.setAttribute('aria-label','Private Rich Call');panel.before(callSurface);
-  const leaveCall=()=>{callAttempt++;callConnecting=false;const previous=privateCall;privateCall=null;callSurface.hidden=true;void previous?.close();callSurface.replaceChildren();};
+  const callSurface=document.createElement('section');callSurface.className='comm-card active-call-strip';callSurface.hidden=true;callSurface.style.display='none';callSurface.setAttribute('aria-label','Private Rich Call');panel.parentElement?.after(callSurface);
+  const leaveCall=()=>{callAttempt++;callConnecting=false;const previous=privateCall;privateCall=null;callSurface.hidden=true;callSurface.style.display='none';void previous?.close();callSurface.replaceChildren();};
   const drafts=new Map<string,string>();
   const currentThread=(id:string)=>isCurrent()&&getAuthSnapshot().user?.id===user.id&&activeThread===id;
   const scheduleThread=(id:string)=>{if(!currentThread(id))return;if(threadRefreshTimer)clearTimeout(threadRefreshTimer);threadRefreshTimer=window.setTimeout(()=>void refreshThread(id),160);};
@@ -157,8 +157,7 @@ export async function mount(): Promise<void> {
     const typing = snapshot.typing ?? [];
     // Legacy snapshots omit calls and cannot prove membership integrity.
     // Discovery only from the versioned, server-verified call list.
-    const calls:CallSession[]=[];
-    const activeCall = calls[0]??null;
+    const activeCall:CallSession|null=null as CallSession|null;
     const defaultReaction = String((thread as any).default_reaction || '💨');
     attachmentState.textContent = 'PRIVATE STORAGE REQUIRED';
     const priorInput=panel.querySelector<HTMLInputElement>('#messageInput');
@@ -240,10 +239,11 @@ export async function mount(): Promise<void> {
         const call=(Array.isArray(data)?data as unknown as CallSession[]:[]).find(c=>c.call_type===type&&isUuid(c.id)&&['ringing','active'].includes(c.call_status??''));
         if(error||!call){setStatus('No verified '+type+' call is available.');return;}
         const {connectPrivateCall}=await import('../../core/livekit/private-call');if(!valid())return;
-        callSurface.hidden=false;
-        const connected=await connectPrivateCall({callId:call.id,kind:type,surface:callSurface,valid,onStatus:message=>{if(valid())setStatus(message);}});
+        callSurface.hidden=false;callSurface.style.display='grid';
+        const media=document.createElement('div');const callStatus=document.createElement('p');callStatus.setAttribute('role','status');callSurface.replaceChildren(callStatus,media);
+        const connected=await connectPrivateCall({callId:call.id,kind:type,surface:media,valid,onStatus:message=>{if(valid()){callStatus.textContent=message;setStatus(message);}},onClosed:()=>{if(attempt!==callAttempt)return;privateCall=null;callConnecting=false;callSurface.hidden=true;callSurface.style.display='none';callAttempt++;}});
         if(!valid()){await connected.close();return;}privateCall=connected;
-      }catch{if(valid()){callSurface.hidden=true;setStatus('Private media connection could not be verified.');}}
+      }catch{if(valid()){callSurface.hidden=true;callSurface.style.display='none';setStatus('Private media connection could not be verified.');}}
       finally{if(attempt===callAttempt)callConnecting=false;}
     };
     panel.querySelector<HTMLButtonElement>('#audioCall')!.onclick = () => void startCall('audio');
@@ -280,7 +280,8 @@ export async function mount(): Promise<void> {
     if(opening||loadingThread){queuedOpen=threadId;return;}
     opening=true;
     try{
-    if (activeThread && activeThread !== threadId) {leaveCall();if(typingTimer)clearTimeout(typingTimer);typingThread=null;void setTyping(activeThread,false);}
+    if(privateCall||callConnecting)leaveCall();
+    if (activeThread && activeThread !== threadId) {if(typingTimer)clearTimeout(typingTimer);typingThread=null;void setTyping(activeThread,false);}
     if (!isCurrent()) return;
     threadRevision++;verifiedThread=null;activeThread = threadId;
     panel.innerHTML='<div class="comm-empty" role="status">Verifying conversation…</div>';
