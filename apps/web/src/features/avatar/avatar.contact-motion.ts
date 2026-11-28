@@ -50,7 +50,7 @@ export function bakeGroundedGait(root:THREE.Group,bones:THREE.Bone[],clip:THREE.
   const length=Math.min(...refs.map(r=>r.length)),stride=length*(run?1.03:.82),stance=run?.47:.62,duration=clip.duration;
   const times=Array.from({length:49},(_,i)=>i*duration/48);
   const tracks=new Map<string,{track:THREE.KeyframeTrack;interp:THREE.Interpolant}>();
-  clip.tracks.forEach(track=>tracks.set(track.name,{track,interp:track.createInterpolant()}));
+  clip.tracks.forEach(track=>{const factory=(track as THREE.KeyframeTrack & {createInterpolant?:()=>THREE.Interpolant}).createInterpolant;if(typeof factory==='function')tracks.set(track.name,{track,interp:factory.call(track)});});
   const output=new Map<string,number[]>();
   const affected=[hips,...refs.flatMap(r=>[r.upper!,r.lower!,r.foot!,...(r.toe?[r.toe]:[])])];
   affected.forEach(b=>output.set(b.uuid,[]));const hipPositions:number[]=[];
@@ -60,8 +60,8 @@ export function bakeGroundedGait(root:THREE.Group,bones:THREE.Bone[],clip:THREE.
       const phase=t/duration;
       const down=v().set(0,-length*(run?.105:.065),0).applyQuaternion(hips.parent!.getWorldQuaternion(new THREE.Quaternion()).invert());
       hips.position.add(down);root.updateMatrixWorld(true);
-      for(let i=0;i<refs.length;i++){
-        const r=refs[i],step=strideSample(phase+i*.5,stride,stance,length*(run?.20:.085));
+      for(const [i,r] of refs.entries()){
+        const step=strideSample(phase+i*.5,stride,stance,length*(run?.20:.085));
         const target=r.ankle.clone().add(new THREE.Vector3(0,step.y,step.z));
         solveLeg(r.upper!,r.lower!,r.foot!,target,new THREE.Vector3(0,0,1),r.rotation);
         if(r.toe){const neutral=rest.find(x=>x.bone===r.toe)!.q;r.toe.quaternion.copy(neutral);}
@@ -69,7 +69,7 @@ export function bakeGroundedGait(root:THREE.Group,bones:THREE.Bone[],clip:THREE.
       for(const b of affected)output.get(b.uuid)!.push(...b.quaternion.toArray());hipPositions.push(...hips.position.toArray());
     }
     const ids=new Set(affected.map(b=>b.uuid));
-    const remaining=clip.tracks.filter(t=>!ids.has(t.name.split('.')[0]));
+    const remaining=clip.tracks.filter(t=>!ids.has(t.name.split('.')[0]??''));
     for(const b of affected)remaining.push(new THREE.QuaternionKeyframeTrack(b.uuid+'.quaternion',times,output.get(b.uuid)!));
     remaining.push(new THREE.VectorKeyframeTrack(hips.uuid+'.position',times,hipPositions));
     return {clip:new THREE.AnimationClip(clip.name,duration,remaining),speed:stride/(stance*duration)};

@@ -13,7 +13,7 @@ export function createDistrictScene(district:District):DistrictScene{
   const mat=(c:number)=>{let m=materials.get(c);if(!m){m=new THREE.MeshStandardMaterial({color:c,roughness:c===palette.brass?.32:.74,metalness:c===palette.brass?.55:.05});if([palette.wood,palette.stone,palette.leather].includes(c))m.map=surfaces.get(c)??texture(c);materials.set(c,m);}return m;};
   const box=(x:number,y:number,z:number,w:number,h:number,d:number,c:number,collision=false,parent:THREE.Object3D=group)=>{
     const geometry=new THREE.BoxGeometry(w,h,d);
-    if([palette.wood,palette.stone,palette.leather].includes(c)){const uv=geometry.attributes.uv;const scales=[[d,h],[d,h],[w,d],[w,d],[w,h],[w,h]];for(let face=0;face<6;face++)for(let i=face*4;i<face*4+4;i++){uv.setXY(i,uv.getX(i)*Math.max(1,scales[face][0]/1.25),uv.getY(i)*Math.max(1,scales[face][1]/1.25));}uv.needsUpdate=true;}
+    if([palette.wood,palette.stone,palette.leather].includes(c)){const uv=geometry.getAttribute('uv');const scales=[[d,h],[d,h],[w,d],[w,d],[w,h],[w,h]] as const;for(const [face,scale] of scales.entries())for(let i=face*4;i<face*4+4;i++){uv.setXY(i,uv.getX(i)*Math.max(1,scale[0]/1.25),uv.getY(i)*Math.max(1,scale[1]/1.25));}uv.needsUpdate=true;}
     const mesh=new THREE.Mesh(geometry,mat(c));mesh.position.set(x,y,z);mesh.receiveShadow=true;parent.add(mesh);
     if(collision)obstacles.push({minX:x-w/2,maxX:x+w/2,minZ:z-d/2,maxZ:z+d/2});
     return mesh;
