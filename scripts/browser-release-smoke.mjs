@@ -32,7 +32,7 @@ try{
  let release;
  try{release=(await manifest.json()).release;}catch{throw Error('Deployment manifest is not valid JSON');}
  assert.equal(release,expected,'Wrong deployed commit');
- // All 55 HTML source entry points must exist in the exact compiled deployment.
+ // All 56 HTML source entry points must exist in the exact compiled deployment.
  // Network reachability is distinct from actual interactive and authenticated acceptance.
  const sourceRoot=resolve('apps/web');
  const ownerOf=html=>html.match(/<body\b[^>]*\bdata-page=["']([^"']+)["']/i)?.[1];
@@ -42,7 +42,7 @@ try{
    assert.ok(owner,'Missing source page owner: '+path);
    return {path,owner};
  });
- assert.equal(matrix.length,55,'Rich Bizness HTML source entry count changed');
+ assert.equal(matrix.length,56,'Rich Bizness HTML source entry count changed');
  const entryAssets=new Set();
  for(let start=0;start<matrix.length;start+=6){
    const batch=matrix.slice(start,start+6);
@@ -63,7 +63,7 @@ try{
    assert.match(response.headers()['content-type']??'',/(?:java|ecma)script/i,'Non-JavaScript entry asset: '+asset);
    assert.ok((await response.body()).length>0,'Empty entry script: '+asset);
  }
- console.log('Real Chromium network route matrix: 55/55 exact source page owners and '+entryAssets.size+' reachable nonempty compiled entry scripts on '+url.origin);
+ console.log('Real Chromium network route matrix: 56/56 exact source page owners and '+entryAssets.size+' reachable nonempty compiled entry scripts on '+url.origin);
  const visit=async(path,selector)=>{const result=await page.goto(new URL(path,url).href,{waitUntil:'domcontentloaded',timeout:30000});assert.ok(result?.ok(),'Navigation failed: '+path);assert.equal(new URL(page.url()).origin,url.origin,'Unexpected external navigation: '+path);await page.locator(selector).waitFor({state:'visible',timeout:30000});assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+2),'Horizontal overflow: '+path);};
  await visit('/','.rb-home h1');
  assert.equal(await page.locator('.rb-home').count(),1,'Duplicate Home mount');
