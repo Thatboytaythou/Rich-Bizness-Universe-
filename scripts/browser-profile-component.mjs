@@ -21,3 +21,6 @@ try{browser=await chromium.launch({headless:true});for(const width of [320,390,4
  await page.goto(origin+'/?fixture=visitor&id=22222222-2222-4222-8222-222222222222');await page.waitForSelector('.profile-universe');assert.equal(await page.locator('.pu-owner-deck,.pu-activity,#puLoadPortrait').count(),0);assert.ok(!(await page.locator('.pu-command').innerText()).includes('BALANCE'));assert.ok(!(await page.locator('.pu-kickers').innerText()).includes('ADMIN'));assert.ok(!(await page.evaluate(()=>window.mockCalls)).includes('rb_is_admin'));await page.locator('#followButton').click();await page.waitForFunction(()=>document.querySelector('#puFollowerCount')?.textContent==='11');
  await page.goto(origin+'/?fixture=restricted&id=22222222-2222-4222-8222-222222222222');await page.waitForSelector('.pu-restricted');assert.equal(await page.locator('.pu-library,.pu-owner-deck').count(),0);assert.deepEqual(errors,[]);await page.close();console.log('Real Chromium Profile PASS: '+width+'px, owner/visitor/restricted, responsive art, lazy tabs, search, follow count');}
 }finally{await browser?.close();await new Promise(r=>server.close(r));}
+
+// Run the standalone Rich-DM component fixture using the same isolated runner.
+await import('./browser-messages-component.mjs');

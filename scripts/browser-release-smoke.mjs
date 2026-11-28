@@ -108,7 +108,7 @@ try{
  assert.equal(await page.locator('#feedModalForm input').isDisabled(),true,'Guest must not comment as a Rich ID');
  await page.locator('#rb-omni-mini').waitFor({state:'attached',timeout:15000});
  assert.ok(await page.locator('#rb-omni-mini').locator('a[href="/profile.html"]').count(),'Feed Mini Omni missing Profile');
- for(const privateRoute of ['/profile.html','/edit-profile.html','/settings.html','/admin.html','/avatar-characters.html','/avatar.html']){
+ for(const privateRoute of ['/profile.html','/edit-profile.html','/settings.html','/admin.html','/messages.html','/notifications.html','/avatar-characters.html','/avatar.html']){
   await visit(privateRoute,'#authForm');
   const redirect=new URL(page.url());
   assert.equal(redirect.pathname,'/tap-in.html','Protected guest route did not reach Tap In: '+privateRoute);
