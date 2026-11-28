@@ -1,7 +1,7 @@
 // Real browser smoke, no synthetic session, no financial or saved-data writes.
 // Run with a dedicated non-production test identity only when explicitly configured.
 import assert from 'node:assert/strict';
-import {readdirSync} from 'node:fs';
+import {readdirSync,readFileSync} from 'node:fs';
 import {createRequire} from 'node:module';
 import {resolve} from 'node:path';
 const require=createRequire(resolve(process.env.RB_BROWSER_PREFIX??'.','package.json'));
@@ -34,20 +34,36 @@ try{
  assert.equal(release,expected,'Wrong deployed commit');
  // All 55 HTML source entry points must exist in the exact compiled deployment.
  // Network reachability is distinct from actual interactive and authenticated acceptance.
- const matrix=readdirSync(resolve('apps/web')).filter(file=>file.endsWith('.html')).map(file=>file==='index.html'?'/':'/'+file).sort();
+ const sourceRoot=resolve('apps/web');
+ const ownerOf=html=>html.match(/<body\b[^>]*\bdata-page=["']([^"']+)["']/i)?.[1];
+ const matrix=readdirSync(sourceRoot).filter(file=>file.endsWith('.html')).sort().map(file=>{
+   const path=file==='index.html'?'/':'/'+file;
+   const owner=ownerOf(readFileSync(resolve(sourceRoot,file),'utf8'));
+   assert.ok(owner,'Missing source page owner: '+path);
+   return {path,owner};
+ });
  assert.equal(matrix.length,55,'Rich Bizness HTML source entry count changed');
+ const entryAssets=new Set();
  for(let start=0;start<matrix.length;start+=6){
    const batch=matrix.slice(start,start+6);
-   await Promise.all(batch.map(async path=>{
+   await Promise.all(batch.map(async ({path,owner})=>{
      const response=await context.request.get(new URL(path,url).href,{maxRedirects:0,timeout:15000});
      assert.equal(response.status(),200,'Unavailable HTML entry: '+path);
      const html=await response.text();
      assert.ok((response.headers()['content-type']??'').toLowerCase().includes('text/html'),'Non-HTML entry: '+path);
-     assert.ok(html.includes('data-page='),'Missing page owner: '+path);
-     assert.ok(html.includes('/assets/')&&html.includes('.js'),'Missing compiled entry script: '+path);
+     assert.equal(ownerOf(html),owner,'Wrong compiled page owner: '+path);
+     const scripts=[...html.matchAll(/<script\b[^>]*\bsrc=["'](\/assets\/[A-Za-z0-9_.-]+\.js)["'][^>]*>/gi)].map(match=>match[1]);
+     assert.ok(scripts.length,'Missing compiled entry script: '+path);
+     for(const asset of scripts)entryAssets.add(asset);
    }));
  }
- console.log('Real Chromium network route matrix: 55/55 compiled HTML entry points reachable on '+url.origin);
+ for(const asset of entryAssets){
+   const response=await context.request.get(new URL(asset,url).href,{maxRedirects:0,timeout:15000});
+   assert.equal(response.status(),200,'Unavailable compiled script: '+asset);
+   assert.match(response.headers()['content-type']??'',/(?:java|ecma)script/i,'Non-JavaScript entry asset: '+asset);
+   assert.ok((await response.body()).length>0,'Empty entry script: '+asset);
+ }
+ console.log('Real Chromium network route matrix: 55/55 exact source page owners and '+entryAssets.size+' reachable nonempty compiled entry scripts on '+url.origin);
  const visit=async(path,selector)=>{const result=await page.goto(new URL(path,url).href,{waitUntil:'domcontentloaded',timeout:30000});assert.ok(result?.ok(),'Navigation failed: '+path);assert.equal(new URL(page.url()).origin,url.origin,'Unexpected external navigation: '+path);await page.locator(selector).waitFor({state:'visible',timeout:30000});assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+2),'Horizontal overflow: '+path);};
  await visit('/','.rb-home h1');
  assert.equal(await page.locator('.rb-home').count(),1,'Duplicate Home mount');
