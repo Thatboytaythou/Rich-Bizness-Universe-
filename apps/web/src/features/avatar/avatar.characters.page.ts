@@ -79,7 +79,7 @@ ${pickers([0,1])}<details class="ac-tool-fold" data-anatomy="face"><summary>Face
   let onWorkspace=(key:string)=>{};
   const workspaceTabs=[...root.querySelectorAll<HTMLButtonElement>('[data-workspace]')];
   const selectWorkspace=(key:string)=>{if(!workspaceTabs.some(b=>b.dataset.workspace===key))return;workspaceTabs.forEach(b=>{const active=b.dataset.workspace===key;b.setAttribute('aria-pressed',String(active));b.setAttribute('aria-selected',String(active));b.tabIndex=active?0:-1;});root.querySelectorAll<HTMLElement>('[data-workspace-panel]').forEach(panel=>panel.hidden=panel.dataset.workspacePanel!==key);onWorkspace(key);};
-  workspaceTabs.forEach((b,i)=>{b.onclick=()=>{selectWorkspace(b.dataset.workspace!);if(mobile)root.querySelector('#acWorkspace')?.scrollIntoView({block:'start',behavior:'auto'});};b.onkeydown=e=>{const next=e.key==='ArrowRight'?(i+1)%workspaceTabs.length:e.key==='ArrowLeft'?(i+workspaceTabs.length-1)%workspaceTabs.length:e.key==='Home'?0:e.key==='End'?workspaceTabs.length-1:-1;if(next<0)return;e.preventDefault();const tab=workspaceTabs[next];if(!tab||!tab.dataset.workspace)return;tab.focus();selectWorkspace(tab.dataset.workspace);};});
+  workspaceTabs.forEach((b,i)=>{b.onclick=()=>{selectWorkspace(b.dataset.workspace!);if(mobile&&!graphics)root.querySelector('#acWorkspace')?.scrollIntoView({block:'start',behavior:'auto'});};b.onkeydown=e=>{const next=e.key==='ArrowRight'?(i+1)%workspaceTabs.length:e.key==='ArrowLeft'?(i+workspaceTabs.length-1)%workspaceTabs.length:e.key==='Home'?0:e.key==='End'?workspaceTabs.length-1:-1;if(next<0)return;e.preventDefault();const tab=workspaceTabs[next];if(!tab||!tab.dataset.workspace)return;tab.focus();selectWorkspace(tab.dataset.workspace);};});
   selectWorkspace(location.hash==='#elite'?'collections':'appearance');
   let canvas=$<HTMLCanvasElement>('#characterCanvas');const preview=$('#acConfigPreview');
   const name=$<HTMLInputElement>('#nameInput'),build=$<HTMLSelectElement>('#buildInput'),style=$<HTMLSelectElement>('#styleInput'),aura=$<HTMLSelectElement>('#auraInput');
@@ -160,7 +160,7 @@ ${pickers([0,1])}<details class="ac-tool-fold" data-anatomy="face"><summary>Face
     }catch(error){if(current()&&generation===graphicsGeneration)pause('3D unavailable: '+(error instanceof Error?error.message:'graphics startup failed')+'. You can still save.');}
     finally{if(generation===graphicsGeneration){graphicsLoading=false;controls();}}
   };
-  const showLivePreview=()=>{if(mobile&&graphics)canvas.parentElement?.scrollIntoView({block:'center',behavior:'auto'});};
+  const showLivePreview=()=>{if(!mobile&&graphics)canvas.parentElement?.scrollIntoView({block:'center',behavior:'auto'});};
   root.querySelectorAll<HTMLButtonElement>('[data-expression]').forEach(b=>b.onclick=()=>{root.querySelectorAll<HTMLButtonElement>('[data-expression]').forEach(t=>t.setAttribute('aria-pressed',String(t===b)));graphics?.expression(b.dataset.expression as AvatarExpression,Number($<HTMLInputElement>('#acExpressionStrength').value));showLivePreview();});
   $<HTMLInputElement>('#acExpressionStrength').oninput=()=>{const active=root.querySelector<HTMLButtonElement>('[data-expression][aria-pressed="true"]');if(active)graphics?.expression(active.dataset.expression as AvatarExpression,Number($<HTMLInputElement>('#acExpressionStrength').value));};
   $<HTMLSelectElement>('#acQuality').onchange=e=>{const value=(e.currentTarget as HTMLSelectElement).value==='detail'?'detail':'auto';graphics?.quality(value);showLivePreview();};
@@ -186,4 +186,5 @@ ${pickers([0,1])}<details class="ac-tool-fold" data-anatomy="face"><summary>Face
   root.querySelector<HTMLAnchorElement>('.ac-direct-lobby')!.onclick=e=>{if(dirty||saving){e.preventDefault();report('Unsaved configuration. Use SAVE & ENTER.');}};
   window.addEventListener('pageshow',e=>{if(e.persisted)location.reload();},{signal});
   renderConfig();controls();await read();
+  if(current()&&identityReady&&!matchMedia('(prefers-reduced-motion: reduce)').matches&&!document.hidden)void enable();
 }

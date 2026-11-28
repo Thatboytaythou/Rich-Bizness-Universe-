@@ -196,3 +196,16 @@ body[data-page="avatar-characters"] .ac-shell .ac-editor{width:100%;padding:12px
 
 /* One wardrobe; no nested category navigation. Keep the existing six workspaces. */
 .ac-shell .ac-unified-wardrobe h2{font-size:20px}.ac-shell .ac-unified-wardrobe h3{font-size:14px;margin:0;color:#e8d7ad}.ac-shell .ac-unified-wardrobe .ac-choice-grid{padding:0}.ac-shell .ac-unified-wardrobe .ac-elite-collections button{min-height:68px}.ac-shell #acWardrobeCurrent{color:#e6cf94;font-weight:700}.ac-shell .ac-picker:not([open])>:not(summary){display:none!important}.ac-shell .ac-choice-grid [data-option-field][hidden]{display:none!important}
+
+/* Mobile visual regression: one full-width workspace, compact motion controls, persistent preview. */
+@media(max-width:860px),(any-pointer:coarse){
+ body[data-page="avatar-characters"] .ac-shell .ac-layout{display:grid;grid-template-columns:minmax(0,1fr);align-items:start;gap:8px}
+ body[data-page="avatar-characters"] .ac-shell .ac-stage{position:sticky;top:0;z-index:6;width:100%;min-width:0;background:#0b1714;box-shadow:0 8px 20px #0008}
+ body[data-page="avatar-characters"] .ac-shell .ac-viewport{height:clamp(160px,29dvh,300px)}
+ .ac-shell .ac-stage-controls{gap:4px;padding:6px}.ac-shell .ac-stage-controls p{margin:2px 0;font-size:11px}
+ .ac-shell .ac-stage-controls .ac-edit-jump{display:none}.ac-shell .ac-workspace-actions #saveCharacter{display:none}.ac-shell .ac-workspace-actions{grid-template-columns:minmax(0,1fr)}
+ .ac-shell .ac-gestures{grid-template-columns:repeat(3,minmax(0,1fr));gap:4px}.ac-shell .ac-gestures button{font-size:10px;padding:4px;min-height:44px}
+ .ac-shell .ac-motion{grid-template-columns:repeat(5,minmax(0,1fr));gap:4px}.ac-shell .ac-motion button{font-size:10px;padding:3px}
+ .ac-shell .ac-v1-tabs{position:relative;top:auto}.ac-shell .ac-editor{scroll-margin-top:0}
+}
+@media(max-height:500px){body[data-page="avatar-characters"] .ac-shell .ac-stage{position:relative;top:auto}}
