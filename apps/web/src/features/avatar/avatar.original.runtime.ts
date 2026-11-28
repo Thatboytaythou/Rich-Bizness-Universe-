@@ -182,7 +182,8 @@ export function createOriginalAvatar(gender:AvatarGender,raw:unknown,build='athl
       track('rbShin'+x,'x',[0,1.2],[.18,.18])
     ];})
   ]);
-  const clips=[idle,movement('walk',1.04,.42,.77),movement('run',.72,.67,1.04),jump,pose,dance,guard];
+  const transform=new THREE.AnimationClip('transformation',1.8,[track('rbSpine','x',[0,.45,.9,1.35,1.8],[0,.22,-.18,-.08,0]),track('rbHead','x',[0,.45,.9,1.8],[0,.2,-.15,0]),...[-1,1].flatMap(s=>{const x=s<0?'L':'R';return [track('rbArm'+x,'z',[0,.45,.9,1.8],[s*.1,s*.3,s*1.35,s*.1]),track('rbShin'+x,'x',[0,.45,.9,1.8],[0,.5,.08,0])];})]);
+  const clips=[transform,idle,movement('walk',1.04,.42,.77),movement('run',.72,.67,1.04),jump,pose,dance,guard];
   const actions=new Map(clips.map(clip=>[clip.name.toLowerCase(),mixer.clipAction(clip)]));
   return {root,mixer,actions,clips,bounds,height:target,currentMotion:'idle',currentAction:null};
 }
