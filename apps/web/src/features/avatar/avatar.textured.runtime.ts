@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import {hdRecipe} from './avatar.hd.recipe';
+import {admitsPhoneMesh,phoneTriangleBudget} from './avatar.quality.v31';
 import {bakeGroundedGait} from './avatar.contact-motion';
 import {capturedMotion} from './avatar.captured-motion';
 import {attachCharacterDetail} from './avatar.surface-detail';
@@ -41,7 +42,7 @@ async function createLegacyTexturedAvatar(gender:AvatarGender,raw:unknown,build=
   const look=normalizeLook(raw),p=await pkg(),config=humanConfig(gender,look,build);
   // Refuse partial/unclothed assets. All required slots must exist and load.
   for(const id of config.clothes??[])if(!p.manifest.proxies.some(x=>x.kind==='clothes'&&x.id===id))throw Error('Wardrobe asset unavailable');
-  const avatar=new HumanAvatar(p);const mobile=matchMedia('(pointer:coarse),(max-width:860px)').matches;avatar.textureSize=mobile&&quality!=='detail'?'1k':'2k';avatar.anisotropy=mobile&&quality!=='detail'?2:4;avatar.normalMaps=!mobile||quality==='detail';
+  const avatar=new HumanAvatar(p);const mobile=matchMedia('(any-pointer:coarse),(max-width:860px)').matches;avatar.textureSize=mobile&&quality!=='detail'?'1k':'2k';avatar.anisotropy=mobile&&quality!=='detail'?2:4;avatar.normalMaps=!mobile||quality==='detail';
   let mixer:THREE.AnimationMixer|undefined;let surface:ReturnType<typeof attachCharacterDetail>|undefined;const accessories:THREE.Mesh[]=[];
   try{
     await avatar.setConfig(config);
@@ -71,6 +72,8 @@ async function createLegacyTexturedAvatar(gender:AvatarGender,raw:unknown,build=
         cuff.rotation.x=Math.PI/2;cuff.position.y=-.006;hand.add(cuff);accessories.push(cuff);
       }
     }
+    // Compatibility fits must obey the same phone ceiling as HD fits, including accessories.
+    if(mobile){let total=0;root.traverse(o=>{const mesh=o as THREE.Mesh;if(!mesh.isMesh)return;const geometry=mesh.geometry;const instances=(mesh as THREE.InstancedMesh).isInstancedMesh?(mesh as THREE.InstancedMesh).count:1;total+=(geometry.index?.count??geometry.getAttribute('position')?.count??0)/3*instances;});if(!admitsPhoneMesh(quality,total))throw Error('Compatibility mesh exceeds '+phoneTriangleBudget(quality)+' mobile triangle budget: '+Math.round(total));}
     // Body is in meters. Use neutral standing height; don't override user height.
     let bounds=new THREE.Box3().setFromObject(root);const height=bounds.getSize(new THREE.Vector3()).y;
     if(!Number.isFinite(height)||height<1||height>2.5)throw Error('Invalid human mesh bounds');
@@ -92,7 +95,7 @@ async function createLegacyTexturedAvatar(gender:AvatarGender,raw:unknown,build=
         const inverse=b.parent.getWorldQuaternion(new THREE.Quaternion()).invert(),rest=b.quaternion.clone();
         const values=t.flatMap(time=>{const a=angles(n,time/duration);
           const captured=name==='walk'||name==='run'?capturedMotion(name,n,time/duration):null;
-          if(captured)for(let axis=0;axis<3;axis++)a[axis]=a[axis]*.52+captured[axis]*.48;
+          if(captured)for(const axis of [0,1,2] as const)a[axis]=a[axis]*.52+captured[axis]*.48;
           if(/Hand(Index|Middle|Ring|Pinky|Thumb)[123]$/.test(n)){
             const side=n.startsWith('Left')?'Left':'Right';const hand=bone(side+'Hand'),index=bone(side+'HandIndex1'),pinky=bone(side+'HandPinky1');
             // Bone local +Y follows the finger; use the actual across-palm direction, not a guessed local X axis.
@@ -195,7 +198,7 @@ async function createLegacyTexturedAvatar(gender:AvatarGender,raw:unknown,build=
     };
     let runtime:SkinnedAvatarRuntime;const currentMotion=()=>runtime?.currentMotion??'idle';
     mixer=new THREE.AnimationMixer(root);const actions=new Map(clips.map(c=>[c.name,mixer!.clipAction(c)]));
-    runtime={root,mixer,actions,clips,bounds,height,currentMotion:'idle',currentAction:null,expression,animateFace,locomotionSpeed:{walk:walk.speed,run:run.speed},dispose:()=>{mixer?.stopAllAction();mixer?.uncacheRoot(root);const skeletons=new Set<THREE.Skeleton>();root.traverse(o=>{if((o as THREE.SkinnedMesh).isSkinnedMesh)skeletons.add((o as THREE.SkinnedMesh).skeleton);});for(const a of accessories){a.removeFromParent();a.geometry.dispose();(a.material as THREE.Material).dispose();}surface?.dispose();avatar.dispose();skeletons.forEach(s=>s.dispose());root.clear();}};return runtime;
+    runtime={root,mixer,actions,clips,bounds,height,currentMotion:'idle',currentAction:null,expression,animateFace,locomotionSpeed:{walk:walk.speed,run:run.speed},dispose:()=>{mixer?.stopAllAction();mixer?.uncacheRoot(root);const skeletons=new Set<THREE.Skeleton>();root.traverse(o=>{if((o as THREE.SkinnedMesh).isSkinnedMesh)skeletons.add((o as THREE.SkinnedMesh).skeleton);});for(const a of accessories){a.removeFromParent();a.geometry.dispose();(a.material as THREE.Material).dispose();}surface?.dispose();avatar.dispose();skeletons.forEach(s=>{if(s!==avatar.skeleton)s.dispose();});root.clear();}};return runtime;
   }catch(error){for(const a of accessories){a.removeFromParent();a.geometry.dispose();(a.material as THREE.Material).dispose();}surface?.dispose();avatar.dispose();throw error;}
 }
 
