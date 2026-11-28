@@ -28,6 +28,6 @@ export function fabricFinish(role:SurfaceRole){return role==='denim'?{roughness:
 export function hairStrandNormal(){
  const n=64,data=new Uint8Array(n*n*4),h=new Float32Array(n*n);
  for(let y=0;y<n;y++)for(let x=0;x<n;x++){const u=x/n*2*Math.PI,v=y/n*2*Math.PI;h[y*n+x]=.7*Math.cos(12*u+.45*Math.sin(2*v))+.21*Math.cos(23*u-.3*Math.sin(3*v))+.07*Math.sin(3*v+2*u);}
- for(let y=0;y<n;y++)for(let x=0;x<n;x++){const dx=(h[y*n+(x+1)%n]-h[y*n+(x+n-1)%n])*.13,dy=(h[((y+1)%n)*n+x]-h[((y+n-1)%n)*n+x])*.13,inv=1/Math.hypot(dx,dy,1),i=(y*n+x)*4;data[i]=Math.round((1-dx*inv)*127.5);data[i+1]=Math.round((1-dy*inv)*127.5);data[i+2]=Math.round((1+inv)*127.5);data[i+3]=255;}
+ for(let y=0;y<n;y++)for(let x=0;x<n;x++){const dx=(h[y*n+(x+1)%n]!-h[y*n+(x+n-1)%n]!)*.13,dy=(h[((y+1)%n)*n+x]!-h[((y+n-1)%n)*n+x]!)*.13,inv=1/Math.hypot(dx,dy,1),i=(y*n+x)*4;data[i]=Math.round((1-dx*inv)*127.5);data[i+1]=Math.round((1-dy*inv)*127.5);data[i+2]=Math.round((1+inv)*127.5);data[i+3]=255;}
  const t=new THREE.DataTexture(data,n,n,THREE.RGBAFormat);t.colorSpace=THREE.NoColorSpace;t.wrapS=t.wrapT=THREE.RepeatWrapping;t.repeat.set(4,4);t.magFilter=THREE.LinearFilter;t.minFilter=THREE.LinearMipmapLinearFilter;t.generateMipmaps=true;t.needsUpdate=true;return t;
 }

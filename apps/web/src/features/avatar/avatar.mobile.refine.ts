@@ -6,7 +6,7 @@ import * as THREE from 'three';
 export function refinePhoneSkin(g:THREE.BufferGeometry,skinMaterials:readonly number[],materialCount:number,headJoint:number,triangleHeadroom:number,vertexHeadroom:number,byteLimit=20*1024*1024){
  const p=g.getAttribute('position'),n=g.getAttribute('normal'),si=g.getAttribute('skinIndex'),sw=g.getAttribute('skinWeight'),index=g.index;
  if(!index||!p||!n||!si||!sw||p.itemSize!==3||n.itemSize!==3||si.itemSize!==4||sw.itemSize!==4||!skinMaterials.length||p.count>45000||(g.morphAttributes.position?.length&&!g.morphTargetsRelative)||!Number.isFinite(triangleHeadroom+vertexHeadroom+byteLimit))return null;
- const attributes=Object.entries(g.attributes),morphEntries=Object.entries(g.morphAttributes).flatMap(([name,list])=>list.map((attribute,i)=>({name,i,attribute})));
+ const attributes=Object.entries(g.attributes),morphEntries=Object.entries(g.morphAttributes).flatMap(([name,list])=>(list??[]).map((attribute,i)=>({name,i,attribute})));
  const all=[...attributes.map(([,a])=>a),...morphEntries.map(e=>e.attribute)];
  // Do not guess how to interpolate vendor-specific packed/normalized attributes.
  if(all.some(a=>!(a instanceof THREE.BufferAttribute)||a.normalized||a.count!==p.count))return null;
@@ -20,21 +20,21 @@ export function refinePhoneSkin(g:THREE.BufferGeometry,skinMaterials:readonly nu
  const allowed=new Set(skinMaterials),candidates:{offset:number;a:number;b:number;c:number;score:number;weights:[number,number][];delta:THREE.Vector3}[]=[];
  const a=new THREE.Vector3(),b=new THREE.Vector3(),c=new THREE.Vector3(),na=new THREE.Vector3(),nb=new THREE.Vector3(),nc=new THREE.Vector3(),center=new THREE.Vector3(),normal=new THREE.Vector3(),edge=new THREE.Vector3();
  for(const group of groups){if(!allowed.has(group.materialIndex??0))continue;for(let offset=group.start;offset<group.start+group.count;offset+=3){
-  const ids=[index.getX(offset),index.getX(offset+1),index.getX(offset+2)];if(new Set(ids).size!==3||ids.some(i=>i<0||i>=p.count))continue;
+  const ids:[number,number,number]=[index.getX(offset),index.getX(offset+1),index.getX(offset+2)];if(new Set(ids).size!==3||ids.some(i=>!Number.isInteger(i)||i<0||i>=p.count))continue;
   const weights=new Map<number,number>();let headWeight=0;
-  for(const i of ids)for(let k=0;k<4;k++){const weight=sw.getComponent(i,k),joint=si.getComponent(i,k);if(!Number.isFinite(weight)||weight<=.0001)continue;weights.set(joint,(weights.get(joint)??0)+weight/3);if(joint===headJoint)headWeight+=weight/3;}
+  for(const i of ids)for(let k=0;k<4;k++){const weight=sw.getComponent(i,k),joint=si.getComponent(i,k);if(!Number.isFinite(weight)||!Number.isInteger(joint)||joint<0||weight<=.0001)continue;weights.set(joint,(weights.get(joint)??0)+weight/3);if(joint===headJoint)headWeight+=weight/3;}
   if(!weights.size||weights.size>4)continue;
   // Only regions with a common dominant joint: avoid changing skin interpolation
   // across elbows, fingers, eyelid borders and other strongly bending seams.
-  const sorted=[...weights].sort((x,y)=>y[1]-x[1]);if(sorted[0][1]<.82)continue;const sum=sorted.reduce((s,v)=>s+v[1],0);if(!Number.isFinite(sum)||Math.abs(sum-1)>.02)continue;
-  const dominant=sorted[0][0];if(ids.some(i=>{let w=0;for(let k=0;k<4;k++)if(si.getComponent(i,k)===dominant)w+=sw.getComponent(i,k);return w<.70;}))continue;
+  const sorted=[...weights].sort((x,y)=>y[1]-x[1]);const primary=sorted[0];if(!primary||primary[1]<.82)continue;const sum=sorted.reduce((s,v)=>s+v[1],0);if(!Number.isFinite(sum)||Math.abs(sum-1)>.02)continue;
+  const dominant=primary[0];if(ids.some(i=>{let w=0;for(let k=0;k<4;k++)if(si.getComponent(i,k)===dominant)w+=sw.getComponent(i,k);return w<.70;}))continue;
   a.fromBufferAttribute(p,ids[0]);b.fromBufferAttribute(p,ids[1]);c.fromBufferAttribute(p,ids[2]);na.fromBufferAttribute(n,ids[0]).normalize();nb.fromBufferAttribute(n,ids[1]).normalize();nc.fromBufferAttribute(n,ids[2]).normalize();
   const length=Math.max(a.distanceTo(b),b.distanceTo(c),c.distanceTo(a));if(!Number.isFinite(length)||length<.001||length>.15)continue;
   const curvature=Math.max(0,1-Math.min(na.dot(nb),nb.dot(nc),nc.dot(na)));if(!Number.isFinite(curvature)||curvature<(headWeight>.8?.006:.012)||curvature>.65)continue;
   center.copy(a).add(b).add(c).multiplyScalar(1/3);normal.copy(na).add(nb).add(nc).normalize();if(normal.lengthSq()<.5)continue;
   // Project the centroid toward the three authored tangent planes, bounded
   // to a small fraction of edge length. This adds useful curved surface detail.
-  let displacement=0;for(const [v,nn] of [[a,na],[b,nb],[c,nc]])displacement+=edge.copy(v).sub(center).dot(nn)/3;
+  let displacement=0;for(const [v,nn] of ([[a,na],[b,nb],[c,nc]] as const))displacement+=edge.copy(v).sub(center).dot(nn)/3;
   displacement=THREE.MathUtils.clamp(displacement,-Math.min(.001,length*.04),Math.min(.001,length*.04));
   const score=length*curvature*(headWeight>.8?5:1);if(Math.abs(displacement)<1e-7)continue;
   candidates.push({offset,a:ids[0],b:ids[1],c:ids[2],score,weights:sorted.map(([j,w])=>[j,w/sum]),delta:normal.clone().multiplyScalar(displacement)});
