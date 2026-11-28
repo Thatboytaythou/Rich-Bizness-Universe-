@@ -322,7 +322,8 @@ export async function mount(): Promise<void> {
   world=district==='city'?addStreetWorld(scene,abort.signal,mobile):new THREE.Group();if(district!=='city')scene.add(world);
   const districtScene=createDistrictScene(district);world.add(districtScene.group);
   let experience=getExperience();
-  const applyExperience=(value:Experience)=>{experience=value;const mode=resolveVisual(value.visual,'avatar');canvas.dataset.rbVisualMode=mode;canvas.dataset.rbBehaviorMode=value.behavior;
+  const cityLight=(now:Date)=>{const hour=now.getHours()+now.getMinutes()/60;return Math.max(.18,Math.sin((hour-6)/12*Math.PI));};
+  let lastCityLight=0;const applyExperience=(value:Experience)=>{experience=value;const mode=resolveVisual(value.visual,'avatar');canvas.dataset.rbVisualMode=mode;canvas.dataset.rbBehaviorMode=value.behavior;
     const fantasy=mode==='fantasy',expressive=mode==='expressive';
     (scene.background as THREE.Color).setHex(district==='city'?(fantasy?0x292645:expressive?0xa4c6d9:0xb1c5ce):(fantasy?0x211b32:0x141d19));(scene.fog as THREE.Fog).color.copy(scene.background as THREE.Color);
     const sky=world?.getObjectByName('rb-cinematic-sky');if(sky)sky.visible=!fantasy;
@@ -330,7 +331,7 @@ export async function mount(): Promise<void> {
     if(district==='personal'&&evening){sun.intensity=1.1;hemi.intensity=.95;fill.intensity=.85;rim.color.setHex(0xffbd72);rim.intensity=1.7;}
     if(district==='creative'){sun.intensity=1.8;hemi.intensity=1.6;rim.color.setHex(0x57c8a5);rim.intensity=2.7;}
     if(district==='personal'&&!evening){sun.intensity=2.25;hemi.intensity=1.55;fill.intensity=1.2;rim.intensity=1.4;}
-    if(renderer)renderer.toneMappingExposure=expressive?1.0:.94;
+    if(district==='city'&&!fantasy){const daylight=cityLight(new Date());sun.intensity=.5+2.55*daylight;hemi.intensity=.72+.55*daylight;fill.intensity=.55+.28*(1-daylight);rim.intensity=.45+1.1*(1-daylight);sun.color.setHex(daylight<.4?0xf6b676:0xffe5c4);canvas.dataset.rbDaylight=String(Math.round(daylight*100));}if(renderer)renderer.toneMappingExposure=expressive?1.0:.94;
     root.querySelector<HTMLElement>('#alExperienceMode')!.textContent=mode+' · '+value.behavior;
     const guide=root.querySelector<HTMLElement>('#alGuide')!;guide.hidden=value.behavior!=='guided';guide.textContent='Use joystick to move. Sprint, jump or pose, then explore a world.';
     if(value.behavior==='manual')avatarRuntime?.expression?.('neutral');
@@ -453,7 +454,7 @@ export async function mount(): Promise<void> {
     if(now-lastTelemetry>1000){lastTelemetry=now;const status=root.querySelector<HTMLElement>('#alPerformance');if(status)status.textContent='~'+Math.round(1000/averageFrame)+' fps · '+Math.round(renderScale*100)+'% render scale';}
     const drawStarted=performance.now();const dt=Math.min(interval/1000,.075);
     try{
-    world?.userData.tickFoliage?.(dt);
+    world?.userData.tickFoliage?.(dt);if(district==='city'&&now-lastCityLight>60000){lastCityLight=now;applyExperience(experience);}
     if(frameSamples>=90&&averageFrame<(mobile?39:30)&&Math.hypot(avatarRuntime.root.position.x+4.9,avatarRuntime.root.position.z+17)<23){void world?.userData.tryDetailedVehicle?.();}
     const inputMagnitude = Math.min(1, Math.hypot(joyX, joyY));
     const moving = inputMagnitude > .10;

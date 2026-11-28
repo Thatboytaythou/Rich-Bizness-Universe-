@@ -60,7 +60,7 @@ async function fitHDCharacter(gender:AvatarGender,raw:unknown,build:string,quali
       {kind:'fabric' as const,bone:chest,vertices:selectionFor(m=>secondaryEligible(surfaceRole(m.name,mesh.name),look.hair)&&surfaceRole(m.name,mesh.name)!=='hair')}
     ].filter(k=>k.bone&&k.vertices.length>=24).sort((a,b)=>a.vertices.length-b.vertices.length):[];
     const drivers:typeof candidates=[];let available=secondaryBudget-secondaryCount;for(const candidate of candidates){if(candidate.vertices.length<=available){drivers.push(candidate);available-=candidate.vertices.length;}}
-    const skinned=mesh as THREE.SkinnedMesh;const muscleSegments=enhanced&&skinned.isSkinnedMesh?limbSegments(skinned,look,build):[];
+    const skinned=mesh as THREE.SkinnedMesh;const muscleSegments=(enhanced||cinematic)&&skinned.isSkinnedMesh?limbSegments(skinned,look,build):[];
     const skinVertices=muscleSegments.length?selectionFor(m=>surfaceRole(m.name,mesh.name)==='skin'):[];
     const muscleRefine=skinVertices.length>=24;
     const skinMaterials=mobile&&!fallback&&skinned.isSkinnedMesh?materials.map((m,i)=>surfaceRole(m.name,mesh.name)==='skin'?i:-1).filter(i=>i>=0):[];
@@ -78,9 +78,9 @@ async function fitHDCharacter(gender:AvatarGender,raw:unknown,build:string,quali
    for(const material of Array.isArray(mesh.material)?mesh.material:[mesh.material]){
     const mat=material as THREE.MeshStandardMaterial;if(!mat.isMeshStandardMaterial||surfaces.has(mat))continue;
     const role=surfaceRole(mat.name,mesh.name);surfaces.set(mat,role);
-    if(role==='skin'){applyNaturalSkin(mat,look.skinFinish,portrait,fantasy,enhanced&&uv,()=>microSkin??=skinMicroSurface());continue;}
+    if(role==='skin'){applyNaturalSkin(mat,look.skinFinish,portrait,fantasy,(enhanced||cinematic)&&uv,()=>microSkin??=skinMicroSurface());continue;}
     if(role==='hair'||role==='facial-hair'){naturalHairMaterial(mat,role==='hair'?'hair':'facial');if(enhanced&&uv&&mat.map&&!mat.normalMap&&!mat.bumpMap){strands??=hairStrandNormal();mat.normalMap=strands;mat.normalScale.setScalar(role==='facial-hair'?.23:.38);mat.needsUpdate=true;}continue;}
-    if(role==='eye'||role==='cornea'){mat.roughness=role==='cornea'?.12:fantasy?.20:.28;mat.metalness=0;mat.envMapIntensity=.65;continue;}
+    if(role==='eye'||role==='cornea'){mat.roughness=role==='cornea'?.08:fantasy?.20:.25;mat.metalness=0;mat.envMapIntensity=.65;continue;}
     if(role==='oral'){mat.metalness=0;mat.roughness=/teeth|tooth/i.test(mat.name)?.35:/tongue|gum/i.test(mat.name)?.57:.51;mat.envMapIntensity=.25;continue;}
     if(role==='face-detail'||role==='unknown')continue;
     const finish=fabricFinish(role);mat.roughness=finish.roughness;mat.metalness=0;
