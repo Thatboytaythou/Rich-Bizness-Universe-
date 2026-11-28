@@ -46,6 +46,7 @@ export type Database = {
       rb_dm_search_profiles: { Args: { p_query: string; p_limit?: number }; Returns: { id: string | null; username: string | null; display_name: string | null; avatar_url: string | null; online_status: string | null }[] };
       rb_dm_send_message: { Args: { p_thread_id: string; p_body: string; p_reply_to?: string | null }; Returns: string };
       rb_dm_set_typing: { Args: { p_thread_id: string; p_is_typing: boolean }; Returns: undefined };
+      rb_dm_list_verified_calls_v2: { Args: { p_thread_id: string }; Returns: Json };
       rb_dm_start_call: { Args: { p_thread_id: string; p_call_type: string }; Returns: Json };
       rb_dm_thread_snapshot: { Args: { p_thread_id: string; p_limit?: number }; Returns: Json };
       rb_dm_threads_snapshot: { Args: { p_limit?: number }; Returns: Json };

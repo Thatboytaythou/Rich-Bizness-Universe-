@@ -119,4 +119,11 @@ language sql stable security definer set search_path='' as $$
 $$;
 revoke all on function public.rb_dm_authorize_call_v2(uuid) from public,anon;
 grant execute on function public.rb_dm_authorize_call_v2(uuid) to authenticated;
+create function public.rb_dm_list_verified_calls_v2(p_thread_id uuid) returns jsonb
+language sql stable security definer set search_path='' as $$
+ select coalesce(jsonb_agg(jsonb_build_object('id',c.id,'call_type',c.call_type,'call_status',c.call_status)), '[]'::jsonb)
+ from public.dm_call_sessions c where c.thread_id=p_thread_id and public.rb_dm_authorize_call_v2(c.id) is not null
+$$;
+revoke all on function public.rb_dm_list_verified_calls_v2(uuid) from public,anon;
+grant execute on function public.rb_dm_list_verified_calls_v2(uuid) to authenticated;
 commit;

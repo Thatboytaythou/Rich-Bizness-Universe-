@@ -82,6 +82,10 @@ export async function mount(): Promise<void> {
   const lastRead=new Map<string,string>();
   const reactionPending=new Set<string>();
   let directPending=false;
+  let privateCall:import('../../core/livekit/private-call').PrivateCallSession|null=null;
+  let callAttempt=0,callConnecting=false;
+  const callSurface=document.createElement('section');callSurface.className='comm-card active-call-strip';callSurface.hidden=true;callSurface.setAttribute('aria-label','Private Rich Call');panel.before(callSurface);
+  const leaveCall=()=>{callAttempt++;callConnecting=false;const previous=privateCall;privateCall=null;callSurface.hidden=true;void previous?.close();callSurface.replaceChildren();};
   const drafts=new Map<string,string>();
   const currentThread=(id:string)=>isCurrent()&&getAuthSnapshot().user?.id===user.id&&activeThread===id;
   const scheduleThread=(id:string)=>{if(!currentThread(id))return;if(threadRefreshTimer)clearTimeout(threadRefreshTimer);threadRefreshTimer=window.setTimeout(()=>void refreshThread(id),160);};
@@ -151,8 +155,10 @@ export async function mount(): Promise<void> {
     const attachments = snapshot.attachments ?? [];
     const reactions = snapshot.reactions ?? [];
     const typing = snapshot.typing ?? [];
-    const calls = snapshot.calls ?? snapshot.call_sessions ?? [];
-    const activeCall = calls.find((call) => ['ringing', 'active'].includes(String(call.call_status ?? '').toLowerCase())) ?? null;
+    // Legacy snapshots omit calls and cannot prove membership integrity.
+    // Discovery only from the versioned, server-verified call list.
+    const calls:CallSession[]=[];
+    const activeCall = calls[0]??null;
     const defaultReaction = String((thread as any).default_reaction || '💨');
     attachmentState.textContent = 'PRIVATE STORAGE REQUIRED';
     const priorInput=panel.querySelector<HTMLInputElement>('#messageInput');
@@ -225,8 +231,20 @@ export async function mount(): Promise<void> {
 
     const startCall = async (type: 'audio' | 'video') => {
       if (!currentThread(threadId)||verifiedThread!==threadId) return;
-      // A server call record is not proof of a connected audio/video transport.
-      setStatus(type==='audio'?'Audio transport is not verified in this build.':'Video transport is not verified in this build.');
+      if(callConnecting||privateCall)return;
+      callConnecting=true;const attempt=++callAttempt;
+      const valid=()=>currentThread(threadId)&&verifiedThread===threadId&&attempt===callAttempt;
+      try{
+        const {data,error}=await supabase.rpc('rb_dm_list_verified_calls_v2',{p_thread_id:threadId});
+        if(!valid())return;
+        const call=(Array.isArray(data)?data as unknown as CallSession[]:[]).find(c=>c.call_type===type&&isUuid(c.id)&&['ringing','active'].includes(c.call_status??''));
+        if(error||!call){setStatus('No verified '+type+' call is available.');return;}
+        const {connectPrivateCall}=await import('../../core/livekit/private-call');if(!valid())return;
+        callSurface.hidden=false;
+        const connected=await connectPrivateCall({callId:call.id,kind:type,surface:callSurface,valid,onStatus:message=>{if(valid())setStatus(message);}});
+        if(!valid()){await connected.close();return;}privateCall=connected;
+      }catch{if(valid()){callSurface.hidden=true;setStatus('Private media connection could not be verified.');}}
+      finally{if(attempt===callAttempt)callConnecting=false;}
     };
     panel.querySelector<HTMLButtonElement>('#audioCall')!.onclick = () => void startCall('audio');
     panel.querySelector<HTMLButtonElement>('#videoCall')!.onclick = () => void startCall('video');
@@ -253,7 +271,7 @@ export async function mount(): Promise<void> {
       if(sending||sharing){threadQueued=true;return;}
       await drawThread(threadId, data as ThreadSnapshot);
     } catch (caught) {
-      if(currentThread(threadId)){verifiedThread=null;panel.innerHTML='<div class="comm-empty" role="status">Conversation unavailable. Reopen the thread to retry.</div>';activeState.textContent='UNVERIFIED';setStatus('Conversation could not be verified.');}
+      if(currentThread(threadId)){leaveCall();verifiedThread=null;panel.innerHTML='<div class="comm-empty" role="status">Conversation unavailable. Reopen the thread to retry.</div>';activeState.textContent='UNVERIFIED';setStatus('Conversation could not be verified.');}
     } finally { loadingThread = false;if(queuedOpen&&!opening){const next=queuedOpen;queuedOpen=null;void openThread(next);}else if(threadQueued&&activeThread){threadQueued=false;scheduleThread(activeThread);} }
   };
 
@@ -262,7 +280,7 @@ export async function mount(): Promise<void> {
     if(opening||loadingThread){queuedOpen=threadId;return;}
     opening=true;
     try{
-    if (activeThread && activeThread !== threadId) {if(typingTimer)clearTimeout(typingTimer);typingThread=null;void setTyping(activeThread,false);}
+    if (activeThread && activeThread !== threadId) {leaveCall();if(typingTimer)clearTimeout(typingTimer);typingThread=null;void setTyping(activeThread,false);}
     if (!isCurrent()) return;
     threadRevision++;verifiedThread=null;activeThread = threadId;
     panel.innerHTML='<div class="comm-empty" role="status">Verifying conversation…</div>';
@@ -353,7 +371,7 @@ export async function mount(): Promise<void> {
   document.addEventListener('visibilitychange',reconnect);window.addEventListener('online',reconnect);
   const cleanup = async () => {
     if (destroyed) return;
-    destroyed = true;drafts.clear();document.removeEventListener('visibilitychange',reconnect);window.removeEventListener('online',reconnect);if(threadRefreshTimer)clearTimeout(threadRefreshTimer);
+    destroyed = true;leaveCall();callSurface.remove();drafts.clear();document.removeEventListener('visibilitychange',reconnect);window.removeEventListener('online',reconnect);if(threadRefreshTimer)clearTimeout(threadRefreshTimer);
     if (typingTimer) window.clearTimeout(typingTimer);
     if (refreshTimer) window.clearTimeout(refreshTimer);
     if (statusTimer) window.clearTimeout(statusTimer);
