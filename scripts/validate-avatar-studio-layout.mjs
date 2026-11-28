@@ -89,3 +89,18 @@ import {projectPortal,portalRing} from '../apps/web/src/pages/portal/portal.proj
 assert.deepEqual(projectPortal(1,2,0,0,0),{x:1,y:2,depth:0,scale:1});assert.ok(projectPortal(1,0,1,0,0).scale>1);const projected=portalRing(1,48,0,.4,.2);assert.equal(projected.length,49);assert.ok(projected.every(p=>Object.values(p).every(Number.isFinite)));assert.ok(Math.abs(projected[0].x-projected[48].x)<1e-8);console.log('Evolution Portal perspective projection: finite coordinates, depth scaling, closed geometry');
 
 const reusable=portalRing(1,48,0,.4,.2);const firstPoint=reusable[0];assert.equal(portalRing(1,48,1,.5,.3,reusable),reusable);assert.equal(reusable[0],firstPoint);assert.deepEqual(reusable,portalRing(1,48,1,.5,.3));console.log('Portal projection reuses 147 ring vertices across frames');
+
+// Original procedural human geometry regression: count actual submitted triangles.
+import {createOriginalAvatar} from '../apps/web/src/features/avatar/avatar.original.runtime.ts';
+const priorWindow=Object.getOwnPropertyDescriptor(globalThis,'window');
+try {
+ Object.defineProperty(globalThis,'window',{configurable:true,value:{matchMedia:()=>({matches:true})}});
+ for(const gender of ['boy','girl']){
+  const avatar=createOriginalAvatar(gender,{hair:'curls',gear:'none'},'athletic');
+  let triangles=0;const geometries=new Set(),materials=new Set();
+  avatar.root.traverse(o=>{if(!o.isMesh)return;const g=o.geometry;triangles+=(g.index?.count??g.attributes.position.count)/3;assert.ok(g.attributes.position.array.every(Number.isFinite));assert.ok(g.attributes.normal.array.every(Number.isFinite));geometries.add(g);for(const m of Array.isArray(o.material)?o.material:[o.material])materials.add(m);});
+  assert.ok(triangles>0&&triangles<=60000,'Original mobile triangle budget: '+triangles);
+  console.log('Original mobile '+gender+' actual triangles: '+triangles);
+  avatar.mixer.stopAllAction();avatar.mixer.uncacheRoot(avatar.root);for(const g of geometries)g.dispose();for(const m of materials)m.dispose();
+ }
+}finally{if(priorWindow)Object.defineProperty(globalThis,'window',priorWindow);else delete globalThis.window;}
