@@ -40,6 +40,7 @@ export function mountPortalMotion(options: MotionOptions): () => void {
   let pointerX = 0.5;
   let pointerY = 0.5;
   let disposed = false;
+  let contextLost = false;
   const ringBuffers:PortalPoint[][]=[[],[],[]];
 
   const resize = () => {
@@ -54,7 +55,7 @@ export function mountPortalMotion(options: MotionOptions): () => void {
   };
 
   const paint = (advance: boolean) => {
-    if (disposed) return;
+    if (disposed || contextLost || width < 2 || height < 2) return;
     if (advance) time += .008 * paintInterval / 32;
     context.clearRect(0, 0, width, height);
 
@@ -104,7 +105,9 @@ export function mountPortalMotion(options: MotionOptions): () => void {
   };
 
   const frames=renderScheduler(now=>{if(!lastPaint||now-lastPaint>=paintInterval){const started=performance.now();lastPaint=now;paint(true);paintCost+=(performance.now()-started-paintCost)*.12;paintSamples++;if(paintSamples%60===0){paintInterval=paintCost>12?50:paintCost<7?32:paintInterval;stage.dataset.rbPaintInterval=String(paintInterval);}}},cb=>window.requestAnimationFrame(cb),id=>window.cancelAnimationFrame(id));
-  const visibility=()=>{lastPaint=0;const visible=inView&&!document.hidden;stage.dataset.rbCanvasVisible=String(visible);frames.setVisible(visible&&!options.reduced);};
+  const visibility=()=>{lastPaint=0;const visible=inView&&!document.hidden;stage.dataset.rbCanvasVisible=String(visible);frames.setVisible(visible&&!options.reduced&&!contextLost&&!disposed);};
+  canvas.addEventListener('contextlost', event => { event.preventDefault(); contextLost=true; frames.setVisible(false); stage.dataset.rbCanvasState='lost'; }, {signal:lifecycle.signal});
+  canvas.addEventListener('contextrestored', () => { if(disposed)return; contextLost=false; resize(); paint(false); visibility(); }, {signal:lifecycle.signal});
   const viewport=new IntersectionObserver(entries=>{inView=entries[0]?.isIntersecting??true;visibility();},{threshold:.02});
   viewport.observe(stage);
 
@@ -155,6 +158,6 @@ export function mountPortalMotion(options: MotionOptions): () => void {
     resizeObserver.disconnect();
     frames.stop();viewport.disconnect();
     resetTilt();
-    context.clearRect(0, 0, width, height);stage.dataset.rbCanvasState='stopped';
+    if(!contextLost)context.clearRect(0, 0, width, height);stage.dataset.rbCanvasState='stopped';
   };
 }
