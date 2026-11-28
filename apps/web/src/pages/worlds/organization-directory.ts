@@ -50,7 +50,7 @@ export function mountOrganizationDirectory(root:HTMLElement):void {
   const sessionUser=()=>getAuthSnapshot().ready?getAuthSnapshot().user?.id:null;
   const active=(id:string,version:number)=>root.isConnected&&sessionUser()===id&&version===loadVersion;
   const status=(value:string)=>{if(root.isConnected)message.textContent=value;};
-  const protectedAction=async (operation:()=>Promise<{error:unknown}>,done:string)=>{
+  const protectedAction=async (operation:()=>PromiseLike<{error:unknown}>,done:string)=>{
     if(busy||!sessionUser())return;
     busy=true;create.disabled=true;
     try{
