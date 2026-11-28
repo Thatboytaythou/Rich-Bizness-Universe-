@@ -7,13 +7,14 @@ export function mobileGarmentMaterial(name:string,mesh=''){
 // material regions; preserve all vertex buffers, skin weights, UVs and morphs.
 // Explicitly identified rigid collection jewelry may also be simplified.
 // Never collapse skin, face, hair, material boundaries or open mesh boundaries.
-export function reducePhoneWardrobe(g:THREE.BufferGeometry,eligible:readonly number[],materialCount:number,requested:number){
+export function reducePhoneWardrobe(g:THREE.BufferGeometry,eligible:readonly number[],materialCount:number,requested:number,externalProtected:ReadonlySet<number>=new Set()){
  const p=g.getAttribute('position'),n=g.getAttribute('normal'),uv=g.getAttribute('uv'),si=g.getAttribute('skinIndex'),sw=g.getAttribute('skinWeight'),idx=g.index;
  if(!p||!n||!idx||!si||!sw||si.itemSize!==4||sw.itemSize!==4||p.count>150000||idx.count>540000||!Number.isFinite(requested)||requested<2||!eligible.length)return null;
  const groups=g.groups.length?g.groups:materialCount===1?[{start:0,count:idx.count,materialIndex:0}]:[];
  if(!groups.length||g.drawRange.start!==0||g.drawRange.count<idx.count)return null;
  let end=0;for(const group of groups){if(group.start!==end||group.count%3)return null;end+=group.count;}if(end!==idx.count)return null;
  const selected=new Set(eligible),protectedV=new Uint8Array(p.count),regions=groups.map(group=>({material:group.materialIndex??0,indices:Array.from({length:group.count},(_,i)=>idx.getX(group.start+i))}));
+ for(const vertex of externalProtected){if(!Number.isInteger(vertex)||vertex<0||vertex>=p.count)return null;protectedV[vertex]=1;}
  const owner=new Int32Array(p.count).fill(-1);
  for(const [regionId,region] of regions.entries())for(const i of region.indices){if(!Number.isInteger(i)||i<0||i>=p.count)return null;if(!selected.has(region.material)||(owner[i]!==-1&&owner[i]!==regionId))protectedV[i]=1;owner[i]=regionId;}
  // Protect coincident split vertices (UV/material seams), including different indices.

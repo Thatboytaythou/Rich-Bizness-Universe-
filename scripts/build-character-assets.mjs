@@ -63,7 +63,7 @@ try{
     // Export a separate index-only mobile groom and fitted garment LOD. Retain full source GLB.
     groomProbe={sourceTriangles:triangles,variants:[]};
     for(const quality of ['auto','detail']){
-      const copy=JSON.parse(JSON.stringify(j)),originalBin=Buffer.from(b.subarray(offset,offset+j.buffers[0].byteLength)),chunks=[originalBin];let length=originalBin.length,removed=0,clusters=0,cells=0;
+      const copy=JSON.parse(JSON.stringify(j)),originalBin=Buffer.from(b.subarray(offset,offset+j.buffers[0].byteLength)),chunks=[originalBin];let length=originalBin.length,removed=0,clusters=0,cells=0;const reductions=[];
       const copyMesh=copy.meshes[skinnedNode.mesh];
       for(const [pi,p] of mesh.primitives.entries()){
         const material=j.materials[p.material]?.name??'',beard=/^beard$/i.test(material);
@@ -72,14 +72,14 @@ try{
         for(const other of mesh.primitives)if(other!==p&&other.attributes.POSITION===p.attributes.POSITION){if(other.indices===undefined){for(let i=0;i<positions.count;i++)protectedVertices.add(i);}else for(const v of read(other.indices,true).array)protectedVertices.add(v);}
         let lod;
         if(beard)lod=thinBeardIndices(positions,idx,quality==='detail'?9000:1200,protectedVertices);
-        else if(!protectedVertices.size){const geo=new THREE.BufferGeometry();for(const [k,a] of Object.entries({position:'POSITION',normal:'NORMAL',uv:'TEXCOORD_0',skinIndex:'JOINTS_0',skinWeight:'WEIGHTS_0'}))if(p.attributes[a]!==undefined)geo.setAttribute(k,read(p.attributes[a],k==='skinIndex'));geo.setIndex(read(p.indices,true));geo.morphTargetsRelative=true;if(p.targets?.length)geo.morphAttributes.position=p.targets.map(t=>t.POSITION===undefined?new THREE.Float32BufferAttribute(new Float32Array(geo.attributes.position.count*3),3):read(t.POSITION));const reduced=reducePhoneWardrobe(geo,[0],1,idx.length/3);if(reduced){lod={indices:Array.from(reduced.geometry.index.array),removedTriangles:reduced.removedTriangles,clusters:0,cells:0};reduced.geometry.dispose();}geo.dispose();}
-        if(!lod)continue;
+        else {const geo=new THREE.BufferGeometry();for(const [k,a] of Object.entries({position:'POSITION',normal:'NORMAL',uv:'TEXCOORD_0',skinIndex:'JOINTS_0',skinWeight:'WEIGHTS_0'}))if(p.attributes[a]!==undefined)geo.setAttribute(k,read(p.attributes[a],k==='skinIndex'));geo.setIndex(read(p.indices,true));geo.morphTargetsRelative=true;if(p.targets?.length)geo.morphAttributes.position=p.targets.map(t=>t.POSITION===undefined?new THREE.Float32BufferAttribute(new Float32Array(geo.attributes.position.count*3),3):read(t.POSITION));const reduced=reducePhoneWardrobe(geo,[0],1,idx.length/3,protectedVertices);if(reduced){lod={indices:Array.from(reduced.geometry.index.array),removedTriangles:reduced.removedTriangles,clusters:0,cells:0};reduced.geometry.dispose();}geo.dispose();}
+        if(!lod)continue;reductions.push({material,removed:lod.removedTriangles});
         const pad=(4-length%4)%4;if(pad){chunks.push(Buffer.alloc(pad));length+=pad;}const data=Buffer.alloc(lod.indices.length*4);for(const [i,v] of lod.indices.entries())data.writeUInt32LE(v,i*4);
         const view=copy.bufferViews.length;copy.bufferViews.push({buffer:0,byteOffset:length,byteLength:data.length,target:34963});const accessor=copy.accessors.length;copy.accessors.push({bufferView:view,componentType:5125,count:lod.indices.length,type:'SCALAR'});copyMesh.primitives[pi].indices=accessor;chunks.push(data);length+=data.length;removed+=lod.removedTriangles;clusters+=lod.clusters;cells+=lod.cells;
       }
       const measured=triangles-removed;let filename=null;
       if(removed){copy.buffers[0].byteLength=length;const binary=Buffer.concat(chunks);let json=Buffer.from(JSON.stringify(copy));json=Buffer.concat([json,Buffer.alloc((4-json.length%4)%4,32)]);const binPadded=Buffer.concat([binary,Buffer.alloc((4-binary.length%4)%4)]);const h=Buffer.alloc(20),bh=Buffer.alloc(8);h.writeUInt32LE(0x46546c67,0);h.writeUInt32LE(2,4);h.writeUInt32LE(20+json.length+8+binPadded.length,8);h.writeUInt32LE(json.length,12);h.writeUInt32LE(0x4e4f534a,16);bh.writeUInt32LE(binPadded.length,0);bh.writeUInt32LE(0x004e4942,4);filename='rb-elite-emerald-legacy-groom-'+(quality==='auto'?'adaptive':'enhanced')+'.glb';writeFileSync(join(dest,filename),Buffer.concat([h,json,bh,binPadded]));assert.equal(copy.skins.length,j.skins.length);assert.equal(copy.animations.length,j.animations.length);}
-      groomProbe.variants.push({quality,filename,triangles:measured,removedTriangles:removed,clusters,cells,admitted:admitsPhoneMesh(quality,measured)});
+      groomProbe.variants.push({quality,filename,triangles:measured,removedTriangles:removed,clusters,cells,reductions,admitted:admitsPhoneMesh(quality,measured)});
     }console.log('V1 actual Emerald groom GLB: '+JSON.stringify(groomProbe));}
   }
   let originalSculpt=null;
