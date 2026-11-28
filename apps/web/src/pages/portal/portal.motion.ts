@@ -1,4 +1,4 @@
-import {portalRing,projectPortal} from './portal.projection';
+import {portalRing,projectPortal,type PortalPoint} from './portal.projection';
 import {renderScheduler,boundedCanvasPixels} from '../../core/experience/render-scheduler';
 type MotionOptions = { reduced: boolean };
 
@@ -40,6 +40,7 @@ export function mountPortalMotion(options: MotionOptions): () => void {
   let pointerX = 0.5;
   let pointerY = 0.5;
   let disposed = false;
+  const ringBuffers:PortalPoint[][]=[[],[],[]];
 
   const resize = () => {
     width = Math.max(1, stage.clientWidth);
@@ -83,7 +84,7 @@ export function mountPortalMotion(options: MotionOptions): () => void {
     // Perspective-projected toroidal paths and moving energy nodes. DOM route hit targets stay stationary.
     const unit=Math.min(width,height)*.32,rx=.45+(pointerY-.5)*.55,ry=(pointerX-.5)*.8;
     const ringColors=['rgba(245,206,126,.52)','rgba(112,240,190,.42)','rgba(147,164,255,.35)'];
-    for(let ring=0;ring<3;ring++){const points=portalRing(1-ring*.15,48,time*(ring%2?-.4:.6),rx+ring*.12,ry+ring*.09);context.beginPath();points.forEach((p,i)=>{const x=centerX+p.x*unit,y=centerY+p.y*unit;if(i===0)context.moveTo(x,y);else context.lineTo(x,y);});context.strokeStyle=ringColors[ring]!;context.lineWidth=1+ring*.35;context.stroke();}
+    for(let ring=0;ring<3;ring++){const points=portalRing(1-ring*.15,48,time*(ring%2?-.4:.6),rx+ring*.12,ry+ring*.09,ringBuffers[ring]);context.beginPath();points.forEach((p,i)=>{const x=centerX+p.x*unit,y=centerY+p.y*unit;if(i===0)context.moveTo(x,y);else context.lineTo(x,y);});context.strokeStyle=ringColors[ring]!;context.lineWidth=1+ring*.35;context.stroke();}
     for(let i=0;i<8;i++){const a=i*Math.PI/4+time*.8,p=projectPortal(.86*Math.cos(a),.86*Math.sin(a),.18*Math.sin(a*2),rx,ry);context.beginPath();context.fillStyle=i%2?'#e9d391':'#91f5c4';context.globalAlpha=Math.max(.25,Math.min(.95,.55+p.depth*.3));context.arc(centerX+p.x*unit,centerY+p.y*unit,Math.max(1.5,3*p.scale),0,Math.PI*2);context.fill();}context.globalAlpha=1;
     const pulse = options.reduced ? 0.5 : 0.5 + 0.5 * Math.sin(time * 3);
     const gradient = context.createRadialGradient(

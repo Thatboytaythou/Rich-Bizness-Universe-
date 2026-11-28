@@ -18,6 +18,7 @@ permissions:
   deployments: read
 jobs:
   browser:
+    environment: browser-test
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
@@ -52,6 +53,7 @@ jobs:
       - name: Execute actual mobile Chromium smoke
         env:
           RB_BROWSER_PREFIX: ${{ runner.temp }}/rb-browser
+          VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
         run: node scripts/browser-release-smoke.mjs
   authenticated-browser:
     if: github.event_name == 'workflow_dispatch' && inputs.authenticated
@@ -73,6 +75,7 @@ jobs:
           RB_BROWSER_URL: ${{ inputs.candidate }}
           RB_EXPECTED_COMMIT: ${{ github.sha }}
           RB_REQUIRE_AUTH: '1'
+          VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
           RB_BROWSER_EMAIL: ${{ secrets.RB_BROWSER_EMAIL }}
           RB_BROWSER_PASSWORD: ${{ secrets.RB_BROWSER_PASSWORD }}
         run: node scripts/browser-release-smoke.mjs

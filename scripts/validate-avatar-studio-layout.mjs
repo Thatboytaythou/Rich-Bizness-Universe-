@@ -87,3 +87,5 @@ console.log('Maximum Evolution render lifecycle: single frame, hidden/offscreen 
 
 import {projectPortal,portalRing} from '../apps/web/src/pages/portal/portal.projection.ts';
 assert.deepEqual(projectPortal(1,2,0,0,0),{x:1,y:2,depth:0,scale:1});assert.ok(projectPortal(1,0,1,0,0).scale>1);const projected=portalRing(1,48,0,.4,.2);assert.equal(projected.length,49);assert.ok(projected.every(p=>Object.values(p).every(Number.isFinite)));assert.ok(Math.abs(projected[0].x-projected[48].x)<1e-8);console.log('Evolution Portal perspective projection: finite coordinates, depth scaling, closed geometry');
+
+const reusable=portalRing(1,48,0,.4,.2);const firstPoint=reusable[0];assert.equal(portalRing(1,48,1,.5,.3,reusable),reusable);assert.equal(reusable[0],firstPoint);assert.deepEqual(reusable,portalRing(1,48,1,.5,.3));console.log('Portal projection reuses 147 ring vertices across frames');
