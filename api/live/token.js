@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
-import { AccessToken } from 'livekit-server-sdk';
+import { AccessToken, TrackSource } from 'livekit-server-sdk';
 
 const TOKEN_TTL = '10m';
 const PAID_STATUSES = ['paid', 'completed', 'succeeded', 'active'];
@@ -50,6 +50,37 @@ function clients() {
   };
 }
 
+// DM grant is based on the stored call and two independently verified relationships.
+// Exported for isolated tests; never grant a room using caller-supplied room names.
+export async function authorizeDmCall(admin, callId, userId) {
+  const {data:call,error:callError}=await admin.from('dm_call_sessions').select('id,thread_id,started_by,call_type,call_status,livekit_room_name,ended_at').eq('id',callId).maybeSingle();
+  if(callError)return {status:503,error:'call_access_check_unavailable'};
+  if(!call||call.ended_at||!['ringing','active'].includes(call.call_status)||!['audio','video'].includes(call.call_type)||!/^rich-call-[A-Za-z0-9_-]{3,100}$/.test(call.livekit_room_name||''))return {status:403,error:'call_access_denied'};
+  const [member,participant]=await Promise.all([
+    admin.from('dm_thread_members').select('status').eq('thread_id',call.thread_id).eq('user_id',userId).eq('status','active').maybeSingle(),
+    admin.from('dm_call_participants').select('status').eq('call_id',call.id).eq('user_id',userId).in('status',['invited','joined']).maybeSingle()
+  ]);
+  if(member.error||participant.error)return {status:503,error:'call_access_check_unavailable'};
+  if(!member.data||!participant.data)return {status:403,error:'call_access_denied'};
+  return {status:200,call,role:call.started_by===userId?'host':'participant'};
+}
+
+async function dmToken(req,res,body,config,sessionToken){
+  const callId=String(body.callId||'');
+  if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(callId))return json(res,400,{ok:false,error:'invalid_call'});
+  try{
+    const {auth,admin}=clients();
+    const {data,error}=await auth.auth.getUser(sessionToken);const user=data?.user;
+    if(error||!user||user.is_anonymous)return json(res,401,{ok:false,error:'invalid_or_expired_session'});
+    const grant=await authorizeDmCall(admin,callId,user.id);
+    if(grant.status!==200)return json(res,grant.status,{ok:false,error:grant.error});
+    const {call,role}=grant;
+    const token=new AccessToken(config.key,config.secret,{identity:user.id,name:'Rich Member',ttl:'2m',metadata:JSON.stringify({room_type:'dm_call',call_id:call.id,role})});
+    token.addGrant({roomJoin:true,room:call.livekit_room_name,canSubscribe:true,canPublish:true,canPublishData:false,canPublishSources:call.call_type==='audio'?[TrackSource.MICROPHONE]:[TrackSource.MICROPHONE,TrackSource.CAMERA]});
+    return json(res,200,{ok:true,url:config.url,token:await token.toJwt(),roomName:call.livekit_room_name,role,callType:call.call_type,expiresIn:120});
+  }catch{return json(res,503,{ok:false,error:'call_access_check_unavailable'});}
+}
+
 async function viewerAllowed(admin, stream, userId) {
   if (stream.creator_id === userId || String(stream.access_type || 'free') === 'free') return true;
 
@@ -80,7 +111,8 @@ export default async function handler(req, res) {
       service: 'rich-bizness-livekit-token',
       route: '/api/live/token',
       ttl: TOKEN_TTL,
-      roles: ['host', 'viewer']
+      roles: ['host', 'viewer'],
+      dmCallAuthorization: true
     });
   }
 
@@ -106,6 +138,7 @@ export default async function handler(req, res) {
     return json(res, 400, { ok: false, error: 'invalid_json' });
   }
 
+  if(body?.kind==='dm_call')return dmToken(req,res,body,{url:livekitUrl,key:livekitKey,secret:livekitSecret},sessionToken);
   const roomName = String(body?.roomName || '').trim();
   const streamId = String(body?.streamId || '').trim();
   const role = body?.role === 'host' ? 'host' : body?.role === 'viewer' ? 'viewer' : '';
