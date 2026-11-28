@@ -10,6 +10,8 @@ type RealtimeChannel = ReturnType<typeof supabase.channel>;
 
 const activeSessions = new Map<string, string>();
 const activeRooms = new Map<string, string>();
+const roomQueues=new Map<string,Promise<unknown>>();
+function serializeRoom<T>(slug:string,work:()=>Promise<T>):Promise<T>{const previous=roomQueues.get(slug)??Promise.resolve();const next=previous.catch(()=>undefined).then(()=>{if(disposed)throw Error('Game runtime disposed');return work();});roomQueues.set(slug,next);void next.finally(()=>{if(roomQueues.get(slug)===next)roomQueues.delete(slug);}).catch(()=>undefined);return next;}
 const starting=new Map<string,Promise<StartResult>>();
 const finishing=new Map<string,Promise<FinishResult>>();
 const lifecycle=new AbortController();
@@ -135,31 +137,34 @@ export async function getGameSaveHistory(gameSlug: string): Promise<SaveResult> 
 }
 
 export async function createGameRoom(gameSlug: string, input: Readonly<{ roomCode?: string; maxPlayers?: number; roomType?: string; boardState?: unknown; gameState?: Json; metadata?: Json }> = {}): Promise<RoomResult> {
+  return serializeRoom(gameSlug,async()=>{
   const result = await action<RoomResult>('rb_game_room_action', {
     p_action: 'create', p_game_slug: gameSlug,
     p_payload: { room_code: input.roomCode, max_players: input.maxPlayers ?? 8, room_type: input.roomType ?? 'realtime', board_state: input.boardState, game_state: input.gameState ?? {}, metadata: { ...(input.metadata ?? {}), device: deviceInfo(), client_contract: 'rich-bizness-game-runtime-client-v3' } }
   });
   const roomId = String(result.room?.id ?? '');
   if (roomId) activeRooms.set(gameSlug, roomId);
-  return result;
+  return result;  });
 }
 
 export async function joinGameRoom(gameSlug: string, roomCode: string, input: Readonly<{ role?: string; metadata?: Json }> = {}): Promise<RoomResult> {
+  return serializeRoom(gameSlug,async()=>{
   const result = await action<RoomResult>('rb_game_room_action', {
     p_action: 'join', p_game_slug: gameSlug,
     p_payload: { room_code: roomCode.trim().toUpperCase(), role: input.role ?? 'player', metadata: { ...(input.metadata ?? {}), device: deviceInfo(), client_contract: 'rich-bizness-game-runtime-client-v3' } }
   });
   const roomId = String(result.room?.id ?? '');
   if (roomId) activeRooms.set(gameSlug, roomId);
-  return result;
+  return result;  });
 }
 
 export async function leaveGameRoom(gameSlug: string): Promise<RoomResult | null> {
+  return serializeRoom(gameSlug,async()=>{
   const roomId = activeRooms.get(gameSlug);
   if (!roomId) return null;
   const result = await action<RoomResult>('rb_game_room_action', { p_action: 'leave', p_game_slug: gameSlug, p_payload: { room_id: roomId, client_contract: 'rich-bizness-game-runtime-client-v3' } });
   activeRooms.delete(gameSlug);
-  return result;
+  return result;  });
 }
 
 export function trackGameRealtimeChannel(channel: RealtimeChannel): RealtimeChannel { if(disposed){void supabase.removeChannel(channel);throw new Error('Game runtime disposed');}realtimeChannels.add(channel); return channel; }
@@ -170,7 +175,7 @@ export function getActiveGameRoom(gameSlug: string): string | null { return acti
 export async function disposeGameRuntime(): Promise<void> {
   if (disposed) return;
   disposed = true;
-  lifecycle.abort();starting.clear();finishing.clear();
+  lifecycle.abort();starting.clear();finishing.clear();roomQueues.clear();
   const channels = [...realtimeChannels];
   realtimeChannels.clear();
   await Promise.allSettled(channels.map((channel) => supabase.removeChannel(channel)));

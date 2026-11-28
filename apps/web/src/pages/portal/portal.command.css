@@ -16,3 +16,15 @@ body[data-page="portal"] #app{min-width:0;min-height:100svh}
 @media(max-width:780px){.pc-main{grid-template-columns:minmax(0,1fr)}.pc-control{padding:14px;grid-template-columns:1fr 1fr}.pc-control-head,.pc-actions{grid-column:1/-1}.pc-destination-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.pc-lanes{grid-template-columns:1fr}.portal-command .portal-stats{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:360px){.portal-command .portal-node{width:58px}.portal-command .portal-core{inset:31%}.pc-intro h1{font-size:30px}.pc-control{grid-template-columns:1fr}.pc-sync{font-size:10px}.pc-destination-grid a{padding:9px;gap:6px}}
 @media(prefers-reduced-motion:reduce){.pc-ring{animation:none!important}}
+
+/* Original cinematic city plate and optical ring. Only decorative layers move. */
+.portal-command .portal-world{background:radial-gradient(ellipse at 50% 42%,#174936 0%,#071c1c 52%,#03080e 100%);border-color:#cbb77e94;box-shadow:inset 0 0 0 3px #b6ddba14,0 16px 34px #0008}
+.pc-city{position:absolute;inset:0;background:url('/images/brand/portal-command-city.svg') center/cover no-repeat;opacity:.85;pointer-events:none;z-index:0}
+.pc-orbit{transform:perspective(900px) rotateX(var(--tilt-x,0deg)) rotateY(var(--tilt-y,0deg));transform-origin:center;transition:transform .18s ease-out}
+.pc-spokes{position:absolute;inset:0;border-radius:50%;background:repeating-conic-gradient(from 0deg,#c8dcb969 0deg .6deg,transparent .6deg 45deg);mask:radial-gradient(transparent 39%,#000 40% 71%,transparent 72%);opacity:.65}
+.pc-aperture{background:radial-gradient(circle at 50% 35%,#5a9f7870,transparent 36%),radial-gradient(circle,#214b3e 0%,#081916 58%,#07100d 74%);border:3px double #f1d18b;box-shadow:inset 0 0 24px #80f0ba40,0 0 28px #80f0ba33}
+.portal-command .portal-node{background:linear-gradient(155deg,#355a46e8,#10261fed 46%,#06100ff5);box-shadow:inset 0 1px #fff5,inset 0 -1px #c8a95f50,0 6px 16px #000a}
+.portal-node__icon{text-shadow:0 0 9px color-mix(in srgb,var(--tone) 45%,transparent)}
+.portal-command[data-visibility="hidden"] .pc-ring{animation-play-state:paused}
+.portal-command[data-motion="reduced"] .pc-orbit{transform:none;transition:none}
+@media(max-width:360px){.portal-command .portal-node{width:54px}}

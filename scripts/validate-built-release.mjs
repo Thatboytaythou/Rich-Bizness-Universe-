@@ -27,3 +27,5 @@ for(const variant of ['adaptive','enhanced'])assert.ok(statSync(resolve(dist,'ch
 console.log('V1 built release gate: '+names.length+' HTML entries, '+assets.size+' nonempty linked assets, '+Object.keys(manifest.sections).length+' owners, '+visualPages+' cinematic surfaces, exact release '+manifest.release.slice(0,12));
 
 for(const path of ['images/0E886281-8F03-4288-B3CA-C45369B7B58E.png','images/gta-style-elite.png.jpeg','images/music-logo.png.jpeg','images/brand/IMG_5997.png','images/brand/C54535CD-E2B2-481B-81C8-4CFA81CC2ACD.png'])assert.ok(statSync(resolve(dist,path)).size>0,'Missing legacy image '+path);console.log('Evolution: 5 previously unresolved brand image paths now present');
+
+assert.ok(statSync(resolve(dist,'images/brand/portal-command-city.svg')).size>0,'Missing original Portal city plate');

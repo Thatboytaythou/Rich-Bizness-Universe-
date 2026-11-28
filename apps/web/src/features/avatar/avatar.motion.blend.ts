@@ -27,3 +27,5 @@ export function tickMotionBlend(owner:Owner,dt:number){
  if(t===1){for(const e of blend.entries)if(e.action!==blend.target)e.action.stop();transitions.delete(owner);}
 }
 export function clearMotionBlend(owner:Owner){transitions.delete(owner);}
+
+export function hasMotionBlend(owner:Owner){return transitions.has(owner);}

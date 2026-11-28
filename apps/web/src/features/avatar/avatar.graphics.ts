@@ -1,3 +1,4 @@
+import {hasMotionBlend} from './avatar.motion.blend';
 import * as THREE from 'three';
 import {studioFrameInterval,oneShotActive} from './avatar.energy.motion';
 import {createGroundShade,groundShadeMesh} from './avatar.cinematic.depth';
@@ -32,7 +33,7 @@ export function createStudioGraphics(canvas:HTMLCanvasElement,initial:CharacterC
   const shadeMap=createGroundShade();const directionalShade=groundShadeMesh(shadeMap,1.35,2.5);directionalShade.position.set(.32,-.018,-.34);directionalShade.rotation.z=-.65;directionalShade.material.opacity=.86;directionalShade.visible=mobile;scene.add(directionalShade);
   const ring=new THREE.Mesh(new THREE.TorusGeometry(.83,.013,6,48),new THREE.MeshBasicMaterial({color:aura(initial.aura)}));ring.rotation.x=-Math.PI/2;ring.position.y=.008;scene.add(ring);
   let runtime:SkinnedAvatarRuntime|null=null;
-  let shot:'portrait'|'full'|'orbit'='full',orbitAngle=0,lighting:'studio'|'warm'|'night'='studio';let yaw=0,zoom=1,face=false,active:AvatarMotion='idle',disposed=false,failed=false,raf=0,previous=0,deadline=0,dirty=true;
+  let shot:'portrait'|'full'|'orbit'='full',orbitAngle=0,lighting:'studio'|'warm'|'night'='studio';let yaw=0,zoom=1,face=false,active:AvatarMotion='idle',disposed=false,failed=false,raf=0,previous=0,motionRemaining=0,dirty=true;
   let modelKey='',pendingKey='',desired:CharacterConfig|null=null,loading=false,awaitingFrame=false,shaderError=false;let revision=0,fitTimer=0;let quality:'auto'|'detail'='auto',latest=initial;const expressionControl=createExpressionControl<AvatarExpression>('neutral');let expressionUntil=0;let sequence:MotionStep[]=[];let routineActive=false,bodyTime=0,expressionClock=0;let loadStarted=0;let phoneLimit=640;let drawCost=0;let frameScale=1,frameAverage=mobile?50:17,measured=0,lastAdapt=0,lastTelemetry=0,visible=true;
   const controller=new AbortController(),signal=controller.signal;
   let experience=getExperience();
@@ -53,14 +54,14 @@ export function createStudioGraphics(canvas:HTMLCanvasElement,initial:CharacterC
   const schedule=()=>{if(!disposed&&!failed&&!raf&&!document.hidden&&visible)raf=requestAnimationFrame(draw);};
   const draw=(now:number)=>{
     raf=0;if(disposed||failed||document.hidden||!visible)return;
-    const anim=active!=='idle'&&(routineActive||((active==='jump'||active==='power')?oneShotActive(runtime?.currentAction):now<deadline));const living=!!runtime&&(!reduced.matches||now<expressionUntil);
+    const anim=active!=='idle'&&(routineActive||((active==='jump'||active==='power')?oneShotActive(runtime?.currentAction):motionRemaining>0));const living=!!runtime&&(!reduced.matches||now<expressionUntil||hasMotionBlend(runtime));
     if(!dirty&&!anim&&!living&&active==='idle')return;
     if(previous&&now-previous<studioFrameInterval(mobile,drawCost,quality)){schedule();return;}
     const drawStarted=performance.now();const elapsed=previous?now-previous:0;const dt=Math.min(elapsed/1000,.075);previous=now;if(elapsed>0&&elapsed<250){frameAverage+=.08*(elapsed-frameAverage);measured++;}
     try{
       if(runtime){
         runtime.lookAt?.(experience.behavior!=='manual'&&active==='idle'&&!reduced.matches?camera.position:null);
-        if(anim||living)updateSkinnedAvatar(runtime,dt);
+        if(anim||living)updateSkinnedAvatar(runtime,dt);if(active==='walk'||active==='run')motionRemaining=Math.max(0,motionRemaining-dt);
         if(active==='idle'&&living&&experience.behavior!=='manual'&&!reduced.matches){bodyTime+=dt;expressionClock+=dt;if(expressionClock>6.5){expressionClock=0;automaticExpression(Math.floor(bodyTime/6.5)%3===1?'confident':'neutral',.25);}}
         if(routineActive&&runtime.currentAction&&(runtime.currentAction.paused||runtime.currentAction.time>=runtime.currentAction.getClip().duration-.001)){const next=sequence.shift();if(next){beginGesture(next.clip,next.speed,next.blend);}else{routineActive=false;active='idle';setAvatarMotion(runtime,'idle',.22);if(experience.behavior!=='manual')automaticExpression('neutral');}}
         if(active==='jump'){
@@ -73,7 +74,7 @@ export function createStudioGraphics(canvas:HTMLCanvasElement,initial:CharacterC
       if(runtime){contact.material.opacity=Math.max(.14,1-runtime.root.position.y*1.6);contact.scale.setScalar(1+runtime.root.position.y*.6);directionalShade.material.opacity=Math.max(.12,.86-runtime.root.position.y);directionalShade.scale.setScalar(1+runtime.root.position.y*.4);}
       if(shot==='orbit'&&runtime&&!reduced.matches){orbitAngle=(orbitAngle+dt*.38)%(Math.PI*2);pose();}
       renderer.render(scene,camera);drawCost+=.12*(performance.now()-drawStarted-drawCost);if(mobile&&runtime&&!loading&&measured>=90&&now-lastAdapt>3200){lastAdapt=now;const limit=phoneRenderLimit(quality,drawCost>24?Math.max(52,frameAverage):frameAverage,measured,phoneLimit);if(limit!==phoneLimit){phoneLimit=limit;resize();}}if(!mobile&&measured>30&&now-lastAdapt>2500&&!loading){lastAdapt=now;const next=nextRenderScale(frameScale,frameAverage,measured,mobile);if(Math.abs(next-frameScale)>.01){frameScale=next;resize();}}if(now-lastTelemetry>1000){lastTelemetry=now;canvas.dataset.rbFps=String(Math.round(1000/frameAverage));canvas.dataset.rbResolution=renderer.domElement.width+'×'+renderer.domElement.height;canvas.dataset.rbRenderScale=String(Math.round(frameScale*100));canvas.dataset.rbDrawCalls=String(renderer.info.render.calls);canvas.dataset.rbTriangles=String(renderer.info.render.triangles);canvas.dataset.rbTextures=String(renderer.info.memory.textures);}if(shaderError){fail('Material shader compilation failed');return;}dirty=false;if(runtime){if(awaitingFrame){awaitingFrame=false;onAssetStatus('ready',runtime.assetLabel??'Selected fitted wardrobe rendered');}onFrame();}
-      if(anim||living){dirty=true;schedule();}else previous=0;
+      if(anim||living||(runtime&&hasMotionBlend(runtime))){dirty=true;schedule();}else previous=0;
     }catch(error){fail(error instanceof Error?error.message:'WebGL draw failed');}
   };
   const invalidate=()=>{dirty=true;schedule();};
@@ -120,8 +121,8 @@ export function createStudioGraphics(canvas:HTMLCanvasElement,initial:CharacterC
     if(disposed||failed)return;
     latest=config;ring.material.color.setHex(aura(config.aura));const nextKey=JSON.stringify([config.gender,config.build,config.look,quality]);if(runtime&&nextKey===modelKey&&!loading){desired=null;clearTimeout(fitTimer);revision++;awaitingFrame=true;invalidate();return;}if(loading&&!desired&&nextKey===pendingKey)return;desired={...config,look:{...config.look}};revision++;awaitingFrame=false;onAssetStatus('loading','Applying selected appearance…');clearTimeout(fitTimer);fitTimer=window.setTimeout(()=>void drain(),180);
   };
-  const motion=(value:AvatarMotion)=>{if(!runtime||failed||disposed)return;sequence=[];routineActive=false;if(experience.behavior!=='manual')automaticExpression(value==='power'?'confident':value==='run'?'focused':value==='jump'?'surprised':'neutral');active=value;runtime.root.position.y=0;setAvatarMotion(runtime,value,value==='idle'?0:.18);if(value==='idle')runtime.mixer.update(0);else{face=false;zoom=1;pose();}deadline=performance.now()+((value==='jump'||value==='power')?(runtime.currentAction?.getClip().duration??1)*1000+120:5000);previous=0;invalidate();};
-  const beginGesture=(name:string,speed=1,blend=.2)=>{if(!runtime||failed||disposed)return false;const duration=playAvatarGesture(runtime,name,speed,blend);if(!duration)return false;active='power';runtime.root.position.y=0;face=false;zoom=1;pose();if(experience.behavior!=='manual')automaticExpression(['wave','soft laugh','laugh','groove','bounce'].includes(name)?'smile':'neutral');deadline=performance.now()+duration*1000+180;invalidate();return true;};
+  const motion=(value:AvatarMotion)=>{if(!runtime||failed||disposed)return;sequence=[];routineActive=false;if(experience.behavior!=='manual')automaticExpression(value==='power'?'confident':value==='run'?'focused':value==='jump'?'surprised':'neutral');active=value;runtime.root.position.y=0;setAvatarMotion(runtime,value,value==='idle'?0:.18);if(value==='idle')runtime.mixer.update(0);else{face=false;zoom=1;pose();}motionRemaining=value==='walk'||value==='run'?5:0;previous=0;invalidate();};
+  const beginGesture=(name:string,speed=1,blend=.2)=>{if(!runtime||failed||disposed)return false;const duration=playAvatarGesture(runtime,name,speed,blend);if(!duration)return false;active='power';runtime.root.position.y=0;face=false;zoom=1;pose();if(experience.behavior!=='manual')automaticExpression(['wave','soft laugh','laugh','groove','bounce'].includes(name)?'smile':'neutral');motionRemaining=0;invalidate();return true;};
   const rotate=(radians:number)=>{yaw+=radians;if(runtime)runtime.root.rotation.y=yaw;invalidate();};
   let pointer:number|null=null,lastX=0;
   canvas.addEventListener('pointerdown',e=>{pointer=e.pointerId;lastX=e.clientX;canvas.setPointerCapture(e.pointerId);},{signal});

@@ -197,3 +197,6 @@ assert.ok(mobileGarmentMaterial('watch_gold'));assert.ok(mobileGarmentMaterial('
 
 import {thinBeardIndices} from '../apps/web/src/features/avatar/avatar.groom.lod.ts';
 const groomPositions=[],groomIndices=[];for(let i=0;i<100;i++){const x=(i%10)*.0002,y=Math.floor(i/10)*.0002,o=groomPositions.length/3;groomPositions.push(x,y,0,x+.0001,y,0,x,y+.0001,0,x+.0001,y+.0001,0);groomIndices.push(o,o+1,o+2,o+2,o+1,o+3);}const groomPos=new THREE.Float32BufferAttribute(groomPositions,3),groomResult=thinBeardIndices(groomPos,groomIndices,50);assert.ok(groomResult&&groomResult.removedTriangles>0);assert.equal(groomResult.indices.length%6,0);assert.equal(thinBeardIndices(groomPos,[9999,0,1],1),null);assert.equal(groomIndices.length,600);console.log('V1 grooming LOD: independent clusters, deterministic bounded retention, untouched source');
+
+import {hasMotionBlend} from '../apps/web/src/features/avatar/avatar.motion.blend.ts';
+assert.equal(hasMotionBlend({actions:new Map()}),false);

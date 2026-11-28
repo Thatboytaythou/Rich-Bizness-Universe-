@@ -42,8 +42,8 @@ export function mountPortalMotion(options: MotionOptions): () => void {
     width = Math.max(1, stage.clientWidth);
     height = Math.max(1, stage.clientHeight);
     dpr = Math.min(window.devicePixelRatio || 1, 2, Math.sqrt(1800000 / (width * height)));
-    canvas.width = Math.floor(width * dpr);
-    canvas.height = Math.floor(height * dpr);
+    const pixelWidth=Math.max(1,Math.floor(width*dpr)),pixelHeight=Math.max(1,Math.floor(height*dpr));
+    if(canvas.width!==pixelWidth||canvas.height!==pixelHeight){canvas.width=pixelWidth;canvas.height=pixelHeight;}
     canvas.style.width = `${width}px`;
     canvas.style.height = `${height}px`;
     context.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -101,7 +101,7 @@ export function mountPortalMotion(options: MotionOptions): () => void {
   };
   const visibility = () => {
     if(document.hidden){window.cancelAnimationFrame(frame);frame=0;}
-    else if(!options.reduced&&!disposed&&!frame)animate();
+    else if(!options.reduced&&!disposed&&!frame){lastPaint=0;animate();}
   };
 
   const move = (event: PointerEvent) => {
