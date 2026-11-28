@@ -101,6 +101,14 @@ try {
   avatar.root.traverse(o=>{if(!o.isMesh)return;const g=o.geometry;triangles+=(g.index?.count??g.attributes.position.count)/3;assert.ok(g.attributes.position.array.every(Number.isFinite));assert.ok(g.attributes.normal.array.every(Number.isFinite));geometries.add(g);for(const m of Array.isArray(o.material)?o.material:[o.material])materials.add(m);});
   assert.ok(triangles>0&&triangles<=60000,'Original mobile triangle budget: '+triangles);
   console.log('Original mobile '+gender+' actual triangles: '+triangles);
+  for(const name of ['idle','walk','run','jump','power pose','dance','combat','transformation']){
+   const action=avatar.actions.get(name);assert.ok(action,'Missing original motion '+name);
+   assert.ok(action.getClip().validate(),'Invalid motion '+name);
+   avatar.mixer.stopAllAction();action.reset().play();avatar.mixer.update(.2);
+   assert.ok(action.time>0,'Motion failed to advance '+name);
+   avatar.root.updateMatrixWorld(true);avatar.root.traverse(o=>assert.ok(o.matrixWorld.elements.every(Number.isFinite)));
+  }
+  console.log('Original '+gender+' eight animation clips executed with finite transforms');
   avatar.mixer.stopAllAction();avatar.mixer.uncacheRoot(avatar.root);for(const g of geometries)g.dispose();for(const m of materials)m.dispose();
  }
 }finally{if(priorWindow)Object.defineProperty(globalThis,'window',priorWindow);else delete globalThis.window;}
