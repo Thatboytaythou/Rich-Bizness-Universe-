@@ -5,7 +5,7 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 
 export type AvatarGender = 'boy' | 'girl';
 export type AvatarExpression = 'neutral'|'smile'|'focused'|'surprised'|'confident'|'laugh'|'sad'|'angry';
-export type AvatarMotion = 'idle' | 'walk' | 'run' | 'jump' | 'power';
+export type AvatarMotion = 'idle' | 'walk' | 'run' | 'jump' | 'power' | 'dance' | 'combat' | 'transformation';
 
 export type SkinnedAvatarRuntime = {
   root: THREE.Group;
@@ -32,7 +32,8 @@ const MOTION_HINTS: Record<AvatarMotion, string[]> = {
   walk: ['walk', 'walking'],
   run: ['run', 'running', 'sprint'],
   jump: ['jump', 'air', 'land'],
-  power: ['power', 'attack', 'dance', 'pose', 'action']
+  power: ['power', 'pose', 'action'],
+  dance: ['dance','groove'], combat: ['combat','attack','punch'], transformation: ['transformation','transform']
 };
 
 function actionForMotion(runtime: SkinnedAvatarRuntime, motion: AvatarMotion): THREE.AnimationAction | null {
@@ -42,7 +43,7 @@ function actionForMotion(runtime: SkinnedAvatarRuntime, motion: AvatarMotion): T
     const hit = [...runtime.actions.entries()].find(([name]) => name.includes(hint));
     if (hit) return hit[1];
   }
-  if (motion === 'jump' || motion === 'power') return actionForMotion(runtime, 'idle');
+  if (['jump','power','dance','combat','transformation'].includes(motion)) return actionForMotion(runtime, 'idle');
   if (motion === 'run') return actionForMotion(runtime, 'walk');
   return runtime.actions.values().next().value ?? null;
 }
@@ -183,13 +184,13 @@ export function setAvatarMotion(runtime: SkinnedAvatarRuntime, motion: AvatarMot
   const entries=captureMotionWeights(runtime);
   const phase=(previous&&['walk','run'].includes(runtime.currentMotion)&&['walk','run'].includes(motion))?previous.time/previous.getClip().duration:0;
   // Re-selecting a still-visible locomotion clip must not rewind it mid-stride.
-  const resumeLoop=motion!=='jump'&&motion!=='power'&&entries.some(e=>e.action===next&&e.from>.0001)&&next.isRunning();
+  const resumeLoop=!['jump','power','dance','combat','transformation'].includes(motion)&&entries.some(e=>e.action===next&&e.from>.0001)&&next.isRunning();
   if(!resumeLoop)next.reset();
   next.enabled = true;
   next.setEffectiveTimeScale(1);
   if(!resumeLoop&&phase>0&&Number.isFinite(phase))next.time=(phase%1)*next.getClip().duration;
   next.setEffectiveWeight(1);
-  if (motion === 'jump' || motion === 'power') {
+  if (['jump','power','dance','combat','transformation'].includes(motion)) {
     next.setLoop(THREE.LoopOnce, 1);
     next.clampWhenFinished = true;
   } else {
