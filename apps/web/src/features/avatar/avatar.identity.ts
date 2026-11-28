@@ -15,14 +15,25 @@ export async function readCharacterIdentity(userId:string,signal?:AbortSignal):P
   if(signal?.aborted)stop();else signal?.addEventListener('abort',stop,{once:true});
   const timer=window.setTimeout(stop,9000);
   try{
-    const request=Promise.all([
-      supabase.from('profiles').select('id,display_name,username,preferred_avatar_loadout_id,has_avatar').eq('id',userId).abortSignal(controller.signal).maybeSingle(),
-      supabase.from('user_avatar_loadouts').select('*').eq('user_id',userId).abortSignal(controller.signal).maybeSingle(),
-      supabase.from('meta_avatars').select('*').eq('user_id',userId).abortSignal(controller.signal).maybeSingle()
-    ]);
-    const [profile,loadout,avatar]=await Promise.race([request,new Promise<never>((_,reject)=>controller.signal.addEventListener('abort',()=>reject(new Error('Rich ID read timed out. Retry connection.')),{once:true}))]);
-    if(profile.error||loadout.error||avatar.error)fail('Identity read: '+(profile.error??loadout.error??avatar.error)?.message);
-    if(!profile.data)fail('Rich ID profile not found.');
+    if(controller.signal.aborted)fail('Rich ID read cancelled.');
+    const request=async()=>{
+      const [profile,avatar]=await Promise.all([
+        supabase.from('profiles').select('id,display_name,username,preferred_avatar_loadout_id,has_avatar').eq('id',userId).abortSignal(controller.signal).maybeSingle(),
+        supabase.from('meta_avatars').select('*').eq('user_id',userId).abortSignal(controller.signal).maybeSingle()
+      ]);
+      if(profile.error||avatar.error)fail('Identity read: '+(profile.error??avatar.error)?.message);
+      if(!profile.data)fail('Rich ID profile not found.');
+      const preferred=profile.data.preferred_avatar_loadout_id,active=row(avatar.data).active_loadout_id;
+      if(preferred&&active&&preferred!==active)fail('Saved character references disagree. Retry connection before editing.');
+      const pointer=preferred??active;
+      let query=supabase.from('user_avatar_loadouts').select('*').eq('user_id',userId);
+      if(pointer)query=query.eq('id',pointer);
+      const loadout=await query.abortSignal(controller.signal).maybeSingle();
+      if(loadout.error)fail('Identity read: '+loadout.error.message);
+      if(pointer&&!loadout.data)fail('Saved character loadout not found.');
+      return [profile,loadout,avatar] as const;
+    };
+    const [profile,loadout,avatar]=await Promise.race([request(),new Promise<never>((_,reject)=>controller.signal.addEventListener('abort',()=>reject(new Error('Rich ID read timed out. Retry connection.')),{once:true}))]);
     if(getAuthSnapshot().user?.id!==userId)fail('Your Rich ID session changed.');
     return {profile:row(profile.data),loadout:row(loadout.data),avatar:row(avatar.data),controller:{},model:{}};
   }finally{clearTimeout(timer);signal?.removeEventListener('abort',stop);}
