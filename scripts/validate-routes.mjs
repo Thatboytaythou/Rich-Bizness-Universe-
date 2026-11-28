@@ -5,9 +5,25 @@ import { access } from 'node:fs/promises';
 import { resolve } from 'node:path';
 
 const root = process.cwd();
-const implementedEntries = [
-  'apps/web/index.html','apps/web/portal.html','apps/web/tap-in.html','apps/web/profile.html','apps/web/edit-profile.html','apps/web/settings.html','apps/web/notifications.html','apps/web/messages.html','apps/web/search.html','apps/web/upload.html','apps/web/creator.html','apps/web/admin.html','apps/web/feed.html','apps/web/gallery.html','apps/web/live.html','apps/web/watch.html','apps/web/music.html','apps/web/podcast.html','apps/web/radio.html','apps/web/sports.html','apps/web/store.html','apps/web/gaming.html','apps/web/meta.html','apps/web/avatar.html','apps/web/avatar-characters.html','apps/web/rich-chess.html','apps/web/smoke-room-cards.html','apps/web/dj-radio-run.html','apps/web/money-road-runner.html','apps/web/rich-samurais-son-ninja.html','apps/web/aura-shinobi-clash.html','apps/web/boss-walk-battle.html','apps/web/smoke-burst-arena.html','apps/web/hero-villain-showdown.html','apps/web/empire-builder.html'
-];
+import {GAMES} from '../packages/config/src/games.ts';
+import {ROUTES} from '../packages/config/src/routes.ts';
+const routeNames=[...new Set(Object.values(ROUTES).map(route=>route==='/'?'index':route.slice(1).replace(/\.html$/,'')))];
+const implementedEntries=[...routeNames,...GAMES.map(game=>game.slug)].map(name=>'apps/web/'+name+'.html');
+assert.equal(new Set(implementedEntries).size,implementedEntries.length);
+assert.equal(GAMES.length,28);
+const vite=readFileSync(resolve(root,'vite.config.ts'),'utf8'),vercel=JSON.parse(readFileSync(resolve(root,'vercel.json'),'utf8'));
+for(const entry of implementedEntries){
+ const name=entry.split('/').pop().replace(/\.html$/,'');
+ const html=readFileSync(resolve(root,entry),'utf8');
+ assert.ok(vite.includes("page('"+name+"')"),'Missing Vite entry: '+name);
+ const script=html.match(/<script[^>]+src=["']([^"']+\.ts)["']/);
+ assert.ok(script,'Missing module entry: '+name);
+ await access(resolve(root,'apps/web',script[1].replace(/^\//,'')));
+ if(name!=='index')assert.ok(vercel.rewrites.some(r=>r.source==='/'+name&&r.destination==='/'+name+'.html'),'Missing production route: '+name);
+}
+for(const game of GAMES)assert.ok(vercel.redirects.some(r=>r.source==='/games/'+game.slug&&r.destination===game.route),'Missing game legacy redirect: '+game.slug);
+assert.ok(vercel.redirects.some(r=>r.source==='/auth.html'&&r.destination==='/tap-in'),'Missing Auth alias');
+
 const missing=[];
 for(const entry of implementedEntries){try{await access(resolve(root,entry));}catch{missing.push(entry)}}
 if(missing.length){console.error(`Missing implemented route entries: ${missing.join(', ')}`);process.exit(1)}

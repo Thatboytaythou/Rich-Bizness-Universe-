@@ -207,7 +207,7 @@ export async function mountTapInPage(): Promise<void> {
 
     const credentials = { email: email.value.trim().toLowerCase(), password: password.value };
     const chosenName = displayName.value.trim();
-    const username = usernameFrom(chosenName || credentials.email.split('@')[0]);
+    const username = usernameFrom(chosenName || (credentials.email.split('@')[0]??'member'));
     try {
       const result=await authDeadline(mode==='signup'
         ? supabase.auth.signUp({...credentials,options:{emailRedirectTo:`${location.origin}/tap-in.html?next=${encodeURIComponent(next)}`,data:{display_name:chosenName,username}}})

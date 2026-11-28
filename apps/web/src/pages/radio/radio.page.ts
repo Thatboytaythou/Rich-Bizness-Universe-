@@ -236,5 +236,5 @@ export async function mount(): Promise<void> {
 
   stationChannel = supabase.channel(`rich-radio-stations:${mountEpoch}`).on('postgres_changes', { event: '*', schema: 'public', table: 'radio_stations' }, () => scheduleLoad()).subscribe();
   listenerChannel = supabase.channel(`rich-radio-listeners:${mountEpoch}:${userId || anonymousId}`).on('postgres_changes', { event: '*', schema: 'public', table: 'radio_listen_sessions' }, () => scheduleLoad(active?.id)).subscribe();
-  await load();if(isCurrent()&&active)await subscribeComments(String(active.id));
+  await load();const initialStation=stations.find(station=>String(station.id)===String(snapshot.active_id))??stations[0];if(isCurrent()&&initialStation)await subscribeComments(String(initialStation.id));
 }

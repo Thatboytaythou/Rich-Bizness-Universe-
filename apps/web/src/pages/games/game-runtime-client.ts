@@ -1,4 +1,5 @@
 import { supabase } from '../../core/supabase/client';
+import type { Json as DatabaseJson } from '../../core/supabase/database.types';
 
 type Json = Record<string, unknown>;
 type StartResult = Readonly<{ ok: boolean; session_key: string; game_id: string; contract: string }>;
@@ -44,12 +45,13 @@ function parseLocalSave(raw: string | null): Json | null {
   }
 }
 
-async function action<T>(fn: string, args: Json): Promise<T> {
+type GameRpc='rb_game_action'|'rb_game_save_action'|'rb_game_room_action';
+async function action<T>(fn: GameRpc, args: {p_action:string;p_game_slug:string;p_payload?:Json}): Promise<T> {
   if (disposed) throw new Error('Game runtime has already been disposed');
-  const { data, error } = await supabase.rpc(fn, args).abortSignal(lifecycle.signal);
+  const { data, error } = await supabase.rpc(fn,{p_action:args.p_action,p_game_slug:args.p_game_slug,p_payload:JSON.parse(JSON.stringify(args.p_payload??{})) as DatabaseJson}).abortSignal(lifecycle.signal);
   if(disposed)throw new Error('Game runtime disposed during request');
   if (error) throw error;
-  return data as T;
+  return data as unknown as T;
 }
 
 export async function startGameSession(gameSlug: string, metadata: Json = {}): Promise<StartResult> {

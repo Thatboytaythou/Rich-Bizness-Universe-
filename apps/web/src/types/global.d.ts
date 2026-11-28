@@ -1,3 +1,4 @@
+/// <reference types="vite/client" />
 declare const __RB_PUBLIC_ENV__: Readonly<{
   NEXT_PUBLIC_SUPABASE_URL: string;
   NEXT_PUBLIC_SUPABASE_ANON_KEY: string;
