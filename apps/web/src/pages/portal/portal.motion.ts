@@ -1,3 +1,4 @@
+import {portalRing,projectPortal} from './portal.projection';
 import {renderScheduler,boundedCanvasPixels} from '../../core/experience/render-scheduler';
 type MotionOptions = { reduced: boolean };
 
@@ -79,6 +80,11 @@ export function mountPortalMotion(options: MotionOptions): () => void {
       context.fill();
     }
 
+    // Perspective-projected toroidal paths and moving energy nodes. DOM route hit targets stay stationary.
+    const unit=Math.min(width,height)*.32,rx=.45+(pointerY-.5)*.55,ry=(pointerX-.5)*.8;
+    const ringColors=['rgba(245,206,126,.52)','rgba(112,240,190,.42)','rgba(147,164,255,.35)'];
+    for(let ring=0;ring<3;ring++){const points=portalRing(1-ring*.15,48,time*(ring%2?-.4:.6),rx+ring*.12,ry+ring*.09);context.beginPath();points.forEach((p,i)=>{const x=centerX+p.x*unit,y=centerY+p.y*unit;if(i===0)context.moveTo(x,y);else context.lineTo(x,y);});context.strokeStyle=ringColors[ring]!;context.lineWidth=1+ring*.35;context.stroke();}
+    for(let i=0;i<8;i++){const a=i*Math.PI/4+time*.8,p=projectPortal(.86*Math.cos(a),.86*Math.sin(a),.18*Math.sin(a*2),rx,ry);context.beginPath();context.fillStyle=i%2?'#e9d391':'#91f5c4';context.globalAlpha=Math.max(.25,Math.min(.95,.55+p.depth*.3));context.arc(centerX+p.x*unit,centerY+p.y*unit,Math.max(1.5,3*p.scale),0,Math.PI*2);context.fill();}context.globalAlpha=1;
     const pulse = options.reduced ? 0.5 : 0.5 + 0.5 * Math.sin(time * 3);
     const gradient = context.createRadialGradient(
       centerX,
@@ -103,8 +109,8 @@ export function mountPortalMotion(options: MotionOptions): () => void {
   const move = (event: PointerEvent) => {
     const rect = stage.getBoundingClientRect();
     if (!rect.width || !rect.height) return;
-    pointerX = (event.clientX - rect.left) / rect.width;
-    pointerY = (event.clientY - rect.top) / rect.height;
+    pointerX = Math.max(0,Math.min(1,(event.clientX - rect.left) / rect.width));
+    pointerY = Math.max(0,Math.min(1,(event.clientY - rect.top) / rect.height));
     const x = pointerX - 0.5;
     const y = pointerY - 0.5;
     world.style.setProperty('--tilt-x', `${-y * 7}deg`);
@@ -114,6 +120,7 @@ export function mountPortalMotion(options: MotionOptions): () => void {
   };
 
   const resetTilt = () => {
+    pointerX=.5;pointerY=.5;
     world.style.setProperty('--tilt-x', '0deg');
     world.style.setProperty('--tilt-y', '0deg');
     world.style.setProperty('--shift-x', '0px');
@@ -133,6 +140,9 @@ export function mountPortalMotion(options: MotionOptions): () => void {
   } else {
     if(matchMedia('(hover:hover) and (pointer:fine)').matches)stage.addEventListener('pointermove', move, { signal: lifecycle.signal, passive: true });
     stage.addEventListener('pointerleave', resetTilt, { signal: lifecycle.signal });
+    stage.addEventListener('pointerdown',event=>{if((event.target as Element|null)?.closest('a,button'))return;move(event);},{signal:lifecycle.signal,passive:true});
+    stage.addEventListener('pointerup',resetTilt,{signal:lifecycle.signal,passive:true});
+    stage.addEventListener('pointercancel',resetTilt,{signal:lifecycle.signal,passive:true});
     document.addEventListener('visibilitychange',visibility,{signal:lifecycle.signal});
     visibility();
   }

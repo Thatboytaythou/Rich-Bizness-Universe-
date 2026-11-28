@@ -30,3 +30,6 @@ body[data-page="portal"] #app{min-width:0;min-height:100svh}
 @media(max-width:360px){.portal-command .portal-node{width:54px}}
 
 .portal-world[data-rb-canvas-visible="false"] .pc-ring{animation-play-state:paused}
+
+/* Keep optical geometry behind the independent route controls. */
+.portal-command .portal-motion-canvas{z-index:2;pointer-events:none}.portal-command .pc-orbit{z-index:1}.portal-command .portal-world{touch-action:pan-y}.portal-command .portal-node{touch-action:manipulation}

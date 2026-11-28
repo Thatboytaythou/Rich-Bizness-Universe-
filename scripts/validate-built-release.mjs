@@ -44,3 +44,5 @@ assert.ok([...fitCold].every(p=>!p.includes('vendor-character-hd')&&!p.includes(
 for(const name of ['index','portal','tap-in','gaming','store','search']){const html=read(name+'.html');assert.doesNotMatch(html,/vendor-(?:character-hd|three|livekit)[^"']*\.js/,'Heavy renderer in cold '+name);}
 const total=files=>[...files].filter(p=>p.endsWith('.js')).reduce((sum,p)=>sum+statSync(resolve(dist,p)).size,0);
 console.log('Maximum Evolution cold module gate: Live '+total(liveCold)+' bytes; character dispatcher '+total(fitCold)+' bytes; six shell routes free of eager 3D/video dependencies');
+
+assert.ok([...fitCold].every(p=>!p.includes('vendor-three')),'Character configuration dispatcher still imports Three.js');assert.ok(total(fitCold)<350000,'Character dispatcher exceeds 350 KB cold dependency budget');console.log('Maximum Evolution actual dispatcher reduction: '+(1017221-total(fitCold))+' bytes versus c2a925db baseline');
