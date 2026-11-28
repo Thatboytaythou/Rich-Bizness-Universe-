@@ -27,3 +27,18 @@ reset role;
 set role anon;
 do $$begin if has_function_privilege(current_user,'public.rb_org_invite(uuid,uuid,text)','execute') then raise exception 'anon execute leaked'; end if; end$$;
 reset role;
+
+\ir ../docs/development/dash-schema-proposal.sql
+set role authenticated;
+select set_config('request.jwt.claim.sub','11111111-1111-4111-8111-111111111111',false);
+insert into public.rb_dash_listings(id,org_id,title,city,service,price_mode,price_cents,online) values ('bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb','aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','Fixture delivery','Fixture City','food','fixed',1000,true);
+select set_config('request.jwt.claim.sub','22222222-2222-4222-8222-222222222222',false);
+insert into public.rb_dash_bookings(id,listing_id,customer_id) values ('cccccccc-cccc-4ccc-8ccc-cccccccccccc','bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',auth.uid());
+do $$begin update public.rb_dash_bookings set status='accepted'; if found then raise exception 'customer accepted own booking'; end if; end$$;
+select set_config('request.jwt.claim.sub','33333333-3333-4333-8333-333333333333',false);
+do $$begin if exists(select 1 from public.rb_dash_bookings) then raise exception 'booking leaked'; end if; end$$;
+select set_config('request.jwt.claim.sub','11111111-1111-4111-8111-111111111111',false);
+update public.rb_dash_bookings set status='accepted' where id='cccccccc-cccc-4ccc-8ccc-cccccccccccc';
+update public.rb_dash_bookings set status='completed' where id='cccccccc-cccc-4ccc-8ccc-cccccccccccc';
+do $$begin if not exists(select 1 from public.rb_dash_bookings where status='completed') then raise exception 'provider completion failed'; end if; end$$;
+reset role;
