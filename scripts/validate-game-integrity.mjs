@@ -1,3 +1,10 @@
 import assert from 'node:assert/strict';
 import {emptyBoard,parseBoard,dropDisc,winningLine,chooseColumn,validColumns} from '../apps/web/src/pages/games/connect-four.engine.ts';
 const board=emptyBoard();assert.deepEqual(validColumns(board),[0,1,2,3,4,5,6]);assert.equal(dropDisc(board,-1,1),-1);assert.equal(dropDisc(board,8,1),-1);assert.equal(dropDisc(board,NaN,1),-1);assert.equal(dropDisc(board,0,1),5);assert.equal(dropDisc(board,0,2),4);assert.deepEqual(parseBoard(board),board);assert.equal(parseBoard([[1]]),null);const floating=emptyBoard();floating[0][0]=1;assert.equal(parseBoard(floating),null);const winning=emptyBoard();for(let c=0;c<3;c++)dropDisc(winning,c,2);assert.equal(chooseColumn(winning,5),3);dropDisc(winning,3,2);assert.equal(winningLine(winning).player,2);const blocking=emptyBoard();for(let c=0;c<3;c++)dropDisc(blocking,c,1);assert.equal(chooseColumn(blocking,3),3);console.log('V1 Connect Four: board startup, gravity, invalid inputs, win detection and AI defense verified');
+// Simulate duplicate frame requests, heartbeat replacement and exit cleanup.
+import {createArcadeLifecycle,escapeGameText} from '../apps/web/src/pages/games/arcade-lifecycle.ts';
+let seq=0;const frames=new Map(),repeats=new Map();
+globalThis.requestAnimationFrame=fn=>{frames.set(++seq,fn);return seq;};globalThis.cancelAnimationFrame=id=>frames.delete(id);
+globalThis.window={setInterval:fn=>{repeats.set(++seq,fn);return seq;},clearInterval:id=>repeats.delete(id)};globalThis.document={hidden:false};
+const arcade=createArcadeLifecycle();arcade.frame(()=>{});arcade.frame(()=>{});assert.equal(frames.size,1);arcade.repeat(()=>{},100);arcade.repeat(()=>{},100);assert.equal(repeats.size,1);arcade.dispose();assert.equal(frames.size,0);assert.equal(repeats.size,0);arcade.frame(()=>{});assert.equal(frames.size,0);assert.equal(escapeGameText('<img>'),'&lt;img&gt;');delete globalThis.window;delete globalThis.document;delete globalThis.requestAnimationFrame;delete globalThis.cancelAnimationFrame;
+console.log('V1 arcade owner: one animation frame, one heartbeat, escaped text, idempotent exit cleanup');
