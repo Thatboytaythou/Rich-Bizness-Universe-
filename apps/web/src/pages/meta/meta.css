@@ -6,3 +6,6 @@
 #app[data-rb-visual-mode="expressive"] .meta-stage{box-shadow:0 15px 40px #0005}
 #app[data-rb-visual-mode="fantasy"] .meta-stage{border-color:#9478dc}
 @media(max-width:760px){.meta-head{position:relative;top:auto}.meta-stage{min-height:360px}.meta-stage-copy h2{font-size:clamp(2rem,8vw,3.5rem)}}
+
+/* World Nexus: decorative real-time geometry behind accessible existing controls. */
+.meta-nexus{position:absolute;inset:0 0 25%;z-index:2;pointer-events:none;overflow:hidden}.meta-nexus canvas{display:block;width:100%;height:100%}.meta-stage-copy{z-index:3}.meta-stage-copy h2{line-height:1.04;overflow-wrap:anywhere}.meta-btn:focus-visible,.meta-card:focus-visible{outline:2px solid var(--meta-gold);outline-offset:3px}.meta-head h1{font-family:Georgia,serif;letter-spacing:-.025em}.meta-chat-form input{min-width:0;font-size:16px}@media(max-width:600px){.meta-stage{min-height:clamp(420px,70svh,620px);position:relative;top:auto}.meta-head{grid-template-columns:44px minmax(0,1fr);gap:8px}.meta-live{grid-column:2;justify-self:start;padding:5px 9px}.meta-stage-copy h2{font-size:clamp(1.8rem,8vw,3rem)}.meta-nexus{bottom:35%}.meta-actions .meta-btn{min-height:44px;flex:1 1 42%}}@media(prefers-reduced-motion:reduce){.meta-shell *{animation:none!important;transition:none!important}}
