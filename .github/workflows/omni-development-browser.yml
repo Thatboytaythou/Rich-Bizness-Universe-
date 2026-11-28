@@ -50,6 +50,7 @@ jobs:
           npm install --prefix "$RUNNER_TEMP/rb-browser" --ignore-scripts --no-audit --no-fund playwright@1.55.1
           "$RUNNER_TEMP/rb-browser/node_modules/.bin/playwright" install --with-deps chromium
       - name: Build exact checked-out commit using nonfunctional public fixture configuration
+        id: compiled
         env:
           NEXT_PUBLIC_SUPABASE_URL: https://rb-browser-fixture.invalid
           NEXT_PUBLIC_SUPABASE_ANON_KEY: sb_publishable_fixture_not_a_real_key
@@ -73,7 +74,13 @@ jobs:
           done
           node scripts/browser-release-smoke.mjs
 
+      - name: Render all 28 actual compiled game entries in offline Chromium
+        if: steps.compiled.outcome == 'success' && !cancelled()
+        env:
+          RB_BROWSER_PREFIX: ${{ runner.temp }}/rb-browser
+        run: node scripts/browser-game-matrix.mjs
       - name: Test actual isolated two-participant LiveKit WebRTC transport
+        if: steps.compiled.outcome == 'success' && !cancelled()
         env:
           RB_BROWSER_PREFIX: ${{ runner.temp }}/rb-browser
         run: |
