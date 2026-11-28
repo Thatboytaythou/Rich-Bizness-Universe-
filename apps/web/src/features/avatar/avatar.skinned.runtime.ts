@@ -121,7 +121,7 @@ export async function loadSkinnedAvatar(options: {
   if (options.signal?.aborted) throw new DOMException('Aborted', 'AbortError');
   const loader = new GLTFLoader();
   const gltf = options.signal ? await (async()=>{
-    const response=await fetch(options.modelUrl,{signal:options.signal});
+    const response=await fetch(options.modelUrl,options.signal?{signal:options.signal}:{});
     if(!response.ok)throw new Error('Character asset HTTP '+response.status);
     const bytes=await response.arrayBuffer();
     if(options.signal?.aborted)throw new DOMException('Aborted','AbortError');

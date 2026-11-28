@@ -5,7 +5,7 @@ import type {SurfaceRole} from './avatar.material.roles.ts';
 // Coordinates use the local rest bounding box, so mirrored UV seams agree.
 export function sculptSurfaceGeometry(g:THREE.BufferGeometry,role:SurfaceRole,enhanced:boolean){
  const p=g.getAttribute('position'),n=g.getAttribute('normal');
- if(!enhanced||!p||!n||p.count!==n.count||p.count<24||p.count>85000||g.morphAttributes.position?.length||p.isInterleavedBufferAttribute||n.isInterleavedBufferAttribute)return 0;
+ if(!enhanced||!p||!n||p.count!==n.count||p.count<24||p.count>85000||g.morphAttributes.position?.length||p instanceof THREE.InterleavedBufferAttribute||n instanceof THREE.InterleavedBufferAttribute)return 0;
  const hair=role==='hair',fabric=['denim','tailoring','knit','techwear','fabric'].includes(role);
  if(!hair&&!fabric)return 0;
  g.computeBoundingBox();const box=g.boundingBox;if(!box)return 0;const size=box.getSize(new THREE.Vector3());

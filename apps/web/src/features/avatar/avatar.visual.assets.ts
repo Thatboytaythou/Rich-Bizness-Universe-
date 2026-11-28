@@ -1,8 +1,8 @@
 import * as THREE from 'three';
 // Original geometry, in metres, with no downloaded asset or additional render pass.
-export function automotiveShell(sections:readonly (readonly number[])[],segments=24){
+export function automotiveShell(sections:readonly (readonly [number,number,number,number])[],segments=24){
  const v:number[]=[],uv:number[]=[],ix:number[]=[];
- for(let j=0;j<sections.length;j++){const [z,w,base,top]=sections[j];for(let i=0;i<=segments;i++){const a=i/segments*Math.PI*2;v.push(Math.cos(a)*w,(base+top)/2+Math.sin(a)*(top-base)/2,z);uv.push(i/segments,j/(sections.length-1));}}
+ for(const [j,[z,w,base,top]] of sections.entries()){for(let i=0;i<=segments;i++){const a=i/segments*Math.PI*2;v.push(Math.cos(a)*w,(base+top)/2+Math.sin(a)*(top-base)/2,z);uv.push(i/segments,j/(sections.length-1));}}
  const stride=segments+1;
  for(let j=0;j<sections.length-1;j++)for(let k=0;k<segments;k++){const a=j*stride+k;ix.push(a,a+1,a+stride,a+1,a+stride+1,a+stride);}
  for(let k=1;k<segments-1;k++){ix.push(0,k+1,k);const n=(sections.length-1)*stride;ix.push(n,n+k,n+k+1);}
@@ -19,7 +19,7 @@ export function foliageGeometry(mobile:boolean){
   const side=new THREE.Vector3().crossVectors(along,up).normalize();const length=.24+rand()*.26,width=.095+rand()*.1;
   const shade=.48+rand()*.46;const col=new THREE.Color().setRGB(.12*shade,.31*shade,.085*shade);
   const base=v.length/3;
-  for(const [t,w] of [[0,0],[.32,-1],[.32,1],[.68,-.72],[.68,.72],[1,0]]){
+  for(const [t,w] of ([[0,0],[.32,-1],[.32,1],[.68,-.72],[.68,.72],[1,0]] as const)){
    const p=center.clone().addScaledVector(along,(t-.5)*length).addScaledVector(side,w*width);p.y+=Math.sin(t*Math.PI)*.055;v.push(p.x,p.y,p.z);const light=w===0?1.16:1;c.push(col.r*light,col.g*light,col.b*light);
   }
   ix.push(base,base+1,base+2,base+1,base+3,base+2,base+2,base+3,base+4,base+3,base+5,base+4);
@@ -36,7 +36,7 @@ export function weaveNormal(){
 // Original RB street silhouettes: sport, executive and wide touring body. Shared
 // wheelbase and lamp anchors retain the existing collision and parked-car layout.
 export function streetVehicleBody(variant:number,mobile:boolean){
- const base=[[-1.78,.64,.36,.51],[-1.65,.77,.29,.59],[-1.35,.89,.25,.72],[-.72,.93,.24,.79],[.52,.93,.24,.75],[1.24,.88,.26,.60],[1.58,.77,.30,.53],[1.75,.64,.34,.46]];
- const sections=base.map(([z,w,b,t],i)=>{const middle=Math.sin(Math.PI*i/(base.length-1));return [z,w+(variant===2?.045*middle:variant===1?-.025*middle:0),b,t+(variant===1?.045*middle:variant===2?.018*middle:0)];});
+ const base=[[-1.78,.64,.36,.51],[-1.65,.77,.29,.59],[-1.35,.89,.25,.72],[-.72,.93,.24,.79],[.52,.93,.24,.75],[1.24,.88,.26,.60],[1.58,.77,.30,.53],[1.75,.64,.34,.46]] as const;
+ const sections=base.map(([z,w,b,t],i)=>{const middle=Math.sin(Math.PI*i/(base.length-1));return [z,w+(variant===2?.045*middle:variant===1?-.025*middle:0),b,t+(variant===1?.045*middle:variant===2?.018*middle:0)] as const;});
  return automotiveShell(sections,mobile?16:28);
 }

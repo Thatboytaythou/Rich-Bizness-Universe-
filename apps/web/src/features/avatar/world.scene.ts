@@ -77,7 +77,7 @@ export function createDistrictScene(district:District):DistrictScene{
   }else{
     // Extend the existing street scene with reachable destinations. Do not recreate its road.
     for(const a of DISTRICTS.city.actions){box(a.x,0.015,a.z,2.3,.025,2.3,palette.green);}
-    for(const [x,z] of [[-4.9,-17],[4.9,-31],[-4.9,-50],[4.9,-67]])obstacles.push({minX:x-.93,maxX:x+.93,minZ:z-1.7,maxZ:z+1.7});
+    for(const [x,z] of ([[-4.9,-17],[4.9,-31],[-4.9,-50],[4.9,-67]] as const))obstacles.push({minX:x-.93,maxX:x+.93,minZ:z-1.7,maxZ:z+1.7});
     for(const z of [-10,-22,-34,-46]){box(-6.0,.38,z,1.0,.75,1.6,palette.stone,true);box(6.0,.38,z,1.0,.75,1.6,palette.stone,true);}
     for(const z of [-12,-28,-44]){for(const x of [-6.2,6.2]){box(x,1.35,z,.1,2.7,.1,palette.black);const lamp=new THREE.Mesh(new THREE.BoxGeometry(.26,.32,.24),new THREE.MeshBasicMaterial({color:0xe4b665}));lamp.position.set(x,2.8,z);group.add(lamp);lightBeacons.push(lamp);}for(let x=-5;x<=5;x+=.8)box(x,.016,z,.42,.025,1.4,palette.cream);}
   }

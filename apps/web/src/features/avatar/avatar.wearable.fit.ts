@@ -8,7 +8,7 @@ export function fitTorsoPoints(points:Iterable<THREE.Vector3>,height:number):Tor
  const xs:number[]=[],zs:number[]=[];
  for(const p of points){if(!Number.isFinite(p.x+p.y+p.z)||p.y<height*.66||p.y>height*.80||Math.abs(p.x)>height*.15||Math.abs(p.z)>height*.22)continue;xs.push(p.x);zs.push(p.z);}
  if(xs.length<24)return fallback;
- xs.sort((a,b)=>a-b);zs.sort((a,b)=>a-b);const q=(a:number[],t:number)=>a[Math.floor((a.length-1)*t)];
+ xs.sort((a,b)=>a-b);zs.sort((a,b)=>a-b);const q=(a:number[],t:number)=>a[Math.floor((a.length-1)*t)]??0;
  const scale=height/1.78;
  const width=THREE.MathUtils.clamp((q(xs,.95)-q(xs,.05))/(.34*scale),.88,1.28);
  const front=THREE.MathUtils.clamp(q(zs,.95)-.125*scale,-.018*scale,.045*scale);

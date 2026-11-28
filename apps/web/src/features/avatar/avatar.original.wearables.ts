@@ -49,7 +49,7 @@ export function regaliaTextile(style:string,size=128){
  const data=new Uint8Array(size*size*4);const palette=style==='obsidian'?[20,24,32,162,182,196]:[19,53,39,192,155,79];
  // Original RB Crown lattice: an interlocked lozenge border and three-point crown,
  // with alternating satin thread direction and recessed dark seams.
- for(let y=0;y<size;y++)for(let x=0;x<size;x++){const a=x%64,b=y%64,dx=Math.abs(a-32),dy=Math.abs(b-32),d=dx+dy;const border=Math.abs(d-27)<1.7||Math.abs(d-22)<1.1;const tips=b>=24&&b<=37&&dx<=12&&(b>=34||Math.abs(dx-9)<2.2&&b>=26||dx<2.2);const stitch=(x+y)%4===0?.86:1;const seam=Math.abs(d-30)<1||Math.abs(d-19)<.8;const thread=Math.sin(x*Math.PI/2)*2.5+Math.cos(y*Math.PI/2)*2.5;const k=(y*size+x)*4;for(let c=0;c<3;c++)data[k+c]=Math.round(Math.max(0,Math.min(255,palette[(border||tips?3:0)+c]*(seam?.69:stitch)+thread)));data[k+3]=255;}
+ for(let y=0;y<size;y++)for(let x=0;x<size;x++){const a=x%64,b=y%64,dx=Math.abs(a-32),dy=Math.abs(b-32),d=dx+dy;const border=Math.abs(d-27)<1.7||Math.abs(d-22)<1.1;const tips=b>=24&&b<=37&&dx<=12&&(b>=34||Math.abs(dx-9)<2.2&&b>=26||dx<2.2);const stitch=(x+y)%4===0?.86:1;const seam=Math.abs(d-30)<1||Math.abs(d-19)<.8;const thread=Math.sin(x*Math.PI/2)*2.5+Math.cos(y*Math.PI/2)*2.5;const k=(y*size+x)*4;for(let c=0;c<3;c++)data[k+c]=Math.round(Math.max(0,Math.min(255,(palette[(border||tips?3:0)+c]??0)*(seam?.69:stitch)+thread)));data[k+3]=255;}
  return data;
 }
 

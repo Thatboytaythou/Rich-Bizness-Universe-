@@ -10,13 +10,13 @@ export function skinMicroSurface(size=128){
   for(let y=Math.floor(cy-4);y<=Math.ceil(cy+4);y++)for(let x=Math.floor(cx-4);x<=Math.ceil(cx+4);x++){
    const dx=(x-cx)/rx,dy=(y-cy)/ry,r2=dx*dx+dy*dy;
    const index=((y%size+size)%size)*size+(x%size+size)%size;
-   height[index]+=-depth*Math.exp(-r2*.9)+.12*Math.exp(-Math.pow(Math.sqrt(r2)-1.6,2)*3);
+   height[index]=(height[index]??0)+-depth*Math.exp(-r2*.9)+.12*Math.exp(-Math.pow(Math.sqrt(r2)-1.6,2)*3);
   }
  }
  for(let y=0;y<size;y++)for(let x=0;x<size;x++){
   const idx=y*size+x,u=x/size*Math.PI*2,v=y/size*Math.PI*2;
   const creases=.07*Math.sin(u*7+Math.sin(v*3))+.045*Math.cos(v*9+Math.sin(u*4));
-  const value=height[idx]+creases,k=idx*4;
+  const value=(height[idx]??0)+creases,k=idx*4;
   data[k]=Math.round(THREE.MathUtils.clamp(144+52*value,65,180));
   data[k+1]=Math.round(THREE.MathUtils.clamp(238+15*value,202,250));
   data[k+2]=255;data[k+3]=255;
