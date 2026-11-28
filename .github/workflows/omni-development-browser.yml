@@ -1,0 +1,74 @@
+name: Omni development browser smoke
+on:
+  push:
+    branches: [development/omni-domain-adaptive]
+
+permissions:
+  contents: read
+  deployments: read
+jobs:
+  portal-component:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Install isolated browser runner
+        run: |
+          npm install --prefix "$RUNNER_TEMP/rb-component" --ignore-scripts --no-audit --no-fund playwright@1.55.1 typescript@5.9.2 three@0.179.1 sharp@0.34.5
+          "$RUNNER_TEMP/rb-component/node_modules/.bin/playwright" install --with-deps chromium
+      - name: Generate original responsive scene
+        env:
+          RB_BROWSER_PREFIX: ${{ runner.temp }}/rb-component
+        run: node scripts/build-universe-art.mjs
+      - name: Render actual Portal source in Chromium (no secrets)
+        env:
+          RB_BROWSER_PREFIX: ${{ runner.temp }}/rb-component
+        run: node scripts/browser-portal-component.mjs
+      - name: Render cinematic Profile with isolated owner and visitor fixtures
+        env:
+          RB_BROWSER_PREFIX: ${{ runner.temp }}/rb-component
+        run: node scripts/browser-profile-component.mjs
+      - name: Render original meshes and game paint helpers in WebGL and Canvas
+        env:
+          RB_BROWSER_PREFIX: ${{ runner.temp }}/rb-component
+        run: node scripts/browser-original-assets.mjs
+  browser:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '24'
+      - name: Install application and isolated browser runner
+        run: |
+          npm install --no-audit --no-fund
+          npm install --prefix "$RUNNER_TEMP/rb-browser" --ignore-scripts --no-audit --no-fund playwright@1.55.1
+          "$RUNNER_TEMP/rb-browser/node_modules/.bin/playwright" install --with-deps chromium
+      - name: Build exact checked-out commit using nonfunctional public fixture configuration
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: https://rb-browser-fixture.invalid
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: sb_publishable_fixture_not_a_real_key
+          LIVEKIT_URL: wss://rb-browser-fixture.invalid
+          VERCEL_GIT_COMMIT_SHA: ${{ github.sha }}
+        run: npm run build
+      - name: Execute actual compiled mobile Chromium smoke without paid protection
+        env:
+          RB_BROWSER_PREFIX: ${{ runner.temp }}/rb-browser
+          RB_BROWSER_URL: http://127.0.0.1:4173
+          RB_EXPECTED_COMMIT: ${{ github.sha }}
+          RB_LOCAL_BUILD: '1'
+        run: |
+          set -euo pipefail
+          python3 -m http.server 4173 --bind 127.0.0.1 --directory apps/web/dist > "$RUNNER_TEMP/rb-http.log" 2>&1 &
+          server=$!
+          trap 'kill "$server" 2>/dev/null || true' EXIT
+          for i in {1..20}; do
+            if curl --fail --silent http://127.0.0.1:4173/rb-section-release.json >/dev/null; then break; fi
+            sleep 1
+          done
+          node scripts/browser-release-smoke.mjs

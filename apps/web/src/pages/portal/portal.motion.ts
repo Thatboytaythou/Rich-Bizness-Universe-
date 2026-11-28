@@ -1,3 +1,4 @@
+import {createCinematicEnergy} from './cinematic-energy';
 import {portalRing,projectPortal,type PortalPoint} from './portal.projection';
 import {renderScheduler,boundedCanvasPixels} from '../../core/experience/render-scheduler';
 type MotionOptions = { reduced: boolean };
@@ -41,12 +42,14 @@ export function mountPortalMotion(options: MotionOptions): () => void {
   let pointerY = 0.5;
   let disposed = false;
   let contextLost = false;
+  const energy=options.reduced?null:createCinematicEnergy();
+  stage.dataset.rbGpuState=energy?'ready':'fallback';
   const ringBuffers:PortalPoint[][]=[[],[],[]];
 
   const resize = () => {
     width = Math.max(1, stage.clientWidth);
     height = Math.max(1, stage.clientHeight);
-    const budget=boundedCanvasPixels(width,height,Math.min(window.devicePixelRatio||1,2),mobile?900000:1800000,mobile?1080:1600);
+    const budget=boundedCanvasPixels(width,height,Math.min(window.devicePixelRatio||1,2),(mobile?900000:1800000)-(energy?65536:0),mobile?1080:1600);
     dpr=budget.scale;const pixelWidth=budget.width,pixelHeight=budget.height;
     if(canvas.width!==pixelWidth||canvas.height!==pixelHeight){canvas.width=pixelWidth;canvas.height=pixelHeight;}
     canvas.style.width = `${width}px`;
@@ -61,6 +64,7 @@ export function mountPortalMotion(options: MotionOptions): () => void {
 
     const centerX = width / 2;
     const centerY = height / 2;
+    if(energy && energy.draw(time)){const side=Math.min(width,height)*.86;context.drawImage(energy.canvas,centerX-side/2,centerY-side/2,side,side);stage.dataset.rbGpuState='painted';}else if(energy)stage.dataset.rbGpuState='fallback';
 
     for (const particle of particles) {
       if (advance) {
@@ -155,6 +159,7 @@ export function mountPortalMotion(options: MotionOptions): () => void {
   return () => {
     disposed = true;
     lifecycle.abort();
+    energy?.dispose();
     resizeObserver.disconnect();
     frames.stop();viewport.disconnect();
     resetTilt();
