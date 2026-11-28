@@ -209,3 +209,10 @@ body[data-page="avatar-characters"] .ac-shell .ac-editor{width:100%;padding:12px
  .ac-shell .ac-v1-tabs{position:relative;top:auto}.ac-shell .ac-editor{scroll-margin-top:0}
 }
 @media(max-height:500px){body[data-page="avatar-characters"] .ac-shell .ac-stage{position:relative;top:auto}}
+
+/* Development repair: keep the preview bounded and leave room for editing. */
+@media(max-width:860px),(any-pointer:coarse){
+ body[data-page="avatar-characters"] .ac-shell .ac-stage{top:env(safe-area-inset-top,0px);max-height:48dvh;overflow-y:auto;overscroll-behavior-y:contain;scrollbar-width:thin}
+ body[data-page="avatar-characters"] .ac-shell .ac-viewport{height:clamp(120px,24dvh,260px)}
+}
+@media(max-height:600px){body[data-page="avatar-characters"] .ac-shell .ac-stage{position:relative;top:auto;max-height:none;overflow-y:visible}}
