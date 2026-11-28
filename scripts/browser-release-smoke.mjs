@@ -75,9 +75,24 @@ try{
  await visit('/on-the-go-dash.html','#app');
  assert.equal(await page.locator('#online').isDisabled(),true,'Guest cannot enable provider GPS');
  assert.equal(await page.locator('button:has-text("Booking unavailable")').isDisabled(),true,'Unverified booking must remain disabled');
- await visit('/rb-secret-door.html?room=businesses','#app');
- assert.equal(await page.locator('#organization-workspace').count(),0,'Guest must never see organization registration');
- assert.ok(await page.locator('a[href="/tap-in.html"]').count(),'Private business directory must display Tap In');
+ await visit('/rb-secret-door.html','#app h1');
+ assert.equal(await page.locator('#app h1').textContent(),'Rich Bizness Worlds','World index must be useful without a room query');
+ assert.equal(await page.locator('#app article').count(),4,'Missing standalone world destinations');
+ assert.ok(await page.locator('a[href="/creator-dimensions.html"]').count(),'World directory lost Creator Secret Door');
+ for(const room of ['businesses','movie-room','on-the-go-dash','private-worlds']){
+  const path='/rb-secret-door.html?room='+room;
+  await visit(path,'#app h1');
+  const tap=page.locator('a[href^="/tap-in.html?next="]');
+  await tap.waitFor({state:'visible',timeout:20000});
+  const destination=new URL(await tap.getAttribute('href'),url);
+  assert.equal(destination.searchParams.get('next'),path,'World lost its Rich ID return path: '+room);
+  assert.equal(await page.locator('#organization-workspace').count(),0,'Guest must never see organization registration');
+  assert.equal(await page.locator('#app input[type="search"]').count(),0,'Guest must not see member directory controls');
+ }
+ await visit('/creator-dimensions.html','#authForm');
+ assert.equal(new URL(page.url()).pathname,'/tap-in.html','Creator Secret Door must require Rich ID');
+ assert.equal(new URL(page.url()).searchParams.get('next'),'/creator-dimensions.html','Creator Secret Door lost return route');
+ assert.equal(await page.locator('[data-enter], [data-request]').count(),0,'Guest must not access paid dimension controls');
  // Cross-section new-user regressions: compiled, real Chromium, no fake login.
  await visit('/search.html','#searchInput');
  assert.equal(await page.locator('#searchInput').getAttribute('maxlength'),'100','Search query size constraint missing');
