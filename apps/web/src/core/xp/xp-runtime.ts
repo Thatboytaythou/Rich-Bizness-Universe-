@@ -122,9 +122,9 @@ export async function mountXpRuntime():Promise<(()=>Promise<void>)|undefined>{
   signal.addEventListener('abort',()=>void cleanup(),{once:true});
   const initialize=async()=>{
     try{
-      await supabase.rpc('rb_award_xp',{p_event_key:'daily_tap_in',p_section:'auth',p_source_table:null,p_source_id:null,p_amount:null}).abortSignal(signal);
+      const daily=await supabase.rpc('rb_award_xp',{p_event_key:'daily_tap_in',p_section:'auth',p_source_table:null,p_source_id:null,p_amount:null}).abortSignal(signal);if(daily.error&&!signal.aborted)console.warn('[Rich XP] daily award unavailable',daily.error.message);
       if(signal.aborted)return;
-      if(section!=='home')await supabase.rpc('rb_award_xp',{p_event_key:'section_visit',p_section:section,p_source_table:null,p_source_id:null,p_amount:null}).abortSignal(signal);
+      if(section!=='home'){const visit=await supabase.rpc('rb_award_xp',{p_event_key:'section_visit',p_section:section,p_source_table:null,p_source_id:null,p_amount:null}).abortSignal(signal);if(visit.error&&!signal.aborted)console.warn('[Rich XP] section award unavailable',visit.error.message);}
       if(signal.aborted)return;
       await load();
       if(signal.aborted)return;

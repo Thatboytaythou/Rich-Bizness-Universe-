@@ -26,6 +26,10 @@ function deviceInfo(): Json {
   };
 }
 
+function nonnegativeInteger(value:unknown,fallback=0):number{const n=Number(value);return Number.isFinite(n)?Math.max(0,Math.min(2147483647,Math.floor(n))):fallback;}
+function readLocal(key:string):string|null{try{return localStorage.getItem(key);}catch{return null;}}
+function writeLocal(key:string,value:Json):boolean{try{localStorage.setItem(key,JSON.stringify(value));return true;}catch{return false;}}
+
 function canonicalSaveKey(gameSlug: string): string {
   return `rb:game:${gameSlug}:save:v2`;
 }
@@ -69,9 +73,9 @@ export async function finishGameSession(gameSlug: string, input: Readonly<{ scor
     p_action: 'finish_session', p_game_slug: gameSlug,
     p_payload: {
       session_key: sessionKey,
-      score: Math.max(0, Math.floor(Number(input.score ?? 0))),
+      score: nonnegativeInteger(input.score??0),
       result: input.result ?? 'completed', mode: input.mode ?? 'standard',
-      duration_seconds: Math.max(0, Math.floor(Number(input.durationSeconds ?? 0))),
+      duration_seconds: nonnegativeInteger(input.durationSeconds??0),
       platform_type: 'web', metadata: { ...(input.metadata ?? {}), client_contract: 'rich-bizness-game-runtime-client-v3' }
     }
   });
@@ -81,34 +85,34 @@ export async function finishGameSession(gameSlug: string, input: Readonly<{ scor
 
 export async function saveGameCheckpoint(gameSlug: string, checkpoint: Json, input: Readonly<{ saveVersion?: number; metadata?: Json; mirrorLocal?: boolean }> = {}): Promise<SaveResult> {
   const envelope: Json = {
-    contract: 'rb-game-save-v2', save_version: Math.max(2, Math.floor(input.saveVersion ?? 2)),
+    contract: 'rb-game-save-v2', save_version: Math.max(2,nonnegativeInteger(input.saveVersion??2,2)),
     game_slug: gameSlug, saved_at: new Date().toISOString(), source: 'canonical-client',
     checkpoint, device: deviceInfo(), metadata: input.metadata ?? {}
   };
-  if (input.mirrorLocal !== false) localStorage.setItem(canonicalSaveKey(gameSlug), JSON.stringify(envelope));
+  const mirrored=input.mirrorLocal!==false&&writeLocal(canonicalSaveKey(gameSlug),envelope);
   try {
     return await action<SaveResult>('rb_game_save_action', {
       p_action: 'save', p_game_slug: gameSlug,
       p_payload: { checkpoint, save_version: envelope.save_version, source: 'canonical-client', device: deviceInfo(), metadata: { ...(input.metadata ?? {}), client_contract: 'rich-bizness-game-runtime-client-v3' } }
     });
   } catch (error) {
-    if (!navigator.onLine) return { ok: true, game_slug: gameSlug, save_version: Number(envelope.save_version), saved_at: String(envelope.saved_at), contract: 'rb-game-save-v2' };
+    if (!navigator.onLine&&mirrored) return { ok: true, game_slug: gameSlug, save_version: Number(envelope.save_version), saved_at: String(envelope.saved_at), contract: 'rb-game-save-v2' };
     throw error;
   }
 }
 
 export async function loadGameCheckpoint(gameSlug: string, input: Readonly<{ legacyKeys?: string[]; preferLocal?: boolean }> = {}): Promise<SaveResult> {
-  const canonicalLocal = parseLocalSave(localStorage.getItem(canonicalSaveKey(gameSlug)));
+  const canonicalLocal = parseLocalSave(readLocal(canonicalSaveKey(gameSlug)));
   let migratedLocal: Json | null = null;
   for (const key of input.legacyKeys ?? []) {
-    const legacy = parseLocalSave(localStorage.getItem(key));
+    const legacy = parseLocalSave(readLocal(key));
     if (!legacy) continue;
     migratedLocal = {
       contract: 'rb-game-save-v2', save_version: 2, game_slug: gameSlug,
       saved_at: new Date().toISOString(), source: 'legacy-local-migration',
       legacy_key: key, checkpoint: legacy
     };
-    localStorage.setItem(canonicalSaveKey(gameSlug), JSON.stringify(migratedLocal));
+    writeLocal(canonicalSaveKey(gameSlug),migratedLocal);
     break;
   }
   const localSave = canonicalLocal ?? migratedLocal;

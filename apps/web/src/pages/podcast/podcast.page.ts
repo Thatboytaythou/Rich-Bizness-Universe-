@@ -9,7 +9,7 @@ type CleanupHost = Window & { __rbPageCleanup?: (() => void | Promise<void>) | n
 
 const esc = (value: unknown) => String(value ?? '').replace(/[&<>"']/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[character] ?? character);
 const fmt = (value: unknown) => Number(value ?? 0).toLocaleString();
-const safe = (value: unknown) => { try { const url = new URL(String(value || ''), location.origin); return ['http:', 'https:'].includes(url.protocol) ? url.href : ''; } catch { return ''; } };
+const safe = (value: unknown) => { if(typeof value!=='string'||!value.trim())return '';try { const url = new URL(String(value || ''), location.origin); return ['http:', 'https:'].includes(url.protocol) ? url.href : ''; } catch { return ''; } };
 const runtime = (value: unknown) => Number(value ?? 0) > 0 ? `${Math.floor(Number(value) / 60)}:${String(Number(value) % 60).padStart(2, '0')}` : 'EPISODE';
 
 export async function mount(): Promise<void> {
@@ -50,6 +50,8 @@ export async function mount(): Promise<void> {
   let playCounted = false;
   let autoplayAfterOpen = false;
   let requestEpoch = 0;
+  let selectionEpoch=0;
+  let commentEpoch=0;
 
   const setStatus = (message: string, error = false) => {
     if (!isCurrent()) return;
@@ -90,19 +92,20 @@ export async function mount(): Promise<void> {
   };
 
   const persist = async (media: HTMLMediaElement, completed = false) => {
-    if (!userId || !active || !isCurrent()) return;
+    if (!userId || !active || !isCurrent() || media!==getMedia()) return;
+    const selected=active;const selection=selectionEpoch;
     const now = Date.now();
     if (!completed && now - lastHistory < 15000) return;
     lastHistory = now;
-    try { await action('history', { episode_id: active.id, progress_seconds: Math.floor(completed ? media.duration || 0 : media.currentTime), completed, media_type: active.media_type || 'audio', started: !playCounted }); playCounted = true; } catch {}
+    try { await action('history', { episode_id: selected.id, progress_seconds: Math.floor(completed && Number.isFinite(media.duration) ? media.duration : media.currentTime || 0), completed, media_type: selected.media_type || 'audio', started: !playCounted }); if(selection===selectionEpoch)playCounted = true; } catch {}
   };
 
   const getMedia = () => root.querySelector<HTMLMediaElement>('#podcastMedia');
   const playActive = async () => { const media = getMedia(); if (!media) return setStatus('This episode has no playable media source.', true); try { await media.play(); await persist(media, false); } catch { setStatus('Episode playback could not start.', true); } };
 
   const subscribeComments = async (episodeId: string | null) => {
-    if (commentChannel) { await supabase.removeChannel(commentChannel); commentChannel = null; }
-    if (!episodeId || !isCurrent()) return;
+    const revision=++commentEpoch;const old=commentChannel;commentChannel=null;if(old)await supabase.removeChannel(old);
+    if (!episodeId || !isCurrent() || revision!==commentEpoch || String(active?.id)!==episodeId) return;
     commentChannel = supabase.channel(`podcast-comments:${mountEpoch}:${episodeId}`).on('postgres_changes', { event: '*', schema: 'public', table: 'podcast_comments', filter: `episode_id=eq.${episodeId}` }, () => scheduleLoad(episodeId)).subscribe();
   };
 
@@ -110,11 +113,13 @@ export async function mount(): Promise<void> {
 
   const openEpisode = async (episode: Row, shouldPlay = false, refresh = false) => {
     if (!isCurrent()) return;
+    const selection=++selectionEpoch;const old=getMedia();if(old){old.pause();old.onplay=null;old.onpause=null;old.ontimeupdate=null;old.onended=null;old.removeAttribute('src');old.load();}
     active = episode;
+    lastHistory=0;
     playCounted = false;
     autoplayAfterOpen = shouldPlay;
     if (refresh) await load(String(episode.id), false);
-    if (!isCurrent()) return;
+    if (!isCurrent()||selection!==selectionEpoch) return;
     const current = (snapshot.episodes ?? []).find((candidate) => String(candidate.id) === String(episode.id)) ?? episode;
     active = current;
     const video = safe(current.video_url || (current.media_type === 'video' ? current.file_url : ''));
@@ -128,6 +133,7 @@ export async function mount(): Promise<void> {
     root.querySelector<HTMLElement>('#podcastPlayerTitle')!.textContent = current.title || 'Rich Podcast';
     root.querySelector<HTMLElement>('#podcastPlayerMeta')!.textContent = `${current.show_title || current.display_name || 'Rich Original'} · ${runtime(current.duration_seconds)}`;
     renderQueue(); syncUrl(String(current.id)); await subscribeComments(String(current.id));
+    if(!isCurrent()||selection!==selectionEpoch)return;
     const media = getMedia();
     if (media) {
       media.onplay = () => { if (!isCurrent()) return; const toggle = root.querySelector<HTMLButtonElement>('#podcastToggle'); if (toggle) toggle.textContent = 'Ⅱ'; void persist(media, false); };
@@ -136,21 +142,21 @@ export async function mount(): Promise<void> {
       media.onended = () => { if (isCurrent()) { void persist(media, true); void moveQueue(1); } };
     }
     root.querySelector<HTMLButtonElement>('#podcastPlayBtn')!.onclick = () => void playActive();
-    root.querySelector<HTMLButtonElement>('#podcastLikeBtn')!.onclick = async () => { if (!requireUser()) return; try { const result = await action('toggle_like', { episode_id: current.id }); if (!isCurrent()) return; snapshot.liked = Boolean(result.liked); await load(String(current.id), false); if (isCurrent()) await openEpisode(current, false, false); } catch (error) { setStatus(error instanceof Error ? error.message : 'Like failed', true); } };
+    root.querySelector<HTMLButtonElement>('#podcastLikeBtn')!.onclick = async () => { if (!requireUser()) return; try { const result = await action('toggle_like', { episode_id: current.id }); if (!isCurrent()) return; snapshot.liked = Boolean(result.liked); await load(String(current.id), false); if (isCurrent()&&selection===selectionEpoch){const button=root.querySelector<HTMLButtonElement>('#podcastLikeBtn');if(button)button.textContent=snapshot.liked?'♥ LIKED':'♡ LIKE';} } catch (error) { setStatus(error instanceof Error ? error.message : 'Like failed', true); } };
     if (autoplayAfterOpen) { autoplayAfterOpen = false; await playActive(); }
   };
 
-  const moveQueue = async (direction: number) => { const list = visible(); if (!list.length || !isCurrent()) return; const media = getMedia(); if (media) await persist(media, false); const current = activeIndex(); const next = current < 0 ? 0 : (current + direction + list.length) % list.length; await openEpisode(list[next], true, true); };
+  const moveQueue = async (direction: number) => { const list = visible(); if (!list.length || !isCurrent()) return; const media = getMedia(); if (media) await persist(media, false); const current = activeIndex(); const next = current < 0 ? 0 : (current + direction + list.length) % list.length; const selected=list[next];if(selected)await openEpisode(selected, true, true); };
 
   const load = async (episodeId?: string, open = true) => {
     if (!isCurrent()) return;
     if (loading) { queued = true; return; }
-    const epoch = ++requestEpoch;
+    const epoch = ++requestEpoch;const selection=selectionEpoch;
     loading = true;
     try {
       const { data, error } = await supabase.rpc('rb_podcast_snapshot', { p_episode_id: episodeId || active?.id || null, p_limit: 100 });
       if (error) throw error;
-      if (!isCurrent() || epoch !== requestEpoch) return;
+      if (!isCurrent() || epoch !== requestEpoch || selection!==selectionEpoch) return;
       snapshot = (data ?? {}) as Snapshot;
       const params = new URLSearchParams(location.search);
       const requested = episodeId || params.get('episode') || params.get('id');
@@ -159,14 +165,14 @@ export async function mount(): Promise<void> {
       if (open && active) await openEpisode(active, false, false);
       if (!active && isCurrent()) { stage.innerHTML = '<div class="media-ultimate__empty">No podcast episodes are public yet.</div>'; detail.innerHTML = ''; player.hidden = true; await subscribeComments(null); }
     } catch (error) {
-      if (!isCurrent() || epoch !== requestEpoch) return;
+      if (!isCurrent() || epoch !== requestEpoch || selection!==selectionEpoch) return;
       snapshot = {}; active = null;
       const media = getMedia(); if (media) { media.pause(); media.removeAttribute('src'); media.load(); }
       player.hidden = true; render(); stage.innerHTML = '<div class="media-ultimate__empty">Podcast network is temporarily unavailable.</div>'; detail.innerHTML = ''; await subscribeComments(null); setStatus(error instanceof Error ? error.message : 'Podcast sync failed', true);
     } finally { loading = false; if (queued && isCurrent()) { queued = false; void load(active?.id ? String(active.id) : undefined, false); } }
   };
 
-  const scheduleLoad = (episodeId?: string) => { if (!isCurrent()) return; window.clearTimeout(refreshTimer); refreshTimer = window.setTimeout(() => { if (isCurrent()) void load(episodeId || (active?.id ? String(active.id) : undefined), false); }, 180); };
+  const scheduleLoad = (episodeId?: string) => { if (!isCurrent()) return; window.clearTimeout(refreshTimer); refreshTimer = window.setTimeout(() => { if (isCurrent()&&(!episodeId||String(active?.id)===episodeId)) void load(active?.id ? String(active.id) : undefined, false); }, 180); };
 
   form.onsubmit = async (event) => { event.preventDefault(); if (!active || !requireUser() || !isCurrent()) return; const body = input.value.trim(); if (!body) return; const button = form.querySelector<HTMLButtonElement>('button')!; button.disabled = true; try { await action('comment', { episode_id: active.id, body }); if (!isCurrent()) return; input.value = ''; await load(String(active.id), false); } catch (error) { setStatus(error instanceof Error ? error.message : 'Comment failed', true); } finally { if (isCurrent()) button.disabled = false; } };
 
@@ -177,7 +183,7 @@ export async function mount(): Promise<void> {
   const cleanup = async () => {
     if (destroyed) return;
     destroyed = true;
-    requestEpoch++;
+    requestEpoch++;selectionEpoch++;commentEpoch++;
     window.clearTimeout(refreshTimer);
     window.clearTimeout(statusTimer);
     const media = getMedia();

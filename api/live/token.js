@@ -109,7 +109,7 @@ export default async function handler(req, res) {
   const roomName = String(body?.roomName || '').trim();
   const streamId = String(body?.streamId || '').trim();
   const role = body?.role === 'host' ? 'host' : body?.role === 'viewer' ? 'viewer' : '';
-  if (!streamId || !roomName || roomName.length > 160 || !role) {
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(streamId) || !roomName || roomName.length > 160 || !role) {
     return json(res, 400, { ok: false, error: 'stream_room_and_role_required' });
   }
 
@@ -134,13 +134,14 @@ export default async function handler(req, res) {
   if (streamError || !stream) return json(res, 404, { ok: false, error: 'live_stream_not_found' });
   if (stream.livekit_room_name !== roomName) return json(res, 409, { ok: false, error: 'livekit_room_mismatch' });
 
-  const { data: ban } = await admin
+  const { data: ban, error: banError } = await admin
     .from('live_stream_bans')
     .select('id')
     .eq('stream_id', stream.id)
     .eq('banned_user_id', user.id)
     .or(`expires_at.is.null,expires_at.gt.${new Date().toISOString()}`)
     .maybeSingle();
+  if (banError) return json(res, 503, {ok:false,error:'live_room_access_check_unavailable'});
   if (ban) return json(res, 403, { ok: false, error: 'live_room_access_revoked' });
 
   if (role === 'host' && stream.creator_id !== user.id) {
@@ -162,7 +163,7 @@ export default async function handler(req, res) {
     .eq('id', user.id)
     .maybeSingle();
 
-  const participantName = String(profile?.display_name || profile?.username || user.email || 'Rich Member').slice(0, 128);
+  const participantName = String(profile?.display_name || profile?.username || 'Rich Member').slice(0, 128);
   const participantMetadata = JSON.stringify({
     user_id: user.id,
     role,
@@ -188,7 +189,7 @@ export default async function handler(req, res) {
   });
 
   const jwt = await token.toJwt();
-  await admin.from('live_stream_members').upsert({
+  const {error:membershipError}=await admin.from('live_stream_members').upsert({
     stream_id: stream.id,
     user_id: user.id,
     role,
@@ -197,6 +198,7 @@ export default async function handler(req, res) {
     left_at: null,
     metadata: { source: 'livekit_token', room_name: roomName }
   }, { onConflict: 'stream_id,user_id,role' });
+  if(membershipError)return json(res,503,{ok:false,error:'live_room_membership_unavailable'});
 
   return json(res, 200, {
     ok: true,

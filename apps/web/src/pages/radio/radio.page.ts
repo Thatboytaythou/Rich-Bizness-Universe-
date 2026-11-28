@@ -9,7 +9,7 @@ type CleanupHost = Window & { __rbPageCleanup?: (() => void | Promise<void>) | n
 
 const esc = (value: unknown) => String(value ?? '').replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char] ?? char));
 const fmt = (value: unknown) => Number(value ?? 0).toLocaleString();
-const safeMedia = (value: unknown) => { try { const url = new URL(String(value || ''), location.origin); return ['http:', 'https:'].includes(url.protocol) ? url.href : ''; } catch { return ''; } };
+const safeMedia = (value: unknown) => { if(typeof value!=='string'||!value.trim())return '';try { const url = new URL(String(value || ''), location.origin); return ['http:', 'https:'].includes(url.protocol) ? url.href : ''; } catch { return ''; } };
 
 export async function mount(): Promise<void> {
   const root = document.querySelector<HTMLElement>('#app');
@@ -50,6 +50,11 @@ export async function mount(): Promise<void> {
   let active: Row | null = null;
   let sessionId: string | null = null;
   let sessionStartedAt = 0;
+  let sessionStationId:string|null=null;
+  let sessionStarting=false;
+  let sessionEpoch=0;
+  let selectionEpoch=0;
+  let commentEpoch=0;
   let stationChannel: Channel | null = null;
   let commentChannel: Channel | null = null;
   let listenerChannel: Channel | null = null;
@@ -93,19 +98,17 @@ export async function mount(): Promise<void> {
   };
 
   const closeSession = async () => {
-    if (!sessionId || !active) return;
-    const id = sessionId;
-    sessionId = null;
+    sessionEpoch++;if (!sessionId || !sessionStationId) return;
+    const id = sessionId;const stationId=sessionStationId;
+    sessionId = null;sessionStationId=null;
     const listenSeconds = Math.max(0, Math.floor((Date.now() - sessionStartedAt) / 1000));
-    try { await action('end_session', { station_id: active.id, session_id: id, anonymous_id: anonymousId, listen_seconds: listenSeconds }); } catch {}
+    try { await action('end_session', { station_id: stationId, session_id: id, anonymous_id: anonymousId, listen_seconds: listenSeconds }); } catch {}
   };
 
   const startSession = async () => {
-    if (!active || sessionId || !isCurrent()) return;
-    const result = await action('start_session', { station_id: active.id, anonymous_id: anonymousId, device_info: { language: navigator.language, platform: navigator.platform } });
-    if (!isCurrent()) return;
-    sessionId = result.session_id ?? null;
-    sessionStartedAt = Date.now();
+    if (!active || sessionId || sessionStarting || !isCurrent() || audio.paused) return;
+    const stationId=String(active.id);const revision=sessionEpoch;sessionStarting=true;
+    try{const result=await action('start_session',{station_id:stationId,anonymous_id:anonymousId,device_info:{language:navigator.language,platform:navigator.platform}});const id=result.session_id??null;if(!id)return;if(!isCurrent()||revision!==sessionEpoch||String(active?.id)!==stationId||audio.paused){await action('end_session',{station_id:stationId,session_id:id,anonymous_id:anonymousId,listen_seconds:0}).catch(()=>undefined);return;}sessionId=id;sessionStationId=stationId;sessionStartedAt=Date.now();}finally{sessionStarting=false;if(isCurrent()&&!audio.paused&&!sessionId&&revision!==sessionEpoch)void startSession().catch(()=>undefined);}
   };
 
   const playActive = async () => {
@@ -124,7 +127,7 @@ export async function mount(): Promise<void> {
     q<HTMLImageElement>('#radioPlayerCover').src = cover;
     q<HTMLElement>('#radioPlayerTitle').textContent = active.station_name || 'Rich Radio';
     q<HTMLElement>('#radioPlayerMeta').textContent = `${active.is_live ? 'LIVE' : 'RADIO'} · ${active.station_tag || active.genre || 'Rich Bizness'}`;
-    if (audio.src !== source) audio.src = source;
+    if(source){if(audio.src!==source)audio.src=source;}else if(audio.hasAttribute('src')){audio.pause();audio.removeAttribute('src');audio.load();}
     status.innerHTML = source ? `<strong>${active.is_live ? 'LIVE SIGNAL' : 'STREAM READY'}</strong><br>${fmt(active.listener_count)} listeners · ${fmt(active.peak_listeners)} peak · ${fmt(active.play_count)} total connects` : 'STREAM URL NOT AVAILABLE';
     q<HTMLButtonElement>('#radioPlayBtn').onclick = () => void playActive();
     q<HTMLButtonElement>('#radioLikeBtn').onclick = async () => { if (!requireUser()) return; try { await action('toggle_like', { station_id: active!.id }); await load(active!.id); } catch (error) { setMessage(error instanceof Error ? error.message : 'Favorite failed.', true); } };
@@ -132,14 +135,16 @@ export async function mount(): Promise<void> {
   };
 
   const subscribeComments = async (stationId: string | null) => {
-    if (commentChannel) { await supabase.removeChannel(commentChannel); commentChannel = null; }
-    if (!stationId || !isCurrent()) return;
+    const revision=++commentEpoch;const old=commentChannel;commentChannel=null;if(old)await supabase.removeChannel(old);
+    if (!stationId || !isCurrent() || revision!==commentEpoch || String(active?.id)!==stationId) return;
     commentChannel = supabase.channel(`radio-comments:${mountEpoch}:${stationId}`).on('postgres_changes', { event: '*', schema: 'public', table: 'radio_comments', filter: `station_id=eq.${stationId}` }, () => scheduleLoad(stationId)).subscribe();
   };
 
   const selectStation = async (station: Row, shouldPlay = false) => {
     if (!isCurrent()) return;
+    const selection=++selectionEpoch;
     if (active && String(active.id) !== String(station.id)) { audio.pause(); await closeSession(); }
+    if(!isCurrent()||selection!==selectionEpoch)return;
     active = station;
     autoplayAfterSelect = shouldPlay;
     const url = new URL(location.href);
@@ -147,6 +152,7 @@ export async function mount(): Promise<void> {
     url.searchParams.delete('station');
     history.replaceState({}, '', `${url.pathname}${url.search}${url.hash}`);
     await load(station.id);
+    if(!isCurrent()||selection!==selectionEpoch)return;
     await subscribeComments(active?.id ? String(active.id) : null);
   };
 
@@ -154,26 +160,26 @@ export async function mount(): Promise<void> {
     if (!isCurrent() || !stations.length) return;
     const current = activeIndex();
     const next = current < 0 ? 0 : (current + direction + stations.length) % stations.length;
-    await selectStation(stations[next], true);
+    const station=stations[next];if(station)await selectStation(station, true);
   };
 
   const load = async (stationId?: string) => {
     if (!isCurrent()) return;
     if (loading) { queued = true; return; }
-    loading = true;
+    loading = true;const selection=selectionEpoch;
     try {
       const params = new URLSearchParams(location.search);
       const requested = stationId || active?.id || params.get('station') || params.get('id');
       const { data, error } = await supabase.rpc('rb_radio_snapshot', { p_station_id: requested || null, p_limit: 100 });
       if (error) throw error;
-      if (!isCurrent()) return;
+      if (!isCurrent()||selection!==selectionEpoch) return;
       snapshot = (data ?? {}) as Snapshot;
       stations = snapshot.stations ?? [];
       active = stations.find((station) => String(station.id) === String(snapshot.active_id)) ?? stations[0] ?? null;
       renderMetrics(); renderList(); renderComments();
       if (active) bindActive(); else { hero.innerHTML = '<div class="sound-empty">No radio stations are public yet.</div>'; player.hidden = true; }
     } catch (error) {
-      if (!isCurrent()) return;
+      if (!isCurrent()||selection!==selectionEpoch) return;
       snapshot = {};
       stations = [];
       active = null;
@@ -206,12 +212,12 @@ export async function mount(): Promise<void> {
   q<HTMLButtonElement>('#radioPrev').onclick = () => void moveQueue(-1);
   q<HTMLButtonElement>('#radioNext').onclick = () => void moveQueue(1);
   q<HTMLButtonElement>('#radioToggle').onclick = () => audio.paused ? void playActive() : audio.pause();
-  audio.onplay = () => { if (isCurrent()) q<HTMLButtonElement>('#radioToggle').textContent = 'Ⅱ'; };
-  audio.onpause = () => { if (isCurrent()) q<HTMLButtonElement>('#radioToggle').textContent = '▶'; };
+  audio.onplay = () => { if (isCurrent()){q<HTMLButtonElement>('#radioToggle').textContent = 'Ⅱ';void startSession().catch(()=>undefined);} };
+  audio.onpause = () => { if (isCurrent()){q<HTMLButtonElement>('#radioToggle').textContent = '▶';void closeSession();} };
 
   const cleanup = async () => {
     if (destroyed) return;
-    destroyed = true;
+    destroyed = true;selectionEpoch++;commentEpoch++;
     window.clearTimeout(refreshTimer); window.clearTimeout(messageTimer);
     audio.pause(); audio.removeAttribute('src'); audio.load();
     await closeSession();
@@ -230,5 +236,5 @@ export async function mount(): Promise<void> {
 
   stationChannel = supabase.channel(`rich-radio-stations:${mountEpoch}`).on('postgres_changes', { event: '*', schema: 'public', table: 'radio_stations' }, () => scheduleLoad()).subscribe();
   listenerChannel = supabase.channel(`rich-radio-listeners:${mountEpoch}:${userId || anonymousId}`).on('postgres_changes', { event: '*', schema: 'public', table: 'radio_listen_sessions' }, () => scheduleLoad(active?.id)).subscribe();
-  await load();
+  await load();if(isCurrent()&&active)await subscribeComments(String(active.id));
 }
