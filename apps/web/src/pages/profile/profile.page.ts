@@ -202,7 +202,7 @@ export async function mountProfilePage(): Promise<void> {
     ownerControl('/avatar-characters.html', '◆', 'CHARACTER STUDIO', 'Customize your persistent Rich ID'),
     ownerControl('/avatar.html', '◉', 'STREET DISTRICT', 'Enter the controllable avatar environment'),
     ownerControl('/creator.html', '✦', 'CREATOR', 'Open your creator dimensions'),
-    ownerControl('/creator.html?tab=money','◈','CREATOR WALLET','Recorded earnings and receipts'),
+    ownerControl('/creator.html?lane=money','◈','CREATOR WALLET','Recorded earnings and receipts'),
     ownerControl('/messages.html','✉','MESSAGES','Your private conversations'),
     ownerControl('/notifications.html','◌','ALERTS','Your universe activity'),
     ownerControl('/upload.html', '↑', 'UPLOAD', 'Publish into the universe'),

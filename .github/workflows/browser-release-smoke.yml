@@ -36,6 +36,10 @@ jobs:
         env:
           RB_BROWSER_PREFIX: ${{ runner.temp }}/rb-component
         run: node scripts/browser-portal-component.mjs
+      - name: Render cinematic Profile with isolated owner and visitor fixtures
+        env:
+          RB_BROWSER_PREFIX: ${{ runner.temp }}/rb-component
+        run: node scripts/browser-profile-component.mjs
       - name: Render original meshes and game paint helpers in WebGL and Canvas
         env:
           RB_BROWSER_PREFIX: ${{ runner.temp }}/rb-component
