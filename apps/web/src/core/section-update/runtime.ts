@@ -51,8 +51,19 @@ export function mountSectionUpdates(page:string):()=>void{
     const request=new AbortController(),cancel=()=>request.abort();signal.addEventListener('abort',cancel,{once:true});
     const timeout=window.setTimeout(cancel,8000);
     try{
-      const {data,error}=await supabase.from('user_avatar_loadouts').select('id,display_name,outfit_config,aura_config').eq('user_id',user.id).abortSignal(request.signal).maybeSingle();
-      if(error||signal.aborted||getAuthSnapshot().user?.id!==user.id)return;
+      const [profile,avatar]=await Promise.all([
+        supabase.from('profiles').select('preferred_avatar_loadout_id').eq('id',user.id).abortSignal(request.signal).maybeSingle(),
+        supabase.from('meta_avatars').select('active_loadout_id').eq('user_id',user.id).abortSignal(request.signal).maybeSingle()
+      ]);
+      if(profile.error||avatar.error||signal.aborted||request.signal.aborted||getAuthSnapshot().user?.id!==user.id)return;
+      const preferred=profile.data?.preferred_avatar_loadout_id,active=avatar.data?.active_loadout_id;
+      if(preferred&&active&&preferred!==active){show('Your saved character references need synchronization. Reopen Avatar Studio before editing.');return;}
+      const pointer=preferred??active;
+      let query=supabase.from('user_avatar_loadouts').select('id,display_name,outfit_config,aura_config').eq('user_id',user.id);
+      if(pointer)query=query.eq('id',pointer);
+      const {data,error}=await query.abortSignal(request.signal).maybeSingle();
+      if(error||signal.aborted||request.signal.aborted||getAuthSnapshot().user?.id!==user.id)return;
+      if(pointer&&!data){show('Your selected character is temporarily unavailable. Reopen Avatar Studio before editing.');return;}
       const value=JSON.stringify(data??null);
       if(baselineUser!==user.id){baseline=undefined;baselineUser=user.id;}
       if(baseline!==undefined&&baseline!==value)show('Your saved character changed on another session. Refresh when ready.');
