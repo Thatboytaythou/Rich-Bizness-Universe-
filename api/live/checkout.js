@@ -12,16 +12,18 @@ export function receiptState(row,kind){
  return row.status==='pending'?'pending':'unconfirmed';
 }
 export default async function handler(req,res){
- const statusRequest=req.method==='GET'&&(req.query?.reference_id!==undefined||req.query?.kind!==undefined);
+ const creatorRequest=req.method==='GET'&&req.query?.view==='creator_receipts';
+ const statusRequest=req.method==='GET'&&(creatorRequest||req.query?.reference_id!==undefined||req.query?.kind!==undefined);
  if(req.method==='GET'&&!statusRequest)return respond(res,200,{ok:true,service:'rich-bizness-live-checkout',authorization:'Rich ID required',settlement:'verified webhook'});
  if(req.method!=='POST'&&!statusRequest){res.setHeader('Allow','GET, POST');return respond(res,405,{ok:false,error:'method_not_allowed'});}
  const token=String(req.headers.authorization||'');if(!token.startsWith('Bearer '))return respond(res,401,{ok:false,error:'missing_session'});
  const url=process.env.SUPABASE_URL||process.env.NEXT_PUBLIC_SUPABASE_URL,key=process.env.SUPABASE_SERVICE_ROLE_KEY,pub=process.env.SUPABASE_PUBLISHABLE_KEY||process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY||process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,stripe=process.env.STRIPE_SECRET_KEY;
  if(!url||!key||!pub||(!statusRequest&&(!stripe||! /^(sk|rk)_live_/.test(stripe))))return respond(res,503,{ok:false,error:'Live checkout not configured'});
  try{
- const body=statusRequest?req.query:typeof req.body==='string'?JSON.parse(req.body):req.body;const kind=body?.kind,reference=body?.reference_id;if(!['tip','purchase'].includes(kind)||typeof reference!=='string'||!uuid.test(reference))return respond(res,400,{ok:false,error:'invalid_reference'});
+ const body=statusRequest?req.query:typeof req.body==='string'?JSON.parse(req.body):req.body;const kind=body?.kind,reference=body?.reference_id;if(!creatorRequest&&(!['tip','purchase'].includes(kind)||typeof reference!=='string'||!uuid.test(reference)))return respond(res,400,{ok:false,error:'invalid_reference'});
  const opts={auth:{persistSession:false,autoRefreshToken:false}},auth=createClient(url,pub,opts),admin=createClient(url,key,opts);
  const {data:u,error:authError}=await auth.auth.getUser(token.slice(7));if(authError||!u?.user)return respond(res,401,{ok:false,error:'invalid_session'});
+ if(creatorRequest)return respond(res,200,{ok:true,...await creatorReceipts(admin,u.user.id)});
  const table=kind==='tip'?'live_tips':'live_stream_purchases',owner=kind==='tip'?'from_user_id':'user_id';
  if(statusRequest){const columns=kind==='tip'?'status,stripe_payment_intent_id,paid_at':'status,stripe_payment_intent_id,purchased_at,refunded_amount_cents';const {data:receipt,error}=await admin.from(table).select(columns).eq('id',reference).eq(owner,u.user.id).maybeSingle();if(error||!receipt)return respond(res,404,{ok:false,error:'payment_reference_not_found'});let state=receiptState(receipt,kind);if(state==='paid'){const {data:review,error:reviewError}=await admin.from('rb_stripe_refund_review').select('refunded_cents').eq('payment_intent_id',receipt.stripe_payment_intent_id).maybeSingle();if(reviewError)return respond(res,503,{ok:false,error:'receipt_reconciliation_unavailable'});if(Number(review?.refunded_cents??0)>0)state='refund_review';}return respond(res,200,{ok:true,state});}
  const {data:row,error:rowError}=await admin.from(table).select('id,stream_id,status,amount_cents,currency,stripe_checkout_session_id').eq('id',reference).eq(owner,u.user.id).maybeSingle();
@@ -40,4 +42,31 @@ export default async function handler(req,res){
  const checkout=new URL(session.url);if(checkout.protocol!=='https:'||checkout.hostname!=='checkout.stripe.com')return respond(res,502,{ok:false,error:'invalid_checkout_url'});
  return respond(res,200,{ok:true,url:checkout.href});
  }catch{return respond(res,503,{ok:false,error:'checkout_unavailable'});}
+}
+
+// Only the authenticated creator's recent receipts. No buyer identities,
+// processor identifiers, balance updates, or payout actions leave this boundary.
+export async function creatorReceipts(admin,ownerId){
+ const streams=await admin.from('live_streams').select('id').eq('creator_id',ownerId).order('created_at',{ascending:false}).limit(31);
+ if(streams.error)throw Error('receipt_streams_unavailable');
+ const ids=(streams.data??[]).slice(0,30).map(row=>row.id);
+ const [tips,access]=await Promise.all([
+  admin.from('live_tips').select('id,stream_id,status,currency,amount_cents,creator_amount_cents,paid_at,created_at,stripe_payment_intent_id').eq('to_user_id',ownerId).order('created_at',{ascending:false}).limit(51),
+  ids.length?admin.from('live_stream_purchases').select('id,stream_id,status,currency,amount_cents,creator_amount_cents,purchased_at,created_at,stripe_payment_intent_id,refunded_amount_cents').in('stream_id',ids).order('created_at',{ascending:false}).limit(51):Promise.resolve({data:[],error:null})
+ ]);
+ if(tips.error||access.error)throw Error('receipt_list_unavailable');
+ const all=[...(tips.data??[]).slice(0,50).map(row=>({row,kind:'tip'})),...(access.data??[]).slice(0,50).map(row=>({row,kind:'purchase'}))];
+ const intents=[...new Set(all.map(x=>x.row.stripe_payment_intent_id).filter(id=>typeof id==='string'&&/^pi_[A-Za-z0-9]+$/.test(id)))];
+ const review=intents.length?await admin.from('rb_stripe_refund_review').select('payment_intent_id,refunded_cents').in('payment_intent_id',intents):{data:[],error:null};
+ if(review.error)throw Error('receipt_reconciliation_unavailable');
+ const refunds=new Map((review.data??[]).map(row=>[row.payment_intent_id,Number(row.refunded_cents)]));
+ const seen=new Set();const receipts=[];
+ for(const {row,kind} of all.sort((a,b)=>String(b.row.created_at).localeCompare(String(a.row.created_at)))){
+  const intent=row.stripe_payment_intent_id;if(intent&&seen.has(intent))continue;if(intent)seen.add(intent);
+  let state=receiptState(row,kind);if((refunds.get(intent)??0)>0)state='refund_review';
+  const amount=Number(row.amount_cents),share=row.creator_amount_cents==null?null:Number(row.creator_amount_cents);
+  if(!Number.isSafeInteger(amount)||amount<0||row.currency!=='usd')continue;
+  receipts.push({id:row.id,stream_id:row.stream_id,kind,state,currency:'usd',amount_cents:amount,creator_amount_cents:state==='paid'&&Number.isSafeInteger(share)&&share>=0&&share<=amount?share:null,created_at:row.created_at});
+ }
+ return {receipts,limited:(streams.data??[]).length>30||(tips.data??[]).length>50||(access.data??[]).length>50};
 }

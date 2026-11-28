@@ -26,12 +26,16 @@ jobs:
           persist-credentials: false
       - name: Install isolated browser runner
         run: |
-          npm install --prefix "$RUNNER_TEMP/rb-component" --ignore-scripts --no-audit --no-fund playwright@1.55.1 typescript@5.9.2
+          npm install --prefix "$RUNNER_TEMP/rb-component" --ignore-scripts --no-audit --no-fund playwright@1.55.1 typescript@5.9.2 three@0.179.1
           "$RUNNER_TEMP/rb-component/node_modules/.bin/playwright" install --with-deps chromium
       - name: Render actual Portal source in Chromium (no secrets)
         env:
           RB_BROWSER_PREFIX: ${{ runner.temp }}/rb-component
         run: node scripts/browser-portal-component.mjs
+      - name: Render original meshes and game paint helpers in WebGL and Canvas
+        env:
+          RB_BROWSER_PREFIX: ${{ runner.temp }}/rb-component
+        run: node scripts/browser-original-assets.mjs
   browser:
     environment: browser-test
     runs-on: ubuntu-24.04

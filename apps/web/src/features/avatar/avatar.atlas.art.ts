@@ -18,10 +18,11 @@ export function mantleGeometry(){
   const width=.36+.32*t+.10*t*t-.08*Math.sin(Math.PI*t);
   const x=s*width/2;
   const y=.12-.83*t-.035*t*t*(1-edge*edge)+.033*t*t*Math.cos(s*Math.PI*2);
-  const fold=.023*Math.sin(s*Math.PI*4)*Math.sin(Math.PI*t*.85)+.025*Math.cos(s*Math.PI*3)*t*t;
+  const seam=.008*Math.exp(-Math.pow((edge-.83)/.065,2))*Math.sin(Math.PI*t);const drape=.006*Math.cos((s*2+t*1.3)*Math.PI*2)*Math.sin(Math.PI*t)**2;
+  const fold=.023*Math.sin(s*Math.PI*4)*Math.sin(Math.PI*t*.85)+.025*Math.cos(s*Math.PI*3)*t*t+seam+drape;
   const z=-.035-.105*t-.035*edge*edge*(1-t)-fold;
   v.push(x,y,z);uv.push(u,1-t);
-  const trim=Math.max(0,(edge-.86)/.14, (t-.91)/.09);
+  const trim=Math.max(0,(edge-.86)/.14, (t-.91)/.09,.72*Math.exp(-Math.pow((edge-.79)/.024,2))*Math.sin(Math.PI*t));
   const shade=.87+.08*Math.cos(s*Math.PI*4)*Math.sin(Math.PI*t);
   color.push(shade+(1-shade)*trim,shade*(1-.13*trim),shade*(1-.22*trim));
  }
