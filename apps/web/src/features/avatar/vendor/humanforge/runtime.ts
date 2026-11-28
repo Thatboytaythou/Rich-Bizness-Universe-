@@ -137,24 +137,36 @@ export interface LoadOptions {
   mobileBaseUrl?: string;
 }
 
+function checkRange(size:number,at:number,count:number,label:string){
+ if(!Number.isSafeInteger(at)||!Number.isSafeInteger(count)||at<0||count<0||at>size-count)throw Error('Invalid HumanForge '+label+' range');
+}
+function requireAttribute(prim:GlbPrimitive,name:string,itemSize:number,count?:number){
+ const a=prim.attributes[name];if(!a||a.itemSize!==itemSize||a.array.length%itemSize!==0||(count!==undefined&&a.array.length!==count*itemSize))throw Error('Invalid HumanForge attribute '+name);return a;
+}
+function checkRefs(refs:Uint16Array,count:number,label:string){for(const n of refs)if(n>=count)throw Error('Invalid HumanForge '+label+' reference');}
+function finiteArray(values:ArrayLike<number>){for(let i=0;i<values.length;i++)if(!Number.isFinite(values[i]))throw Error('Non-finite HumanForge geometry');}
+function requireVertexList(list:number[],count:number,label:string){if(!Array.isArray(list)||!list.length||list.some(n=>!Number.isInteger(n)||n<0||n>=count))throw Error('Invalid HumanForge '+label);}
+function disposeProxyInstance(p:ProxyInstance){p.mesh.geometry.dispose();(p.mesh.material as Material).dispose();if(p.soft)(p.soft.material as Material).dispose();}
 /** Undo build-human's wrapping delta coding + byte planes. */
 function unplane16(src: Uint8Array, at: number, n: number, signed: boolean) {
+  checkRange(src.length,at,n*2,'16-bit plane');
   const out = signed ? new Int16Array(n) : new Uint16Array(n);
   let acc = 0;
-  for (let i = 0; i < n; i++) { acc = (acc + (src[at + i] | (src[at + n + i] << 8))) & 0xffff; out[i] = acc; }
+  for (let i = 0; i < n; i++) { acc = (acc + (src[at + i]! | (src[at + n + i]! << 8))) & 0xffff; out[i] = acc; }
   return out;
 }
 function unplane8(src: Uint8Array, at: number, n: number) {
+  checkRange(src.length,at,n,'8-bit plane');
   const out = new Int16Array(n);
   let acc = 0;
-  for (let i = 0; i < n; i++) { acc = (acc + src[at + i]) & 0xff; out[i] = acc > 127 ? acc - 256 : acc; }
+  for (let i = 0; i < n; i++) { acc = (acc + src[at + i]!) & 0xff; out[i] = acc > 127 ? acc - 256 : acc; }
   return out;
 }
 
 /** Load the human package (manifest + shapes + body). Proxies/textures load lazily per config. */
 export async function loadHumanPackage(baseUrl: string, opts: LoadOptions = {}): Promise<HumanPackage> {
   const root = baseUrl.replace(/\/$/, '');
-  const rawFetch = opts.fetch ?? (async (u: string) => (await fetch(u)).arrayBuffer());
+  const rawFetch = opts.fetch ?? (async (u: string) => {const response=await fetch(u);if(!response.ok)throw Error('HumanForge asset request failed: '+response.status);return response.arrayBuffer();});
   // `.gz` files are gunzipped in JS, so no server Content-Encoding setup is needed (and it works in RN).
   const fetchBinary = async (u: string) => {
     const buf = new Uint8Array(await rawFetch(u));
@@ -168,20 +180,25 @@ export async function loadHumanPackage(baseUrl: string, opts: LoadOptions = {}):
   const [bin, bodyBuf] = await Promise.all([fetchBinary(`${root}/${manifest.shapes.file}`), fetchBinary(`${root}/${manifest.body.file}`)]);
   const bytes = new Uint8Array(bin);
   const N = manifest.vertexCount, sh = manifest.shapes;
+  if(!Number.isSafeInteger(N)||N<1||N>65536||sh.baseMin.length!==3||sh.baseScale.length!==3)throw Error('Invalid HumanForge shape manifest');finiteArray(sh.baseMin);finiteArray(sh.baseScale);requireVertexList(manifest.groundVerts,N,'ground');
+  if(!Array.isArray(manifest.bones)||!manifest.bones.length||manifest.bones.length>256)throw Error('Invalid HumanForge skeleton');manifest.bones.forEach((b,i)=>{if(!Number.isInteger(b.parent)||b.parent>=i||b.parent< -1||(i>0&&b.parent<0))throw Error('Invalid HumanForge bone parent');requireVertexList(b.head,N,'bone head');requireVertexList(b.tail,N,'bone tail');});
+  checkRange(bytes.length,sh.baseOffset,N*6,'base shape');
   const base = new Float32Array(N * 3);
   for (let k = 0; k < 3; k++) {
     const q = unplane16(bytes, sh.baseOffset + k * N * 2, N, false);
-    for (let i = 0; i < N; i++) base[i * 3 + k] = sh.baseMin[k] + q[i] * sh.baseScale[k];
+    for (let i = 0; i < N; i++) base[i * 3 + k] = sh.baseMin[k]! + q[i]! * sh.baseScale[k]!;
   }
   const morphs = new Map<string, Morph>();
   for (const m of sh.morphs) {
-    const idx = unplane16(bytes, m.offset, m.count, false) as Uint16Array;
+    if(!Number.isSafeInteger(m.count)||m.count<0||m.count>N||!Number.isFinite(m.scale)||(m.bits!==8&&m.bits!==16))throw Error('Invalid HumanForge morph');
+    checkRange(bytes.length,m.offset,m.count*(2+3*(m.bits===8?1:2)),'morph');
+    const idx = unplane16(bytes, m.offset, m.count, false) as Uint16Array;checkRefs(idx,N,'morph');
     const d = new Int16Array(m.count * 3);
     let at = m.offset + m.count * 2;
     for (let k = 0; k < 3; k++) {
       const v = m.bits === 8 ? unplane8(bytes, at, m.count) : unplane16(bytes, at, m.count, true);
       at += m.count * (m.bits === 8 ? 1 : 2);
-      for (let i = 0; i < m.count; i++) d[i * 3 + k] = v[i];
+      for (let i = 0; i < m.count; i++) d[i * 3 + k] = v[i]!;
     }
     morphs.set(m.name, { idx, d, scale: m.scale });
   }
@@ -289,7 +306,7 @@ export async function warmHumanPackage(pkg: HumanPackage, opts: Omit<PreloadOpti
 }
 
 // ---------------------------------------------------------------- shape evaluation
-const clamp01 = (v: number) => Math.min(1, Math.max(0, v));
+const clamp01 = (v: number) => Number.isFinite(v)?Math.min(1, Math.max(0, v)):.5;
 
 /** Weights of the baked macro basis for a config (see VARIANTS in tools/build-human.ts). */
 export function macroWeights(c: HumanConfig): Record<string, number> {
@@ -299,7 +316,7 @@ export function macroWeights(c: HumanConfig): Record<string, number> {
   w['macro/sexM'] = Math.max(0, 2 * g - 1);
   const split = (v: number, up: string, down: string) => {
     const x = clamp01(v);
-    const [k, amt] = x >= 0.5 ? [up, 2 * x - 1] : [down, 1 - 2 * x];
+    const [k, amt]:[string,number] = x >= 0.5 ? [up, 2 * x - 1] : [down, 1 - 2 * x];
     w[`macro/${k}F`] = (w[`macro/${k}F`] ?? 0) + amt * (1 - g);
     w[`macro/${k}M`] = (w[`macro/${k}M`] ?? 0) + amt * g;
   };
@@ -319,9 +336,9 @@ export function macroWeights(c: HumanConfig): Record<string, number> {
     const t = (years - 25) / 65;
     w['macro/ageOldF'] = t * (1 - g); w['macro/ageOldM'] = t * g;
   }
-  const rs = c.african + c.asian + c.caucasian || 1;
+  const rs = clamp01(c.african) + clamp01(c.asian) + clamp01(c.caucasian) || 1;
   for (const r of ['african', 'asian', 'caucasian'] as const) {
-    const x = c[r] / rs;
+    const x = clamp01(c[r]) / rs;
     w[`macro/${r}F`] = x * (1 - g); w[`macro/${r}M`] = x * g;
   }
   return w;
@@ -329,19 +346,19 @@ export function macroWeights(c: HumanConfig): Record<string, number> {
 
 /** Full shape (all MakeHuman vertices incl. helpers), metres, before grounding. */
 export function evaluateShape(pkg: HumanPackage, c: HumanConfig, out: Float32Array = new Float32Array(pkg.base.length)) {
-  out.set(pkg.base);
+  if(out.length!==pkg.base.length)throw Error('Invalid HumanForge shape buffer');out.set(pkg.base);
   const add = (name: string, weight: number) => {
     const m = pkg.morphs.get(name);
     if (!m || Math.abs(weight) < 1e-4) return;
     const s = m.scale * weight;
     for (let i = 0; i < m.idx.length; i++) {
-      const o = m.idx[i] * 3;
-      out[o] += m.d[i * 3] * s; out[o + 1] += m.d[i * 3 + 1] * s; out[o + 2] += m.d[i * 3 + 2] * s;
+      const o = m.idx[i]! * 3;
+      if(o+2>=out.length||i*3+2>=m.d.length)throw Error('Invalid HumanForge morph reference');out[o] = out[o]! + m.d[i*3]! * s;out[o+1] = out[o+1]! + m.d[i*3+1]! * s;out[o+2] = out[o+2]! + m.d[i*3+2]! * s;
     }
   };
   for (const [k, v] of Object.entries(macroWeights(c))) add(k, v);
   for (const s of DETAIL_SLIDERS) {
-    const v = c.detail[s.id] ?? 0;
+    const raw=c.detail[s.id]??0;const v=Number.isFinite(raw)?Math.max(-1,Math.min(1,raw)):0;
     if (v > 0) s.pos.forEach((t) => add(t, v));
     else if (v < 0) s.neg.forEach((t) => add(t, -v));
   }
@@ -353,8 +370,8 @@ function morphDeltas(pkg: HumanPackage, name: string): Float32Array | null {
   if (!m) return null;
   const d = new Float32Array(pkg.base.length);
   for (let i = 0; i < m.idx.length; i++) {
-    const o = m.idx[i] * 3;
-    d[o] = m.d[i * 3] * m.scale; d[o + 1] = m.d[i * 3 + 1] * m.scale; d[o + 2] = m.d[i * 3 + 2] * m.scale;
+    const o = m.idx[i]! * 3;if(o+2>=d.length||i*3+2>=m.d.length)throw Error('Invalid HumanForge expression reference');
+    d[o] = m.d[i*3]! * m.scale;d[o+1]=m.d[i*3+1]! * m.scale;d[o+2]=m.d[i*3+2]! * m.scale;
   }
   return d;
 }
@@ -366,12 +383,13 @@ const asU16 = (a: GlbPrimitive['attributes'][string]) => (a.array instanceof Uin
 /** Geometry with float position/normal storage (recomputed on the CPU) plus uv/skin from the GLB. */
 function geometryFrom(prim: GlbPrimitive, joints: string, weights: string) {
   const g = new BufferGeometry();
-  const n = prim.attributes.POSITION.array.length / 3;
+  const n = requireAttribute(prim,'POSITION',3).array.length / 3;if(n<1||n>150000)throw Error('Invalid HumanForge geometry size');
+  for(const i of prim.index)if(i>=n)throw Error('Invalid HumanForge mesh index');
   g.setAttribute('position', new BufferAttribute(new Float32Array(n * 3), 3));
   g.setAttribute('normal', new BufferAttribute(new Float32Array(n * 3), 3));
-  g.setAttribute('uv', new BufferAttribute(toFloat(prim.attributes.TEXCOORD_0), 2));
-  g.setAttribute('skinIndex', new BufferAttribute(asU16(prim.attributes[joints]), 4));
-  g.setAttribute('skinWeight', new BufferAttribute(toFloat(prim.attributes[weights]), 4));
+  g.setAttribute('uv', new BufferAttribute(toFloat(requireAttribute(prim,'TEXCOORD_0',2,n)), 2));
+  g.setAttribute('skinIndex', new BufferAttribute(asU16(requireAttribute(prim,joints,4,n)), 4));
+  g.setAttribute('skinWeight', new BufferAttribute(toFloat(requireAttribute(prim,weights,4,n)), 4));
   g.setIndex(new BufferAttribute(prim.index, 1));
   if (prim.attributes.COLOR_0) g.setAttribute('color', new BufferAttribute(toFloat(prim.attributes.COLOR_0), prim.attributes.COLOR_0.itemSize));
   return g;
@@ -385,7 +403,7 @@ function seamPairs(refs: Uint16Array, refw: Float32Array, offs: Float32Array) {
   const first = new Map<string, number>(), pairs: number[] = [];
   for (let i = 0; i < refs.length / 3; i++) {
     let k = '';
-    for (let c = 0; c < 3; c++) k += `${refs[i * 3 + c]},${Math.round(refw[i * 3 + c] * 1e4)},${Math.round(offs[i * 3 + c] * 1e5)},`;
+    for (let c = 0; c < 3; c++) k += `${refs[i * 3 + c]},${Math.round(refw[i * 3 + c]! * 1e4)},${Math.round(offs[i * 3 + c]! * 1e5)},`;
     const f = first.get(k);
     if (f === undefined) first.set(k, i); else pairs.push(i, f);
   }
@@ -420,6 +438,7 @@ export class HumanAvatar {
   private exprDeltas: Float32Array[];
   private skinMat: MeshStandardMaterial;
   private version = 0;
+  private disposed=false;
   /** Texture tier; set before the first setConfig (changing it later reloads textures). */
   textureSize: TextureTier = '2k';
   /** Anisotropic filtering for textures (1 = off). Lower is cheaper on phones. */
@@ -430,22 +449,22 @@ export class HumanAvatar {
   constructor(pkg: HumanPackage) {
     this.pkg = pkg;
     const geo = geometryFrom(pkg.body, 'JOINTS_0', 'WEIGHTS_0');
-    this.mh = asU16(pkg.body.attributes._MH);
+    this.mh = asU16(requireAttribute(pkg.body,'_MH',1,geo.getAttribute('position').count));checkRefs(this.mh,pkg.manifest.vertexCount,'body');
     this.fullIndex = pkg.body.index.slice();
     const bones = pkg.manifest.bones.map((b) => Object.assign(new Bone(), { name: b.name }));
-    pkg.manifest.bones.forEach((b, i) => { if (b.parent >= 0) bones[b.parent].add(bones[i]); });
+    pkg.manifest.bones.forEach((b, i) => { if (b.parent >= 0) bones[b.parent]!.add(bones[i]!); });
     this.skeleton = new Skeleton(bones);
     this.skinMat = new MeshStandardMaterial({ roughness: 0.55, metalness: 0 });
     this.body = new SkinnedMesh(geo, this.skinMat);
     this.body.name = 'body';
     this.body.frustumCulled = false;
-    this.body.add(bones[0]);
+    if(!bones[0])throw Error('HumanForge skeleton root missing');this.body.add(bones[0]);
     this.group.add(this.body);
     this.positions = new Float32Array(pkg.base.length);
     // expressions: GPU morph targets (body + face proxies)
     this.exprNames = Object.keys(pkg.manifest.expressions).filter((u) => pkg.morphs.has(`expr/${u}`));
     this.exprDeltas = this.exprNames.map((u) => morphDeltas(pkg, `expr/${u}`)!);
-    this.attachMorphs(geo, (i, k) => this.mh[i] * 3 + k);
+    this.attachMorphs(geo, (i, k) => this.mh[i]! * 3 + k);
     this.body.updateMorphTargets();
     this.body.morphTargetDictionary = Object.fromEntries(this.exprNames.map((u, i) => [this.alias(u), i]));
   }
@@ -460,8 +479,8 @@ export class HumanAvatar {
       const arr = new Float32Array(n * 3);
       for (let i = 0; i < n; i++) for (let k = 0; k < 3; k++) {
         arr[i * 3 + k] = refs
-          ? refs.w[i * 3] * d[refs.r[i * 3] * 3 + k] + refs.w[i * 3 + 1] * d[refs.r[i * 3 + 1] * 3 + k] + refs.w[i * 3 + 2] * d[refs.r[i * 3 + 2] * 3 + k]
-          : d[lookup(i, k)];
+          ? refs.w[i*3]! * d[refs.r[i*3]!*3+k]! + refs.w[i*3+1]! * d[refs.r[i*3+1]!*3+k]! + refs.w[i*3+2]! * d[refs.r[i*3+2]!*3+k]!
+          : d[lookup(i,k)]!;
       }
       return new BufferAttribute(arr, 3);
     });
@@ -470,6 +489,7 @@ export class HumanAvatar {
 
   /** Apply a full or partial config. Loads any new hair/clothes/textures, then reshapes. */
   async setConfig(patch: Partial<HumanConfig>) {
+    if(this.disposed)throw Error('HumanForge avatar disposed');
     const prev = this.config;
     const c = (this.config = { ...prev, ...patch, detail: { ...prev.detail, ...(patch.detail ?? {}) } });
     const v = ++this.version;
@@ -493,10 +513,10 @@ export class HumanAvatar {
     // Observe every pending promise immediately, even if a wardrobe file fails.
     const results=await Promise.allSettled([...loads,skin,eyes]);
     const failure=results.find(r=>r.status==='rejected');
-    if(failure){for(const r of results.slice(0,loads.length)){if(r.status==='fulfilled'){const item=r.value as Awaited<(typeof loads)[number]>;if(item?.[1]){const p=item[1];p.mesh.geometry.dispose();(p.mesh.material as Material).dispose();if(p.soft)(p.soft.material as Material).dispose();}}}throw failure.reason;}
+    if(failure||v!==this.version||this.disposed){for(const r of results.slice(0,loads.length)){if(r.status==='fulfilled'){const item=r.value as Awaited<(typeof loads)[number]>;if(item?.[1])disposeProxyInstance(item[1]);}}if(failure&&failure.status==='rejected'&&v===this.version&&!this.disposed){this.config=prev;throw failure.reason;}return;}
     const loaded=results.slice(0,loads.length).map(r=>(r as PromiseFulfilledResult<Awaited<(typeof loads)[number]>>).value);
     const skinTex=(results[loads.length] as PromiseFulfilledResult<Texture>).value,eyeTex=(results[loads.length+1] as PromiseFulfilledResult<Texture>).value;
-    if (v !== this.version) return; // a newer setConfig superseded this one
+    if (v !== this.version||this.disposed) return; // stale fits were released above
     for (const slot of [...this.proxies.keys()]) if (!wanted.has(slot)) this.removeProxy(slot);
     for (const entry of loaded) {
       if (!entry || !entry[1]) continue;
@@ -528,6 +548,7 @@ export class HumanAvatar {
    * are; already-loaded files come from the cache).
    */
   async reloadTextures() {
+    if(this.disposed)return;
     const c = this.config, sizes = this.pkg.manifest.textureSizes;
     const v = this.version;
     const [skin, eyes] = await Promise.all([this.texture(`skins/${c.skin}`, sizes.skin2k), this.texture(`eyes/${c.eyes}`, sizes.eyes)]);
@@ -550,7 +571,7 @@ export class HumanAvatar {
   /** Expression by ARKit-style name (e.g. 'jawOpen', 'mouthSmile') or MPFB unit name, weight 0..1. */
   setExpression(name: string, weight: number) {
     const unit = this.exprNames.findIndex((u) => u === name || this.alias(u) === name);
-    if (unit < 0) return;
+    if (unit < 0||this.disposed||!Number.isFinite(weight)) return;weight=Math.max(0,Math.min(1,weight));
     for (const m of [this.body, ...[...this.proxies.values()].map((p) => p.mesh)]) {
       if (m.morphTargetInfluences && unit < m.morphTargetInfluences.length) m.morphTargetInfluences[unit] = weight;
     }
@@ -579,7 +600,7 @@ export class HumanAvatar {
       meta.normalTexture && this.normalMaps ? this.texture(keyOf(meta.normalTexture), 1024) : null,
     ]);
     const geo = geometryFrom(prim, '_JOINTS', '_WEIGHTS');
-    const refs = asU16(prim.attributes._REFS), refw = toFloat(prim.attributes._REFW), offs = toFloat(prim.attributes._OFFS);
+    const count=geo.getAttribute('position').count;const refs=asU16(requireAttribute(prim,'_REFS',3,count)),refw=toFloat(requireAttribute(prim,'_REFW',3,count)),offs=toFloat(requireAttribute(prim,'_OFFS',3,count));checkRefs(refs,this.pkg.manifest.vertexCount,'proxy');finiteArray(refw);finiteArray(offs);if(meta.scale.length!==3||meta.scale.some(([a,b,d])=>!Number.isInteger(a)||!Number.isInteger(b)||a<0||b<0||a>=this.pkg.manifest.vertexCount||b>=this.pkg.manifest.vertexCount||!Number.isFinite(d)||d<=0))throw Error('Invalid HumanForge proxy scale');
     const mat = new MeshStandardMaterial({
       map, normalMap, metalness: 0,
       roughness: meta.roughness ?? (meta.kind === 'eyes' ? 0.15 : meta.kind === 'hair' ? 0.55 : 0.8),
@@ -621,7 +642,7 @@ export class HumanAvatar {
       mesh.morphTargetInfluences = [...(this.body.morphTargetInfluences ?? [])];
     }
     const seams = meta.kind === 'clothes' ? seamPairs(refs, refw, offs) : undefined;
-    return { meta, mesh, soft, refs, refw, offs, seams: seams?.length ? seams : undefined };
+    return {meta,mesh,refs,refw,offs,...(soft?{soft}:{}),...(seams?.length?{seams}:{})};
   }
 
   private removeProxy(slot: string) {
@@ -639,15 +660,15 @@ export class HumanAvatar {
     const P = evaluateShape(this.pkg, this.config, this.positions);
     const man = this.pkg.manifest;
     let gy = 0;
-    for (const i of man.groundVerts) gy += P[i * 3 + 1];
+    for (const i of man.groundVerts) gy += P[i*3+1]!;
     gy /= man.groundVerts.length;
-    for (let i = 1; i < P.length; i += 3) P[i] -= gy;
+    for(let i=1;i<P.length;i+=3)P[i]=P[i]!-gy;
 
     // body positions + seam-aware normals (accumulated per MakeHuman vertex)
     const geo = this.body.geometry;
     const pos = geo.getAttribute('position') as BufferAttribute;
     const mh = this.mh;
-    for (let i = 0; i < mh.length; i++) pos.setXYZ(i, P[mh[i] * 3], P[mh[i] * 3 + 1], P[mh[i] * 3 + 2]);
+    for (let i = 0; i < mh.length; i++) pos.setXYZ(i,P[mh[i]!*3]!,P[mh[i]!*3+1]!,P[mh[i]!*3+2]!);
     pos.needsUpdate = true;
     const hidden = new Uint8Array(man.vertexCount);
     for (const p of this.proxies.values()) p.meta.deleteVerts?.forEach(([a, b]) => hidden.fill(1, a, b + 1));
@@ -655,16 +676,16 @@ export class HumanAvatar {
     const kept: number[] = [];
     const nAcc = new Float32Array(P.length);
     for (let i = 0; i < full.length; i += 3) {
-      const a = mh[full[i]], b = mh[full[i + 1]], c = mh[full[i + 2]];
-      if (!(hidden[a] || hidden[b] || hidden[c])) kept.push(full[i], full[i + 1], full[i + 2]);
+      const a=mh[full[i]!]!,b=mh[full[i+1]!]!,c=mh[full[i+2]!]!;
+      if (!(hidden[a] || hidden[b] || hidden[c])) kept.push(full[i]!,full[i+1]!,full[i+2]!);
       tmpA.fromArray(P, a * 3); tmpB.fromArray(P, b * 3).sub(tmpA); tmpC.fromArray(P, c * 3).sub(tmpA);
       tmpB.cross(tmpC);
-      for (const v of [a, b, c]) { nAcc[v * 3] += tmpB.x; nAcc[v * 3 + 1] += tmpB.y; nAcc[v * 3 + 2] += tmpB.z; }
+      for (const v of [a, b, c]) { nAcc[v*3]=nAcc[v*3]!+tmpB.x;nAcc[v*3+1]=nAcc[v*3+1]!+tmpB.y;nAcc[v*3+2]=nAcc[v*3+2]!+tmpB.z; }
     }
     geo.setIndex(kept);
     const nor = geo.getAttribute('normal') as BufferAttribute;
     for (let i = 0; i < mh.length; i++) {
-      tmpA.fromArray(nAcc, mh[i] * 3).normalize();
+      tmpA.fromArray(nAcc, mh[i]! * 3).normalize();
       nor.setXYZ(i, tmpA.x, tmpA.y, tmpA.z);
     }
     nor.needsUpdate = true;
@@ -672,24 +693,24 @@ export class HumanAvatar {
 
     // proxies: barycentric refs + offsets scaled by the body's local proportions
     for (const p of this.proxies.values()) {
-      const s = p.meta.scale.map(([a, b, d], k) => Math.abs(P[a * 3 + k] - P[b * 3 + k]) / d);
+      const s = p.meta.scale.map(([a, b, d], k) => Math.abs(P[a*3+k]!-P[b*3+k]!)/d);
       const g = p.mesh.geometry;
       const pp = g.getAttribute('position') as BufferAttribute;
       const r = p.refs, w = p.refw, o = p.offs;
       for (let i = 0; i < pp.count; i++) {
-        const a = r[i * 3] * 3, b = r[i * 3 + 1] * 3, c = r[i * 3 + 2] * 3;
-        const wa = w[i * 3], wb = w[i * 3 + 1], wc = w[i * 3 + 2];
+        const a=r[i*3]!*3,b=r[i*3+1]!*3,c=r[i*3+2]!*3;
+        const wa=w[i*3]!,wb=w[i*3+1]!,wc=w[i*3+2]!;
         pp.setXYZ(i,
-          wa * P[a] + wb * P[b] + wc * P[c] + o[i * 3] * s[0],
-          wa * P[a + 1] + wb * P[b + 1] + wc * P[c + 1] + o[i * 3 + 1] * s[1],
-          wa * P[a + 2] + wb * P[b + 2] + wc * P[c + 2] + o[i * 3 + 2] * s[2]);
+          wa*P[a]!+wb*P[b]!+wc*P[c]!+o[i*3]!*s[0]!,
+          wa*P[a+1]!+wb*P[b+1]!+wc*P[c+1]!+o[i*3+1]!*s[1]!,
+          wa*P[a+2]!+wb*P[b+2]!+wc*P[c+2]!+o[i*3+2]!*s[2]!);
       }
       pp.needsUpdate = true;
       g.computeVertexNormals();
       if (p.seams) {
         const nn = g.getAttribute('normal') as BufferAttribute, q = p.seams;
-        for (let i = 0; i < q.length; i += 2) { tmpA.fromBufferAttribute(nn, q[i]); tmpB.fromBufferAttribute(nn, q[i + 1]).add(tmpA); nn.setXYZ(q[i + 1], tmpB.x, tmpB.y, tmpB.z); }
-        for (let i = q.length - 2; i >= 0; i -= 2) { tmpA.fromBufferAttribute(nn, q[i + 1]).normalize(); nn.setXYZ(q[i + 1], tmpA.x, tmpA.y, tmpA.z); nn.setXYZ(q[i], tmpA.x, tmpA.y, tmpA.z); }
+        for (let i = 0; i < q.length; i += 2) { tmpA.fromBufferAttribute(nn, q[i]!); tmpB.fromBufferAttribute(nn, q[i+1]!).add(tmpA); nn.setXYZ(q[i+1]!, tmpB.x, tmpB.y, tmpB.z); }
+        for (let i = q.length - 2; i >= 0; i -= 2) { tmpA.fromBufferAttribute(nn, q[i+1]!).normalize(); nn.setXYZ(q[i+1]!, tmpA.x, tmpA.y, tmpA.z); nn.setXYZ(q[i]!, tmpA.x, tmpA.y, tmpA.z); }
       }
       g.computeBoundingSphere();
     }
@@ -697,7 +718,7 @@ export class HumanAvatar {
     // skeleton: heads/tails follow the reshaped joint helpers; +Y points down the bone
     const mean = (idx: number[], out: Vector3) => {
       out.set(0, 0, 0);
-      for (const i of idx) { out.x += P[i * 3]; out.y += P[i * 3 + 1]; out.z += P[i * 3 + 2]; }
+      for (const i of idx) { out.x+=P[i*3]!;out.y+=P[i*3+1]!;out.z+=P[i*3+2]!; }
       return out.divideScalar(idx.length);
     };
     const world = man.bones.map((b) => {
@@ -707,8 +728,8 @@ export class HumanAvatar {
     });
     const bones = this.skeleton.bones;
     man.bones.forEach((b, i) => {
-      const local = b.parent < 0 ? world[i].clone() : world[b.parent].clone().invert().multiply(world[i]);
-      local.decompose(bones[i].position, bones[i].quaternion, bones[i].scale);
+      const local = b.parent < 0 ? world[i]!.clone() : world[b.parent]!.clone().invert().multiply(world[i]!);
+      const bone=bones[i]!;local.decompose(bone.position,bone.quaternion,bone.scale);
     });
     this.group.updateMatrixWorld(true);
     this.body.bind(this.skeleton); // recomputes bone inverses for the new rest pose
@@ -728,8 +749,9 @@ export class HumanAvatar {
   }
 
   dispose() {
+    if(this.disposed)return;this.disposed=true;this.version++;
     for (const k of [...this.proxies.keys()]) this.removeProxy(k);
     this.body.geometry.dispose();
-    this.skinMat.dispose();
+    this.skinMat.dispose();this.skeleton.dispose();this.group.remove(this.body);
   }
 }

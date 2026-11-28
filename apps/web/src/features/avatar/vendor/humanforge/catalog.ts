@@ -173,10 +173,10 @@ export function skinFor(skins: string[], base: string, age: number, gender: numb
   return skins.find((id) => skinBase(id) === base) ?? skins.find((id) => skinBase(id).replace(/2$/, '') === eth) ?? null;
 }
 
-const rgb = (hex: string) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255);
+const rgb=(hex:string):[number,number,number]=>{const safe=/^#[0-9a-f]{6}$/i.test(hex)?hex:'#ffffff';return [parseInt(safe.slice(1,3),16)/255,parseInt(safe.slice(3,5),16)/255,parseInt(safe.slice(5,7),16)/255];};
 const hex = (c: number[]) => '#' + c.map((v) => Math.round(Math.max(0, Math.min(1, v)) * 255).toString(16).padStart(2, '0')).join('');
 /** Multiply two hex colors (how a tint combines with a skin texture). */
-export const multiplyHex = (a: string, b: string) => { const x = rgb(a), y = rgb(b); return hex(x.map((v, i) => v * y[i])); };
+export const multiplyHex = (a: string, b: string) => { const x = rgb(a), y = rgb(b); return hex(x.map((v, i) => v * y[i]!)); };
 export const hexDistance = (a: string, b: string) => { const x = rgb(a), y = rgb(b); return Math.hypot(x[0] - y[0], x[1] - y[1], x[2] - y[2]); };
 
 const words = (s: string) => s.replace(/_/g, ' ').replace(/(\d+)$/, ' $1').replace(/\s+/g, ' ').trim();
@@ -184,7 +184,7 @@ const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 
 export function hairInfo(id: string): ItemInfo { return HAIR[id] ?? { label: cap(words(id)), fit: 'unisex' }; }
 export function clothingInfo(id: string): ItemInfo & { slot: ClothingSlot } {
-  if (CLOTHES[id]) return CLOTHES[id];
+  const known=CLOTHES[id];if(known)return known;
   const slot: ClothingSlot = id.startsWith('shoes') ? 'shoes' : /hijab|amira|shayla|scarf|turban/.test(id) ? 'headwear' : /hat|fedora|cap|helmet/.test(id) ? 'hat' : 'outfit';
   const fit: Fit = id.startsWith('female') ? 'female' : id.startsWith('male') ? 'male' : 'unisex';
   return { label: cap(words(id.replace(/^(fe)?male_/, ''))), fit, slot };

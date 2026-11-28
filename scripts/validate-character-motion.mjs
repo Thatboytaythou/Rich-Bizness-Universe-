@@ -187,3 +187,7 @@ const clothGeo=new THREE.PlaneGeometry(.2,.2,32,32),clothN=clothGeo.attributes.p
 
 // Invalid garment indices must fail without modifying the source.
 const invalidWardrobe=new THREE.PlaneGeometry(.2,.2,4,4),invalidN=invalidWardrobe.attributes.position.count;invalidWardrobe.setAttribute('skinIndex',new THREE.Uint16BufferAttribute(new Uint16Array(invalidN*4),4));invalidWardrobe.setAttribute('skinWeight',new THREE.Float32BufferAttribute(new Float32Array(invalidN*4),4));invalidWardrobe.index.setX(0,invalidN+1);assert.equal(reducePhoneWardrobe(invalidWardrobe,[0],1,10),null);invalidWardrobe.dispose();console.log('V1 garment malformed index rejection verified');
+
+import {readGlb as readHumanGlb,toFloat as humanFloat} from '../apps/web/src/features/avatar/vendor/humanforge/glb.ts';
+import {multiplyHex as humanTint} from '../apps/web/src/features/avatar/vendor/humanforge/catalog.ts';
+assert.throws(()=>readHumanGlb(new ArrayBuffer(8)),/Truncated GLB/);assert.deepEqual(Array.from(humanFloat({array:new Uint8Array([0,255]),itemSize:1,normalized:true})),[0,1]);assert.equal(humanTint('#ffffff','#1b1b1f'),'#1b1b1f');console.log('V1 HumanForge binary and tint input checks verified');
