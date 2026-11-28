@@ -12,14 +12,14 @@ type Particle = {
 export function mountPortalMotion(options: MotionOptions): () => void {
   const canvas = document.querySelector<HTMLCanvasElement>('#portalMotionCanvas');
   const world = document.querySelector<HTMLElement>('.portal-world');
-  const stage = document.querySelector<HTMLElement>('.portal-stage');
+  const stage = world;
   if (!canvas || !world || !stage) return () => {};
 
   const context = canvas.getContext('2d', { alpha: true });
   if (!context) return () => {};
 
   const lifecycle = new AbortController();
-  const particles: Particle[] = Array.from({ length: options.reduced ? 24 : 90 }, (_, index) => ({
+  const particles: Particle[] = Array.from({ length: options.reduced ? 20 : 52 }, (_, index) => ({
     x: Math.random(),
     y: Math.random(),
     z: 0.25 + Math.random() * 0.75,
@@ -33,6 +33,7 @@ export function mountPortalMotion(options: MotionOptions): () => void {
   let dpr = 1;
   let frame = 0;
   let time = 0;
+  let lastPaint = 0;
   let pointerX = 0.5;
   let pointerY = 0.5;
   let disposed = false;
@@ -92,10 +93,10 @@ export function mountPortalMotion(options: MotionOptions): () => void {
     context.fillRect(0, 0, width, height);
   };
 
-  const animate = () => {
+  const animate = (now=0) => {
     frame = 0;
     if (disposed || document.hidden) return;
-    paint(true);
+    if(!lastPaint||now-lastPaint>=32){lastPaint=now;paint(true);}
     frame = window.requestAnimationFrame(animate);
   };
   const visibility = () => {
@@ -134,7 +135,7 @@ export function mountPortalMotion(options: MotionOptions): () => void {
   if (options.reduced) {
     paint(false);
   } else {
-    stage.addEventListener('pointermove', move, { signal: lifecycle.signal, passive: true });
+    if(matchMedia('(hover:hover) and (pointer:fine)').matches)stage.addEventListener('pointermove', move, { signal: lifecycle.signal, passive: true });
     stage.addEventListener('pointerleave', resetTilt, { signal: lifecycle.signal });
     document.addEventListener('visibilitychange',visibility,{signal:lifecycle.signal});
     animate();

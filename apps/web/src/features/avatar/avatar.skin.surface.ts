@@ -4,7 +4,7 @@ import * as THREE from 'three';
 export function skinMicroSurface(size=128){
  const data=new Uint8Array(size*size*4),height=new Float32Array(size*size);
  let seed=8317;const random=()=>{seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed/4294967296;};
- const grid=16,cell=size/grid;
+ const grid=size>=256?32:16,cell=size/grid;
  for(let j=0;j<grid;j++)for(let i=0;i<grid;i++){
   const cx=(i+.2+.6*random())*cell,cy=(j+.2+.6*random())*cell,rx=.65+.65*random(),ry=.75+.7*random(),depth=.65+.35*random();
   for(let y=Math.floor(cy-4);y<=Math.ceil(cy+4);y++)for(let x=Math.floor(cx-4);x<=Math.ceil(cx+4);x++){
@@ -15,7 +15,7 @@ export function skinMicroSurface(size=128){
  }
  for(let y=0;y<size;y++)for(let x=0;x<size;x++){
   const idx=y*size+x,u=x/size*Math.PI*2,v=y/size*Math.PI*2;
-  const creases=.07*Math.sin(u*7+Math.sin(v*3))+.045*Math.cos(v*9+Math.sin(u*4));
+  const creases=.07*Math.sin(u*7+Math.sin(v*3))+.045*Math.cos(v*9+Math.sin(u*4))+.018*Math.sin(u*41+Math.sin(v*29))*.5;
   const value=(height[idx]??0)+creases,k=idx*4;
   data[k]=Math.round(THREE.MathUtils.clamp(144+52*value,65,180));
   data[k+1]=Math.round(THREE.MathUtils.clamp(238+15*value,202,250));

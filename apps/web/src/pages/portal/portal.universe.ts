@@ -2,46 +2,56 @@ import { ROUTES } from '@rb/config/routes';
 import { getAuthSnapshot } from '../../core/auth/auth-store';
 import { supabase } from '../../core/supabase/client';
 import { mountPortalMotion } from './portal.motion';
-import './portal.motion.css';
-import './portal.overdrive.css';
-import './portal.machine.css';
-import './portal.index-fix.css';
+import './portal.command.css';
 
 type JsonMap=Record<string,unknown>;
-type Activity={kind?:string;title?:string;href?:string};
-type PortalSnapshot={profile?:JsonMap;level?:JsonMap;avatar?:JsonMap;settings?:JsonMap;announcement?:JsonMap;section_pulse?:Record<string,number>;recent_activity?:Activity[];unread_notifications?:number;unread_threads?:number};
-type Destination={key:string;label:string;icon:string;href:string;position:string;kicker:string};
-const DEFAULT_PORTAL_BACKGROUND='/images/0E886281-8F03-4288-B3CA-C45369B7B58E.png';
+type PortalSnapshot={profile?:JsonMap;level?:JsonMap;avatar?:JsonMap;settings?:JsonMap;unread_notifications?:number;unread_threads?:number};
 const CANONICAL_OWNER='rich-bizness-portal-v3';
-const destinations:Destination[]=[
-{key:'live',label:'LIVE',icon:'◉',href:ROUTES.live,position:'top',kicker:'BROADCAST'},
-{key:'gallery',label:'GALLERY',icon:'▣',href:ROUTES.gallery,position:'top-left',kicker:'VISUALS'},
-{key:'music',label:'MUSIC',icon:'♪',href:ROUTES.music,position:'top-right',kicker:'AUDIO'},
-{key:'upload',label:'UPLOAD',icon:'⬆',href:ROUTES.upload,position:'left',kicker:'CREATE'},
-{key:'gaming',label:'GAMING',icon:'🎮',href:ROUTES.gaming,position:'right',kicker:'PLAY'},
-{key:'sports',label:'SPORTS',icon:'🏆',href:ROUTES.sports,position:'bottom-left',kicker:'ARENA'},
-{key:'meta',label:'META',icon:'◎',href:ROUTES.meta,position:'bottom',kicker:'WORLDS'},
-{key:'store',label:'STORE',icon:'🛒',href:ROUTES.store,position:'bottom-right',kicker:'MARKET'}];
+const destinations=[
+ {key:'live',label:'Live',icon:'◉',href:ROUTES.live,kicker:'BROADCAST',color:'#ff9d89',detail:'Live rooms & creators'},
+ {key:'music',label:'Music',icon:'♪',href:ROUTES.music,kicker:'AUDIO',color:'#8de9fa',detail:'Tracks & sound'},
+ {key:'gaming',label:'Gaming',icon:'♜',href:ROUTES.gaming,kicker:'PLAY',color:'#a6a9ff',detail:'28 game experiences'},
+ {key:'store',label:'Store',icon:'◇',href:ROUTES.store,kicker:'MARKET',color:'#ffd48b',detail:'Shop & sell'},
+ {key:'meta',label:'Meta',icon:'◎',href:ROUTES.meta,kicker:'WORLDS',color:'#81edb6',detail:'Discover worlds'},
+ {key:'sports',label:'Sports',icon:'★',href:ROUTES.sports,kicker:'ARENA',color:'#ffc17b',detail:'Sports & highlights'},
+ {key:'upload',label:'Upload',icon:'↑',href:ROUTES.upload,kicker:'CREATE',color:'#8af0d3',detail:'Publish your work'},
+ {key:'gallery',label:'Gallery',icon:'▣',href:ROUTES.gallery,kicker:'VISUALS',color:'#d9a9ff',detail:'Visual collection'}
+] as const;
+const lanes=[['Identity & world', [['Avatar Studio',ROUTES.avatarCharacters,'Design your character'],['Enter the city',ROUTES.avatar,'Explore in 3D'],['Profile',ROUTES.profile,'Your Rich ID'],['Settings',ROUTES.settings,'Personalize your universe']]],
+ ['Entertainment',[['Watch',ROUTES.watch,'Discover videos'],['Podcasts',ROUTES.podcast,'Listen to shows'],['Radio',ROUTES.radio,'Find stations'],['Sports',ROUTES.sports,'Explore the arena']]],
+ ['Business & social',[['Creator',ROUTES.creator,'Creator tools'],['Creator Dimensions',ROUTES.creatorDimensions,'Build your presence'],['Feed',ROUTES.feed,'Connect with members'],['Upload',ROUTES.upload,'Publish across sections']]]] as const;
 const esc=(value:unknown)=>String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]??c));
-const money=(value:unknown)=>new Intl.NumberFormat('en-US',{style:'currency',currency:'USD',maximumFractionDigits:2}).format(Number(value??0)/100);
-const safeUrl=(value:unknown)=>{const raw=String(value??'').trim();return raw.startsWith('/')||raw.startsWith('https://')?raw:'';};
-const badge=(count:number,label:string)=>count>0?`<b data-count="${count}" aria-label="${count} new ${esc(label)} updates">${count>999?'999+':count}</b>`:'';
-
+const safeMedia=(v:unknown)=>{try{const u=new URL(String(v??''),location.origin);return u.protocol==='https:'||u.origin===location.origin?u.href:'';}catch{return'';}};
+const num=(v:unknown)=>{const n=Number(v);return Number.isFinite(n)?Math.max(0,Math.floor(n)):0;};
+const money=(v:unknown)=>new Intl.NumberFormat('en-US',{style:'currency',currency:'USD'}).format(num(v)/100);
 export async function mountPortalPage():Promise<void>{
  const app=document.querySelector<HTMLDivElement>('#app');if(!app)throw new Error('Missing #app mount');
  const mountEpoch=app.dataset.pageEpoch??'';let disposed=false;const user=getAuthSnapshot().user;const isCurrent=()=>!disposed&&!app.hidden&&getAuthSnapshot().user?.id===user?.id&&app.dataset.pageEpoch===mountEpoch&&app.dataset.pageOwner===CANONICAL_OWNER;
  if(!user||!isCurrent())return;
- const abort=new AbortController();const timer=window.setTimeout(()=>abort.abort(),9000);const cancel=()=>{disposed=true;abort.abort();};window.addEventListener('pagehide',cancel,{once:true});
- let snapshot:PortalSnapshot={};let snapshotReady=false;try{const{data,error}=await supabase.rpc('rb_portal_elite_snapshot',{}).abortSignal(abort.signal);if(!error&&data){snapshot=data as PortalSnapshot;snapshotReady=true;}}catch{/* Keep navigation available if optional dashboard data is unavailable. */}finally{clearTimeout(timer);window.removeEventListener('pagehide',cancel);}if(!isCurrent())return;
- const profile=snapshot.profile??{},level=snapshot.level??{},avatar=snapshot.avatar??{},settings=snapshot.settings??{},pulse=snapshot.section_pulse??{};
- const name=String(profile.display_name??profile.username??avatar.display_name??user.email?.split('@')[0]??'RICH BIZNESS');
- const avatarUrl=safeUrl(profile.avatar_url??avatar.avatar_url);const accent=String(settings.accent_color??'#31ff63');const richLevel=Number(level.level??profile.rich_level??avatar.level??1);const xpCurrent=Number(level.xp_current??0),xpNext=Math.max(1,Number(level.xp_next??100)),xpPercent=Math.min(100,Math.max(0,(xpCurrent/xpNext)*100));
- const motionLevel=String(settings.motion_level??'full').toLowerCase();const reducedMotion=matchMedia('(prefers-reduced-motion: reduce)').matches||motionLevel==='reduced'||motionLevel==='off';
- app.innerHTML=`<main class="portal-stage portal-stage--elite portal-stage--reset" style="--portal-accent:${esc(accent)};--portal-bg:url('${DEFAULT_PORTAL_BACKGROUND}')">
- <canvas id="portalMotionCanvas" class="portal-motion-canvas" aria-hidden="true"></canvas><div class="portal-bg" aria-hidden="true"></div><div class="portal-vignette" aria-hidden="true"></div>
- <header class="portal-topbar"><a class="portal-profile" href="${ROUTES.profile}"><span class="portal-profile__avatar">${avatarUrl?`<img src="${esc(avatarUrl)}" alt="">`:'RB'}<i></i></span><span class="portal-profile__copy"><small>WELCOME BACK</small><strong>${esc(name)}</strong><em>LEVEL ${richLevel}</em></span></a><div class="portal-brand"><small>RICH BIZNESS LLC</small><strong>UNIVERSE</strong></div></header>
- <section class="portal-world" aria-label="Rich Bizness Universe portal"><div class="portal-horizon" aria-hidden="true"></div><div class="portal-machine" aria-hidden="true"><div class="portal-machine__base"></div><div class="portal-machine__tunnel"></div><div class="portal-machine__membrane"></div><div class="portal-machine__frame"></div></div><div class="portal-core portal-core--unified"><span class="portal-core__content"><small>RICH BIZNESS LLC</small><strong>PORTAL</strong><span>CHOOSE YOUR UNIVERSE</span><b>${snapshotReady?xpCurrent.toLocaleString()+' / '+xpNext.toLocaleString()+' XP':'XP SYNC UNAVAILABLE'}</b><i><u style="width:${xpPercent}%"></u></i></span></div><nav class="portal-route-layer" aria-label="Universe destinations">${destinations.map((d,i)=>`<a class="portal-node portal-node--${d.position}" href="${d.href}" style="--node:${i};--delay:${i*.1}s"><span class="portal-node__icon">${d.icon}</span><span class="portal-node__copy"><small>${d.kicker}</small><strong>${d.label}</strong></span>${badge(Number(pulse[d.key]??0),d.label)}</a>`).join('')}</nav></section>
- <aside class="portal-actions"><a href="${ROUTES.search}"><span>⌕</span><small>SEARCH</small></a><a href="${ROUTES.messages}"><span>✦</span><small>DM</small>${snapshot.unread_threads?`<b>${snapshot.unread_threads}</b>`:''}</a><a href="${ROUTES.notifications}"><span>◌</span><small>ALERTS</small>${snapshot.unread_notifications?`<b>${snapshot.unread_notifications}</b>`:''}</a><a href="${ROUTES.avatarCharacters}"><span>◉</span><small>3D</small></a></aside>
- <footer class="portal-stats"><article><small>BALANCE</small><strong>${snapshotReady?money(profile.balance_cents):'—'}</strong></article><article><small>RICH POINTS</small><strong>${snapshotReady?Number(level.rich_points??profile.rich_points??0).toLocaleString():'—'}</strong></article><article><small>RANK</small><strong>${snapshotReady?esc(level.rank_title??profile.rank_title??'BIZ LEGEND'):'—'}</strong></article><article><small>ONLINE</small><strong>${snapshotReady?esc(String(profile.online_status??'LIVE').toUpperCase()):'RECONNECT'}</strong></article></footer></main>`;
- if(!isCurrent())return;const cleanupMotion=mountPortalMotion({reduced:reducedMotion});const cleanup=()=>{if(disposed)return;disposed=true;cleanupMotion();};(window as Window&{__rbPageCleanup?:(()=>void|Promise<void>)|null}).__rbPageCleanup=cleanup;window.addEventListener('pagehide',cleanup,{once:true});
+ const lifecycle=new AbortController();let pending:AbortController|undefined;let timeout=0;let lastSync=0;let cleanupMotion=()=>{};let currentReduced:boolean|undefined;
+ app.innerHTML=`<main class="portal-stage portal-stage--elite portal-command" aria-label="Rich Bizness command center">
+ <header class="portal-topbar"><a class="portal-profile" href="${ROUTES.profile}"><span class="portal-profile__avatar" id="rbPortalAvatar">RB</span><span><small>RICH ID</small><strong id="rbPortalName">Connected member</strong><em id="rbPortalLevel">Connecting…</em></span></a><div class="portal-brand"><small>RICH BIZNESS LLC</small><strong>UNIVERSE</strong><span>COMMAND CENTER</span></div></header>
+ <section class="pc-intro"><div><small>THE NEXT DIMENSION</small><h1>Your universe.<br><span>Your empire.</span></h1><p>One identity. Every experience.</p></div><div class="pc-sync"><span id="rbPortalStatus" role="status">Connecting dashboard…</span><button id="rbPortalRefresh" type="button" aria-label="Refresh dashboard">↻</button></div></section>
+ <section class="pc-main"><section class="portal-world" aria-label="Universe destinations"><canvas id="portalMotionCanvas" class="portal-motion-canvas" aria-hidden="true"></canvas><div class="pc-orbit" aria-hidden="true"><div class="pc-ring pc-ring-a"></div><div class="pc-ring pc-ring-b"></div><div class="pc-ring pc-ring-c"></div><div class="pc-aperture"></div></div><div class="portal-core"><small>OMNI CONNECTION</small><strong>PORTAL</strong><span>RICH ID LINK</span><b id="rbPortalXp">XP connecting…</b><i><u id="rbPortalProgress"></u></i></div><nav class="portal-route-layer" aria-label="Eight universe destinations">${destinations.map((d,i)=>{const angle=i*Math.PI/4-Math.PI/2;return `<a class="portal-node" href="${d.href}" style="--x:${(50+38*Math.cos(angle)).toFixed(3)}%;--y:${(50+38*Math.sin(angle)).toFixed(3)}%;--tone:${d.color}"><span class="portal-node__icon">${d.icon}</span><span class="portal-node__copy"><strong>${d.label}</strong><small>${d.kicker}</small></span></a>`;}).join('')}</nav></section>
+ <aside class="pc-control"><div class="pc-control-head"><small>DIRECT ACCESS</small><h2>Control deck</h2></div><div class="pc-actions"><a href="${ROUTES.search}">⌕ <span>Search</span></a><a href="${ROUTES.messages}">✦ <span>Messages</span><b id="rbPortalDM" hidden></b></a><a href="${ROUTES.notifications}">◌ <span>Alerts</span><b id="rbPortalAlerts" hidden></b></a><a href="${ROUTES.avatarCharacters}">◎ <span>Avatar Studio</span></a></div><a class="pc-feature" href="${ROUTES.avatar}"><small>ENTER THE NEXT DIMENSION</small><strong>Living world ↗</strong><span>Explore with your character</span></a><a class="pc-feature pc-feature-live" href="${ROUTES.live}"><small>LIVE CREATOR NETWORK</small><strong>Go live ↗</strong><span>Broadcast & connect</span></a></aside></section>
+ <section class="portal-stats" aria-label="Rich ID statistics">${[['BALANCE','rbPortalBalance'],['RICH POINTS','rbPortalPoints'],['RANK','rbPortalRank'],['STATUS','rbPortalOnline']].map(([label,id])=>`<article><small>${label}</small><strong id="${id}">—</strong></article>`).join('')}</section>
+ <section class="pc-destinations"><header><small>UNIVERSE DIRECTORY</small><h2>Every destination</h2></header><div class="pc-destination-grid">${destinations.map(d=>`<a href="${d.href}" style="--tone:${d.color}"><span>${d.icon}</span><div><strong>${d.label}</strong><small>${d.detail}</small></div><b>↗</b></a>`).join('')}</div></section>
+ <section class="pc-lanes" aria-label="Connected sections">${lanes.map(([title,links])=>`<article><h2>${title}</h2>${links.map(([label,href,desc])=>`<a href="${href}"><span><strong>${label}</strong><small>${desc}</small></span><b>↗</b></a>`).join('')}</article>`).join('')}</section><footer class="pc-footer"><a href="${ROUTES.home}">← Home / Omni Dial</a><span>RICH BIZNESS UNIVERSE</span></footer></main>`;
+ const get=(id:string)=>app.querySelector<HTMLElement>('#'+id);
+ const put=(id:string,value:unknown)=>{const el=get(id);if(el)el.textContent=String(value);};
+ const badge=(id:string,v:unknown)=>{const el=get(id),n=num(v);if(el){el.hidden=n===0;el.textContent=n>999?'999+':String(n);}};
+ const setMotion=(reduced:boolean)=>{if(currentReduced===reduced)return;currentReduced=reduced;cleanupMotion();app.querySelector('.portal-command')?.setAttribute('data-motion',reduced?'reduced':'full');cleanupMotion=mountPortalMotion({reduced});};
+ const prefers=matchMedia('(prefers-reduced-motion: reduce)');
+ setMotion(prefers.matches);
+ const apply=(s:PortalSnapshot)=>{const profile=s.profile??{},level=s.level??{},avatar=s.avatar??{},settings=s.settings??{};put('rbPortalName',profile.display_name??profile.username??avatar.display_name??'Rich member');put('rbPortalLevel','LEVEL '+Math.max(1,num(level.level??profile.rich_level)));const image=safeMedia(profile.avatar_url??avatar.avatar_url),holder=get('rbPortalAvatar');if(holder&&image&&holder.querySelector('img')?.src!==image){const img=document.createElement('img');img.alt='';img.src=image;img.onerror=()=>{if(holder.contains(img))holder.textContent='RB';};holder.replaceChildren(img);}
+ const xp=num(level.xp_current),next=Math.max(1,num(level.xp_next??100));put('rbPortalXp',xp.toLocaleString()+' / '+next.toLocaleString()+' XP');const progress=get('rbPortalProgress');if(progress)progress.style.width=Math.min(100,xp/next*100)+'%';
+ put('rbPortalBalance',money(profile.balance_cents));put('rbPortalPoints',num(level.rich_points??profile.rich_points).toLocaleString());put('rbPortalRank',level.rank_title??profile.rank_title??'Member');put('rbPortalOnline',String(profile.online_status??'connected').toUpperCase());badge('rbPortalDM',s.unread_threads);badge('rbPortalAlerts',s.unread_notifications);setMotion(prefers.matches||['reduced','off'].includes(String(settings.motion_level??'full').toLowerCase()));};
+ let snapshotReady=false;const refresh=async()=>{if(!isCurrent()||document.hidden||pending)return;const abort=new AbortController();pending=abort;timeout=window.setTimeout(()=>abort.abort(),9000);const button=app.querySelector<HTMLButtonElement>('#rbPortalRefresh');if(button)button.disabled=true;put('rbPortalStatus',snapshotReady?'Refreshing…':'Connecting dashboard…');try{const {data,error}=await supabase.rpc('rb_portal_elite_snapshot',{}).abortSignal(abort.signal);if(error||!data)throw Error('Dashboard unavailable');if(!isCurrent())return;apply(data as PortalSnapshot);snapshotReady=true;lastSync=Date.now();put('rbPortalStatus','Synced '+new Date(lastSync).toLocaleTimeString([],{hour:'numeric',minute:'2-digit'}));}catch{if(isCurrent())put('rbPortalStatus',snapshotReady?'Last sync retained · retry':'Dashboard unavailable · retry');}finally{clearTimeout(timeout);if(pending===abort)pending=undefined;if(isCurrent()&&button)button.disabled=false;}};
+ const poll=window.setInterval(()=>{if(!document.hidden&&Date.now()-lastSync>40000)void refresh();},45000);
+ document.addEventListener('visibilitychange',()=>{if(!document.hidden&&Date.now()-lastSync>30000)void refresh();},{signal:lifecycle.signal});
+ window.addEventListener('online',()=>void refresh(),{signal:lifecycle.signal});
+ prefers.addEventListener('change',()=>{if(prefers.matches)setMotion(true);else void refresh();},{signal:lifecycle.signal});
+ get('rbPortalRefresh')?.addEventListener('click',()=>void refresh(),{signal:lifecycle.signal});
+ const host=window as Window&{__rbPageCleanup?:(()=>void|Promise<void>)|null};const cleanup=()=>{if(disposed)return;disposed=true;lifecycle.abort();pending?.abort();clearTimeout(timeout);clearInterval(poll);cleanupMotion();if(host.__rbPageCleanup===cleanup)host.__rbPageCleanup=null;};host.__rbPageCleanup=cleanup;window.addEventListener('pagehide',cleanup,{signal:lifecycle.signal,once:true});
+ void refresh();
 }

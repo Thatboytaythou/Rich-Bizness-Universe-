@@ -3,8 +3,16 @@ import { dirname, resolve } from 'node:path';
 import { defineConfig, loadEnv } from 'vite';
 
 const webRoot = resolve(__dirname, 'apps/web');
-const portalBackgroundSource = resolve(__dirname, 'images/0E886281-8F03-4288-B3CA-C45369B7B58E.png');
-const portalBackgroundOutput = resolve(__dirname, 'apps/web/dist/images/0E886281-8F03-4288-B3CA-C45369B7B58E.png');
+// Publish existing original brand artwork before Vite resolves CSS. Explicit aliases
+// for legacy names whose original files are absent; do not mutate tracked source art.
+const brandImages = [
+ ['0E886281-8F03-4288-B3CA-C45369B7B58E.png','0E886281-8F03-4288-B3CA-C45369B7B58E.png'],
+ ['gta-style-elite.png.jpeg','gta-style-elite.png.jpeg'],
+ ['music-log.png.jpeg','music-logo.png.jpeg'],
+ ['hero-banner.png','brand/IMG_5997.png'],
+ ['hero-banner.png','brand/C54535CD-E2B2-481B-81C8-4CFA81CC2ACD.png']
+] as const;
+function publishBrandImages(){for(const [source,target] of brandImages){const output=resolve(webRoot,'public/images',target);mkdirSync(dirname(output),{recursive:true});copyFileSync(resolve(__dirname,'images',source),output);}}
 
 const vendorChunk = (id: string): string | undefined => {
   if (!id.includes('node_modules')) return undefined;
@@ -33,6 +41,7 @@ const vendorChunk = (id: string): string | undefined => {
 };
 
 export default defineConfig(({ mode }) => {
+  publishBrandImages();
   const env = loadEnv(mode, __dirname, '');
   const runtimeEnv = {
     NEXT_PUBLIC_SUPABASE_URL: env.NEXT_PUBLIC_SUPABASE_URL ?? '',
@@ -59,13 +68,6 @@ export default defineConfig(({ mode }) => {
           const surface = games.has(page) ? 'game' : 'universe';
           return html.replace(/<body\b/, '<body data-rb-visual="' + surface + '"').replace('</head>', '<link rel="stylesheet" href="/src/styles/beyond-cinematic.css">\n</head>');
         }
-      }
-    }, {
-      name: 'rb-publish-portal-background',
-      apply: 'build' as const,
-      writeBundle() {
-        mkdirSync(dirname(portalBackgroundOutput), { recursive: true });
-        copyFileSync(portalBackgroundSource, portalBackgroundOutput);
       }
     }],
     build: {

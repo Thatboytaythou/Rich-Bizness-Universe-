@@ -78,7 +78,7 @@ async function fitHDCharacter(gender:AvatarGender,raw:unknown,build:string,quali
    for(const material of Array.isArray(mesh.material)?mesh.material:[mesh.material]){
     const mat=material as THREE.MeshStandardMaterial;if(!mat.isMeshStandardMaterial||surfaces.has(mat))continue;
     const role=surfaceRole(mat.name,mesh.name);surfaces.set(mat,role);
-    if(role==='skin'){applyNaturalSkin(mat,look.skinFinish,portrait,fantasy,(enhanced||cinematic)&&uv,()=>microSkin??=skinMicroSurface());continue;}
+    if(role==='skin'){applyNaturalSkin(mat,look.skinFinish,portrait,fantasy,(enhanced||cinematic)&&uv,()=>microSkin??=skinMicroSurface(enhanced?256:128));continue;}
     if(role==='hair'||role==='facial-hair'){naturalHairMaterial(mat,role==='hair'?'hair':'facial');if(enhanced&&uv&&mat.map&&!mat.normalMap&&!mat.bumpMap){strands??=hairStrandNormal();mat.normalMap=strands;mat.normalScale.setScalar(role==='facial-hair'?.23:.38);mat.needsUpdate=true;}continue;}
     if(role==='eye'||role==='cornea'){mat.roughness=role==='cornea'?.08:fantasy?.20:.25;mat.metalness=0;mat.envMapIntensity=.65;continue;}
     if(role==='oral'){mat.metalness=0;mat.roughness=/teeth|tooth/i.test(mat.name)?.35:/tongue|gum/i.test(mat.name)?.57:.51;mat.envMapIntensity=.25;continue;}
