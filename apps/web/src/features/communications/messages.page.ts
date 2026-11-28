@@ -81,7 +81,9 @@ export async function mount(): Promise<void> {
   let typingThread:string|null=null;
   const lastRead=new Map<string,string>();
   const reactionPending=new Set<string>();
-  let directPending=false;
+  let directPending=false,attachmentBusy=false;
+  const privateMime=new Set(['image/jpeg','image/png','image/webp','video/mp4','audio/mpeg','audio/mp4','audio/webm','audio/ogg','application/pdf','application/vnd.openxmlformats-officedocument.wordprocessingml.document']);
+  const downloadUrls=new Set<string>();
   let privateCall:import('../../core/livekit/private-call').PrivateCallSession|null=null;
   let callAttempt=0,callConnecting=false;
   const callSurface=document.createElement('section');callSurface.className='comm-card active-call-strip';callSurface.hidden=true;callSurface.style.display='none';callSurface.setAttribute('aria-label','Private Rich Call');panel.parentElement?.after(callSurface);
@@ -159,14 +161,17 @@ export async function mount(): Promise<void> {
     // Discovery only from the versioned, server-verified call list.
     const activeCall:CallSession|null=null as CallSession|null;
     const defaultReaction = String((thread as any).default_reaction || '💨');
-    attachmentState.textContent = 'PRIVATE STORAGE REQUIRED';
+    let privateReady=false;let privateAssets:Array<{message_id:string;object_path:string;file_name:string}>=[];
+    try{const capability=await supabase.rpc('rb_dm_private_storage_ready_v2',{p_thread_id:threadId});if(capability.data===true&&!capability.error&&currentThread(threadId)){const result=await supabase.from('rb_dm_private_assets').select('message_id,object_path,file_name').eq('thread_id',threadId).limit(350);if(!result.error){privateReady=true;privateAssets=(result.data??[]) as unknown as typeof privateAssets;}}}catch{/* absent migration or disconnected backend: fail closed */}
+    if(!currentThread(threadId))return;
+    attachmentState.textContent = privateReady?'PRIVATE READY':'PRIVATE STORAGE REQUIRED';
     const priorInput=panel.querySelector<HTMLInputElement>('#messageInput');
     const priorFeed=panel.querySelector<HTMLElement>('#messageFeed');
     const keepFocus=priorInput===document.activeElement;
     const keepScroll=priorFeed&&priorFeed.scrollHeight-priorFeed.scrollTop-priorFeed.clientHeight>80;
     const previousScroll=priorFeed?.scrollTop??0;
 
-    panel.innerHTML = `<header class="thread-title"><div><strong>${esc(String((thread as any).title || 'Rich Conversation'))}</strong><p>${esc(String((thread as any).typing_label || 'Private member room'))}</p></div><div class="thread-actions"><button id="audioCall" title="Audio call">☎</button><button id="videoCall" title="Video call">◉</button><button id="threadInfo" title="Conversation settings">⋯</button></div></header>${activeCall ? `<section class="active-call-strip"><div><small>${esc(String(activeCall.call_type || 'rich call').toUpperCase())}</small><strong>${esc(String(activeCall.call_status || 'ACTIVE').toUpperCase())}</strong></div><a href="${ROUTES.messages}?thread=${encodeURIComponent(threadId)}&call=${encodeURIComponent(activeCall.id)}">REJOIN CALL</a></section>` : ''}${sharedPostPending?'<button id="confirmSharedPost" class="comm-button" type="button">Share selected post to this conversation</button>':''}<div id="messageFeed" class="message-feed"></div><div id="typingRow" class="typing-row">${esc(typing[0]?.typing_label || '')}</div><form id="composer" class="composer"><button id="attachButton" class="icon-button" type="button" aria-label="Private attachments unavailable" title="Private attachment storage is not verified" disabled>＋</button><input id="messageInput" maxlength="2000" autocomplete="off" placeholder="Send a Rich-DM..."/><button class="comm-button primary">SEND</button><input id="attachmentInput" type="file" disabled hidden accept="image/*,video/*,audio/*,.pdf,.doc,.docx"/></form>`;
+    panel.innerHTML = `<header class="thread-title"><div><strong>${esc(String((thread as any).title || 'Rich Conversation'))}</strong><p>${esc(String((thread as any).typing_label || 'Private member room'))}</p></div><div class="thread-actions"><button id="audioCall" title="Audio call">☎</button><button id="videoCall" title="Video call">◉</button><button id="threadInfo" title="Conversation settings">⋯</button></div></header>${activeCall ? `<section class="active-call-strip"><div><small>${esc(String(activeCall.call_type || 'rich call').toUpperCase())}</small><strong>${esc(String(activeCall.call_status || 'ACTIVE').toUpperCase())}</strong></div><a href="${ROUTES.messages}?thread=${encodeURIComponent(threadId)}&call=${encodeURIComponent(activeCall.id)}">REJOIN CALL</a></section>` : ''}${sharedPostPending?'<button id="confirmSharedPost" class="comm-button" type="button">Share selected post to this conversation</button>':''}<div id="messageFeed" class="message-feed"></div><div id="typingRow" class="typing-row">${esc(typing[0]?.typing_label || '')}</div><form id="composer" class="composer"><button id="attachButton" class="icon-button" type="button" aria-label="${privateReady?'Attach private file':'Private attachments unavailable'}" ${privateReady?'':'disabled'}>＋</button><input id="messageInput" maxlength="2000" autocomplete="off" placeholder="Send a Rich-DM..."/><button class="comm-button primary">SEND</button><input id="attachmentInput" type="file" ${privateReady?'':'disabled'} hidden accept="image/jpeg,image/png,image/webp,video/mp4,audio/mpeg,audio/mp4,audio/webm,audio/ogg,.pdf,.docx"/></form>`;
 
     const feed = panel.querySelector<HTMLElement>('#messageFeed')!;
     feed.innerHTML = messages.length ? messages.map((message) => {
@@ -184,7 +189,8 @@ export async function mount(): Promise<void> {
         if (mime.startsWith('audio/')) return `<audio class="message-media-player" controls preload="metadata" src="${esc(href)}"></audio>`;
         return `<a class="message-attachment" href="${esc(href)}" target="_blank" rel="noopener"><span>OPEN FILE</span><strong>${esc(name)}</strong><small>${esc(bytes(item.file_size))}</small></a>`;
       }).join('');
-      return `<article class="bubble ${message.sender_id === user.id ? 'mine' : ''}" data-message="${message.id}"><p>${esc(message.body || '')}</p>${media}<small>${esc(message.display_name || message.username || 'Rich Member')} · ${stamp(message.created_at)}${message.is_edited ? ' · edited' : ''}</small><div class="bubble-tools"><button type="button" data-react="${esc(defaultReaction)}">${esc(defaultReaction)} ${counts[defaultReaction] || ''}</button><button type="button" data-react="🔥">🔥 ${counts['🔥'] || ''}</button><button type="button" data-react="💯">💯 ${counts['💯'] || ''}</button></div></article>`;
+      const privateLinks=privateAssets.filter(a=>a.message_id===message.id).map((a)=>`<button type="button" class="message-attachment" data-private-asset="${esc(a.object_path)}">Download ${esc(a.file_name)}</button>`).join('');
+      return `<article class="bubble ${message.sender_id === user.id ? 'mine' : ''}" data-message="${message.id}"><p>${esc(message.body || '')}</p>${media}${privateLinks}<small>${esc(message.display_name || message.username || 'Rich Member')} · ${stamp(message.created_at)}${message.is_edited ? ' · edited' : ''}</small><div class="bubble-tools"><button type="button" data-react="${esc(defaultReaction)}">${esc(defaultReaction)} ${counts[defaultReaction] || ''}</button><button type="button" data-react="🔥">🔥 ${counts['🔥'] || ''}</button><button type="button" data-react="💯">💯 ${counts['💯'] || ''}</button></div></article>`;
     }).join('') : '<div class="comm-empty rich-dm-empty"><span>💨</span><h2>Start the conversation</h2><p>Send a message, attachment, reaction or Rich Call.</p></div>';
     feed.scrollTop = keepScroll?previousScroll:feed.scrollHeight;
 
@@ -226,7 +232,14 @@ export async function mount(): Promise<void> {
       typingTimer = window.setTimeout(() => {typingThread=null;void setTyping(threadId,false);}, 1400);
     };
 
-    // Upload disabled until a member-scoped private bucket and authorized delivery exist.
+    // Activate only after the versioned membership and private bucket contract returns true.
+    const fileInput=panel.querySelector<HTMLInputElement>('#attachmentInput')!,attach=panel.querySelector<HTMLButtonElement>('#attachButton')!;
+    attach.onclick=()=>{if(privateReady&&!attachmentBusy&&currentThread(threadId))fileInput.click();};
+    fileInput.onchange=async()=>{const file=fileInput.files?.[0];if(!file||attachmentBusy||!privateReady||!currentThread(threadId))return;if(!privateMime.has(file.type)||file.size<=0||file.size>26214400){setStatus('Unsupported file type or file exceeds 25 MB.');fileInput.value='';return;}
+      attachmentBusy=true;attach.disabled=true;const path=threadId+'/'+user.id+'/'+crypto.randomUUID();
+      try{const uploaded=await supabase.storage.from('rich-dm-private').upload(path,file,{upsert:false,contentType:file.type,cacheControl:'0'});if(uploaded.error||!currentThread(threadId))throw Error('Private upload not confirmed.');const result=await supabase.rpc('rb_dm_finalize_private_asset',{p_thread_id:threadId,p_object_path:path,p_file_name:file.name});if(result.error||!result.data||!currentThread(threadId))throw Error('Private file delivery not confirmed.');setStatus('Private attachment delivered.');}
+      catch{if(currentThread(threadId))setStatus('Private delivery not confirmed. Check conversation before retrying.');}finally{attachmentBusy=false;if(currentThread(threadId)){attach.disabled=false;fileInput.value='';scheduleThread(threadId);}}};
+    feed.querySelectorAll<HTMLButtonElement>('[data-private-asset]').forEach(button=>button.onclick=async()=>{const asset=privateAssets.find(a=>a.object_path===button.dataset.privateAsset);if(!asset||!privateReady||!currentThread(threadId)||button.disabled)return;button.disabled=true;try{const {data,error}=await supabase.storage.from('rich-dm-private').download(asset.object_path);if(error||!data||!currentThread(threadId))throw Error('Private access unavailable.');const href=URL.createObjectURL(data);downloadUrls.add(href);const a=document.createElement('a');a.href=href;a.download=asset.file_name;a.click();setTimeout(()=>{URL.revokeObjectURL(href);downloadUrls.delete(href);},15000);}catch{setStatus('Private attachment unavailable.');}finally{if(button.isConnected)button.disabled=false;}});
 
     const startCall = async (type: 'audio' | 'video') => {
       if (!currentThread(threadId)||verifiedThread!==threadId) return;
@@ -262,13 +275,13 @@ export async function mount(): Promise<void> {
 
   const refreshThread = async (threadId: string) => {
     if (!currentThread(threadId)) return;
-    if(loadingThread||sending||sharing){threadQueued=true;return;}
+    if(loadingThread||sending||sharing||attachmentBusy){threadQueued=true;return;}
     loadingThread = true;const revision=threadRevision;
     try {
       const { data, error } = await supabase.rpc('rb_dm_thread_snapshot', { p_thread_id: threadId, p_limit: 350 });
       if (!currentThread(threadId)||revision!==threadRevision) return;
       if (error||!data||String((data as ThreadSnapshot).thread?.id??'')!==threadId) throw Error('Conversation could not be verified.');
-      if(sending||sharing){threadQueued=true;return;}
+      if(sending||sharing||attachmentBusy){threadQueued=true;return;}
       await drawThread(threadId, data as ThreadSnapshot);
     } catch (caught) {
       if(currentThread(threadId)){leaveCall();verifiedThread=null;panel.innerHTML='<div class="comm-empty" role="status">Conversation unavailable. Reopen the thread to retry.</div>';activeState.textContent='UNVERIFIED';setStatus('Conversation could not be verified.');}
@@ -276,7 +289,7 @@ export async function mount(): Promise<void> {
   };
 
   const openThread = async (threadId: string) => {
-    if (!isCurrent() || sending||sharing||!isUuid(threadId)) return;
+    if (!isCurrent() || sending||sharing||attachmentBusy||!isUuid(threadId)) return;
     if(opening||loadingThread){queuedOpen=threadId;return;}
     opening=true;
     try{
@@ -372,7 +385,7 @@ export async function mount(): Promise<void> {
   document.addEventListener('visibilitychange',reconnect);window.addEventListener('online',reconnect);
   const cleanup = async () => {
     if (destroyed) return;
-    destroyed = true;leaveCall();callSurface.remove();drafts.clear();document.removeEventListener('visibilitychange',reconnect);window.removeEventListener('online',reconnect);if(threadRefreshTimer)clearTimeout(threadRefreshTimer);
+    destroyed = true;for(const href of downloadUrls)URL.revokeObjectURL(href);downloadUrls.clear();leaveCall();callSurface.remove();drafts.clear();document.removeEventListener('visibilitychange',reconnect);window.removeEventListener('online',reconnect);if(threadRefreshTimer)clearTimeout(threadRefreshTimer);
     if (typingTimer) window.clearTimeout(typingTimer);
     if (refreshTimer) window.clearTimeout(refreshTimer);
     if (statusTimer) window.clearTimeout(statusTimer);

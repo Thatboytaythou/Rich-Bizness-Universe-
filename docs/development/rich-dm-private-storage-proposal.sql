@@ -126,4 +126,10 @@ language sql stable security definer set search_path='' as $$
 $$;
 revoke all on function public.rb_dm_list_verified_calls_v2(uuid) from public,anon;
 grant execute on function public.rb_dm_list_verified_calls_v2(uuid) to authenticated;
+create function public.rb_dm_private_storage_ready_v2(p_thread_id uuid) returns boolean
+language sql stable security definer set search_path='' as $$
+ select rb_dm_private.member(p_thread_id::text) and exists(select 1 from storage.buckets where id='rich-dm-private' and public=false and file_size_limit=26214400)
+$$;
+revoke all on function public.rb_dm_private_storage_ready_v2(uuid) from public,anon;
+grant execute on function public.rb_dm_private_storage_ready_v2(uuid) to authenticated;
 commit;

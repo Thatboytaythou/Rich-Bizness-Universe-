@@ -11,7 +11,7 @@ export type Database = {
       avatar_animation_clips: Table; avatar_character_presets: Table; avatar_controller_profiles: Table; avatar_inventory: Table; avatar_items: Table; avatar_models: Table; avatar_motion_state: Table;
       background_presets: Table; badges: Table; brand_assets: Table;
       content_review_queue: Table; creator_alert_subscriptions: Table; creator_available_balances: Table; creator_page_settings: Table;
-      dm_call_participants: Table; dm_call_sessions: Table; dm_message_attachments: Table; dm_message_reactions: Table; dm_message_reads: Table; dm_messages: Table; dm_thread_members: Table; dm_threads: Table; dm_typing_status: Table;
+      rb_dm_private_assets: Table; dm_call_participants: Table; dm_call_sessions: Table; dm_message_attachments: Table; dm_message_reactions: Table; dm_message_reads: Table; dm_messages: Table; dm_thread_members: Table; dm_threads: Table; dm_typing_status: Table;
       elite_creator_designs: Table; elite_listing_requests: Table;
       feature_flags: Table; feed_comments: Table; feed_post_likes: Table; feed_post_views: Table; feed_posts: Table; followers: Table;
       game_alert_subscriptions: Table; game_categories: Table; game_challenges: Table; game_clips: Table; game_comments: Table; game_levels: Table; game_likes: Table; game_missions: Table; game_moves: Table; game_platform_accounts: Table; game_player_progress: Table; game_rewards: Table; game_room_members: Table; game_rooms: Table; game_runtime_manifests: Table; game_scores: Table; game_sessions: Table; game_stream_links: Table; game_tournaments: Table; gamer_profiles: Table; games: Table; gaming_uploads: Table;
@@ -41,6 +41,8 @@ export type Database = {
       rb_creator_dimension_snapshot: { Args: Record<string, never>; Returns: Json };
       rb_creator_request_dimension: { Args: { p_dimension_key: string }; Returns: Json };
       rb_creator_save_page: { Args: { p_payload: Json }; Returns: Json };
+      rb_dm_private_storage_ready_v2: { Args: { p_thread_id: string }; Returns: boolean };
+      rb_dm_finalize_private_asset: { Args: { p_thread_id: string; p_object_path: string; p_file_name: string }; Returns: string };
       rb_dm_finalize_attachment: { Args: { p_thread_id: string; p_file_url: string; p_file_name: string; p_mime_type: string; p_file_size: number; p_storage_path: string }; Returns: string };
       rb_dm_mark_thread_read: { Args: { p_thread_id: string }; Returns: Json };
       rb_dm_search_profiles: { Args: { p_query: string; p_limit?: number }; Returns: { id: string | null; username: string | null; display_name: string | null; avatar_url: string | null; online_status: string | null }[] };

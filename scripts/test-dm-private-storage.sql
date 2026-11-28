@@ -26,13 +26,13 @@ select set_config('request.jwt.claim.sub','11111111-1111-4111-8111-111111111111'
 do $$begin
  if public.rb_dm_authorize_call_v2('dddddddd-dddd-4ddd-8ddd-dddddddddddd') is not null then raise exception 'unreviewed call authorized';end if;
  if has_table_privilege(current_user,'public.dm_thread_members','INSERT') or has_table_privilege(current_user,'public.dm_call_participants','INSERT') or has_table_privilege(current_user,'public.dm_call_sessions','UPDATE') then raise exception 'direct membership or call mutation allowed';end if;
- if rb_dm_private.member('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa') then raise exception 'unreviewed membership trusted';end if;
+ if public.rb_dm_private_storage_ready_v2('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa') then raise exception 'unreviewed membership trusted';end if;
 end$$;
 reset role;
 insert into rb_dm_private.trusted_threads(thread_id) values('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa');
 insert into rb_dm_private.trusted_calls(call_id) values('dddddddd-dddd-4ddd-8ddd-dddddddddddd');
 set role authenticated;
-do $$begin if coalesce(public.rb_dm_authorize_call_v2('dddddddd-dddd-4ddd-8ddd-dddddddddddd')->>'role','')<>'host' then raise exception 'verified call denied';end if;if jsonb_array_length(public.rb_dm_list_verified_calls_v2('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'))<>1 then raise exception 'verified call list missing';end if;end$$;
+do $$begin if not public.rb_dm_private_storage_ready_v2('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa') then raise exception 'verified private storage unavailable';end if;if coalesce(public.rb_dm_authorize_call_v2('dddddddd-dddd-4ddd-8ddd-dddddddddddd')->>'role','')<>'host' then raise exception 'verified call denied';end if;if jsonb_array_length(public.rb_dm_list_verified_calls_v2('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'))<>1 then raise exception 'verified call list missing';end if;end$$;
 select set_config('request.jwt.claim.sub','11111111-1111-4111-8111-111111111111',false);
 insert into storage.objects(bucket_id,name,owner_id,metadata) values('rich-dm-private','aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa/11111111-1111-4111-8111-111111111111/bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',auth.uid()::text,'{"size":1024,"mimetype":"image/png"}');
 do $$begin
