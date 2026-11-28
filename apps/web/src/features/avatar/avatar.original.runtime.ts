@@ -38,7 +38,9 @@ export function createOriginalAvatar(gender:AvatarGender,raw:unknown,build='athl
     const abdomen=Math.exp(-1*((y-.135)/.075)**2);
     const side=Math.exp(-1*((Math.abs(x)-shoulder*.48)/.075)**2);
     const front=z>0?1:0;
-    tp.setXYZ(i,x,y,z*(.56*(1+.15*shape('chest')))+(front?1:-1)*Math.abs(z)*(chest*side*(front?.14:.09)+abdomen*.035));
+    const fold=Math.sin(y*112+x*26)*Math.exp(-1*((y-.075)/.045)**2)*.0025;
+    const seam=Math.exp(-1*((Math.abs(x)-shoulder*.82)/.013)**2)*Math.sin(Math.PI*THREE.MathUtils.clamp(y/.39,0,1))*.002;
+    tp.setXYZ(i,x,y,z*(.56*(1+.15*shape('chest')))+(front?1:-1)*(Math.abs(z)*(chest*side*(front?.14:.09)+abdomen*.035)+Math.min(1,Math.abs(z)*30)*(fold+seam)));
   }
   tp.needsUpdate=true;torsoGeo.computeVertexNormals();mesh(spine,torsoGeo,fabric);
   if(look.top==='jacket'||look.top==='hoodie'){box(spine,trim,0,.18,.099,.027,.35,.013);box(spine,gold,0,.22,.11,.009,.24,.009);}
@@ -64,7 +66,12 @@ export function createOriginalAvatar(gender:AvatarGender,raw:unknown,build='athl
       +.026*gaussian(x,y,0,-.019,.017,.013)
       +.006*gaussian(ax,y,.016,-.023,.008,.008)
       +.007*gaussian(x,y,0,-.049,.030,.014)
-      +.008*gaussian(x,y,0,-.096,.035,.018);
+      +.008*gaussian(x,y,0,-.096,.035,.018)
+      +.004*gaussian(ax,y,.064,.012,.019,.025)
+      -.003*gaussian(ax,y,.057,-.047,.018,.023)
+      +.004*gaussian(ax,y,.027,-.037,.009,.012)
+      -.0025*gaussian(x,y,0,-.039,.005,.009)
+      +.003*gaussian(ax,y,.025,.062,.022,.018);
   };
   for(let i=0;i<pos.count;i++){
     const sx=pos.getX(i),sy=pos.getY(i),sz=pos.getZ(i);
