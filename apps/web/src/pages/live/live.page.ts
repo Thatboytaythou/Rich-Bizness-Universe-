@@ -64,6 +64,8 @@ export async function mount(): Promise<void> {
   let viewerRoom: Room | null = null;
   let viewerJoinedStreamId: string | null = null;
   let viewerDisconnecting = false;
+  let viewerStarting = false;
+  let roomEpoch = 0;
   let hostRoom: Room | null = null;
   let hostVideo: LocalVideoTrack | null = null;
   let hostAudio: LocalAudioTrack | null = null;
@@ -93,10 +95,10 @@ export async function mount(): Promise<void> {
     viewerRoom = null;
     viewerJoinedStreamId = null;
     try {
-      if (record) await recordViewerLeave(joinedStreamId, source);
       viewerElements.forEach((element) => { element.pause(); element.srcObject = null; element.remove(); });
       viewerElements.clear();
       if (room) await room.disconnect().catch(() => undefined);
+      if (record) await recordViewerLeave(joinedStreamId, source);
     } finally {
       viewerDisconnecting = false;
     }
@@ -111,8 +113,9 @@ export async function mount(): Promise<void> {
     hostAudio?.stop();
     hostVideo = null;
     hostAudio = null;
-    if (hostRoom) await hostRoom.disconnect().catch(() => undefined);
-    hostRoom = null;
+    const room=hostRoom;
+    hostRoom=null;
+    if (room) await room.disconnect().catch(() => undefined);
   };
 
   const initialStudio = user ? await supabase.rpc('rb_go_live_bootstrap', {}) : { data: {}, error: null };
@@ -185,6 +188,7 @@ export async function mount(): Promise<void> {
     gridEl.querySelectorAll<HTMLElement>('[data-id]').forEach((card)=>card.onclick=()=>{const row=list.find((item)=>String(item.id)===card.dataset.id);if(row)void open(row);});
     if(!active){heroEl.innerHTML=user?'<div class="media-ultimate__empty"><strong>YOUR LIVE COMMAND IS READY.</strong><span>Pick a live room or launch your own.</span></div>':'<div class="media-ultimate__empty"><strong>WE LIT 🔥</strong><span>Pick any public live room to pop in.</span></div>';detailEl.innerHTML='';chatEl.innerHTML='<div class="media-ultimate__empty">Pop in a room.</div>';activityEl.innerHTML='';return;}
     heroEl.innerHTML=hero(active);
+    if(viewerRoom && viewerJoinedStreamId===String(active.id)){const stage=heroEl.querySelector('#viewerStage');viewerElements.forEach(element=>stage?.append(element));}
     detailEl.innerHTML=[['ROOM',active.display_room_name||active.category||'BIZNESS PARTY'],['HOST',active.display_name||active.username||'Rich Creator'],['ACCESS',String(active.access_type||'free').toUpperCase()],['VIEWERS',Number(active.viewer_count??0).toLocaleString()],['STATUS',String(active.status_label||active.status||'LIVE').toUpperCase()]].map(([label,value])=>`<div class="media-ultimate__row"><div><h5>${esc(label)}</h5><p>${esc(value)}</p></div></div>`).join('');
     chatEl.innerHTML=chatRows.length?chatRows.map((row)=>`<article><p>${esc(row.message)}</p><small>${esc(row.display_name||row.username||'Rich Member')}</small>${owned(active)&&!row.is_pinned?`<button data-pin-message="${esc(row.id)}">PIN</button>`:''}</article>`).join(''):'<div class="media-ultimate__empty">Start the room conversation.</div>';
     activityEl.innerHTML=activityRows.slice(0,8).map((row)=>`<span>${esc(row.activity_type||'activity')} · ${esc(row.display_name||row.username||'Rich Member')}</span>`).join('');
@@ -220,8 +224,10 @@ export async function mount(): Promise<void> {
     const epoch=++snapshotEpoch;
     do{
       snapshotQueued=false;
-      const {data,error}=await supabase.rpc('rb_live_snapshot',{p_stream_id:active?.id??null});
+      const streamId=active?.id??null;
+      const {data,error}=await supabase.rpc('rb_live_snapshot',{p_stream_id:streamId});
       if(!isCurrent()||epoch!==snapshotEpoch)break;
+      if((active?.id??null)!==streamId){snapshotQueued=true;continue;}
       if(error){showActionError(error.message);}else{applySnapshot(data);renderRoom();}
     }while(snapshotQueued&&isCurrent());
     snapshotBusy=false;
@@ -229,14 +235,17 @@ export async function mount(): Promise<void> {
 
   const open = async (row: Row) => {
     if (!isCurrent() || !liveNow(row)) return;
+    const opening=++roomEpoch;
     active=row;
+    chatRows=[];activityRows=[];memberRows=[];tipRows=[];purchaseRows=[];
     setStreamUrl(row);
     await disconnectViewer(true, 'switch-room');
-    if(roomChannel)await supabase.removeChannel(roomChannel);
-    roomChannel=null;
-    if (!isCurrent()) return;
+    if(!isCurrent()||opening!==roomEpoch)return;
+    const oldChannel=roomChannel;roomChannel=null;
+    if(oldChannel)await supabase.removeChannel(oldChannel);
+    if (!isCurrent()||opening!==roomEpoch) return;
     await refresh();
-    if(!isCurrent())return;
+    if(!isCurrent()||opening!==roomEpoch)return;
     roomChannel=supabase.channel(`live-room:${row.id}:${mountEpoch}`)
       .on('postgres_changes',{event:'*',schema:'public',table:'live_chat_messages',filter:`stream_id=eq.${row.id}`},()=>void refresh())
       .on('postgres_changes',{event:'INSERT',schema:'public',table:'live_reactions',filter:`stream_id=eq.${row.id}`},(payload)=>{if(isCurrent())burst(String((payload.new as Row).reaction??'💨'));})
@@ -251,34 +260,40 @@ export async function mount(): Promise<void> {
   const tokenFor = async (stream: Row, role: 'host'|'viewer') => { if(!requireUser())throw new Error('Tap in to enter Live rooms.');const {data:{session}}=await supabase.auth.getSession();if(!session)throw new Error('Your Rich ID session expired.');const response=await fetch('/api/live/token',{method:'POST',headers:{'Content-Type':'application/json',Authorization:`Bearer ${session.access_token}`},body:JSON.stringify({roomName:stream.livekit_room_name,streamId:stream.id,role})});const payload=await response.json();if(!response.ok)throw new Error(payload.error||'Live room token failed.');return payload; };
 
   const popIn = async (stream: Row) => {
+    if(viewerStarting||viewerDisconnecting||!isCurrent())return;
+    viewerStarting=true;
+    const opening=roomEpoch;
+    const valid=()=>isCurrent()&&opening===roomEpoch&&String(active?.id)===String(stream.id);
     let joined = false;
     try {
       await disconnectViewer(true, 'replace-viewer');
-      if (!isCurrent()) return;
+      if (!valid()) return;
       active=stream;
       const joinResult=await runLiveAction('join',{source:'livekit-viewer',device_info:{platform:navigator.platform,user_agent:navigator.userAgent}});
       if(!joinResult)throw new Error('Could not register this Live room session.');
       joined=true;
+      if(!valid()){await recordViewerLeave(String(stream.id),'stale-join');return;}
       viewerJoinedStreamId=String(stream.id);
       const payload=await tokenFor(stream,'viewer');
-      if (!isCurrent()) return;
+      if (!valid()){await disconnectViewer(true,'stale-token');return;}
       const room=new Room({adaptiveStream:true,dynacast:true});
       viewerRoom=room;
-      room.on(RoomEvent.TrackSubscribed,(track)=>{if(!isCurrent())return;const stage=root.querySelector<HTMLElement>('#viewerStage');if(!stage)return;const element=lockMedia(track.attach(),track.kind===Track.Kind.Video?'live-inline-video':'live-inline-audio');viewerElements.add(element);stage.append(element);});
+      room.on(RoomEvent.TrackSubscribed,(track)=>{if(!valid()||viewerRoom!==room)return;const element=lockMedia(track.attach(),track.kind===Track.Kind.Video?'live-inline-video':'live-inline-audio');viewerElements.add(element);root.querySelector<HTMLElement>('#viewerStage')?.append(element);});
       room.on(RoomEvent.TrackUnsubscribed,(track)=>track.detach().forEach((element)=>{viewerElements.delete(element);element.remove();}));
-      room.on(RoomEvent.Disconnected,()=>{if(!isCurrent()||viewerDisconnecting)return;const streamId=viewerJoinedStreamId;viewerRoom=null;viewerJoinedStreamId=null;void recordViewerLeave(streamId,'livekit-disconnected').finally(()=>{if(isCurrent())renderRoom();});});
+      room.on(RoomEvent.Disconnected,()=>{if(!isCurrent()||viewerDisconnecting||viewerRoom!==room)return;const streamId=viewerJoinedStreamId;viewerRoom=null;viewerJoinedStreamId=null;void recordViewerLeave(streamId,'livekit-disconnected').finally(()=>{if(isCurrent())renderRoom();});});
       await room.connect(payload.url,payload.token);
-      if (!isCurrent()) return;
+      if (!valid()||viewerRoom!==room){await room.disconnect().catch(()=>undefined);return;}
       heroEl.innerHTML=`<div id="viewerStage" class="live-viewer-stage"></div><div class="media-ultimate__hero-copy"><span class="media-ultimate__eyebrow">NOW WATCHING · ${esc(stream.display_room_name||stream.category||'BIZNESS PARTY')}</span><h2>${esc(stream.title)}</h2><p>You popped in. WE LIT🔥</p><div class="media-ultimate__actions"><button id="leaveRoomBtn" class="media-ultimate__btn">LEAVE ROOM</button><a class="media-ultimate__btn" href="/watch.html?lane=live">WE 🔥📺 REPLAYS</a></div></div>`;
+      viewerElements.forEach(element=>heroEl.querySelector('#viewerStage')?.append(element));
       q<HTMLButtonElement>('#leaveRoomBtn').onclick=async()=>{await disconnectViewer(true,'viewer-left');renderRoom();};
     } catch(error){
       if(joined)await disconnectViewer(true,'viewer-connect-failed');
       else await disconnectViewer(false);
-      showActionError(error instanceof Error?error.message:'Could not pop in.');
-    }
+      if(isCurrent())showActionError(error instanceof Error?error.message:'Could not pop in.');
+    }finally{viewerStarting=false;}
   };
 
-  const connectHost = async (stream: Row) => { studioStatus.textContent='CHECKING CAMERA + MIC...';await stopHost();const payload=await tokenFor(stream,'host');if(!isCurrent())return;const room=new Room({adaptiveStream:true,dynacast:true});hostRoom=room;room.on(RoomEvent.Disconnected,()=>{if(isCurrent()&&hostRoom){studioStatus.textContent='LIVE ROOM DISCONNECTED';}});await room.connect(payload.url,payload.token);if(!isCurrent())return;hostVideo=await createLocalVideoTrack({facingMode:'user',resolution:{width:1280,height:720}});hostAudio=await createLocalAudioTrack({echoCancellation:true,noiseSuppression:true,autoGainControl:true});await room.localParticipant.publishTrack(hostVideo,{simulcast:true});await room.localParticipant.publishTrack(hostAudio);studioPreview.innerHTML=`<div id="hostVideoMount" class="live-host-stage"></div><span class="live-host-badge">● WE LIT🔥</span><div class="live-host-controls"><button id="toggleMic">🎙️</button><button id="toggleCam">📹</button><button id="endLive" class="danger">■</button></div><div class="live-studio__preview-overlay"><small>${esc(stream.display_room_name||'BIZNESS PARTY')}</small><h3>${esc(stream.title)}</h3></div>`;const element=lockMedia(hostVideo.attach(),'live-inline-video live-host-video');element.muted=true;element.autoplay=true;q<HTMLElement>('#hostVideoMount').append(element);heartbeat=window.setInterval(()=>{if(isCurrent())void supabase.rpc('rb_live_heartbeat',{p_stream_id:stream.id});},30000);studioStatus.textContent=`WE LIT🔥 — YOU LIVE AS ${String(profile.display_name||profile.username||'RICH CREATOR').toUpperCase()}`;q<HTMLButtonElement>('#toggleMic').onclick=async()=>{if(hostAudio){await hostAudio.setMuted(!hostAudio.isMuted);q<HTMLButtonElement>('#toggleMic').textContent=hostAudio.isMuted?'🔇':'🎙️';}};q<HTMLButtonElement>('#toggleCam').onclick=async()=>{if(hostVideo){await hostVideo.setMuted(!hostVideo.isMuted);q<HTMLButtonElement>('#toggleCam').textContent=hostVideo.isMuted?'🚫':'📹';}};q<HTMLButtonElement>('#endLive').onclick=()=>void endLive(stream); };
+  const connectHost = async (stream: Row) => { studioStatus.textContent='CHECKING CAMERA + MIC...';await stopHost();const payload=await tokenFor(stream,'host');if(!isCurrent())return;const room=new Room({adaptiveStream:true,dynacast:true});hostRoom=room;room.on(RoomEvent.Disconnected,()=>{if(isCurrent()&&hostRoom){studioStatus.textContent='LIVE ROOM DISCONNECTED';}});await room.connect(payload.url,payload.token);const valid=()=>isCurrent()&&hostRoom===room;if(!valid()){await room.disconnect().catch(()=>undefined);return;}const video=await createLocalVideoTrack({facingMode:'user',resolution:{width:1280,height:720}});if(!valid()){video.stop();return;}hostVideo=video;const audio=await createLocalAudioTrack({echoCancellation:true,noiseSuppression:true,autoGainControl:true});if(!valid()){audio.stop();video.stop();return;}hostAudio=audio;await room.localParticipant.publishTrack(video,{simulcast:true});if(!valid())return;await room.localParticipant.publishTrack(audio);if(!valid())return;studioPreview.innerHTML=`<div id="hostVideoMount" class="live-host-stage"></div><span class="live-host-badge">● WE LIT🔥</span><div class="live-host-controls"><button id="toggleMic">🎙️</button><button id="toggleCam">📹</button><button id="endLive" class="danger">■</button></div><div class="live-studio__preview-overlay"><small>${esc(stream.display_room_name||'BIZNESS PARTY')}</small><h3>${esc(stream.title)}</h3></div>`;const element=lockMedia(hostVideo.attach(),'live-inline-video live-host-video');element.muted=true;element.autoplay=true;q<HTMLElement>('#hostVideoMount').append(element);heartbeat=window.setInterval(()=>{if(isCurrent())void supabase.rpc('rb_live_heartbeat',{p_stream_id:stream.id});},30000);studioStatus.textContent=`WE LIT🔥 — YOU LIVE AS ${String(profile.display_name||profile.username||'RICH CREATOR').toUpperCase()}`;q<HTMLButtonElement>('#toggleMic').onclick=async()=>{if(hostAudio){await hostAudio.setMuted(!hostAudio.isMuted);q<HTMLButtonElement>('#toggleMic').textContent=hostAudio.isMuted?'🔇':'🎙️';}};q<HTMLButtonElement>('#toggleCam').onclick=async()=>{if(hostVideo){await hostVideo.setMuted(!hostVideo.isMuted);q<HTMLButtonElement>('#toggleCam').textContent=hostVideo.isMuted?'🚫':'📹';}};q<HTMLButtonElement>('#endLive').onclick=()=>void endLive(stream); };
   const endLive = async (stream: Row) => {
     studioStatus.textContent='WRAPPIN’ THE PARTY UP...';
     await stopHost();
@@ -303,7 +318,7 @@ export async function mount(): Promise<void> {
     window.setTimeout(()=>{if(isCurrent())studio.close();},600);
   };
 
-  root.querySelectorAll<HTMLButtonElement>('[data-lane]').forEach((button)=>button.onclick=()=>{if(!isCurrent())return;lane=button.dataset.lane||'live';root.querySelectorAll('[data-lane]').forEach((node)=>node.classList.toggle('active',node===button));laneTitle.textContent=button.textContent||'WE LIT🔥';const list=rows();const first=userId?list.find(owned)??null:null;active=first;setStreamUrl(first);renderRoom();});
+  root.querySelectorAll<HTMLButtonElement>('[data-lane]').forEach((button)=>button.onclick=()=>{if(!isCurrent())return;lane=button.dataset.lane||'live';root.querySelectorAll('[data-lane]').forEach((node)=>node.classList.toggle('active',node===button));laneTitle.textContent=button.textContent||'WE LIT🔥';const list=rows();const first=userId?list.find(owned)??null:null;roomEpoch++;void disconnectViewer(true,'switch-lane');active=first;chatRows=[];activityRows=[];memberRows=[];tipRows=[];purchaseRows=[];setStreamUrl(first);renderRoom();void refresh();});
   q<HTMLFormElement>('#chatForm').onsubmit=async(event)=>{event.preventDefault();if(!active||!requireUser()||!isCurrent())return;const input=q<HTMLInputElement>('#chatInput');const message=input.value.trim();if(!message)return;const submit=event.submitter as HTMLButtonElement|null;if(submit)submit.disabled=true;const result=await runLiveAction('chat',{message});if(result){input.value='';await refresh();}if(submit)submit.disabled=false;};
   q<HTMLButtonElement>('#goLiveButton').onclick=()=>{if(requireUser()&&isCurrent())studio.showModal();};
   q<HTMLButtonElement>('#closeStudio').onclick=()=>{if(!hostRoom)studio.close();};
@@ -315,6 +330,7 @@ export async function mount(): Promise<void> {
   const cleanup=async()=>{
     if(disposed)return;
     disposed=true;
+    roomEpoch++;
     snapshotEpoch++;
     snapshotQueued=false;
     if (heartbeat) window.clearInterval(heartbeat);

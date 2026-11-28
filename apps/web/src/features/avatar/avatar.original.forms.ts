@@ -44,11 +44,11 @@ export function secondarySurface(g:THREE.BufferGeometry,kind:'hair'|'fabric',sel
  if(!Number.isFinite(span)||span<.00001)return null;
  const rest=new Float32Array(vertices.length*3),delta=new Float32Array(vertices.length*3),normal=new THREE.Vector3();
  const max=span*(kind==='hair'?.022:.012);
- for(let k=0;k<vertices.length;k++){const i=vertices[k],x=p.getX(i),y=p.getY(i),z=p.getZ(i),v=THREE.MathUtils.clamp((y-box.min.y)/size.y,0,1),u=(x-box.min.x)/size.x;rest[k*3]=x;rest[k*3+1]=y;rest[k*3+2]=z;normal.fromBufferAttribute(n,i);if(!Number.isFinite(normal.lengthSq())||normal.lengthSq()<.25)continue;normal.normalize();const weight=kind==='hair'?(1-v)**2:Math.sin(Math.PI*v)**2;const d=max*weight*Math.sin((u*3+v*2)*Math.PI);delta[k*3]=normal.x*d;delta[k*3+1]=normal.y*d;delta[k*3+2]=normal.z*d;}
+ for(const [k,i] of vertices.entries()){const x=p.getX(i),y=p.getY(i),z=p.getZ(i),v=THREE.MathUtils.clamp((y-box.min.y)/size.y,0,1),u=(x-box.min.x)/size.x;rest[k*3]=x;rest[k*3+1]=y;rest[k*3+2]=z;normal.fromBufferAttribute(n,i);if(!Number.isFinite(normal.lengthSq())||normal.lengthSq()<.25)continue;normal.normalize();const weight=kind==='hair'?(1-v)**2:Math.sin(Math.PI*v)**2;const d=max*weight*Math.sin((u*3+v*2)*Math.PI);delta[k*3]=normal.x*d;delta[k*3+1]=normal.y*d;delta[k*3+2]=normal.z*d;}
  g.computeBoundingBox();g.computeBoundingSphere();if(g.boundingBox)g.boundingBox.expandByScalar(max);if(g.boundingSphere)g.boundingSphere.radius+=max;
  let lo=Infinity,hi=-Infinity;for(const i of vertices){lo=Math.min(lo,i);hi=Math.max(hi,i);}let last=0;
  return {count:vertices.length,kind,max,apply:(amount:number)=>{const value=Number.isFinite(amount)?THREE.MathUtils.clamp(amount,-1,1):0;const a=Math.abs(value)<.001?0:value;if(a===last)return;last=a;
-  for(let k=0;k<vertices.length;k++){const i=vertices[k],j=k*3;if(a===0)p.setXYZ(i,rest[j],rest[j+1],rest[j+2]);else p.setXYZ(i,rest[j]+delta[j]*a,rest[j+1]+delta[j+1]*a,rest[j+2]+delta[j+2]*a);}
+  for(const [k,i] of vertices.entries()){const j=k*3,x=rest[j]!,y=rest[j+1]!,z=rest[j+2]!;if(a===0)p.setXYZ(i,x,y,z);else p.setXYZ(i,x+delta[j]!*a,y+delta[j+1]!*a,z+delta[j+2]!*a);}
   if(p instanceof THREE.BufferAttribute&&p.itemSize===3)p.addUpdateRange(lo*3,(hi-lo+1)*3);p.needsUpdate=true;
  }};
 }
@@ -60,8 +60,8 @@ export function secondaryResponse(previous:number,angle:number,dt:number){
 // Material groups in merged skinned geometry may share vertices. Leave boundary
 // vertices used by another material unchanged. No changes to relative morph deltas.
 export function formSelection(g:THREE.BufferGeometry,selectedMaterials:readonly number[],materialCount:number){
- const p=g.getAttribute('position');if(!p)return [];if(materialCount===1&&selectedMaterials.includes(0))return Array.from({length:p.count},(_,i)=>i);if(!g.groups.length)return [];
- const flags=new Uint8Array(p.count),selected=new Set(selectedMaterials),index=g.index;for(const group of g.groups){const flag=selected.has(group.materialIndex??0)?1:2;for(let j=group.start;j<group.start+group.count;j++){const i=index?index.getX(j):j;if(i>=0&&i<p.count)flags[i]|=flag;}}
+ const p=g.getAttribute('position');if(!p||!selectedMaterials.length)return [];if(materialCount===1&&selectedMaterials.includes(0))return Array.from({length:p.count},(_,i)=>i);if(!g.groups.length)return [];
+ const flags=new Uint8Array(p.count),selected=new Set(selectedMaterials),index=g.index;for(const group of g.groups){const flag=selected.has(group.materialIndex??0)?1:2;for(let j=group.start;j<group.start+group.count;j++){const i=index?index.getX(j):j;if(i>=0&&i<p.count)flags[i]=(flags[i]??0)|flag;}}
  const result:number[]=[];for(let i=0;i<flags.length;i++)if(flags[i]===1)result.push(i);return result;
 }
 // Only duplicate the edited position buffer, not 34 face morph arrays.
