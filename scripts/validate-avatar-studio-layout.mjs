@@ -16,7 +16,7 @@ console.log('Avatar Studio: six workspaces, unique control IDs, mobile-first lay
 const graphics=readFileSync(root+'avatar.graphics.ts','utf8');
 assert.match(graphics,/if\(mobile&&runtime\)\{scene.remove\(runtime.root\);disposeSkinnedAvatar\(runtime\);runtime=null/);
 assert.match(graphics,/mobileFitTail=job\.then/);
-assert.match(graphics,/let phoneLimit=640/);assert.match(graphics,/const limit=mobile\?phoneLimit:1600/);
+assert.match(graphics,/let phoneLimit=640/);assert.match(graphics,/const limit=mobile\?phoneLimit:1920/);
 assert.match(graphics,/if\(canvas.width!==width\|\|canvas.height!==height\)renderer.setSize/);
 assert.match(graphics,/safe fallback \(enhanced fit unavailable\)/);
 assert.match(source,/if\(!mobile&&!graphics&&!graphicsLoading\)void enable\(\)/);
@@ -45,7 +45,7 @@ import {phoneRenderLimit,mobileDetail,smoothPlayback,phoneTriangleBudget,admitsP
 import {crownChain} from '../apps/web/src/features/avatar/avatar.original.wearables.ts';
 import {mergeStaticVehicle,disposeDetailedVehicle} from '../apps/web/src/features/avatar/avatar.world.vehicle.ts';
 assert.equal(mobileDetail('auto'),'medium');assert.equal(mobileDetail('detail'),'medium');assert.equal(mobileDetail('auto',true),'low');assert.equal(mobileDetail('detail',true),'low');assert.equal(phoneTriangleBudget('auto'),60000);assert.equal(phoneTriangleBudget('detail'),75000);assert.ok(admitsPhoneMesh('auto',60000));assert.ok(!admitsPhoneMesh('auto',60001));assert.ok(admitsPhoneMesh('detail',75000));assert.ok(!admitsPhoneMesh('detail',75001));assert.ok(!admitsPhoneMesh('detail',NaN));console.log('V1 phone admission: adaptive 60k, enhanced 75k, medium preferred and low fallback');
-assert.equal(phoneRenderLimit('detail',33,89,640),640);assert.equal(phoneRenderLimit('detail',33,90,640),704);assert.equal(phoneRenderLimit('detail',33,100,875),900);assert.equal(phoneRenderLimit('detail',58,100,900),820);assert.equal(phoneRenderLimit('auto',33,100,640),640);
+assert.equal(phoneRenderLimit('detail',33,89,640),640);assert.equal(phoneRenderLimit('detail',33,90,640),688);assert.equal(phoneRenderLimit('detail',33,100,1060),1080);assert.equal(phoneRenderLimit('detail',58,100,1080),1000);assert.equal(phoneRenderLimit('auto',33,100,640),688);assert.equal(phoneRenderLimit('auto',33,100,790),800);assert.equal(phoneRenderLimit('auto',52,100,800),720);assert.equal(phoneRenderLimit('auto',37,100,720),720);assert.equal(phoneRenderLimit('detail',70,100,480),480);assert.equal(phoneRenderLimit('detail',NaN,100,1080),640);assert.match(graphics,/drawCost>24\?Math.max\(52,frameAverage\)/);
 assert.ok(smoothPlayback(1,1.4,.033)>1&&smoothPlayback(1,1.4,.033)<1.4);
 const chainMat=new THREE.MeshStandardMaterial(),chain=crownChain(chainMat);assert.equal(chain.count,34);assert.ok(Number.isFinite(chain.boundingSphere.radius));chain.dispose();chain.geometry.dispose();chainMat.dispose();
 const sourceVehicle=new THREE.Group(),vehicleMat=new THREE.MeshStandardMaterial();for(const x of [-1,1]){const panel=new THREE.Mesh(new THREE.BoxGeometry(1.6,1.2,1.8),vehicleMat);panel.position.set(x,.6,0);sourceVehicle.add(panel);}

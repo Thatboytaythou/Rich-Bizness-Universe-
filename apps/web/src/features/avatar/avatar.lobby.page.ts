@@ -449,7 +449,7 @@ export async function mount(): Promise<void> {
     raf=requestAnimationFrame(loop);
     if(document.hidden||!worldVisible){lastFrame=0;return;}if(lastFrame&&now-lastFrame<studioFrameInterval(mobile,drawCost,'auto'))return;
     const interval=lastFrame?now-lastFrame:0;lastFrame=now;if(interval>0&&interval<250){averageFrame+=(interval-averageFrame)*.08;frameSamples++;}
-    if(frameSamples>30&&now-lastAdapt>3000){lastAdapt=now;if(mobile){const next=phoneRenderLimit('auto',averageFrame,frameSamples,phoneLimit);if(next!==phoneLimit){phoneLimit=next;resize();}}else{const next=nextRenderScale(renderScale,averageFrame,frameSamples,false);if(Math.abs(next-renderScale)>.01){renderScale=next;resize();}}}
+    if(frameSamples>30&&now-lastAdapt>3000){lastAdapt=now;if(mobile){const next=Math.min(640,phoneRenderLimit('auto',averageFrame,frameSamples,phoneLimit));if(next!==phoneLimit){phoneLimit=next;resize();}}else{const next=nextRenderScale(renderScale,averageFrame,frameSamples,false);if(Math.abs(next-renderScale)>.01){renderScale=next;resize();}}}
     if(now-lastTelemetry>1000){lastTelemetry=now;const status=root.querySelector<HTMLElement>('#alPerformance');if(status)status.textContent='~'+Math.round(1000/averageFrame)+' fps · '+Math.round(renderScale*100)+'% render scale';}
     const drawStarted=performance.now();const dt=Math.min(interval/1000,.075);
     try{
