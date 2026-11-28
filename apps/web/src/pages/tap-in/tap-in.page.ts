@@ -39,21 +39,21 @@ export async function mountTapInPage(): Promise<void> {
       <a class="auth-back" href="/" aria-label="Back to Rich Bizness home">←</a>
       <section class="auth-visual">
         <div class="auth-mark"><span>RB</span><b></b><i></i></div>
-        <p>RICH BIZNESS LLC • SECURE ACCESS</p>
-        <h1>TAP INTO<br>YOUR EMPIRE.</h1>
+        <p>Rich Bizness LLC</p>
+        <h1>Tap into<br> your empire.</h1>
         <span class="auth-visual-copy">One protected identity unlocks your full creator universe, avatar, XP, money, live rooms, messages, games and ownership tools.</span>
         <div class="auth-route-strip"><span>PROFILE LOCK</span><span>AVATAR</span><span>WE LIT 🔥</span><span>STORE</span><span>META</span></div>
       </section>
       <section class="auth-card">
         <div class="auth-card-scan" aria-hidden="true"></div>
         <header>
-          <p class="eyebrow">RICH ID • GLOBAL ACCESS</p>
+          <p class="eyebrow">Rich ID · Secure access</p>
           <h2>${recoveryMode ? 'GET YOUR ACCESS BACK' : 'TAP IN'}</h2>
-          <span>${recoveryMode ? 'Lock a new password to your verified Rich ID.' : 'One verified Rich ID controls your Portal, profile, avatar, XP, money, creator tools, rooms and the entire universe.'}</span>
+          <span>${recoveryMode ? 'Lock a new password to your verified Rich ID.' : 'One identity. Your entire universe.'}</span>
         </header>
         ${recoveryMode ? `
           <form id="recoveryForm" class="auth-form">
-            <label>NEW PASSWORD<div class="auth-input"><input id="newPassword" type="password" minlength="8" autocomplete="new-password" required placeholder="8 characters minimum"><button type="button" data-toggle-password="newPassword">SHOW</button></div></label>
+            <label>New password<div class="auth-input"><input id="newPassword" type="password" minlength="8" autocomplete="new-password" required placeholder="Enter password"><button type="button" data-toggle-password="newPassword">SHOW</button></div></label>
             <button id="recoverySubmit" class="auth-primary" type="submit">LOCK IT IN</button>
           </form>
         ` : `
@@ -62,21 +62,22 @@ export async function mountTapInPage(): Promise<void> {
             <button type="button" role="tab" aria-selected="false" data-auth-mode="signup">CREATE RICH ID</button>
           </div>
           <form id="authForm" class="auth-form">
-            <label id="displayNameLabel" hidden>WHAT THEY CALL YOU?<div class="auth-input"><input id="displayName" name="displayName" autocomplete="name" maxlength="80" placeholder="ThatboyTayThou"></div></label>
-            <label>EMAIL<div class="auth-input"><input id="email" name="email" type="email" inputmode="email" autocomplete="email" autocapitalize="none" spellcheck="false" required placeholder="you@example.com"></div></label>
-            <label>PASSWORD<div class="auth-input"><input id="password" name="password" type="password" required autocomplete="current-password" placeholder="8 characters minimum"><button type="button" data-toggle-password="password">SHOW</button></div></label>
+            <label id="displayNameLabel" hidden>Display name<div class="auth-input"><input id="displayName" name="displayName" autocomplete="name" maxlength="80" placeholder="ThatboyTayThou"></div></label>
+            <label>Email<div class="auth-input"><input id="email" name="email" type="email" inputmode="email" autocomplete="email" autocapitalize="none" spellcheck="false" required placeholder="you@example.com"></div></label>
+            <label>Password<div class="auth-input"><input id="password" name="password" type="password" required autocomplete="current-password" placeholder="8 characters minimum"><button type="button" data-toggle-password="password">SHOW</button></div></label>
             <button id="submitButton" class="auth-primary" type="submit">TAP IN</button>
-            <button id="recoverButton" class="auth-link" type="button">I CAN’T GET IN</button>
+            <button id="recoverButton" class="auth-link" type="button">Forgot password?</button>
           </form>
         `}
         <p id="authStatus" class="auth-status" role="status" aria-live="polite">${reason === 'session' ? 'YOUR SESSION EXPIRED — TAP BACK IN' : 'SECURE GATEWAY READY'}</p>
-        <div style="display:grid;gap:8px;margin-top:14px;font-size:12px;color:#b9d3bd">
+        ${recoveryMode?'':'<button type="button" id="rbResumeSession" class="auth-link auth-resume">Continue existing session</button>'}
+        <details class="auth-support"><summary>Connection &amp; support</summary><div class="auth-support-content">
           <small>ACCESS RELEASE • rich-id-single-layer-4</small>
           <small id="rbAccessNetwork" aria-live="polite">Connection: waiting for request</small>
           <small id="rbAccessTouch">Touch: ready</small>
-          ${recoveryMode?'':'<button type="button" id="rbResumeSession" class="auth-link">CONTINUE EXISTING SESSION</button>'}
+          
           <a href="" style="color:#e3ce86">Reload secure gateway</a>
-        </div>
+        </div></details>
         <footer><span>PROFILE LOCK</span><i></i><span>VERIFIED SESSION</span><i></i><span>RICH LEVEL</span><i></i><span>EMPIRE</span></footer>
       </section>
     </main>`;
