@@ -90,8 +90,9 @@ export async function mountAdminSecretDoor(): Promise<(()=>void)|undefined> {
   const uid=getAuthSnapshot().user?.id;
   if (!uid) return;
 
-  const trigger = findTrigger();
-  if (!trigger || trigger.dataset.adminDoorMounted === 'true') return;
+  const candidate = findTrigger();
+  if (!candidate || candidate.dataset.adminDoorMounted === 'true') return;
+  const trigger:HTMLElement=candidate;
 
   const { data: allowed, error } = await supabase.rpc('rb_is_admin', { p_min_permission: 1 });
   if (error || allowed!==true || getAuthSnapshot().user?.id!==uid || !trigger.isConnected) return;

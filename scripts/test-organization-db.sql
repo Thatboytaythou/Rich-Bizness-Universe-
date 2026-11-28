@@ -18,24 +18,24 @@ do $$begin
  begin perform public.rb_org_invite('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','22222222-2222-4222-8222-222222222222','manager'); raise exception 'unauthorized invite'; exception when insufficient_privilege then null; end;
 end$$;
 select set_config('request.jwt.claim.sub','22222222-2222-4222-8222-222222222222',false);
-do $begin
+do $$begin
  begin perform public.rb_org_respond(id,null) from public.rb_org_invites where status='pending'; raise exception 'null response accepted'; exception when insufficient_privilege then null; end;
-end$;
+end$$;
 select public.rb_org_respond(id,true) from public.rb_org_invites where status='pending';
-do $begin
+do $$begin
  begin perform public.rb_org_respond(id,true) from public.rb_org_invites where status='accepted'; raise exception 'invite replay accepted'; exception when insufficient_privilege then null; end;
-end$;
+end$$;
 do $$begin if not exists(select 1 from public.rb_org_members where user_id=auth.uid() and role='employee') then raise exception 'membership missing'; end if; end$$;
 select set_config('request.jwt.claim.sub','11111111-1111-4111-8111-111111111111',false);
 select public.rb_org_remove_member('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','22222222-2222-4222-8222-222222222222');
-do $begin if exists(select 1 from public.rb_org_members) then raise exception 'removal failed'; end if; end$;
+do $$begin if exists(select 1 from public.rb_org_members) then raise exception 'removal failed'; end if; end$$;
 select public.rb_org_invite('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','22222222-2222-4222-8222-222222222222','member');
 select public.rb_org_remove_member('aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa','22222222-2222-4222-8222-222222222222');
 select set_config('request.jwt.claim.sub','22222222-2222-4222-8222-222222222222',false);
-do $begin
+do $$begin
  if exists(select 1 from public.rb_org_invites where status='pending') then raise exception 'revoked invite remained pending'; end if;
  if exists(select 1 from public.rb_org_members) then raise exception 'revoked member remained active'; end if;
-end$;
+end$$;
 reset role;
 set role anon;
 do $$begin if has_function_privilege(current_user,'public.rb_org_invite(uuid,uuid,text)','execute') then raise exception 'anon execute leaked'; end if; end$$;
