@@ -145,7 +145,7 @@ export async function mount(): Promise<void> {
     feed.innerHTML = messages.length ? messages.map((message) => {
       const counts = reactions.filter((reaction) => reaction.message_id === message.id).reduce((all: Record<string, number>, reaction) => { all[reaction.emoji] = (all[reaction.emoji] || 0) + 1; return all; }, {});
       const linkedAttachments = attachments.filter((item) => item.message_id === message.id);
-      const legacyMedia = message.media_url ? [{ message_id: message.id, file_url: message.media_url, file_name: message.message_type || 'attachment', mime_type: message.media_type || message.message_type || '' }] : [];
+      const legacyMedia: Attachment[] = message.media_url ? [{ message_id: message.id, file_url: message.media_url, file_name: message.message_type || 'attachment', mime_type: message.media_type || message.message_type || '' }] : [];
       const mediaRows = linkedAttachments.length ? linkedAttachments : legacyMedia;
       const media = mediaRows.map((item) => {
         const href = safeHref(item.file_url || item.media_url);
@@ -164,7 +164,7 @@ export async function mount(): Promise<void> {
     feed.querySelectorAll<HTMLButtonElement>('[data-react]').forEach((button) => button.onclick = async () => {
       const message = button.closest<HTMLElement>('[data-message]')?.dataset.message;
       if (!message || !isCurrent()) return;
-      const { error } = await supabase.rpc('rb_dm_toggle_reaction', { p_message_id: message, p_emoji: button.dataset.react });
+      if(!button.dataset.react)return;const { error } = await supabase.rpc('rb_dm_toggle_reaction', { p_message_id: message, p_emoji: button.dataset.react ?? '' });
       if (!isCurrent()) return;
       if (error) setStatus(error.message); else await refreshThread(threadId);
     });

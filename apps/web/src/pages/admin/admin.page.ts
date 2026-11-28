@@ -114,7 +114,7 @@ export async function mount(): Promise<void> {
       if (!confirm(`${decision.toUpperCase()} THIS REVIEW?`)) return;
       button.disabled = true;
       setStatus(`APPLYING ${decision.toUpperCase()} DECISION…`);
-      const { error } = await supabase.rpc('rb_admin_action', { p_action: 'review_decision', p_target_id: button.dataset.id, p_value: { status: decision } });
+      if(!button.dataset.id)return;const { error } = await supabase.rpc('rb_admin_action', { p_action: 'review_decision', p_target_id: button.dataset.id, p_value: { status: decision } });
       if (!isCurrent()) return;
       if (error) setStatus(error.message); else { setStatus(`REVIEW ${decision.toUpperCase()}`); await load(); }
       if (isCurrent()) button.disabled = false;
@@ -126,7 +126,7 @@ export async function mount(): Promise<void> {
       if (!confirm(`${enabled ? 'ENABLE' : 'DISABLE'} THIS FEATURE FLAG?`)) return;
       button.disabled = true;
       setStatus(`${enabled ? 'ENABLING' : 'DISABLING'} FEATURE FLAG…`);
-      const { error } = await supabase.rpc('rb_admin_action', { p_action: 'feature_flag', p_target_id: button.dataset.flag, p_value: { enabled } });
+      if(!button.dataset.flag)return;const { error } = await supabase.rpc('rb_admin_action', { p_action: 'feature_flag', p_target_id: button.dataset.flag, p_value: { enabled } });
       if (!isCurrent()) return;
       if (error) setStatus(error.message); else { setStatus(`FEATURE FLAG ${enabled ? 'ENABLED' : 'DISABLED'}`); await load(); }
       if (isCurrent()) button.disabled = false;

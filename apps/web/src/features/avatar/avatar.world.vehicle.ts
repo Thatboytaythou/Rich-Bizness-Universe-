@@ -14,7 +14,7 @@ export function mergeStaticVehicle(source:THREE.Object3D,mobile:boolean){
   source.traverse(o=>{const mesh=o as THREE.Mesh;if(!mesh.isMesh)return;
    if((mesh as THREE.SkinnedMesh).isSkinnedMesh||Array.isArray(mesh.material)||Object.keys(mesh.geometry.morphAttributes).length)throw Error('Unsupported dynamic vehicle geometry');
    const g=mesh.geometry.clone();temporary.push(g);
-   if(!g.getAttribute('normal'))g.computeVertexNormals();if(!g.index){const indices=new Uint32Array(g.attributes.position.count);for(let i=0;i<indices.length;i++)indices[i]=i;g.setIndex(new THREE.BufferAttribute(indices,1));}
+   if(!g.getAttribute('normal'))g.computeVertexNormals();if(!g.index){const indices=new Uint32Array(g.getAttribute('position').count);for(let i=0;i<indices.length;i++)indices[i]=i;g.setIndex(new THREE.BufferAttribute(indices,1));}
    if(mesh.matrixWorld.determinant()<0){const index=g.index!;for(let i=0;i<index.count;i+=3){const n=index.getX(i+1);index.setX(i+1,index.getX(i+2));index.setX(i+2,n);}}
    g.applyMatrix4(mesh.matrixWorld);triangles+=g.index!.count/3;
    const attrs=Object.keys(g.attributes).sort().map(k=>{const a=g.getAttribute(k);return k+':'+a.itemSize+':'+a.array.constructor.name+':'+a.normalized;}).join('|');

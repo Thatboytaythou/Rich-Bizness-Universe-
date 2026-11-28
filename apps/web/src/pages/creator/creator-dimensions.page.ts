@@ -44,6 +44,6 @@ export async function mount():Promise<void>{
   if(!isCurrent())return;
   channel=supabase.channel(`creator-dimensions:${user.id}:${mountEpoch}`).on('postgres_changes',{event:'*',schema:'public',table:'creator_dimension_access',filter:`user_id=eq.${user.id}`},()=>{clearTimeout(refreshTimer);refreshTimer=window.setTimeout(()=>void load(),180);}).subscribe();
   const cleanup=()=>{if(destroyed)return;destroyed=true;clearTimeout(refreshTimer);if(channel)void supabase.removeChannel(channel);channel=null;};
-  window.__rbPageCleanup=cleanup;
+  (window as Window & {__rbPageCleanup?:()=>void}).__rbPageCleanup=cleanup;
   window.addEventListener('pagehide',cleanup,{once:true});window.addEventListener('beforeunload',cleanup,{once:true});
 }

@@ -8,8 +8,8 @@ export function meridianCuffGeometry(style:string){
  const base=new THREE.Color(gold?0xc7a452:onyx?0x25302e:0xbac9d2);
  const inlay=new THREE.Color(gold?0x62491c:onyx?0xb9a364:0x465763);
  // Cross-section travels around the solid wall: outer lower -> outer upper -> inner upper -> inner lower.
- const rings=[[-.021,.036],[-.019,.041],[-.015,.043],[-.010,.041],[0,.043],[.010,.041],[.015,.043],[.019,.041],[.021,.036],[.018,.033],[-.018,.033]];
- for(let j=0;j<rings.length;j++){const [y,r]=rings[j];for(let i=0;i<segments;i++){
+ const rings=[[-.021,.036],[-.019,.041],[-.015,.043],[-.010,.041],[0,.043],[.010,.041],[.015,.043],[.019,.041],[.021,.036],[.018,.033],[-.018,.033]] as const;
+ for(const [j,[y,r]] of rings.entries()){for(let i=0;i<segments;i++){
   const a=i/segments*Math.PI*2,facet=Math.pow(Math.max(0,Math.cos(a*8)),5),relief=j>=3&&j<=5?.0018*facet*(j===4?1:.45):0;
   positions.push(Math.cos(a)*(r+relief),y,Math.sin(a)*(r+relief)*.83);
   const c=base.clone().lerp(inlay,j===3||j===5?.65:j===4?.12+.35*(1-facet):j>=9?.55:.08);
