@@ -12,7 +12,7 @@ assert.equal(new Set(registered).size,registered.length,'Duplicate release route
 const standalone=new Map([['rb-secret-door','secret-world'],['on-the-go-dash','on-the-go-dash']]);
 const names=readdirSync(source).filter(f=>f.endsWith('.html')).map(f=>f.slice(0,-5)).sort();
 assert.deepEqual(names,[...new Set([...registered,...standalone.keys()])].sort(),'Unregistered or missing HTML source entry');
-assert.deepEqual(readdirSync(dist).filter(f=>f.endsWith('.html')).sort(),names.map(n=>n+'.html'),'Compiled HTML coverage differs from source');
+assert.deepEqual(readdirSync(dist).filter(f=>f.endsWith('.html')).sort(),names.map(n=>n+'.html').sort(),'Compiled HTML coverage differs from source');
 const manifest=JSON.parse(read('rb-section-release.json'));
 assert.equal(manifest.schema,1);
 if(/^[a-f0-9]{40}$/.test(process.env.VERCEL_GIT_COMMIT_SHA??''))assert.equal(manifest.release,process.env.VERCEL_GIT_COMMIT_SHA,'Stale release manifest');
