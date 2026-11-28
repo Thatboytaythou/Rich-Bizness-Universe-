@@ -25,10 +25,7 @@ export type SkinnedAvatarRuntime = {
   dispose?: () => void;
 };
 
-const DEFAULT_MODEL_URLS: Record<AvatarGender, string> = {
-  boy: 'https://raw.githubusercontent.com/mrdoob/three.js/r184/examples/models/gltf/Soldier.glb',
-  girl: 'https://raw.githubusercontent.com/mrdoob/three.js/r184/examples/models/gltf/Michelle.glb'
-};
+const ORIGINAL_MODEL_URLS: Record<AvatarGender,string> = {boy:'rb-original:boy',girl:'rb-original:girl'};
 
 const MOTION_HINTS: Record<AvatarMotion, string[]> = {
   idle: ['idle', 'survey', 'stand', 'breath'],
@@ -110,15 +107,25 @@ function prepareModel(root: THREE.Group, targetHeight = 1.82): { bounds: THREE.B
 export function resolveAvatarModelUrl(snapshot: Record<string, any> | null | undefined, gender: AvatarGender): string {
   const candidate = String(snapshot?.model?.model_url ?? '').trim();
   if (/^https:\/\//i.test(candidate)) return candidate;
-  return DEFAULT_MODEL_URLS[gender];
+  return ORIGINAL_MODEL_URLS[gender];
 }
 
 export async function loadSkinnedAvatar(options: {
   modelUrl: string;
   targetHeight?: number;
+  look?: unknown;
+  build?: string;
   signal?: AbortSignal;
 }): Promise<SkinnedAvatarRuntime> {
   if (options.signal?.aborted) throw new DOMException('Aborted', 'AbortError');
+  if(options.modelUrl==='rb-original:boy'||options.modelUrl==='rb-original:girl'){
+    const {createOriginalAvatar}=await import('./avatar.original.runtime');
+    if(options.signal?.aborted)throw new DOMException('Aborted','AbortError');
+    const runtime=createOriginalAvatar(options.modelUrl==='rb-original:girl'?'girl':'boy',options.look,options.build);
+    runtime.assetLabel='Rich Bizness original procedural character';
+    setAvatarMotion(runtime,'idle',0);
+    return runtime;
+  }
   const loader = new GLTFLoader();
   const gltf = options.signal ? await (async()=>{
     const response=await fetch(options.modelUrl,options.signal?{signal:options.signal}:{});
