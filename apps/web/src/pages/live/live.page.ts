@@ -47,7 +47,7 @@ export async function mount(): Promise<void> {
   let snapshotQueued = false;
   let snapshotEpoch = 0;
   let actionBusy = false;
-  let checkoutBusy=false;let checkoutNotice='';
+  let checkoutBusy=false;let checkoutNotice='';let receiptCheck:AbortController|undefined;
   let active: Row | null = null;
   let lane = 'live';
   let profile: Row = {};
@@ -190,7 +190,7 @@ export async function mount(): Promise<void> {
     metricsEl.innerHTML=`<article><small>LIVE NOW</small><strong>${Number(metrics.live_now??streams.filter(liveNow).length).toLocaleString()}</strong></article><article><small>WATCHING</small><strong>${Number(metrics.viewers??0).toLocaleString()}</strong></article><article><small>MEMBERS</small><strong>${Number(metrics.members??memberRows.length).toLocaleString()}</strong></article><article><small>RECENT PAID GIFTS</small><strong>${owner?money(gifts.gross):'—'}</strong></article>`;
     gridEl.innerHTML=list.map(renderCard).join('')||'<div class="media-ultimate__empty">No rooms in this lane yet.</div>';
     gridEl.querySelectorAll<HTMLElement>('[data-id]').forEach((card)=>card.onclick=()=>{const row=list.find((item)=>String(item.id)===card.dataset.id);if(row)void open(row);});
-    if(!active){heroEl.innerHTML=user?'<div class="media-ultimate__empty"><strong>YOUR LIVE COMMAND IS READY.</strong><span>Pick a live room or launch your own.</span></div>':'<div class="media-ultimate__empty"><strong>WE LIT 🔥</strong><span>Pick any public live room to pop in.</span></div>';detailEl.innerHTML='';chatEl.innerHTML='<div class="media-ultimate__empty">Pop in a room.</div>';activityEl.innerHTML='';return;}
+    if(!active){heroEl.innerHTML=user?'<div class="media-ultimate__empty"><strong>YOUR LIVE COMMAND IS READY.</strong><span>Pick a live room or launch your own.</span></div>':'<div class="media-ultimate__empty"><strong>WE LIT 🔥</strong><span>Pick any public live room to pop in.</span></div>';detailEl.innerHTML=checkoutNotice?`<p class="live-checkout-status" role="status">${esc(checkoutNotice)}</p>`:'';chatEl.innerHTML='<div class="media-ultimate__empty">Pop in a room.</div>';activityEl.innerHTML='';return;}
     const giftChoice=q<HTMLSelectElement>('#giftAmount')?.value;
     heroEl.innerHTML=hero(active);
     const giftSelect=q<HTMLSelectElement>('#giftAmount');if(giftSelect&&giftChoice&&[...giftSelect.options].some(o=>o.value===giftChoice))giftSelect.value=giftChoice;
@@ -341,7 +341,7 @@ export async function mount(): Promise<void> {
   const cleanup=async()=>{
     if(disposed)return;
     disposed=true;
-    roomEpoch++;
+    receiptCheck?.abort();roomEpoch++;
     snapshotEpoch++;
     snapshotQueued=false;
     if (heartbeat) window.clearInterval(heartbeat);
@@ -360,7 +360,7 @@ export async function mount(): Promise<void> {
   window.addEventListener('pagehide',onPageExit,{once:true});
   window.addEventListener('beforeunload',onPageExit,{once:true});
 
-  const returnState=new URLSearchParams(location.search).get('payment');
+  const returnParams=new URLSearchParams(location.search);const returnState=returnParams.get('payment'),returnKind=returnParams.get('kind'),returnReference=returnParams.get('reference_id');
   await refresh();
   if(!isCurrent())return;
   const requested=new URLSearchParams(location.search).get('stream');
@@ -379,7 +379,14 @@ export async function mount(): Promise<void> {
     renderRoom();
   }
   if(!isCurrent())return;
-  if(returnState==='return'||returnState==='cancelled'){checkoutNotice=returnState==='return'?'Returned from checkout. Payment confirmation depends on the verified Stripe webhook.':'Checkout cancelled. No payment has been confirmed.';const cleanUrl=new URL(location.href);cleanUrl.searchParams.delete('payment');history.replaceState({},'',cleanUrl.pathname+cleanUrl.search+cleanUrl.hash);renderRoom();}
+  if(returnState==='return'||returnState==='cancelled'){
+    checkoutNotice=returnState==='return'?'Checking your receipt. Payment is not confirmed yet.':'Checkout cancelled. No payment has been confirmed.';
+    const cleanUrl=new URL(location.href);for(const key of ['payment','kind','reference_id'])cleanUrl.searchParams.delete(key);history.replaceState({},'',cleanUrl.pathname+cleanUrl.search+cleanUrl.hash);renderRoom();
+    if(returnState==='return'&&userId&&['tip','purchase'].includes(returnKind??'')&&returnReference&&/^[0-9a-f-]{36}$/i.test(returnReference)){
+      const controller=new AbortController();receiptCheck=controller;const timer=window.setTimeout(()=>controller.abort(),10000);
+      void (async()=>{try{const {data}=await supabase.auth.getSession();if(!isCurrent()||data.session?.user.id!==userId||!data.session.access_token)throw Error('No session');const params=new URLSearchParams({kind:returnKind!,reference_id:returnReference});const response=await fetch('/api/live/checkout?'+params,{headers:{Authorization:'Bearer '+data.session.access_token},signal:controller.signal});const receipt=await response.json();if(!response.ok||receipt.ok!==true)throw Error('Receipt unavailable');if(!isCurrent())return;checkoutNotice=receipt.state==='paid'?'Payment confirmed by verified receipt.':receipt.state==='refund_review'?'Receipt has a refund or requires reconciliation.':'Payment not confirmed yet. Check again from your payment history.';renderRoom();}catch{if(isCurrent()){checkoutNotice='Unable to verify receipt right now. Payment is not confirmed here.';renderRoom();}}finally{clearTimeout(timer);if(receiptCheck===controller)receiptCheck=undefined;}})();
+    }
+  }
   catalogChannel=supabase.channel(`rich-live-owner:${mountEpoch}`).on('postgres_changes',{event:'*',schema:'public',table:'live_streams'},()=>void refresh()).on('postgres_changes',{event:'*',schema:'public',table:'live_alert_subscriptions'},()=>void refresh()).subscribe();
 }
 

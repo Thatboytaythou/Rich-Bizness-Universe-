@@ -3,20 +3,27 @@ const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const respond=(res,status,body)=>{res.statusCode=status;res.setHeader('Content-Type','application/json; charset=utf-8');res.setHeader('Cache-Control','no-store');res.end(JSON.stringify(body));};
 export function checkoutFields(kind,reference,stream,amount){
  if(!['tip','purchase'].includes(kind)||!uuid.test(reference)||!uuid.test(stream)||!Number.isSafeInteger(amount)||amount<100||amount>10000000)throw Error('invalid_checkout_reference');
- const home='https://rich-bizness.com/live?stream='+encodeURIComponent(stream);
+ const home='https://rich-bizness.com/live.html?'+new URLSearchParams({stream,kind,reference_id:reference}).toString();
  return new URLSearchParams({mode:'payment','payment_method_types[0]':'card','line_items[0][price_data][currency]':'usd','line_items[0][price_data][unit_amount]':String(amount),'line_items[0][price_data][product_data][name]':kind==='tip'?'Rich Bizness live creator tip':'Rich Bizness live room access','line_items[0][quantity]':'1',success_url:home+'&payment=return',cancel_url:home+'&payment=cancelled','metadata[live_kind]':kind,'metadata[reference_id]':reference,'payment_intent_data[metadata][live_kind]':kind,'payment_intent_data[metadata][reference_id]':reference});
 }
+export function receiptState(row,kind){
+ if(!row)return 'unavailable';if(row.status==='refunded'||Number(row.refunded_amount_cents??0)>0)return 'refund_review';
+ if(row.status==='paid'&&typeof row.stripe_payment_intent_id==='string'&&/^pi_[A-Za-z0-9]+$/.test(row.stripe_payment_intent_id)&&typeof row[kind==='tip'?'paid_at':'purchased_at']==='string'&&Number.isFinite(Date.parse(row[kind==='tip'?'paid_at':'purchased_at'])))return 'paid';
+ return row.status==='pending'?'pending':'unconfirmed';
+}
 export default async function handler(req,res){
- if(req.method==='GET')return respond(res,200,{ok:true,service:'rich-bizness-live-checkout',authorization:'Rich ID required',settlement:'verified webhook'});
- if(req.method!=='POST'){res.setHeader('Allow','GET, POST');return respond(res,405,{ok:false,error:'method_not_allowed'});}
+ const statusRequest=req.method==='GET'&&(req.query?.reference_id!==undefined||req.query?.kind!==undefined);
+ if(req.method==='GET'&&!statusRequest)return respond(res,200,{ok:true,service:'rich-bizness-live-checkout',authorization:'Rich ID required',settlement:'verified webhook'});
+ if(req.method!=='POST'&&!statusRequest){res.setHeader('Allow','GET, POST');return respond(res,405,{ok:false,error:'method_not_allowed'});}
  const token=String(req.headers.authorization||'');if(!token.startsWith('Bearer '))return respond(res,401,{ok:false,error:'missing_session'});
  const url=process.env.SUPABASE_URL||process.env.NEXT_PUBLIC_SUPABASE_URL,key=process.env.SUPABASE_SERVICE_ROLE_KEY,pub=process.env.SUPABASE_PUBLISHABLE_KEY||process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY||process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,stripe=process.env.STRIPE_SECRET_KEY;
  if(!url||!key||!pub||!stripe||! /^(sk|rk)_live_/.test(stripe))return respond(res,503,{ok:false,error:'Live checkout not configured'});
  try{
- const body=typeof req.body==='string'?JSON.parse(req.body):req.body;const kind=body?.kind,reference=body?.reference_id;if(!['tip','purchase'].includes(kind)||typeof reference!=='string'||!uuid.test(reference))return respond(res,400,{ok:false,error:'invalid_reference'});
+ const body=statusRequest?req.query:typeof req.body==='string'?JSON.parse(req.body):req.body;const kind=body?.kind,reference=body?.reference_id;if(!['tip','purchase'].includes(kind)||typeof reference!=='string'||!uuid.test(reference))return respond(res,400,{ok:false,error:'invalid_reference'});
  const opts={auth:{persistSession:false,autoRefreshToken:false}},auth=createClient(url,pub,opts),admin=createClient(url,key,opts);
  const {data:u,error:authError}=await auth.auth.getUser(token.slice(7));if(authError||!u?.user)return respond(res,401,{ok:false,error:'invalid_session'});
  const table=kind==='tip'?'live_tips':'live_stream_purchases',owner=kind==='tip'?'from_user_id':'user_id';
+ if(statusRequest){const columns=kind==='tip'?'status,stripe_payment_intent_id,paid_at':'status,stripe_payment_intent_id,purchased_at,refunded_amount_cents';const {data:receipt,error}=await admin.from(table).select(columns).eq('id',reference).eq(owner,u.user.id).maybeSingle();if(error||!receipt)return respond(res,404,{ok:false,error:'payment_reference_not_found'});return respond(res,200,{ok:true,state:receiptState(receipt,kind)});}
  const {data:row,error:rowError}=await admin.from(table).select('id,stream_id,status,amount_cents,currency,stripe_checkout_session_id').eq('id',reference).eq(owner,u.user.id).maybeSingle();
  if(rowError||!row)return respond(res,404,{ok:false,error:'payment_reference_not_found'});
  if(row.status!=='pending'||row.currency!=='usd')return respond(res,409,{ok:false,error:'payment_not_pending'});
