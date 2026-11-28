@@ -1,6 +1,6 @@
 import { supabase } from '../supabase/client';
 
-type XpSnapshot={level?:number;xp_total?:number;xp_current?:number;xp_next?:number;progress_percent?:number;rank_title?:string;rich_points?:number;coins?:number;recent?:Array<{event_key?:string;xp?:number;created_at?:string}>};
+type XpSnapshot={level?:number;xp_total?:number;xp_current?:number;xp_next?:number;progress_percent?:number;rank_title?:string;rich_points?:number;coins?:number;sections?:Array<{section?:string;xp_total?:number;level?:number}>;recent?:Array<{event_key?:string;xp?:number;created_at?:string}>};
 
 type XpRuntimeState={
   owner:string;
@@ -85,7 +85,7 @@ export async function mountXpRuntime():Promise<(()=>Promise<void>)|undefined>{
   dock.dataset.rbXpRuntime=RUNTIME_OWNER;
   dock.className=`rb-xp-dock${compactDockPages.has(section)?' rb-xp-dock--compact':''}`;
   dock.dataset.section=section;
-  dock.innerHTML='<button id="rbXpToggle" type="button" aria-expanded="false" aria-controls="rbXpPanel"><span>LVL</span><strong>1</strong><i><b></b></i></button><section id="rbXpPanel" hidden><header><div><small>RICH LEVEL</small><h3>SYNCING</h3></div><button id="rbXpClose" type="button" aria-label="Close XP panel">×</button></header><div class="rb-xp-grid"><article><small>TOTAL XP</small><strong id="rbXpTotal">0</strong></article><article><small>RICH POINTS</small><strong id="rbXpPoints">0</strong></article><article><small>COINS</small><strong id="rbXpCoins">0</strong></article></div><div class="rb-xp-progress"><span><b id="rbXpBar"></b></span><small id="rbXpProgress">0 / 1000 XP</small></div><div id="rbXpRecent" class="rb-xp-recent"></div></section>';
+  dock.innerHTML='<button id="rbXpToggle" type="button" aria-expanded="false" aria-controls="rbXpPanel"><span>LVL</span><strong>1</strong><i><b></b></i></button><section id="rbXpPanel" hidden><header><div><small>RICH LEVEL</small><h3>SYNCING</h3></div><button id="rbXpClose" type="button" aria-label="Close XP panel">×</button></header><div class="rb-xp-grid"><article><small>TOTAL XP</small><strong id="rbXpTotal">0</strong></article><article><small>RICH POINTS</small><strong id="rbXpPoints">0</strong></article><article><small>COINS</small><strong id="rbXpCoins">0</strong></article></div><div class="rb-xp-progress"><span><b id="rbXpBar"></b></span><small id="rbXpProgress">0 / 1000 XP</small><strong id="rbXpMilestone" class="rb-xp-milestone">1,000 XP to your next level</strong></div><div class="rb-xp-lanes-heading">YOUR GROWTH LANES <small>Verified activity</small></div><div id="rbXpLanes" class="rb-xp-lanes"><p>Complete activities to grow your lanes.</p></div><div class="rb-xp-lanes-heading">RECENT GROWTH</div><div id="rbXpRecent" class="rb-xp-recent"></div><nav class="rb-xp-actions" aria-label="Rich Bizness growth destinations"><a href="/creator.html">Creator tools</a><a href="/search.html">Find your community</a></nav><p class="rb-xp-disclaimer">XP, points and coins are in-app progress, not cash earnings.</p></section>';
   placeDock(dock,section);
 
   const toggle=dock.querySelector<HTMLButtonElement>('#rbXpToggle')!;
@@ -101,6 +101,18 @@ export async function mountXpRuntime():Promise<(()=>Promise<void>)|undefined>{
     panel.querySelector<HTMLElement>('#rbXpCoins')!.textContent=Number(data.coins??0).toLocaleString();
     panel.querySelector<HTMLElement>('#rbXpBar')!.style.width=`${Math.max(0,Math.min(100,Number(data.progress_percent??0)))}%`;
     panel.querySelector<HTMLElement>('#rbXpProgress')!.textContent=`${Number(data.xp_current??0).toLocaleString()} / ${Number(data.xp_next??1000).toLocaleString()} XP`;
+    const current=Math.max(0,Number(data.xp_current??0)||0);
+    const target=Math.max(1,Number(data.xp_next??1000)||1000);
+    panel.querySelector<HTMLElement>('#rbXpMilestone')!.textContent=`${Math.max(0,target-current).toLocaleString()} XP until Level ${Math.max(1,Number(data.level??1)||1)+1}`;
+    toggle.setAttribute('aria-label',`Rich level ${Math.max(1,Number(data.level??1)||1)}. Open your XP and growth lanes`);
+    const lanes=(Array.isArray(data.sections)?data.sections:[]).filter(row=>row.section&&row.section!=='auth'&&row.section!=='global').sort((a,b)=>(Number(b.xp_total)||0)-(Number(a.xp_total)||0)).slice(0,3);
+    const maxLane=Math.max(1,...lanes.map(row=>Number(row.xp_total)||0));
+    panel.querySelector<HTMLElement>('#rbXpLanes')!.innerHTML=lanes.length?lanes.map(row=>{
+      const name=esc(String(row.section??'').replaceAll('_',' ').toUpperCase());
+      const amount=Math.max(0,Number(row.xp_total)||0);
+      const width=Math.max(0,Math.min(100,Math.round(amount/maxLane*100)));
+      return `<article><div><span>${name}</span><strong>${amount.toLocaleString()} XP</strong></div><i aria-hidden="true"><b style="width:${width}%"></b></i></article>`;
+    }).join(''):'<p>Your growth lanes will appear after verified activity.</p>';
     const recent=Array.isArray(data.recent)?data.recent.slice(0,5):[];
     panel.querySelector<HTMLElement>('#rbXpRecent')!.innerHTML=recent.length?recent.map(row=>`<article><span>${esc(String(row.event_key??'XP EARNED').replaceAll('_',' ').toUpperCase())}</span><strong>+${Number(row.xp??0)} XP</strong></article>`).join(''):'<p>Your XP activity will appear here.</p>';
   };
