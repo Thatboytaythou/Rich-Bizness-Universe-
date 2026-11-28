@@ -7,8 +7,8 @@ export const ELITE_COLLECTIONS={
  'midnight-motion':{title:'Midnight Motion',subtitle:'Performance techwear · midnight blue · silver accents',top:'techwear_jacket',bottom:'techwear_pants',shoes:'combat_boots',accessories:['watch_silver'],garmentStyles:{techwear_jacket:{pattern:'techwear',color:'#171c37',color2:'#8fbbdf'},techwear_pants:{pattern:'solid',color:'#202433'}}}
 } as const;
 export type Collection=keyof typeof ELITE_COLLECTIONS;
-export function eliteWardrobe(id:string){
- if(!Object.hasOwn(ELITE_COLLECTIONS,id))return null;
+export function eliteWardrobe(id:string|undefined){
+ if(!id||!Object.hasOwn(ELITE_COLLECTIONS,id))return null;
  const {title,subtitle,...garments}=ELITE_COLLECTIONS[id as Collection];
  return {outfit:'none',...structuredClone(garments)};
 }
@@ -19,10 +19,11 @@ const cuts:Record<string,Collection>={street:'emerald-legacy',executive:'onyx-ex
 export function designerActive(look:Record<string,string>){return ['designerCut','designerPalette','designerAccent','designerFootwear'].some(k=>look[k]&&look[k]!=='collection');}
 export function designerWardrobe(look:Record<string,string>){
  if(!designerActive(look))return eliteWardrobe(look.collection);
- const base=eliteWardrobe(cuts[look.designerCut]??(Object.hasOwn(ELITE_COLLECTIONS,look.collection)?look.collection:'emerald-legacy'))!;
+ const cut=look.designerCut??'',collection=look.collection??'',palette=palettes[look.designerPalette??''],accent=accents[look.designerAccent??''];
+ const base=eliteWardrobe(cuts[cut]??collection)??eliteWardrobe('emerald-legacy');if(!base)return null;
  const styles=base.garmentStyles as Record<string,{pattern?:string;color?:string;color2?:string}>;
  if(look.designerCut==='sovereign'){styles.techwear_jacket={pattern:'techwear',color:'#183d32',color2:'#c6a05b'};styles.techwear_pants={pattern:'solid',color:'#1c2224'};}
- for(const [garment,style] of Object.entries(styles)){if(palettes[look.designerPalette]&&!/shoes|sneakers|oxfords/.test(garment))style.color=palettes[look.designerPalette];if(accents[look.designerAccent]&&style.color2)style.color2=accents[look.designerAccent];}
+ for(const [garment,style] of Object.entries(styles)){if(palette&&!/shoes|sneakers|oxfords/.test(garment))style.color=palette;if(accent&&style.color2)style.color2=accent;}
  const footwear:Record<string,string>={sneakers:'sneakers',boots:'combat_boots',oxfords:'oxfords'};
- return {...base,shoes:footwear[look.designerFootwear]??base.shoes,garmentStyles:styles};
+ return {...base,shoes:footwear[look.designerFootwear??'']??base.shoes,garmentStyles:styles};
 }

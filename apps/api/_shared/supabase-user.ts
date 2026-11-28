@@ -7,6 +7,7 @@ if (!url) throw new Error('Missing SUPABASE_URL.');
 if (!publishableKey) throw new Error('Missing SUPABASE_PUBLISHABLE_KEY.');
 
 export function createSupabaseUserClient(accessToken: string) {
+  if (!url || !publishableKey) throw new Error('Missing Supabase user client configuration.');
   return createClient(url, publishableKey, {
     auth: {
       persistSession: false,
