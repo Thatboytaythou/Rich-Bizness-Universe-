@@ -1,3 +1,4 @@
+import {recentPaidReceipts} from './live.receipts';
 import './live.gifts.css';
 import type { Room, LocalAudioTrack, LocalVideoTrack } from 'livekit-client';
 import { getAuthSnapshot } from '../../core/auth/auth-store';
@@ -46,6 +47,7 @@ export async function mount(): Promise<void> {
   let snapshotQueued = false;
   let snapshotEpoch = 0;
   let actionBusy = false;
+  let checkoutBusy=false;let checkoutNotice='';
   let active: Row | null = null;
   let lane = 'live';
   let profile: Row = {};
@@ -171,7 +173,7 @@ export async function mount(): Promise<void> {
     }
   };
 
-  const openPayment=async(result:Row,streamId:string)=>{if(!isCurrent()||active?.id!==streamId)return;if(result.requires_payment!==true){await refresh();return;}try{const {data}=await supabase.auth.getSession();const token=data.session?.access_token;if(!token)throw Error('Tap In again before payment.');const response=await fetch('/api/live/checkout',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+token},body:JSON.stringify({kind:result.kind,reference_id:result.reference_id})});const checkout=await response.json();if(!response.ok||checkout.ok!==true)throw Error('Payment checkout could not open. No payment has been confirmed.');const url=new URL(String(checkout.url));if(url.protocol!=='https:'||url.hostname!=='checkout.stripe.com')throw Error('Invalid checkout address.');if(isCurrent()&&active?.id===streamId)location.assign(url.href);}catch(e){showActionError(e instanceof Error?e.message:'Payment checkout unavailable');}};
+  const openPayment=async(result:Row,streamId:string)=>{if(!isCurrent()||active?.id!==streamId)return;if(result.requires_payment!==true){checkoutNotice='No new checkout required. Refreshing room access.';await refresh();return;}try{const {data}=await supabase.auth.getSession();const token=data.session?.access_token;if(!token)throw Error('Tap In again before payment.');const response=await fetch('/api/live/checkout',{method:'POST',headers:{'Content-Type':'application/json',Authorization:'Bearer '+token},body:JSON.stringify({kind:result.kind,reference_id:result.reference_id})});const checkout=await response.json();if(!response.ok||checkout.ok!==true)throw Error('Payment checkout could not open. No payment has been confirmed.');const url=new URL(String(checkout.url));if(url.protocol!=='https:'||url.hostname!=='checkout.stripe.com')throw Error('Invalid checkout address.');if(isCurrent()&&active?.id===streamId){checkoutNotice='Redirecting to Stripe. Payment is not yet confirmed.';location.assign(url.href);}}catch(e){checkoutNotice='Checkout unavailable. No payment confirmed.';showActionError(e instanceof Error?e.message:'Payment checkout unavailable');}};
   const owned = (stream: Row) => Boolean(userId && String(stream.creator_id) === String(userId));
   const rows = () => streams.filter((stream)=> lane === 'live' ? liveNow(stream) : lane === 'upcoming' ? owned(stream) && ['draft','scheduled','upcoming','ready'].includes(String(stream.status).toLowerCase()) : (owned(stream)||liveNow(stream)) && (Boolean(stream.is_vip_enabled) || ['vip','paid'].includes(String(stream.access_type))));
   const renderCard = (row: Row) => `<article class="media-ultimate__card" data-id="${esc(row.id)}"><img src="${esc(safeMedia(row.thumbnail_url || row.cover_url) || '/images/live/categories/family-bizness.svg')}" alt=""><div class="media-ultimate__card-body"><h4>${esc(row.title || 'Family Bizness')}</h4><p>${esc(row.description || row.display_room_name || row.category || 'Bizness Party')}</p><div class="media-ultimate__meta"><span>${liveNow(row)?'● LIVE':lane.toUpperCase()}</span><span>${Number(row.viewer_count ?? row.view_count ?? 0).toLocaleString()} watching</span></div></div></article>`;
@@ -184,19 +186,24 @@ export async function mount(): Promise<void> {
 
   const renderRoom = () => {
     if (!isCurrent()) return;
-    const list=rows();
-    metricsEl.innerHTML=`<article><small>LIVE NOW</small><strong>${Number(metrics.live_now??streams.filter(liveNow).length).toLocaleString()}</strong></article><article><small>WATCHING</small><strong>${Number(metrics.viewers??0).toLocaleString()}</strong></article><article><small>MEMBERS</small><strong>${Number(metrics.members??memberRows.length).toLocaleString()}</strong></article><article><small>TIPS</small><strong>${money(metrics.tips_cents??tipRows.filter(row=>row.status==='paid').reduce((sum,row)=>sum+Number(row.amount_cents??0),0))}</strong></article>`;
+    const list=rows();const activeId=String(active?.id??'');const owner=!!active&&owned(active);const gifts=recentPaidReceipts(owner?tipRows:[],'tip',activeId),access=recentPaidReceipts(owner?purchaseRows:[],'purchase',activeId);
+    metricsEl.innerHTML=`<article><small>LIVE NOW</small><strong>${Number(metrics.live_now??streams.filter(liveNow).length).toLocaleString()}</strong></article><article><small>WATCHING</small><strong>${Number(metrics.viewers??0).toLocaleString()}</strong></article><article><small>MEMBERS</small><strong>${Number(metrics.members??memberRows.length).toLocaleString()}</strong></article><article><small>RECENT PAID GIFTS</small><strong>${owner?money(gifts.gross):'—'}</strong></article>`;
     gridEl.innerHTML=list.map(renderCard).join('')||'<div class="media-ultimate__empty">No rooms in this lane yet.</div>';
     gridEl.querySelectorAll<HTMLElement>('[data-id]').forEach((card)=>card.onclick=()=>{const row=list.find((item)=>String(item.id)===card.dataset.id);if(row)void open(row);});
     if(!active){heroEl.innerHTML=user?'<div class="media-ultimate__empty"><strong>YOUR LIVE COMMAND IS READY.</strong><span>Pick a live room or launch your own.</span></div>':'<div class="media-ultimate__empty"><strong>WE LIT 🔥</strong><span>Pick any public live room to pop in.</span></div>';detailEl.innerHTML='';chatEl.innerHTML='<div class="media-ultimate__empty">Pop in a room.</div>';activityEl.innerHTML='';return;}
+    const giftChoice=q<HTMLSelectElement>('#giftAmount')?.value;
     heroEl.innerHTML=hero(active);
+    const giftSelect=q<HTMLSelectElement>('#giftAmount');if(giftSelect&&giftChoice&&[...giftSelect.options].some(o=>o.value===giftChoice))giftSelect.value=giftChoice;
+    if(checkoutBusy)root.querySelectorAll<HTMLButtonElement>('#buyAccessBtn,#tipBtn').forEach(b=>b.disabled=true);
     if(viewerRoom && viewerJoinedStreamId===String(active.id)){const stage=heroEl.querySelector('#viewerStage');viewerElements.forEach(element=>stage?.append(element));}
     detailEl.innerHTML=[['ROOM',active.display_room_name||active.category||'BIZNESS PARTY'],['HOST',active.display_name||active.username||'Rich Creator'],['ACCESS',String(active.access_type||'free').toUpperCase()],['VIEWERS',Number(active.viewer_count??0).toLocaleString()],['STATUS',String(active.status_label||active.status||'LIVE').toUpperCase()]].map(([label,value])=>`<div class="media-ultimate__row"><div><h5>${esc(label)}</h5><p>${esc(value)}</p></div></div>`).join('');
+    if(owner)detailEl.insertAdjacentHTML('beforeend',`<section class="live-receipt-card"><h5>RECENT PAID RECEIPTS</h5><div><span>Gift receipts (${gifts.count})</span><strong>${money(gifts.creator)}</strong></div><div><span>VIP access receipts (${access.count})</span><strong>${money(access.creator)}</strong></div><div><span>Creator share recorded</span><strong>${money(gifts.creator+access.creator)}</strong></div><p>Latest receipt list only (up to 80 per type), before subsequent refund reconciliation. Not available balance or payout.</p></section>`);
+    if(checkoutNotice)detailEl.insertAdjacentHTML('beforeend',`<p class="live-checkout-status" role="status">${esc(checkoutNotice)}</p>`);
     chatEl.innerHTML=chatRows.length?chatRows.map((row)=>`<article><p>${esc(row.message)}</p><small>${esc(row.display_name||row.username||'Rich Member')}</small>${active&&owned(active)&&!row.is_pinned?`<button data-pin-message="${esc(row.id)}">PIN</button>`:''}</article>`).join(''):'<div class="media-ultimate__empty">Start the room conversation.</div>';
     activityEl.innerHTML=activityRows.slice(0,8).map((row)=>`<span>${esc(row.activity_type||'activity')} · ${esc(row.display_name||row.username||'Rich Member')}</span>`).join('');
     q<HTMLButtonElement>('#popInBtn')?.addEventListener('click',()=>void popIn(active!));
-    q<HTMLButtonElement>('#buyAccessBtn')?.addEventListener('click',async()=>{if(!active||!requireUser())return;const streamId=active.id;const button=q<HTMLButtonElement>('#buyAccessBtn');if(!button||button.disabled)return;button.disabled=true;try{const result=await runLiveAction('purchase',{});if(result)await openPayment(result,streamId);}finally{if(isCurrent()&&button.isConnected)button.disabled=false;}});
-    q<HTMLButtonElement>('#tipBtn')?.addEventListener('click',async()=>{if(!requireUser()||!active)return;const streamId=active.id;const choice=q<HTMLSelectElement>('#giftAmount')?.value??'custom';let cents=Number(choice);if(choice==='custom'){const raw=prompt('Tip amount in USD (1–1000, paid through Stripe)','5');if(raw===null||!/^\d{1,5}(\.\d{1,2})?$/.test(raw.trim()))return;cents=Math.round(Number(raw)*100);}else if(![100,500,1000,2500].includes(cents))return;if(!Number.isSafeInteger(cents)||cents<100||cents>100000)return;if(!confirm('Confirm '+money(cents)+' one-time gift/tip via Stripe Checkout? No subscription.'))return;if(!isCurrent()||active?.id!==streamId)return;const button=q<HTMLButtonElement>('#tipBtn');if(!button||button.disabled)return;button.disabled=true;try{const result=await runLiveAction('tip',{amount_cents:cents});if(result&&isCurrent()&&active?.id===streamId)await openPayment(result,streamId);}finally{if(isCurrent()&&button.isConnected)button.disabled=false;}});
+    q<HTMLButtonElement>('#buyAccessBtn')?.addEventListener('click',async()=>{if(!active||!requireUser())return;if(checkoutBusy)return;const streamId=active.id;const button=q<HTMLButtonElement>('#buyAccessBtn');if(!button||button.disabled)return;checkoutBusy=true;checkoutNotice='Opening secure checkout…';button.disabled=true;try{const result=await runLiveAction('purchase',{});if(result)await openPayment(result,streamId);}finally{checkoutBusy=false;if(isCurrent())root.querySelectorAll<HTMLButtonElement>('#buyAccessBtn,#tipBtn').forEach(b=>b.disabled=false);}});
+    q<HTMLButtonElement>('#tipBtn')?.addEventListener('click',async()=>{if(!requireUser()||!active)return;if(checkoutBusy)return;const streamId=active.id;const choice=q<HTMLSelectElement>('#giftAmount')?.value??'custom';let cents=Number(choice);if(choice==='custom'){const raw=prompt('Tip amount in USD (1–1000, paid through Stripe)','5');if(raw===null||!/^\d{1,5}(\.\d{1,2})?$/.test(raw.trim()))return;cents=Math.round(Number(raw)*100);}else if(![100,500,1000,2500].includes(cents))return;if(!Number.isSafeInteger(cents)||cents<100||cents>100000)return;if(!confirm('Confirm '+money(cents)+' one-time gift/tip via Stripe Checkout? No subscription.'))return;if(!isCurrent()||active?.id!==streamId)return;const button=q<HTMLButtonElement>('#tipBtn');if(!button||button.disabled)return;checkoutBusy=true;checkoutNotice='Opening secure checkout…';button.disabled=true;try{const result=await runLiveAction('tip',{amount_cents:cents});if(result&&isCurrent()&&active?.id===streamId)await openPayment(result,streamId);}finally{checkoutBusy=false;if(isCurrent())root.querySelectorAll<HTMLButtonElement>('#buyAccessBtn,#tipBtn').forEach(b=>b.disabled=false);}});
     q<HTMLButtonElement>('#reactBtn')?.addEventListener('click',async()=>{const result=await runLiveAction('reaction',{reaction:'💨'});if(result)burst('💨');});
     q<HTMLButtonElement>('#alertBtn')?.addEventListener('click',async()=>{const result=await runLiveAction('toggle_alert',{});if(result){const creator=String(active!.creator_id);if(result.active)alerts.add(creator);else alerts.delete(creator);renderRoom();}});
     q<HTMLButtonElement>('#shareBtn')?.addEventListener('click',async()=>{const url=`${location.origin}/live.html?stream=${active!.id}`;if(user)await runLiveAction('share',{target:'system-share'});if(navigator.share)await navigator.share({title:active!.title||'Rich Bizness Live',url}).catch(()=>undefined);else await navigator.clipboard?.writeText(url);});
@@ -239,7 +246,7 @@ export async function mount(): Promise<void> {
     if (!isCurrent() || !liveNow(row)) return;
     const opening=++roomEpoch;
     active=row;
-    chatRows=[];activityRows=[];memberRows=[];tipRows=[];purchaseRows=[];
+    checkoutNotice='';chatRows=[];activityRows=[];memberRows=[];tipRows=[];purchaseRows=[];
     setStreamUrl(row);
     await disconnectViewer(true, 'switch-room');
     if(!isCurrent()||opening!==roomEpoch)return;
@@ -353,6 +360,7 @@ export async function mount(): Promise<void> {
   window.addEventListener('pagehide',onPageExit,{once:true});
   window.addEventListener('beforeunload',onPageExit,{once:true});
 
+  const returnState=new URLSearchParams(location.search).get('payment');
   await refresh();
   if(!isCurrent())return;
   const requested=new URLSearchParams(location.search).get('stream');
@@ -371,6 +379,7 @@ export async function mount(): Promise<void> {
     renderRoom();
   }
   if(!isCurrent())return;
+  if(returnState==='return'||returnState==='cancelled'){checkoutNotice=returnState==='return'?'Returned from checkout. Payment confirmation depends on the verified Stripe webhook.':'Checkout cancelled. No payment has been confirmed.';const cleanUrl=new URL(location.href);cleanUrl.searchParams.delete('payment');history.replaceState({},'',cleanUrl.pathname+cleanUrl.search+cleanUrl.hash);renderRoom();}
   catalogChannel=supabase.channel(`rich-live-owner:${mountEpoch}`).on('postgres_changes',{event:'*',schema:'public',table:'live_streams'},()=>void refresh()).on('postgres_changes',{event:'*',schema:'public',table:'live_alert_subscriptions'},()=>void refresh()).subscribe();
 }
 

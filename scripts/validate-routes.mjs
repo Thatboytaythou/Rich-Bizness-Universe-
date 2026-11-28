@@ -42,3 +42,5 @@ const one=await make('test-home').load(),two=await make('test-portal').load();aw
 console.log('V1 route lifecycle: duplicate mount execution suppressed, previous owner cleaned once, epoch preserved');
 
 const command=read('apps/web/src/pages/portal/portal.command.css');assert.match(portal,/void refresh\(\)/);assert.match(portal,/window.setInterval/);assert.match(portal,/clearInterval\(poll\)/);assert.match(portal,/document.hidden\|\|pending/);assert.match(portal,/ROUTES.avatarCharacters/);assert.match(portal,/ROUTES.creatorDimensions/);assert.match(command,/pointer-events:auto;touch-action:manipulation/);assert.match(command,/grid-template-columns:minmax\(0,1fr\)/);assert.doesNotMatch(portal,/recent_activity/);console.log('Evolution Portal: instant shell, eight stable destinations, all-section deck, bounded member refresh and cleanup');
+
+assert.match(portal,/selectDestination/);assert.match(portal,/data-portal-focus/);assert.match(portal,/addEventListener\('focus'/);console.log('Portal destination focus and independent route links verified');

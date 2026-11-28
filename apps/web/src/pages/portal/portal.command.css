@@ -33,3 +33,5 @@ body[data-page="portal"] #app{min-width:0;min-height:100svh}
 
 /* Keep optical geometry behind the independent route controls. */
 .portal-command .portal-motion-canvas{z-index:2;pointer-events:none}.portal-command .pc-orbit{z-index:1}.portal-command .portal-world{touch-action:pan-y}.portal-command .portal-node{touch-action:manipulation}
+
+.pc-selected{display:grid;gap:6px;min-width:0;padding:14px;border:1px solid #cbb77e66;border-radius:14px;background:linear-gradient(145deg,#233d2e,#0b1815)}.pc-selected strong{font:700 21px Georgia,serif;color:#ffe5b3}.pc-selected span{font-size:12px;color:#bdd3c5}.pc-selected a{display:grid;align-items:center;min-height:44px;border-radius:9px;background:#203d2c;padding:8px 10px;color:#e6efdf;font-size:13px;font-weight:700}.pc-selected-node{outline:2px solid var(--tone);outline-offset:-2px}.portal-command .portal-world[data-destination] .pc-aperture{border-color:var(--selected-tone);box-shadow:inset 0 0 24px color-mix(in srgb,var(--selected-tone) 30%,transparent),0 0 26px color-mix(in srgb,var(--selected-tone) 35%,transparent)}@media(max-width:780px){.pc-selected{grid-column:1/-1}}
