@@ -76,7 +76,12 @@ export async function mount(): Promise<void> {
   let loadingThreads = false;
   let loadingThread = false;
   let threadQueued=false,listQueued=false,opening=false,sending=false,sharing=false;
-  let threadRevision=0,threadRefreshTimer:number|undefined;
+  let threadRevision=0,threadRefreshTimer:number|undefined,queuedOpen:string|null=null;
+  let verifiedThread:string|null=null;
+  let typingThread:string|null=null;
+  const lastRead=new Map<string,string>();
+  const reactionPending=new Set<string>();
+  let directPending=false;
   const drafts=new Map<string,string>();
   const currentThread=(id:string)=>isCurrent()&&getAuthSnapshot().user?.id===user.id&&activeThread===id;
   const scheduleThread=(id:string)=>{if(!currentThread(id))return;if(threadRefreshTimer)clearTimeout(threadRefreshTimer);threadRefreshTimer=window.setTimeout(()=>void refreshThread(id),160);};
@@ -92,7 +97,7 @@ export async function mount(): Promise<void> {
     if (!isCurrent()) return;
     threadCount.textContent = String(threads.length);
     unreadCount.textContent = String(threads.reduce((total, thread) => total + Number(thread.unread_count ?? 0), 0));
-    activeState.textContent = activeThread ? 'OPEN' : 'NONE';
+    activeState.textContent = activeThread ? (verifiedThread===activeThread?'OPEN':'VERIFYING') : 'NONE';
   };
 
   const scheduleThreads = () => {
@@ -102,8 +107,8 @@ export async function mount(): Promise<void> {
   };
 
   const setTyping = async (threadId: string, value: boolean) => {
-    if (!isCurrent()) return;
-    await supabase.rpc('rb_dm_set_typing', { p_thread_id: threadId, p_is_typing: value });
+    if (!isCurrent()||getAuthSnapshot().user?.id!==user.id) return;
+    try{await supabase.rpc('rb_dm_set_typing', { p_thread_id: threadId, p_is_typing: value });}catch{/* typing is transient; never interrupt delivery */}
   };
 
   const drawThreads = () => {
@@ -139,8 +144,9 @@ export async function mount(): Promise<void> {
   };
 
   const drawThread = async (threadId: string, snapshot: ThreadSnapshot) => {
-    if (!isCurrent() || activeThread !== threadId) return;
+    if (!currentThread(threadId)) return;
     const thread = snapshot.thread ?? {};
+    verifiedThread=threadId;activeState.textContent='OPEN';
     const messages = [...new Map((snapshot.messages??[]).filter(m=>m.thread_id===threadId).map(m=>[m.id,m])).values()];
     const attachments = snapshot.attachments ?? [];
     const reactions = snapshot.reactions ?? [];
@@ -155,7 +161,7 @@ export async function mount(): Promise<void> {
     const keepScroll=priorFeed&&priorFeed.scrollHeight-priorFeed.scrollTop-priorFeed.clientHeight>80;
     const previousScroll=priorFeed?.scrollTop??0;
 
-    panel.innerHTML = `<header class="thread-title"><div><strong>${esc(String((thread as any).title || 'Rich Conversation'))}</strong><p>${esc(String((thread as any).typing_label || 'Private member room'))}</p></div><div class="thread-actions"><button id="audioCall" title="Audio call">☎</button><button id="videoCall" title="Video call">◉</button><button id="threadInfo" title="Conversation settings">⋯</button></div></header>${activeCall ? `<section class="active-call-strip"><div><small>${esc(String(activeCall.call_type || 'rich call').toUpperCase())}</small><strong>${esc(String(activeCall.call_status || 'ACTIVE').toUpperCase())}</strong></div><a href="${ROUTES.messages}?thread=${encodeURIComponent(threadId)}&call=${encodeURIComponent(activeCall.id)}">REJOIN CALL</a></section>` : ''}<div id="messageFeed" class="message-feed"></div><div id="typingRow" class="typing-row">${esc(typing[0]?.typing_label || '')}</div><form id="composer" class="composer"><button id="attachButton" class="icon-button" type="button" aria-label="Private attachments unavailable" title="Private attachment storage is not verified" disabled>＋</button><input id="messageInput" maxlength="2000" autocomplete="off" placeholder="Send a Rich-DM..."/><button class="comm-button primary">SEND</button><input id="attachmentInput" type="file" disabled hidden accept="image/*,video/*,audio/*,.pdf,.doc,.docx"/></form>`;
+    panel.innerHTML = `<header class="thread-title"><div><strong>${esc(String((thread as any).title || 'Rich Conversation'))}</strong><p>${esc(String((thread as any).typing_label || 'Private member room'))}</p></div><div class="thread-actions"><button id="audioCall" title="Audio call">☎</button><button id="videoCall" title="Video call">◉</button><button id="threadInfo" title="Conversation settings">⋯</button></div></header>${activeCall ? `<section class="active-call-strip"><div><small>${esc(String(activeCall.call_type || 'rich call').toUpperCase())}</small><strong>${esc(String(activeCall.call_status || 'ACTIVE').toUpperCase())}</strong></div><a href="${ROUTES.messages}?thread=${encodeURIComponent(threadId)}&call=${encodeURIComponent(activeCall.id)}">REJOIN CALL</a></section>` : ''}${sharedPostPending?'<button id="confirmSharedPost" class="comm-button" type="button">Share selected post to this conversation</button>':''}<div id="messageFeed" class="message-feed"></div><div id="typingRow" class="typing-row">${esc(typing[0]?.typing_label || '')}</div><form id="composer" class="composer"><button id="attachButton" class="icon-button" type="button" aria-label="Private attachments unavailable" title="Private attachment storage is not verified" disabled>＋</button><input id="messageInput" maxlength="2000" autocomplete="off" placeholder="Send a Rich-DM..."/><button class="comm-button primary">SEND</button><input id="attachmentInput" type="file" disabled hidden accept="image/*,video/*,audio/*,.pdf,.doc,.docx"/></form>`;
 
     const feed = panel.querySelector<HTMLElement>('#messageFeed')!;
     feed.innerHTML = messages.length ? messages.map((message) => {
@@ -179,10 +185,9 @@ export async function mount(): Promise<void> {
 
     feed.querySelectorAll<HTMLButtonElement>('[data-react]').forEach((button) => button.onclick = async () => {
       const message = button.closest<HTMLElement>('[data-message]')?.dataset.message;
-      if (!message || !isCurrent()) return;
-      if(!button.dataset.react)return;const { error } = await supabase.rpc('rb_dm_toggle_reaction', { p_message_id: message, p_emoji: button.dataset.react ?? '' });
-      if (!isCurrent()) return;
-      if (error) setStatus(error.message); else await refreshThread(threadId);
+      const emoji=button.dataset.react;if (!message||!emoji||!currentThread(threadId)) return;
+      const key=message+':'+emoji;if(reactionPending.has(key))return;reactionPending.add(key);button.disabled=true;
+      try{const {error}=await supabase.rpc('rb_dm_toggle_reaction',{p_message_id:message,p_emoji:emoji});if(currentThread(threadId)){if(error)setStatus('Reaction not confirmed.');else scheduleThread(threadId);}}catch{setStatus('Reaction not confirmed.');}finally{reactionPending.delete(key);if(button.isConnected)button.disabled=false;}
     });
 
     const input = panel.querySelector<HTMLInputElement>('#messageInput')!;
@@ -190,6 +195,7 @@ export async function mount(): Promise<void> {
     input.disabled=sending;
     if(keepFocus&&!sending){input.focus({preventScroll:true});input.setSelectionRange(input.value.length,input.value.length);}
     panel.querySelector<HTMLButtonElement>('#threadInfo')!.onclick=()=>location.assign(ROUTES.settings+'#privacy');
+    const shareButton=panel.querySelector<HTMLButtonElement>('#confirmSharedPost');if(shareButton)shareButton.onclick=async()=>{if(!currentThread(threadId)||sharing||sending||verifiedThread!==threadId)return;shareButton.disabled=true;try{await sendSharedPost(threadId);scheduleThread(threadId);}catch{setStatus('Share not confirmed. Check the conversation before retrying.');}finally{if(shareButton.isConnected)shareButton.disabled=false;}};
     panel.querySelector<HTMLFormElement>('#composer')!.onsubmit = async (event) => {
       event.preventDefault();
       const body = input.value.trim();
@@ -210,27 +216,26 @@ export async function mount(): Promise<void> {
 
     input.oninput = () => {
       if(!currentThread(threadId))return;drafts.set(threadId,input.value);
-      void setTyping(threadId, true);
+      if(typingThread!==threadId){typingThread=threadId;void setTyping(threadId,true);}
       if (typingTimer) window.clearTimeout(typingTimer);
-      typingTimer = window.setTimeout(() => void setTyping(threadId, false), 1400);
+      typingTimer = window.setTimeout(() => {typingThread=null;void setTyping(threadId,false);}, 1400);
     };
 
     // Upload disabled until a member-scoped private bucket and authorized delivery exist.
 
     const startCall = async (type: 'audio' | 'video') => {
-      if (!isCurrent()) return;
-      const { data, error } = await supabase.rpc('rb_dm_start_call', { p_thread_id: threadId, p_call_type: type });
-      if (!isCurrent()) return;
-      if (error) { setStatus(error.message); return; }
-      const callId = String((data as any)?.call_id || '');
-      if (callId) location.href = `${ROUTES.messages}?thread=${encodeURIComponent(threadId)}&call=${encodeURIComponent(callId)}`;
+      if (!currentThread(threadId)||verifiedThread!==threadId) return;
+      // A server call record is not proof of a connected audio/video transport.
+      setStatus(type==='audio'?'Audio transport is not verified in this build.':'Video transport is not verified in this build.');
     };
     panel.querySelector<HTMLButtonElement>('#audioCall')!.onclick = () => void startCall('audio');
     panel.querySelector<HTMLButtonElement>('#videoCall')!.onclick = () => void startCall('video');
 
+    const last=messages.at(-1)?.id??'empty';
+    if(lastRead.get(threadId)===last)return;
     const { error: readError } = await supabase.rpc('rb_dm_mark_thread_read', { p_thread_id: threadId });
-    if (!isCurrent()) return;
-    if (!readError) {
+    if (!currentThread(threadId)) return;
+    if (!readError) {lastRead.set(threadId,last);
       const cached = threads.find((item) => item.id === threadId);
       if (cached) cached.unread_count = 0;
       drawThreads();
@@ -244,23 +249,24 @@ export async function mount(): Promise<void> {
     try {
       const { data, error } = await supabase.rpc('rb_dm_thread_snapshot', { p_thread_id: threadId, p_limit: 350 });
       if (!currentThread(threadId)||revision!==threadRevision) return;
-      if (error||!data||!(data as ThreadSnapshot).thread) throw Error('Conversation could not be verified.');
+      if (error||!data||String((data as ThreadSnapshot).thread?.id??'')!==threadId) throw Error('Conversation could not be verified.');
       if(sending||sharing){threadQueued=true;return;}
       await drawThread(threadId, data as ThreadSnapshot);
     } catch (caught) {
-      if(currentThread(threadId)){panel.innerHTML='<div class="comm-empty" role="status">Conversation unavailable. Reopen the thread to retry.</div>';activeState.textContent='UNVERIFIED';setStatus('Conversation could not be verified.');}
-    } finally { loadingThread = false;if(threadQueued&&activeThread){threadQueued=false;scheduleThread(activeThread);} }
+      if(currentThread(threadId)){verifiedThread=null;panel.innerHTML='<div class="comm-empty" role="status">Conversation unavailable. Reopen the thread to retry.</div>';activeState.textContent='UNVERIFIED';setStatus('Conversation could not be verified.');}
+    } finally { loadingThread = false;if(queuedOpen&&!opening){const next=queuedOpen;queuedOpen=null;void openThread(next);}else if(threadQueued&&activeThread){threadQueued=false;scheduleThread(activeThread);} }
   };
 
   const openThread = async (threadId: string) => {
-    if (!isCurrent() || opening||sending||sharing||!isUuid(threadId)) return;
+    if (!isCurrent() || sending||sharing||!isUuid(threadId)) return;
+    if(opening||loadingThread){queuedOpen=threadId;return;}
     opening=true;
     try{
-    if (activeThread && activeThread !== threadId) {if(typingTimer)clearTimeout(typingTimer);void setTyping(activeThread,false);}
+    if (activeThread && activeThread !== threadId) {if(typingTimer)clearTimeout(typingTimer);typingThread=null;void setTyping(activeThread,false);}
     if (!isCurrent()) return;
-    threadRevision++;activeThread = threadId;
+    threadRevision++;verifiedThread=null;activeThread = threadId;
     panel.innerHTML='<div class="comm-empty" role="status">Verifying conversation…</div>';
-    activeState.textContent = 'OPEN';
+    activeState.textContent = 'VERIFYING';
     drawThreads();
     params.set('thread', threadId);
     history.replaceState({}, '', `${ROUTES.messages}?${params.toString()}`);
@@ -274,11 +280,7 @@ export async function mount(): Promise<void> {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'dm_call_sessions', filter: `thread_id=eq.${threadId}` }, () => scheduleThread(threadId))
       .subscribe(state=>{if(state==='SUBSCRIBED')scheduleThread(threadId);});
     await refreshThread(threadId);
-    if (sharedPostPending) {
-      try { await sendSharedPost(threadId); await refreshThread(threadId); }
-      catch { setStatus('Share not confirmed. Check the conversation before retrying.'); }
-    }
-    }finally{opening=false;}
+    }finally{opening=false;if(queuedOpen){const next=queuedOpen;queuedOpen=null;void openThread(next);}}
   };
 
   const loadThreads = async () => {
@@ -298,18 +300,17 @@ export async function mount(): Promise<void> {
   };
 
   const openDirectFor = async (profileId: string) => {
-    if (!isCurrent()) return;
+    if (!isCurrent()||directPending||sending||sharing) return;
     if (!isUuid(profileId) || profileId === user.id) { setStatus('Invalid message recipient.'); return; }
-    const { data: threadId, error } = await supabase.rpc('rb_create_direct_thread', { p_other_user: profileId });
+    directPending=true;
+    try{const { data: threadId, error } = await supabase.rpc('rb_create_direct_thread', { p_other_user: profileId });
     if (!isCurrent()) return;
     if (error) { setStatus(error.message); return; }
     const id = String(threadId || '');
     if (!isUuid(id)) { setStatus('Unable to open conversation.'); return; }
-    activeThread = id;
-    params.set('thread', id);
-    history.replaceState({}, '', `${ROUTES.messages}?${params.toString()}`);
-    await loadThreads();
     await openThread(id);
+    await loadThreads();
+    }catch{setStatus('Conversation creation not confirmed.');}finally{directPending=false;}
   };
 
   const openNewThread = () => {
