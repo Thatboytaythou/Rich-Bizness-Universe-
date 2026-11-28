@@ -93,7 +93,7 @@ export async function mount(): Promise<void> {
       if(!isCurrent())return;if(insertError){uploadUncertain=true;throw Error('File transferred but publication not confirmed. Check recent uploads before retrying.');}
       bar.style.width='100%';setMessage('Upload record confirmed. Destination processing may still be pending.');form.reset();setFile(null);
     }catch(caught){if(isCurrent()){uploadUncertain=true;setMessage(caught instanceof Error?caught.message:'Upload outcome not confirmed. Refresh and check recent uploads before retrying.');bar.style.width='0%';}}
-    finally{uploading=false;if(isCurrent()){controls.forEach((control,i)=>control.disabled=states[i]);state.textContent=uploadUncertain?'CHECK STATUS':'READY';state.classList.remove('working');renderRoute();void loadSnapshot().catch(()=>setMessage('Recent upload status unavailable.'));}}
+    finally{uploading=false;if(isCurrent()){controls.forEach((control,i)=>control.disabled=states[i]??false);state.textContent=uploadUncertain?'CHECK STATUS':'READY';state.classList.remove('working');renderRoute();void loadSnapshot().catch(()=>setMessage('Recent upload status unavailable.'));}}
   },{signal});
 
   await loadSnapshot().catch(()=>setMessage('Upload destinations unavailable. Use refresh to retry.'));
