@@ -14,7 +14,7 @@
     "build": "npm run validate && node scripts/build-universe-art.mjs && node scripts/report-typecheck.mjs && node scripts/build-character-assets.mjs && node scripts/build-original-wearables.mjs && node scripts/build-world-surfaces.mjs && node scripts/build-world-models.mjs && npm run build --workspace @rich-bizness/web && node scripts/validate-built-release.mjs",
     "preview": "npm run preview --workspace @rich-bizness/web",
     "typecheck": "tsc -p tsconfig.base.json --noEmit",
-    "validate": "node scripts/validate-env.mjs && node scripts/validate-routes.mjs && node scripts/validate-packages.mjs && node scripts/validate-section-updates.mjs && node scripts/validate-character-motion.mjs && node scripts/validate-avatar-studio-layout.mjs && node scripts/validate-payment-integrity.mjs && node scripts/validate-game-integrity.mjs && node scripts/test-dm-call-auth.mjs",
+    "validate": "node scripts/validate-env.mjs && node scripts/validate-routes.mjs && node scripts/validate-packages.mjs && node scripts/validate-section-updates.mjs && node scripts/validate-character-motion.mjs && node scripts/validate-avatar-studio-layout.mjs && node scripts/validate-payment-integrity.mjs && node scripts/validate-game-integrity.mjs && node scripts/test-dm-call-auth.mjs && node scripts/test-section-identity.mjs",
     "validate:packages": "node scripts/validate-packages.mjs",
     "test": "npm run typecheck"
   },

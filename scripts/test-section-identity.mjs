@@ -1,0 +1,27 @@
+// Test the actual page-boundary module, not a replacement implementation.
+import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+import ts from 'typescript';
+let snapshot={ready:true,user:{id:'fixture-A'}},listeners=new Set(),reloads=0,pause=0,load=0;
+globalThis.__rbIdentityFixture={getAuthSnapshot:()=>snapshot,subscribeAuth(fn){listeners.add(fn);fn(snapshot);return()=>listeners.delete(fn);}};
+globalThis.location={reload(){reloads++;}};
+globalThis.window={addEventListener(){},removeEventListener(){}};
+const source=readFileSync('apps/web/src/core/lifecycle/section-identity.ts','utf8');
+const js=ts.transpileModule(source,{compilerOptions:{target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.ESNext}}).outputText.replace(/import .*?from ['"][^'"]+['"];?/,"const {getAuthSnapshot,subscribeAuth}=globalThis.__rbIdentityFixture;");
+const {bindSectionIdentity}=await import('data:text/javascript;base64,'+Buffer.from(js).toString('base64'));
+const media={pause(){pause++;},load(){load++;},removeAttribute(){},srcObject:{}};
+const root={dataset:{pageEpoch:'1'},hidden:false,inert:false,querySelectorAll:()=>[media]};
+const emit=s=>{snapshot=s;for(const fn of [...listeners])fn(snapshot);};
+const gate=bindSectionIdentity(root);
+assert.equal(gate.current(),true);
+emit({ready:true,user:{id:'fixture-A'},session:{access_token:'refreshed-fixture'}});
+assert.equal(reloads,0);assert.equal(gate.current(),true);
+emit({ready:true,user:{id:'fixture-B'}});
+assert.equal(gate.current(),false);assert.equal(root.hidden,true);assert.equal(root.inert,true);assert.equal(pause,1);assert.equal(load,1);assert.equal(media.srcObject,null);assert.equal(reloads,1);
+emit({ready:true,user:null});assert.equal(reloads,1);
+gate.dispose();gate.dispose();assert.equal(listeners.size,0);
+snapshot={ready:true,user:null};const visitor={dataset:{pageEpoch:'2'},hidden:false,inert:false,querySelectorAll:()=>[]};
+const guest=bindSectionIdentity(visitor);assert.equal(guest.current(),true);
+emit({ready:true,user:{id:'fixture-C'}});assert.equal(guest.current(),false);assert.equal(visitor.hidden,true);assert.equal(reloads,2);guest.dispose();
+delete globalThis.__rbIdentityFixture;delete globalThis.location;delete globalThis.window;
+console.log('Section identity boundary: same-user refresh, account switch, sign-in from guest, media teardown and observer disposal passed.');
