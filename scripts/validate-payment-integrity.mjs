@@ -27,3 +27,5 @@ const paid={stream_id:stream,status:'paid',currency:'usd',stripe_payment_intent_
 
 import {receiptState} from '../api/live/checkout.js';
 assert.equal(receiptState({status:'pending'},'tip'),'pending');assert.equal(receiptState({status:'paid',stripe_payment_intent_id:'pi_verified',paid_at:'2026-11-27T12:00:00Z'},'tip'),'paid');assert.equal(receiptState({status:'paid',paid_at:'2026-11-27T12:00:00Z'},'tip'),'unconfirmed');assert.equal(receiptState({status:'paid',refunded_amount_cents:1},'purchase'),'refund_review');assert.match(fields.get('success_url'),/reference_id=/);assert.match(checkout,/statusRequest/);console.log('Live payment return: owner-scoped receipt status, no client confirmation from return URL alone');
+
+assert.match(checkout,/from\('rb_stripe_refund_review'\)\.select\('refunded_cents'\)\.eq\('payment_intent_id',receipt.stripe_payment_intent_id\)/);assert.match(checkout,/receipt_reconciliation_unavailable/);console.log('Live receipt confirmation checks refund review before reporting paid');

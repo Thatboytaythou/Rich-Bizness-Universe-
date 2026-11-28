@@ -443,7 +443,7 @@ export async function mount(): Promise<void> {
   const toggle=root.querySelector<HTMLInputElement>('#rbPresence');if(toggle){toggle.disabled=!original;toggle.onchange=()=>{if(toggle.checked)presence.start();else presence.stop();};document.addEventListener('visibilitychange',()=>{if(document.hidden&&toggle.checked){toggle.checked=false;presence.stop();}},{signal:abort.signal});}
   const recording=root.querySelector<HTMLElement>('#rbRecording');const stopRecording=recording?mountRecordingConsole(recording):()=>{};let lifeStopped=false;stopLife=()=>{if(lifeStopped)return;lifeStopped=true;presence.dispose();stopRecording();if(toggle){toggle.checked=false;toggle.disabled=true;}};
   let lastGuide=0;
-  let drawCost=0;
+  let drawCost=0;let lastRenderTelemetry=0;
 
   let lastFrame=0;
   const loop = (now=0) => {
@@ -516,7 +516,7 @@ export async function mount(): Promise<void> {
     if(now-lastGuide>500){lastGuide=now;const guide=root.querySelector<HTMLElement>('#rbWayfinder'),selection=root.querySelector<HTMLSelectElement>('#rbTarget');if(guide){const p=avatarRuntime.root.position;const target=definition.actions.find(a=>a.id===selection?.value)??[...definition.actions].sort((a,b)=>Math.hypot(a.x-p.x,a.z-p.z)-Math.hypot(b.x-p.x,b.z-p.z))[0];if(target){const distance=Math.hypot(target.x-p.x,target.z-p.z);const direction=target.z<p.z?'ahead (north)':'behind (south)';guide.textContent=target.label+' · '+distance.toFixed(1)+' m · '+(distance<1.85?'within interaction range':direction+' / '+(target.x<p.x?'west':'east'));}}}
     const sky=world.getObjectByName('rb-cinematic-sky');if(sky)sky.position.copy(camera.position);
     if(!mobile){sun.position.set(position.x-9,9,position.z+6);sun.target.position.set(position.x,0,position.z);sun.target.updateMatrixWorld();}
-    renderer.render(scene, camera);drawCost+=.12*(performance.now()-drawStarted-drawCost);if(canvas.dataset.rbRenderState!=='frame-rendered'||now-lastTelemetry<40){canvas.dataset.rbDrawCalls=String(renderer.info.render.calls);canvas.dataset.rbTriangles=String(renderer.info.render.triangles);canvas.dataset.rbResolution=canvas.width+'×'+canvas.height;canvas.dataset.rbRenderState='frame-rendered';canvas.dataset.rbDistrict=district;canvas.dataset.rbVehicleAsset=world.userData.vehicleStatus??'fallback';}
+    renderer.render(scene, camera);drawCost+=.12*(performance.now()-drawStarted-drawCost);if(canvas.dataset.rbRenderState!=='frame-rendered'||now-lastRenderTelemetry>=1000){lastRenderTelemetry=now;canvas.dataset.rbDrawCalls=String(renderer.info.render.calls);canvas.dataset.rbTriangles=String(renderer.info.render.triangles);canvas.dataset.rbResolution=canvas.width+'×'+canvas.height;canvas.dataset.rbRenderState='frame-rendered';canvas.dataset.rbDistrict=district;canvas.dataset.rbVehicleAsset=world.userData.vehicleStatus??'fallback';}
     }catch(error){failure('Graphics stopped. Saved appearance is unchanged.');console.warn('[Avatar Lobby]',error);}
   };
   const frames=renderScheduler(loop,cb=>requestAnimationFrame(cb),id=>cancelAnimationFrame(id));stopFrames=frames.stop;syncFrames=()=>{lastFrame=0;frames.setVisible(!disposed&&!graphicsFailed&&!document.hidden&&worldVisible);};document.addEventListener('visibilitychange',syncFrames,{signal:abort.signal});syncFrames();

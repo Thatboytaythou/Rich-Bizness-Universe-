@@ -36,7 +36,7 @@ export function mountPortalMotion(options: MotionOptions): () => void {
   let inView = true;
   const mobile=matchMedia('(any-pointer:coarse),(max-width:860px)').matches;
   let time = 0;
-  let lastPaint = 0;
+  let lastPaint = 0;let paintCost=0;let paintInterval=32;let paintSamples=0;
   let pointerX = 0.5;
   let pointerY = 0.5;
   let disposed = false;
@@ -55,7 +55,7 @@ export function mountPortalMotion(options: MotionOptions): () => void {
 
   const paint = (advance: boolean) => {
     if (disposed) return;
-    if (advance) time += 0.008;
+    if (advance) time += .008 * paintInterval / 32;
     context.clearRect(0, 0, width, height);
 
     const centerX = width / 2;
@@ -63,7 +63,7 @@ export function mountPortalMotion(options: MotionOptions): () => void {
 
     for (const particle of particles) {
       if (advance) {
-        particle.y -= particle.s / height;
+        particle.y -= particle.s / height * paintInterval / 32;
         if (particle.y < -0.02) {
           particle.y = 1.02;
           particle.x = Math.random();
@@ -103,7 +103,7 @@ export function mountPortalMotion(options: MotionOptions): () => void {
     if(stage.dataset.rbCanvasState!=='painted')stage.dataset.rbCanvasState='painted';
   };
 
-  const frames=renderScheduler(now=>{if(!lastPaint||now-lastPaint>=32){lastPaint=now;paint(true);}},cb=>window.requestAnimationFrame(cb),id=>window.cancelAnimationFrame(id));
+  const frames=renderScheduler(now=>{if(!lastPaint||now-lastPaint>=paintInterval){const started=performance.now();lastPaint=now;paint(true);paintCost+=(performance.now()-started-paintCost)*.12;paintSamples++;if(paintSamples%60===0){paintInterval=paintCost>12?50:paintCost<7?32:paintInterval;stage.dataset.rbPaintInterval=String(paintInterval);}}},cb=>window.requestAnimationFrame(cb),id=>window.cancelAnimationFrame(id));
   const visibility=()=>{lastPaint=0;const visible=inView&&!document.hidden;stage.dataset.rbCanvasVisible=String(visible);frames.setVisible(visible&&!options.reduced);};
   const viewport=new IntersectionObserver(entries=>{inView=entries[0]?.isIntersecting??true;visibility();},{threshold:.02});
   viewport.observe(stage);
