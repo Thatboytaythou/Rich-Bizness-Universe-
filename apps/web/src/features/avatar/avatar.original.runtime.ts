@@ -29,8 +29,18 @@ export function createOriginalAvatar(gender:AvatarGender,raw:unknown,build='athl
   ell(pelvis,denim,0,.015,0,hip,.13,.11);
   const belt=limb(pelvis,trim,[[hip*.96,-.015],[hip*1.01,0],[hip*.97,.028]],.09,.74);box(pelvis,gold,0,.101,.113,.055,.033,.018);
   const spine=group(pelvis,'rbSpine',0,.075,0);
-  const torso=mesh(spine,new THREE.LatheGeometry([new THREE.Vector2(0,0),new THREE.Vector2(hip,.005),new THREE.Vector2(.136*(1+.18*shape('waist')),.09),new THREE.Vector2(shoulder,.25),new THREE.Vector2(shoulder*.92,.34),new THREE.Vector2(.071,.385),new THREE.Vector2(0,.39)],24),fabric);
-  torso.scale.z=.56*(1+.15*shape('chest'));
+  // Anatomical garment shell: elliptical cross-sections with front/back relief.
+  const torsoGeo=new THREE.LatheGeometry([[0,0],[hip,.005],[hip*.98,.035],[.136*(1+.18*shape('waist')),.09],[.142,.135],[shoulder*.83,.19],[shoulder,.25],[shoulder*.98,.29],[shoulder*.92,.34],[.071,.385],[0,.39]].map(([r,y])=>new THREE.Vector2(r,y)),mobile?24:48);
+  const tp=torsoGeo.getAttribute('position');
+  for(let i=0;i<tp.count;i++){
+    const x=tp.getX(i),y=tp.getY(i),z=tp.getZ(i);
+    const chest=Math.exp(-1*((y-.255)/.065)**2);
+    const abdomen=Math.exp(-1*((y-.135)/.075)**2);
+    const side=Math.exp(-1*((Math.abs(x)-shoulder*.48)/.075)**2);
+    const front=z>0?1:0;
+    tp.setXYZ(i,x,y,z*(.56*(1+.15*shape('chest')))+(front?1:-1)*Math.abs(z)*(chest*side*(front?.14:.09)+abdomen*.035));
+  }
+  tp.needsUpdate=true;torsoGeo.computeVertexNormals();mesh(spine,torsoGeo,fabric);
   if(look.top==='jacket'||look.top==='hoodie'){box(spine,trim,0,.18,.099,.027,.35,.013);box(spine,gold,0,.22,.11,.009,.24,.009);}
   if(look.top==='hoodie'){ell(spine,fabric,0,.365,-.075,.115,.09,.07);for(const s of[-1,1])box(spine,sole,s*.03,.25,.108,.008,.12,.009);}
   if(look.top==='vest'){for(const s of[-1,1]){box(spine,trim,s*.075,.17,.104,.095,.13,.025);box(spine,gold,s*.075,.23,.123,.035,.008,.008);}}
@@ -44,7 +54,7 @@ export function createOriginalAvatar(gender:AvatarGender,raw:unknown,build='athl
   const faceGeo=new THREE.SphereGeometry(1,mobile?40:80,mobile?32:64);
   const sculpt=(key:keyof typeof look)=>THREE.MathUtils.clamp(Number(look[key])||0,-100,100)/100;
   const pos=faceGeo.getAttribute('position');
-  const gaussian=(x:number,y:number,cx:number,cy:number,sx:number,sy:number)=>Math.exp(-(((x-cx)/sx)**2+((y-cy)/sy)**2)*.5);
+  const gaussian=(x:number,y:number,cx:number,cy:number,sx:number,sy:number)=>Math.exp(-1*(((x-cx)/sx)**2+((y-cy)/sy)**2)*.5);
   const facialDepth=(x:number,y:number)=>{
     const ax=Math.abs(x);
     return .011*gaussian(ax,y,.050,-.018,.025,.025)
@@ -109,6 +119,12 @@ export function createOriginalAvatar(gender:AvatarGender,raw:unknown,build='athl
     const hand=1+.16*shape('handSize');
     ell(fore,skin,0,-.19,.003,.036*hand,.052*hand,.027*hand);
     ell(fore,skin,-s*.027,-.177,.015,.013,.027,.014);
+    // Individually shaped fingers, sharing the existing low-poly sphere buffer.
+    for(let digit=0;digit<4;digit++){
+      const length=[.037,.045,.042,.031][digit]*hand;
+      const finger=ell(fore,skin,(digit-1.5)*.014*hand,-.225*hand-length*.25,.006,.007*hand,length*.62,.008*hand);
+      finger.rotation.z=(digit-1.5)*.055;
+    }
     const leg=group(pelvis,'rbLeg'+suffix,s*hip*.53,-.055,0);
     limb(leg,denim,[[.054,-.365],[.059,-.30],[.075,-.18],[.083,-.065],[.074,.025]],0,1.08);
     if(look.pants==='cargo')box(leg,trim,s*.066,-.13,.007,.023,.11,.084);
