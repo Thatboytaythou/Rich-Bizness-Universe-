@@ -198,7 +198,7 @@ async function createLegacyTexturedAvatar(gender:AvatarGender,raw:unknown,build=
     };
     let runtime:SkinnedAvatarRuntime;const currentMotion=()=>runtime?.currentMotion??'idle';
     mixer=new THREE.AnimationMixer(root);const actions=new Map(clips.map(c=>[c.name,mixer!.clipAction(c)]));
-    runtime={root,mixer,actions,clips,bounds,height,currentMotion:'idle',currentAction:null,expression,animateFace,locomotionSpeed:{walk:walk.speed,run:run.speed},dispose:()=>{mixer?.stopAllAction();mixer?.uncacheRoot(root);const skeletons=new Set<THREE.Skeleton>();root.traverse(o=>{if((o as THREE.SkinnedMesh).isSkinnedMesh)skeletons.add((o as THREE.SkinnedMesh).skeleton);});for(const a of accessories){a.removeFromParent();a.geometry.dispose();(a.material as THREE.Material).dispose();}surface?.dispose();avatar.dispose();skeletons.forEach(s=>{if(s!==avatar.body.skeleton)s.dispose();});root.clear();}};return runtime;
+    runtime={root,mixer,actions,clips,bounds,height,currentMotion:'idle',currentAction:null,expression,animateFace,locomotionSpeed:{walk:walk.speed,run:run.speed},dispose:()=>{mixer?.stopAllAction();mixer?.uncacheRoot(root);for(const a of accessories){a.removeFromParent();a.geometry.dispose();(a.material as THREE.Material).dispose();}surface?.dispose();avatar.dispose();root.clear();}};return runtime;
   }catch(error){for(const a of accessories){a.removeFromParent();a.geometry.dispose();(a.material as THREE.Material).dispose();}surface?.dispose();avatar.dispose();throw error;}
 }
 

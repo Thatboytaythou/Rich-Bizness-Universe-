@@ -191,3 +191,6 @@ const invalidWardrobe=new THREE.PlaneGeometry(.2,.2,4,4),invalidN=invalidWardrob
 import {readGlb as readHumanGlb,toFloat as humanFloat} from '../apps/web/src/features/avatar/vendor/humanforge/glb.ts';
 import {multiplyHex as humanTint} from '../apps/web/src/features/avatar/vendor/humanforge/catalog.ts';
 assert.throws(()=>readHumanGlb(new ArrayBuffer(8)),/Truncated GLB/);assert.deepEqual(Array.from(humanFloat({array:new Uint8Array([0,255]),itemSize:1,normalized:true})),[0,1]);assert.equal(humanTint('#ffffff','#1b1b1f'),'#1b1b1f');console.log('V1 HumanForge binary and tint input checks verified');
+
+// Named jewelry can enter conservative reduction; anatomy and face remain excluded.
+assert.ok(mobileGarmentMaterial('watch_gold'));assert.ok(mobileGarmentMaterial('cuban_chain'));assert.equal(mobileGarmentMaterial('bodyMaterial','short_beard'),false);assert.equal(mobileGarmentMaterial('metal','earrings'),false);

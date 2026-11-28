@@ -1,10 +1,11 @@
 import * as THREE from 'three';
 import {surfaceRole} from './avatar.material.roles.ts';
 export function mobileGarmentMaterial(name:string,mesh=''){
- const role=surfaceRole(name,mesh);return ['denim','knit','tailoring','techwear','fabric'].includes(role)||/sneaker|combatboot|oxford|shoes/i.test(name.replace(/[^a-z0-9]/gi,''));
+ const role=surfaceRole(name,mesh);const key=name.toLowerCase().replace(/[^a-z0-9]/g,''),meshKey=mesh.toLowerCase().replace(/[^a-z0-9]/g,'');const accessory=/^(?:cuban(?:chain)|watch(?:gold|silver)|goldring)(?:material|mesh)?[0-9]*$/;return ['denim','knit','tailoring','techwear','fabric'].includes(role)||role==='unknown'&&(/sneaker|combatboot|oxford|shoes/i.test(key)||accessory.test(key)||accessory.test(meshKey));
 }
 // Conservative index-only simplification. Collapse interior edges of garment
 // material regions; preserve all vertex buffers, skin weights, UVs and morphs.
+// Explicitly identified rigid collection jewelry may also be simplified.
 // Never collapse skin, face, hair, material boundaries or open mesh boundaries.
 export function reducePhoneWardrobe(g:THREE.BufferGeometry,eligible:readonly number[],materialCount:number,requested:number){
  const p=g.getAttribute('position'),n=g.getAttribute('normal'),uv=g.getAttribute('uv'),si=g.getAttribute('skinIndex'),sw=g.getAttribute('skinWeight'),idx=g.index;
@@ -18,7 +19,9 @@ export function reducePhoneWardrobe(g:THREE.BufferGeometry,eligible:readonly num
  // Protect coincident split vertices (UV/material seams), including different indices.
  const first=new Map<string,number>();for(let i=0;i<p.count;i++){const key=[p.getX(i),p.getY(i),p.getZ(i)].map(x=>Math.round(x*1000000)).join(':');const prev=first.get(key);if(prev!==undefined){protectedV[prev]=1;protectedV[i]=1;}else first.set(key,i);}
  let removed=0;
- const point=(i:number)=>new THREE.Vector3().fromBufferAttribute(p,i),normal=(i:number)=>new THREE.Vector3().fromBufferAttribute(n,i).normalize();
+ const points=new Map<number,THREE.Vector3>(),normals=new Map<number,THREE.Vector3>();
+ const point=(i:number)=>{let value=points.get(i);if(!value){value=new THREE.Vector3().fromBufferAttribute(p,i);points.set(i,value);}return value;};
+ const normal=(i:number)=>{let value=normals.get(i);if(!value){value=new THREE.Vector3().fromBufferAttribute(n,i).normalize();normals.set(i,value);}return value;};
  const weight=(i:number,j:number)=>{let sum=0;for(let k=0;k<4;k++)if(si.getComponent(i,k)===j)sum+=sw.getComponent(i,k);return sum;};
  const compatible=(a:number,b:number)=>{
   if(normal(a).dot(normal(b))<.94)return false;
@@ -27,7 +30,7 @@ export function reducePhoneWardrobe(g:THREE.BufferGeometry,eligible:readonly num
   for(const morph of g.morphAttributes.position??[]){const dx=morph.getX(a)-morph.getX(b),dy=morph.getY(a)-morph.getY(b),dz=morph.getZ(a)-morph.getZ(b);if(dx*dx+dy*dy+dz*dz>.000004)return false;}
   return true;
  };
- const faceNormal=(a:number,b:number,c:number)=>point(b).sub(point(a)).cross(point(c).sub(point(a)));
+ const faceNormal=(a:number,b:number,c:number)=>new THREE.Vector3().subVectors(point(b),point(a)).cross(new THREE.Vector3().subVectors(point(c),point(a)));
  // Independent edge collapses per pass; local link and normal checks reject
  // non-manifold changes and flipped triangles. No more than six passes.
  for(let pass=0;pass<6&&removed+2<=requested;pass++){
