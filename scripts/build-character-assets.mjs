@@ -79,6 +79,20 @@ try{
       }
       const measured=triangles-removed;let filename=null;
       if(removed){copy.buffers[0].byteLength=length;const binary=Buffer.concat(chunks);let json=Buffer.from(JSON.stringify(copy));json=Buffer.concat([json,Buffer.alloc((4-json.length%4)%4,32)]);const binPadded=Buffer.concat([binary,Buffer.alloc((4-binary.length%4)%4)]);const h=Buffer.alloc(20),bh=Buffer.alloc(8);h.writeUInt32LE(0x46546c67,0);h.writeUInt32LE(2,4);h.writeUInt32LE(20+json.length+8+binPadded.length,8);h.writeUInt32LE(json.length,12);h.writeUInt32LE(0x4e4f534a,16);bh.writeUInt32LE(binPadded.length,0);bh.writeUInt32LE(0x004e4942,4);filename='rb-elite-emerald-legacy-groom-'+(quality==='auto'?'adaptive':'enhanced')+'.glb';writeFileSync(join(dest,filename),Buffer.concat([h,json,bh,binPadded]));assert.equal(copy.skins.length,j.skins.length);assert.equal(copy.animations.length,j.animations.length);}
+      // Fail the release if the actual written mobile GLB is missing, over budget or corrupt.
+      assert.ok(filename && removed>0,'Emerald mobile variant not exported: '+quality);
+      const written=readFileSync(join(dest,filename));
+      assert.equal(written.readUInt32LE(0),0x46546c67);
+      assert.equal(written.readUInt32LE(8),written.length);
+      const writtenJson=JSON.parse(written.subarray(20,20+written.readUInt32LE(12)).toString('utf8').trim());
+      let verified=0;
+      for(const n of writtenJson.nodes){if(n.skin===undefined||n.mesh===undefined)continue;for(const p of writtenJson.meshes[n.mesh].primitives){assert.equal(p.mode??4,4);const count=writtenJson.accessors[p.indices??p.attributes.POSITION].count;assert.equal(count%3,0);verified+=count/3;}}
+      assert.equal(verified,measured,'Emerald exported geometry count mismatch');
+      assert.deepEqual(writtenJson.skins,j.skins,'Emerald skin rig changed');
+      assert.deepEqual(writtenJson.animations,j.animations,'Emerald motion changed');
+      for(const [pi,p] of mesh.primitives.entries()){const q=writtenJson.meshes[skinnedNode.mesh].primitives[pi];assert.deepEqual(q.attributes,p.attributes);assert.deepEqual(q.targets,p.targets);assert.equal(q.material,p.material);}
+      assert.ok(verified>0 && verified<phoneTriangleBudget(quality),'Emerald '+quality+' geometry budget exceeded: '+verified);
+      console.log('V1 hard Emerald geometry gate: '+quality+' '+verified+' < '+phoneTriangleBudget(quality));
       groomProbe.variants.push({quality,filename,triangles:measured,removedTriangles:removed,clusters,cells,reductions,admitted:admitsPhoneMesh(quality,measured)});
     }console.log('V1 actual Emerald groom GLB: '+JSON.stringify(groomProbe));}
   }
