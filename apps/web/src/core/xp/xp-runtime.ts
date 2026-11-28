@@ -85,7 +85,7 @@ export async function mountXpRuntime():Promise<(()=>Promise<void>)|undefined>{
   dock.dataset.rbXpRuntime=RUNTIME_OWNER;
   dock.className=`rb-xp-dock${compactDockPages.has(section)?' rb-xp-dock--compact':''}`;
   dock.dataset.section=section;
-  dock.innerHTML='<button id="rbXpToggle" type="button" aria-expanded="false" aria-controls="rbXpPanel"><span>LVL</span><strong>1</strong><i><b></b></i></button><section id="rbXpPanel" hidden><header><div><small>RICH LEVEL</small><h3>SYNCING</h3></div><button id="rbXpClose" type="button" aria-label="Close XP panel">×</button></header><div class="rb-xp-grid"><article><small>TOTAL XP</small><strong id="rbXpTotal">0</strong></article><article><small>RICH POINTS</small><strong id="rbXpPoints">0</strong></article><article><small>COINS</small><strong id="rbXpCoins">0</strong></article></div><div class="rb-xp-progress"><span><b id="rbXpBar"></b></span><small id="rbXpProgress">0 / 1000 XP</small><strong id="rbXpMilestone" class="rb-xp-milestone">1,000 XP to your next level</strong></div><div class="rb-xp-lanes-heading">YOUR GROWTH LANES <small>Verified activity</small></div><div id="rbXpLanes" class="rb-xp-lanes"><p>Complete activities to grow your lanes.</p></div><div class="rb-xp-lanes-heading">RECENT GROWTH</div><div id="rbXpRecent" class="rb-xp-recent"></div><nav class="rb-xp-actions" aria-label="Rich Bizness growth destinations"><a href="/creator.html">Creator tools</a><a href="/search.html">Find your community</a></nav><p class="rb-xp-disclaimer">XP, points and coins are in-app progress, not cash earnings.</p></section>';
+  dock.innerHTML='<button id="rbXpToggle" type="button" aria-expanded="false" aria-controls="rbXpPanel"><span>LVL</span><strong>—</strong><i><b></b></i></button><section id="rbXpPanel" hidden aria-busy="true"><header><div><small>RICH LEVEL</small><h3>SYNCING</h3></div><button id="rbXpClose" type="button" aria-label="Close XP panel">×</button></header><p id="rbXpSyncStatus" class="rb-xp-disclaimer" role="status" aria-live="polite">Connecting to your verified progression…</p><div class="rb-xp-grid"><article><small>TOTAL XP</small><strong id="rbXpTotal">—</strong></article><article><small>RICH POINTS</small><strong id="rbXpPoints">—</strong></article><article><small>COINS</small><strong id="rbXpCoins">—</strong></article></div><div class="rb-xp-progress"><span><b id="rbXpBar"></b></span><small id="rbXpProgress">Waiting for verified XP</small><strong id="rbXpMilestone" class="rb-xp-milestone">Your next milestone will appear after sync.</strong></div><div class="rb-xp-lanes-heading">YOUR GROWTH LANES <small>Verified activity</small></div><div id="rbXpLanes" class="rb-xp-lanes"><p>Loading your verified growth lanes…</p></div><div class="rb-xp-lanes-heading">RECENT GROWTH</div><div id="rbXpRecent" class="rb-xp-recent"></div><nav class="rb-xp-actions" aria-label="Rich Bizness growth destinations"><a href="/creator.html">Creator tools</a><a href="/search.html">Find your community</a></nav><p class="rb-xp-disclaimer">XP, points and coins are in-app progress, not cash earnings.</p></section>';
   placeDock(dock,section);
 
   const toggle=dock.querySelector<HTMLButtonElement>('#rbXpToggle')!;
@@ -116,17 +116,44 @@ export async function mountXpRuntime():Promise<(()=>Promise<void>)|undefined>{
     const recent=Array.isArray(data.recent)?data.recent.slice(0,5):[];
     panel.querySelector<HTMLElement>('#rbXpRecent')!.innerHTML=recent.length?recent.map(row=>`<article><span>${esc(String(row.event_key??'XP EARNED').replaceAll('_',' ').toUpperCase())}</span><strong>+${Number(row.xp??0)} XP</strong></article>`).join(''):'<p>Your XP activity will appear here.</p>';
   };
-  let loadRevision=0;
-  const load=async()=>{const own=++loadRevision;try{const {data,error}=await supabase.rpc('rb_xp_snapshot',{p_user_id:session.user.id}).abortSignal(signal);if(!signal.aborted&&own===loadRevision&&!error)render(data as XpSnapshot|null);}catch(error){if(!signal.aborted)console.warn('[Rich XP] snapshot unavailable',error);}};
+  const syncStatus=panel.querySelector<HTMLElement>('#rbXpSyncStatus')!;
+  let loadRevision=0,hasSnapshot=false;
+  let refreshTimer:number|undefined;
+  const load=async()=>{
+    if(signal.aborted)return;
+    const own=++loadRevision;
+    panel.setAttribute('aria-busy','true');
+    syncStatus.textContent=hasSnapshot?'Refreshing verified progression…':'Connecting to your verified progression…';
+    try{
+      const {data,error}=await supabase.rpc('rb_xp_snapshot',{p_user_id:session.user.id}).abortSignal(signal);
+      if(signal.aborted||own!==loadRevision)return;
+      if(error||!data||typeof data!=='object'||Array.isArray(data))throw Error('XP snapshot unavailable');
+      render(data as XpSnapshot);
+      hasSnapshot=true;
+      syncStatus.textContent='Verified progression • synced';
+    }catch{
+      if(!signal.aborted&&own===loadRevision)syncStatus.textContent=hasSnapshot?'Showing last verified progress. Reopen to retry.':'Progress unavailable. Reopen to retry.';
+    }finally{
+      if(!signal.aborted&&own===loadRevision)panel.setAttribute('aria-busy','false');
+    }
+  };
+  const refresh=()=>{
+    if(signal.aborted)return;
+    if(refreshTimer!==undefined)window.clearTimeout(refreshTimer);
+    refreshTimer=window.setTimeout(()=>{refreshTimer=undefined;void load();},180);
+  };
+  document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')refresh();},{signal});
+  window.addEventListener('online',refresh,{signal});
+  window.addEventListener('focus',refresh,{signal});
 
-  toggle.addEventListener('click',()=>{panel.hidden=!panel.hidden;toggle.setAttribute('aria-expanded',String(!panel.hidden));},{signal});
+  toggle.addEventListener('click',()=>{panel.hidden=!panel.hidden;toggle.setAttribute('aria-expanded',String(!panel.hidden));if(!panel.hidden)refresh();},{signal});
   close.addEventListener('click',()=>{panel.hidden=true;toggle.setAttribute('aria-expanded','false');},{signal});
 
   let channel:ReturnType<typeof supabase.channel>|null=null;
   let cleaned=false;
   const cleanup=async()=>{
     if(cleaned)return;
-    cleaned=true;lifecycle.abort();dock.remove();
+    cleaned=true;lifecycle.abort();if(refreshTimer!==undefined)window.clearTimeout(refreshTimer);dock.remove();
     if(window.__rbXpRuntime?.cleanup===cleanup)delete window.__rbXpRuntime;
     if(channel)await supabase.removeChannel(channel);
   };
@@ -138,10 +165,15 @@ export async function mountXpRuntime():Promise<(()=>Promise<void>)|undefined>{
       if(signal.aborted)return;
       if(section!=='home'){const visit=await supabase.rpc('rb_award_xp',{p_event_key:'section_visit',p_section:section,p_source_table:null,p_source_id:null,p_amount:null}).abortSignal(signal);if(visit.error&&!signal.aborted)console.warn('[Rich XP] section award unavailable',visit.error.message);}
       if(signal.aborted)return;
-      await load();
-      if(signal.aborted)return;
-      channel=supabase.channel(`xp-runtime:${session.user.id}:${section}`).on('postgres_changes',{event:'*',schema:'public',table:'user_levels',filter:`user_id=eq.${session.user.id}`},()=>void load()).subscribe();
-    }catch(error){if(!signal.aborted)console.warn('[Rich XP] initialization failed',error);}
+    }catch(error){if(!signal.aborted)console.warn('[Rich XP] award request unavailable',error);}
+    if(signal.aborted)return;
+    const filter=`user_id=eq.${session.user.id}`;
+    channel=supabase.channel(`xp-runtime:${session.user.id}:${section}`)
+      .on('postgres_changes',{event:'*',schema:'public',table:'user_levels',filter},refresh)
+      .on('postgres_changes',{event:'*',schema:'public',table:'user_xp_ledger',filter},refresh)
+      .on('postgres_changes',{event:'*',schema:'public',table:'xp_section_progress',filter},refresh)
+      .subscribe(status=>{if(status==='SUBSCRIBED')refresh();});
+    await load();
   };
   void initialize();
   return cleanup;
