@@ -46,7 +46,7 @@ export function subscribeAuth(listener: Listener): () => void {
 }
 
 // Network failure is not a confirmed sign-out.
-const sessionRejected=(error:{status?:number;name?:string}|null|undefined)=>!!error&&(error.status===401||error.status===403||error.name==='AuthSessionMissingError');
+const sessionRejected=(error:{status?:number|undefined;name?:string|undefined}|null|undefined)=>!!error&&(error.status===401||error.status===403||error.name==='AuthSessionMissingError');
 async function resolveVerifiedSession(): Promise<AuthSnapshot> {
   const revision=authRevision;
   const current=await withTimeout(supabase.auth.getSession(),null);

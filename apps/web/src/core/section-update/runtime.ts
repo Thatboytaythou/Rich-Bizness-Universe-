@@ -46,12 +46,12 @@ export function mountSectionUpdates(page:string):()=>void{
   // Cross-device check compares only the signed-in member's saved appearance; no data enters browser storage.
   let baseline:string|undefined,baselineUser='',identityChecking=false;
   const checkIdentity=async()=>{
-    if(!consumers['avatar-characters'].includes(page)||identityChecking||signal.aborted||document.hidden)return;
+    if(!consumers['avatar-characters']?.includes(page)||identityChecking||signal.aborted||document.hidden)return;
     const user=getAuthSnapshot().user;if(!user)return;identityChecking=true;
     const request=new AbortController(),cancel=()=>request.abort();signal.addEventListener('abort',cancel,{once:true});
     const timeout=window.setTimeout(cancel,8000);
     try{
-      const {data,error}=await supabase.from('user_avatar_loadouts').select('id,display_name,outfit_config,aura_config').eq('user_id',user.id).maybeSingle().abortSignal(request.signal);
+      const {data,error}=await supabase.from('user_avatar_loadouts').select('id,display_name,outfit_config,aura_config').eq('user_id',user.id).abortSignal(request.signal).maybeSingle();
       if(error||signal.aborted||getAuthSnapshot().user?.id!==user.id)return;
       const value=JSON.stringify(data??null);
       if(baselineUser!==user.id){baseline=undefined;baselineUser=user.id;}

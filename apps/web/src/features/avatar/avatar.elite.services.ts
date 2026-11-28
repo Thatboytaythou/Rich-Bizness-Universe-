@@ -4,12 +4,12 @@ import {ELITE_COLLECTIONS} from './avatar.elite.catalog';
 export const MOTION_ROUTINES={runway:['catwalk','turn left','turn right','bow'],social:['wave','talk','soft laugh','thumbs up'],dance:['groove','bounce','clap','groove']} as const;
 export async function listEliteOwnership(userId:string,signal:AbortSignal){
  const {data,error}=await supabase.from('avatar_inventory').select('item_key').eq('user_id',userId).like('item_key','rb-elite-%').abortSignal(signal);
- if(error)throw Error(error.message);return new Set((data??[]).map(row=>row.item_key));
+ if(error)throw Error(error.message);return new Set<string>((data??[]).map(row=>row.item_key).filter((key):key is string=>typeof key==='string'));
 }
 export async function claimFreeCollection(userId:string,key:string,signal:AbortSignal){
  if(getAuthSnapshot().user?.id!==userId||!Object.hasOwn(ELITE_COLLECTIONS,key))throw Error('Invalid collection or session');
  const item='rb-elite-'+key;
- const {data,error}=await supabase.from('avatar_items').select('config,is_active').eq('item_key',item).maybeSingle().abortSignal(signal);
+ const {data,error}=await supabase.from('avatar_items').select('config,is_active').eq('item_key',item).abortSignal(signal).maybeSingle();
  if(error||!data?.is_active||(data.config as {claim?:string})?.claim!=='free')throw Error('Free collection unavailable');
  const write=await supabase.from('avatar_inventory').upsert({user_id:userId,item_key:item},{onConflict:'user_id,item_key',ignoreDuplicates:true}).abortSignal(signal);
  if(write.error)throw Error(write.error.message);
@@ -32,7 +32,7 @@ const designKeys=['collection','designerCut','designerPalette','designerAccent',
 export type PublishedDesign={owner_id:string;title:string;recipe:Partial<CharacterLook>;published:boolean;updated_at:string};
 export function designRecipe(look:CharacterLook){return Object.fromEntries(designKeys.map(k=>[k,look[k]]));}
 export async function readDesigns(userId:string,signal:AbortSignal){
- const [own,gallery]=await Promise.all([supabase.from('elite_creator_designs').select('owner_id,title,recipe,published,updated_at').eq('owner_id',userId).maybeSingle().abortSignal(signal),supabase.from('elite_creator_designs').select('owner_id,title,recipe,published,updated_at').eq('published',true).order('updated_at',{ascending:false}).limit(24).abortSignal(signal)]);
+ const [own,gallery]=await Promise.all([supabase.from('elite_creator_designs').select('owner_id,title,recipe,published,updated_at').eq('owner_id',userId).abortSignal(signal).maybeSingle(),supabase.from('elite_creator_designs').select('owner_id,title,recipe,published,updated_at').eq('published',true).order('updated_at',{ascending:false}).limit(24).abortSignal(signal)]);
  if(own.error||gallery.error)throw Error((own.error??gallery.error)?.message);return {own:own.data as PublishedDesign|null,gallery:(gallery.data??[]) as PublishedDesign[]};
 }
 export async function saveDesign(userId:string,title:string,look:CharacterLook,published:boolean,signal:AbortSignal){
@@ -44,13 +44,13 @@ export async function saveDesign(userId:string,title:string,look:CharacterLook,p
 export function applyDesign(look:CharacterLook,recipe:Partial<CharacterLook>){const safe=normalizeLook(recipe);return normalizeLook({...look,...designRecipe(safe)});}
 
 export async function readListingRequest(userId:string,signal:AbortSignal){
- const {data,error}=await supabase.from('elite_listing_requests').select('proposed_price_cents,currency,submitted_at').eq('owner_id',userId).maybeSingle().abortSignal(signal);if(error)throw Error(error.message);return data;
+ const {data,error}=await supabase.from('elite_listing_requests').select('proposed_price_cents,currency,submitted_at').eq('owner_id',userId).abortSignal(signal).maybeSingle();if(error)throw Error(error.message);return data;
 }
 export async function saveListingRequest(userId:string,raw:string,signal:AbortSignal){
  if(getAuthSnapshot().user?.id!==userId)throw Error('Rich ID changed');
  if(!/^\d{1,4}(\.\d{1,2})?$/.test(raw.trim()))throw Error('Enter a USD price with no more than two decimal places.');
  const cents=Math.round(Number(raw)*100);if(cents<100||cents>100000)throw Error('Proposed price must be $1–$1,000.');
- const {data,error}=await supabase.from('elite_creator_designs').select('owner_id').eq('owner_id',userId).maybeSingle().abortSignal(signal);if(error||!data)throw Error('Save a fashion design first.');
+ const {data,error}=await supabase.from('elite_creator_designs').select('owner_id').eq('owner_id',userId).abortSignal(signal).maybeSingle();if(error||!data)throw Error('Save a fashion design first.');
  const write=await supabase.from('elite_listing_requests').upsert({owner_id:userId,proposed_price_cents:cents,currency:'usd',submitted_at:new Date().toISOString()},{onConflict:'owner_id'}).abortSignal(signal);if(write.error)throw Error(write.error.message);
  const verified=await readListingRequest(userId,signal);if(verified?.proposed_price_cents!==cents)throw Error('Proposed price readback failed');return verified;
 }

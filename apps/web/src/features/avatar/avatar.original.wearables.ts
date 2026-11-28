@@ -68,6 +68,11 @@ export function originalWearables(root:THREE.Group,bones:Set<THREE.Bone>,height:
  const chest=[...bones].find(b=>/^(spine2|spine02|spine03|chest|upperchest|mixamorig:spine2)$/i.test(b.name))??[...bones].find(b=>/spine/i.test(b.name));
  if(!chest)throw Error('Original wearables require a torso bone');
  root.updateMatrixWorld(true);
+ const wrist=look.wristwear&&look.wristwear!=='none'?wristBone(bones,'left'):undefined;
+ const forearm=wrist?.parent instanceof THREE.Bone?wrist.parent:undefined;
+ const wristPoint=wrist?.getWorldPosition(new THREE.Vector3());const axis=wristPoint&&forearm?wristPoint.clone().sub(forearm.getWorldPosition(new THREE.Vector3())):undefined;
+ if(look.wristwear&&look.wristwear!=='none'&&(!wristPoint||!forearm||!axis||axis.lengthSq()<.0004))throw Error('Meridian cuff requires a verified wrist and forearm joint');
+ axis?.normalize();
  const fit=measureTorsoFit(root,height);
  const previousChest=chest.getWorldQuaternion(new THREE.Quaternion()),currentChest=new THREE.Quaternion();let clothLag=0;
  const attach=(x:number,y:number,z:number,width=1)=>{const g=new THREE.Group();root.add(g);g.position.set(x,y,z);g.scale.set(height/1.78*width,height/1.78,height/1.78);root.updateMatrixWorld(true);chest.attach(g);anchors.push(g);return g;};
@@ -88,10 +93,8 @@ export function originalWearables(root:THREE.Group,bones:Set<THREE.Bone>,height:
   const tex=new THREE.DataTexture(regaliaTextile(look.mantle),128,128,THREE.RGBAFormat);tex.colorSpace=THREE.SRGBColorSpace;tex.wrapS=tex.wrapT=THREE.RepeatWrapping;tex.repeat.set(3,4);tex.magFilter=THREE.LinearFilter;tex.minFilter=THREE.LinearMipmapLinearFilter;tex.generateMipmaps=true;tex.needsUpdate=true;textures.push(tex);
   const m=new THREE.Mesh(mantle,new THREE.MeshStandardMaterial({map:tex,vertexColors:true,roughness:.79,side:THREE.DoubleSide}));mount.add(m);parts.push(m);
  }
- if(look.wristwear&&look.wristwear!=='none'){
-  const wrist=wristBone(bones,'left');if(!wrist||!(wrist.parent instanceof THREE.Bone))throw Error('Meridian cuff requires a verified wrist and forearm joint');
-  const wristPoint=wrist.getWorldPosition(new THREE.Vector3()),elbowPoint=wrist.parent.getWorldPosition(new THREE.Vector3()),axis=wristPoint.clone().sub(elbowPoint);if(axis.lengthSq()<.0004)throw Error('Meridian cuff wrist axis unavailable');axis.normalize();
-  const size=cuffFit(height,look.forearm),mount=new THREE.Group();root.add(mount);mount.position.copy(wristPoint).addScaledVector(axis,-.032*size.length);mount.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),axis);mount.scale.set(size.radial,size.length,size.radial);root.updateMatrixWorld(true);wrist.attach(mount);anchors.push(mount);
+ if(look.wristwear&&look.wristwear!=='none'&&wristPoint&&forearm&&axis){
+  const size=cuffFit(height,look.forearm),mount=new THREE.Group();root.add(mount);mount.position.copy(wristPoint).addScaledVector(axis,-.032*size.length);mount.quaternion.setFromUnitVectors(new THREE.Vector3(0,1,0),axis);mount.scale.set(size.radial,size.length,size.radial);root.updateMatrixWorld(true);forearm.attach(mount);anchors.push(mount);
   const mesh=new THREE.Mesh(meridianCuffGeometry(look.wristwear),new THREE.MeshStandardMaterial({vertexColors:true,metalness:cuffMetalness(look.wristwear),roughness:cuffRoughness(look.wristwear),side:THREE.DoubleSide}));mount.add(mesh);parts.push(mesh);
  }
  if(look.wings!=='none'){

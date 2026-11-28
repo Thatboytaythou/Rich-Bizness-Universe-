@@ -35,10 +35,10 @@ export function mantleGeometry(){
 export function animateMantle(g:THREE.BufferGeometry,base:Float32Array,time:number,lag=0){
  const p=g.getAttribute('position'),uv=g.getAttribute('uv');if(!Number.isFinite(time)||base.length!==p.count*3)return;
  for(let i=0;i<p.count;i++){
-  const t=1-uv.getY(i),x=base[i*3],weight=t*t;
+  const t=1-uv.getY(i),x=base[i*3],z=base[i*3+2],weight=t*t;if(x===undefined||z===undefined)continue;
   const follow=Number.isFinite(lag)?THREE.MathUtils.clamp(lag,0,.03):0;
   const ripple=THREE.MathUtils.clamp(.028*Math.sin(time*2.1+x*9)+.012*Math.sin(time*3.4-x*17)+.009*Math.sin(time*1.3)+follow,-.049,.049);
-  p.setZ(i,base[i*3+2]-weight*ripple);
+  p.setZ(i,z-weight*ripple);
  }
  p.needsUpdate=true;g.computeVertexNormals();
 }

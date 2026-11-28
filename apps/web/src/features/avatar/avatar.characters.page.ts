@@ -51,7 +51,7 @@ export async function mount():Promise<void>{
   let graphics:StudioGraphics|null=null,graphicsGeneration=0,graphicsLoading=false,graphicsFrame=false;let assetState:'paused'|'loading'|'ready'|'error'='paused';
   const lifecycle=new AbortController(),signal=lifecycle.signal;
   const current=()=>!disposed&&root.dataset.pageEpoch===epoch&&root.dataset.pageOwner===OWNER;
-  const cleanup=()=>{if(disposed)return;disposed=true;lifecycle.abort();graphicsGeneration++;graphics?.dispose();graphics=null;if((window as Host).__rbPageCleanup===cleanup)(window as Host).__rbPageCleanup=undefined;};
+  const cleanup=()=>{if(disposed)return;disposed=true;lifecycle.abort();graphicsGeneration++;graphics?.dispose();graphics=null;if((window as Host).__rbPageCleanup===cleanup)delete (window as Host).__rbPageCleanup;};
   (window as Host).__rbPageCleanup=cleanup;window.addEventListener('pagehide',cleanup,{once:true,signal});
   root.dataset.rbStudioRelease=RELEASE;
   root.innerHTML=`<main class="ac-shell"><header><a class="back" href="/profile.html">←</a><div><small>RICH BIZNESS • CHARACTER SYSTEM</small><h1>Avatar Studio</h1></div><button type="button" class="enter" id="acSaveEnter">SAVE & ENTER</button></header>
@@ -79,7 +79,7 @@ ${pickers([0,1])}<details class="ac-tool-fold" data-anatomy="face"><summary>Face
   let onWorkspace=(key:string)=>{};
   const workspaceTabs=[...root.querySelectorAll<HTMLButtonElement>('[data-workspace]')];
   const selectWorkspace=(key:string)=>{if(!workspaceTabs.some(b=>b.dataset.workspace===key))return;workspaceTabs.forEach(b=>{const active=b.dataset.workspace===key;b.setAttribute('aria-pressed',String(active));b.setAttribute('aria-selected',String(active));b.tabIndex=active?0:-1;});root.querySelectorAll<HTMLElement>('[data-workspace-panel]').forEach(panel=>panel.hidden=panel.dataset.workspacePanel!==key);onWorkspace(key);};
-  workspaceTabs.forEach((b,i)=>{b.onclick=()=>{selectWorkspace(b.dataset.workspace!);if(mobile)root.querySelector('#acWorkspace')?.scrollIntoView({block:'start',behavior:'auto'});};b.onkeydown=e=>{const next=e.key==='ArrowRight'?(i+1)%workspaceTabs.length:e.key==='ArrowLeft'?(i+workspaceTabs.length-1)%workspaceTabs.length:e.key==='Home'?0:e.key==='End'?workspaceTabs.length-1:-1;if(next<0)return;e.preventDefault();workspaceTabs[next].focus();selectWorkspace(workspaceTabs[next].dataset.workspace!);};});
+  workspaceTabs.forEach((b,i)=>{b.onclick=()=>{selectWorkspace(b.dataset.workspace!);if(mobile)root.querySelector('#acWorkspace')?.scrollIntoView({block:'start',behavior:'auto'});};b.onkeydown=e=>{const next=e.key==='ArrowRight'?(i+1)%workspaceTabs.length:e.key==='ArrowLeft'?(i+workspaceTabs.length-1)%workspaceTabs.length:e.key==='Home'?0:e.key==='End'?workspaceTabs.length-1:-1;if(next<0)return;e.preventDefault();const tab=workspaceTabs[next];if(!tab||!tab.dataset.workspace)return;tab.focus();selectWorkspace(tab.dataset.workspace);};});
   selectWorkspace(location.hash==='#elite'?'collections':'appearance');
   let canvas=$<HTMLCanvasElement>('#characterCanvas');const preview=$('#acConfigPreview');
   const name=$<HTMLInputElement>('#nameInput'),build=$<HTMLSelectElement>('#buildInput'),style=$<HTMLSelectElement>('#styleInput'),aura=$<HTMLSelectElement>('#auraInput');
@@ -87,7 +87,7 @@ ${pickers([0,1])}<details class="ac-tool-fold" data-anatomy="face"><summary>Face
   const editControls=[...root.querySelectorAll<HTMLInputElement|HTMLSelectElement|HTMLButtonElement>('.ac-editor input,.ac-editor select:not(#acQuality):not(#acVisual):not(#acBehavior),[data-gender],[data-look-key],#randomize,[data-style],[data-archetype],[data-collection],[data-realism],[data-body-preset],[data-reset-sculpt]')];
   const start=$<HTMLButtonElement>('#acStartGraphics'),stop=$<HTMLButtonElement>('#acStopGraphics'),retry=$<HTMLButtonElement>('#acRetryIdentity');
   const motionControls=[...root.querySelectorAll<HTMLButtonElement>('[data-motion],[data-gesture],[data-routine],[data-view],[data-expression],#acQuality')];
-  if(mobile){const detail=$<HTMLSelectElement>('#acQuality');detail.options[0].textContent='Adaptive • up to 60k / 640px';detail.options[1].disabled=false;detail.options[1].textContent='Enhanced • up to 75k / adaptive up to 900px';}
+  if(mobile){const detail=$<HTMLSelectElement>('#acQuality');const adaptive=detail.options[0],enhanced=detail.options[1];if(adaptive)adaptive.textContent='Adaptive • up to 60k / 640px';if(enhanced){enhanced.disabled=false;enhanced.textContent='Enhanced • up to 75k / adaptive up to 900px';}}
   const renderExperience=()=>{const value=getExperience();$<HTMLSelectElement>('#acVisual').value=value.visual;$<HTMLSelectElement>('#acBehavior').value=value.behavior;$('#acExperienceSummary').textContent=experienceLabel(value.visual,'avatar-characters');$('#acBehaviorGuide').textContent=value.behavior==='manual'?'You choose expressions and movement.':value.behavior==='contextual'?'Your explicit movement actions drive facial reactions.':'Choose a movement to see a reaction. Save Rich ID, then explore the district or worlds. Scripted guidance; no autonomous AI.';};
   $<HTMLSelectElement>('#acVisual').onchange=e=>setExperience({visual:(e.currentTarget as HTMLSelectElement).value as VisualMode});
   $<HTMLSelectElement>('#acBehavior').onchange=e=>setExperience({behavior:(e.currentTarget as HTMLSelectElement).value as BehaviorMode});

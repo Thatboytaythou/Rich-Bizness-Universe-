@@ -44,9 +44,9 @@ export async function mount():Promise<void>{
   try{
    const id=user.id;
    const r=await Promise.all([
-    supabase.from('profiles').select('*').eq('id',id).single().abortSignal(lifetime.signal),
-    supabase.from('creator_page_settings').select('*').eq('user_id',id).maybeSingle().abortSignal(lifetime.signal),
-    supabase.from('creator_available_balances').select('*').eq('artist_user_id',id).maybeSingle().abortSignal(lifetime.signal),
+    supabase.from('profiles').select('*').eq('id',id).abortSignal(lifetime.signal).single(),
+    supabase.from('creator_page_settings').select('*').eq('user_id',id).abortSignal(lifetime.signal).maybeSingle(),
+    supabase.from('creator_available_balances').select('*').eq('artist_user_id',id).abortSignal(lifetime.signal).maybeSingle(),
     supabase.from('music_tracks').select('*').eq('user_id',id).order('created_at',{ascending:false}).limit(30).abortSignal(lifetime.signal),
     supabase.from('products').select('*').eq('seller_id',id).order('created_at',{ascending:false}).limit(30).abortSignal(lifetime.signal),
     supabase.from('live_streams').select('*').eq('creator_id',id).order('created_at',{ascending:false}).limit(30).abortSignal(lifetime.signal),
