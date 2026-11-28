@@ -31,3 +31,16 @@ for(const path of ['images/0E886281-8F03-4288-B3CA-C45369B7B58E.png','images/gta
 assert.ok(statSync(resolve(dist,'images/brand/portal-command-city.svg')).size>0,'Missing original Portal city plate');
 
 const portalHtml=read('portal.html');assert.ok(portalHtml.includes('data-page="portal"'));console.log('Maximum Evolution Portal artwork and page identity verified');
+
+// Verify the compiled dependency graph, not source import spelling.
+const graph=JSON.parse(read('.vite/manifest.json'));
+const byFile=new Map(Object.values(graph).map(c=>[c.file,c]));
+const closure=(key,seen=new Set())=>{const c=graph[key]??byFile.get(key);assert.ok(c,'Missing manifest dependency '+key);if(seen.has(c.file))return seen;seen.add(c.file);for(const dep of c.imports??[])closure(dep,seen);return seen;};
+const findModule=part=>{const key=Object.keys(graph).find(k=>k.endsWith(part));assert.ok(key,'Missing compiled module '+part);return key;};
+const liveCold=closure(findModule('/live/live.page.ts'));
+assert.ok([...liveCold].every(p=>!p.includes('vendor-livekit')&&!p.includes('vendor-webrtc')),'Live catalog eagerly loads video SDK');
+const fitCold=closure(findModule('/avatar/avatar.textured.runtime.ts'));
+assert.ok([...fitCold].every(p=>!p.includes('vendor-character-hd')&&!p.includes('avatar.compatibility.runtime')),'Character dispatcher eagerly loads fit engine');
+for(const name of ['index','portal','tap-in','gaming','store','search']){const html=read(name+'.html');assert.doesNotMatch(html,/vendor-(?:character-hd|three|livekit)[^"']*\.js/,'Heavy renderer in cold '+name);}
+const total=files=>[...files].filter(p=>p.endsWith('.js')).reduce((sum,p)=>sum+statSync(resolve(dist,p)).size,0);
+console.log('Maximum Evolution cold module gate: Live '+total(liveCold)+' bytes; character dispatcher '+total(fitCold)+' bytes; six shell routes free of eager 3D/video dependencies');

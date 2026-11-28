@@ -74,6 +74,7 @@ export default defineConfig(({ mode }) => {
       outDir: resolve(__dirname, 'apps/web/dist'),
       emptyOutDir: true,
       sourcemap: true,
+      manifest: true,
       target: 'es2022',
       rollupOptions: {
         input: {
