@@ -29,10 +29,17 @@ grant select on public.rb_dm_private_assets to authenticated;
 create schema if not exists rb_dm_private;
 revoke all on schema rb_dm_private from public,anon;
 grant usage on schema rb_dm_private to authenticated;
+-- Membership and call lifecycle must be server-owned; existing direct-create/read
+-- SECURITY DEFINER RPCs remain available. Audit other clients before applying.
+revoke insert,update,delete on public.dm_thread_members,public.dm_call_sessions,public.dm_call_participants from public,anon,authenticated;
+-- Historical memberships may have been created under permissive policies. Do not
+-- trust or backfill them automatically. An operator must reconcile each thread.
+create table rb_dm_private.trusted_threads(thread_id uuid primary key references public.dm_threads(id), verified_at timestamptz not null default now());
+revoke all on rb_dm_private.trusted_threads from public,anon,authenticated;
 create function rb_dm_private.member(p_thread text) returns boolean
 language sql stable security definer set search_path='' as $$
  select auth.uid() is not null and coalesce(auth.jwt()->>'is_anonymous','false')='false' and exists(
- select 1 from public.dm_thread_members m where m.thread_id::text=p_thread and m.user_id=auth.uid() and m.status='active')
+ select 1 from public.dm_thread_members m join rb_dm_private.trusted_threads t on t.thread_id=m.thread_id where m.thread_id::text=p_thread and m.user_id=auth.uid() and m.status='active')
 $$;
 revoke all on function rb_dm_private.member(text) from public,anon;
 grant execute on function rb_dm_private.member(text) to authenticated;
@@ -99,4 +106,17 @@ revoke all on function public.rb_dm_finalize_private_asset(uuid,text,text) from 
 grant execute on function public.rb_dm_finalize_private_asset(uuid,text,text) to authenticated;
 -- Disable the legacy caller-supplied public URL path only when this proposal is actually approved/applied.
 revoke execute on function public.rb_dm_finalize_attachment(uuid,text,text,text,bigint,text) from public,anon,authenticated;
+-- This endpoint grants only verified active calls. The legacy room RPC is not
+-- used by the new Vercel DM token branch. Calls also require operator review.
+create table rb_dm_private.trusted_calls(call_id uuid primary key references public.dm_call_sessions(id), verified_at timestamptz not null default now());
+revoke all on rb_dm_private.trusted_calls from public,anon,authenticated;
+create function public.rb_dm_authorize_call_v2(p_call_id uuid) returns jsonb
+language sql stable security definer set search_path='' as $$
+ select jsonb_build_object('allowed',true,'room',c.livekit_room_name,'call_type',c.call_type,'role',case when c.started_by=auth.uid() then 'host' else 'participant' end)
+ from public.dm_call_sessions c join rb_dm_private.trusted_calls t on t.call_id=c.id
+ where c.id=p_call_id and c.ended_at is null and c.call_status in ('ringing','active') and c.call_type in ('audio','video')
+ and rb_dm_private.member(c.thread_id::text) and exists(select 1 from public.dm_call_participants p where p.call_id=c.id and p.user_id=auth.uid() and p.status in ('invited','joined'))
+$$;
+revoke all on function public.rb_dm_authorize_call_v2(uuid) from public,anon;
+grant execute on function public.rb_dm_authorize_call_v2(uuid) to authenticated;
 commit;

@@ -32,7 +32,7 @@ async function parseBody(req) {
   return JSON.parse(Buffer.concat(chunks).toString('utf8') || '{}');
 }
 
-function clients() {
+function clients(sessionToken) {
   const url = env('SUPABASE_URL', 'NEXT_PUBLIC_SUPABASE_URL', 'VITE_SUPABASE_URL');
   const publicKey = env(
     'SUPABASE_PUBLISHABLE_KEY',
@@ -45,7 +45,7 @@ function clients() {
   if (!url || !publicKey || !serviceKey) throw new Error('supabase_livekit_not_configured');
 
   return {
-    auth: createClient(url, publicKey, { auth: { persistSession: false, autoRefreshToken: false } }),
+    auth: createClient(url, publicKey, { auth: { persistSession: false, autoRefreshToken: false }, ...(sessionToken?{global:{headers:{Authorization:'Bearer '+sessionToken}}}:{}) }),
     admin: createClient(url, serviceKey, { auth: { persistSession: false, autoRefreshToken: false } })
   };
 }
@@ -65,14 +65,25 @@ export async function authorizeDmCall(admin, callId, userId) {
   return {status:200,call,role:call.started_by===userId?'host':'participant'};
 }
 
+export async function verifyDmAccess(auth,admin,callId,userId){
+  // The current production schema has legacy client-writable membership rows.
+  // Never mint DM tokens until the reviewed v2 authorization contract exists.
+  const {data,error}=await auth.rpc('rb_dm_authorize_call_v2',{p_call_id:callId});
+  if(error||!data||data.allowed!==true)return {status:403,error:'verified_call_access_required'};
+  const grant=await authorizeDmCall(admin,callId,userId);
+  if(grant.status!==200)return grant;
+  if(data.room!==grant.call.livekit_room_name||data.call_type!==grant.call.call_type||data.role!==grant.role)return {status:403,error:'call_access_mismatch'};
+  return grant;
+}
+
 async function dmToken(req,res,body,config,sessionToken){
   const callId=String(body.callId||'');
   if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(callId))return json(res,400,{ok:false,error:'invalid_call'});
   try{
-    const {auth,admin}=clients();
+    const {auth,admin}=clients(sessionToken);
     const {data,error}=await auth.auth.getUser(sessionToken);const user=data?.user;
     if(error||!user||user.is_anonymous)return json(res,401,{ok:false,error:'invalid_or_expired_session'});
-    const grant=await authorizeDmCall(admin,callId,user.id);
+    const grant=await verifyDmAccess(auth,admin,callId,user.id);
     if(grant.status!==200)return json(res,grant.status,{ok:false,error:grant.error});
     const {call,role}=grant;
     const token=new AccessToken(config.key,config.secret,{identity:user.id,name:'Rich Member',ttl:'2m',metadata:JSON.stringify({room_type:'dm_call',call_id:call.id,role})});
@@ -112,7 +123,7 @@ export default async function handler(req, res) {
       route: '/api/live/token',
       ttl: TOKEN_TTL,
       roles: ['host', 'viewer'],
-      dmCallAuthorization: true
+      dmCallAuthorization: 'requires_verified_v2_access'
     });
   }
 
