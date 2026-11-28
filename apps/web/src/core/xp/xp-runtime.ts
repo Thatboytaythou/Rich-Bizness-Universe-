@@ -51,7 +51,7 @@ function placeDock(dock:HTMLElement,section:string):void{
 }
 
 let mountEpoch=0;
-export async function mountXpRuntime():Promise<(()=>Promise<void>)|undefined>{
+export async function mountXpRuntime(options:{readOnly?:boolean}={}):Promise<(()=>Promise<void>)|undefined>{
   const epoch=++mountEpoch;
   const pending=new AbortController();
   window.addEventListener('pagehide',()=>{mountEpoch++;pending.abort();},{once:true,signal:pending.signal});
@@ -160,7 +160,8 @@ export async function mountXpRuntime():Promise<(()=>Promise<void>)|undefined>{
   window.__rbXpRuntime={owner:RUNTIME_OWNER,section,sessionId:session.user.id,cleanup};
   signal.addEventListener('abort',()=>void cleanup(),{once:true});
   const initialize=async()=>{
-    try{
+    // Standalone worlds share the verified ledger without inventing reward bindings.
+    if(!options.readOnly)try{
       const daily=await supabase.rpc('rb_award_xp',{p_event_key:'daily_tap_in',p_section:'auth',p_source_table:null,p_source_id:null,p_amount:null}).abortSignal(signal);if(daily.error&&!signal.aborted)console.warn('[Rich XP] daily award unavailable',daily.error.message);
       if(signal.aborted)return;
       if(section!=='home'){const visit=await supabase.rpc('rb_award_xp',{p_event_key:'section_visit',p_section:section,p_source_table:null,p_source_id:null,p_amount:null}).abortSignal(signal);if(visit.error&&!signal.aborted)console.warn('[Rich XP] section award unavailable',visit.error.message);}
