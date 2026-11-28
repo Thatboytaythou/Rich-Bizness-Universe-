@@ -54,7 +54,7 @@ export function createStudioGraphics(canvas:HTMLCanvasElement,initial:CharacterC
   const schedule=()=>{if(!disposed&&!failed&&!raf&&!document.hidden&&visible)raf=requestAnimationFrame(draw);};
   const draw=(now:number)=>{
     raf=0;if(disposed||failed||document.hidden||!visible)return;
-    const anim=active!=='idle'&&(routineActive||((active==='jump'||active==='power')?oneShotActive(runtime?.currentAction):motionRemaining>0));const living=!!runtime&&(!reduced.matches||now<expressionUntil||hasMotionBlend(runtime));
+    const anim=active!=='idle'&&(routineActive||((['jump','power','dance','combat','transformation'].includes(active))?oneShotActive(runtime?.currentAction):motionRemaining>0));const living=!!runtime&&(!reduced.matches||now<expressionUntil||hasMotionBlend(runtime));
     if(!dirty&&!anim&&!living&&active==='idle')return;
     if(previous&&now-previous<studioFrameInterval(mobile,drawCost,quality)){schedule();return;}
     const drawStarted=performance.now();const elapsed=previous?now-previous:0;const dt=Math.min(elapsed/1000,.075);previous=now;if(elapsed>0&&elapsed<250){frameAverage+=.08*(elapsed-frameAverage);measured++;}
