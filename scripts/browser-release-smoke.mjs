@@ -1,6 +1,8 @@
 // Real browser smoke, no synthetic session, no financial or saved-data writes.
 // Run with a dedicated non-production test identity only when explicitly configured.
 import assert from 'node:assert/strict';
+import {ROUTES} from '../packages/config/src/routes.ts';
+import {GAMES} from '../packages/config/src/games.ts';
 import {createRequire} from 'node:module';
 import {resolve} from 'node:path';
 const require=createRequire(resolve(process.env.RB_BROWSER_PREFIX??'.','package.json'));
@@ -31,6 +33,23 @@ try{
  let release;
  try{release=(await manifest.json()).release;}catch{throw Error('Deployment manifest is not valid JSON');}
  assert.equal(release,expected,'Wrong deployed commit');
+ // All registered entry points must be reachable on the actual candidate origin.
+ // This matrix validates hosted HTML + compiled entry assets; interaction and auth
+ // remain distinct browser gates below, never implied by an HTTP 200 response.
+ const matrix=[...new Set([...Object.values(ROUTES),...GAMES.map(game=>'/'+game.slug+'.html')])];
+ assert.equal(matrix.length,55,'Rich Bizness 55-entry route matrix changed');
+ for(let start=0;start<matrix.length;start+=6){
+   const batch=matrix.slice(start,start+6);
+   await Promise.all(batch.map(async path=>{
+     const response=await context.request.get(new URL(path,url).href,{maxRedirects:0,timeout:15000});
+     assert.equal(response.status(),200,'Unavailable HTML entry: '+path);
+     const html=await response.text();
+     assert.match(response.headers()['content-type']??'',/text\\/html/i,'Non-HTML entry: '+path);
+     assert.match(html,/\\bdata-page=["'][^"']+["']/i,'Missing page owner: '+path);
+     assert.match(html,/<script\\b[^>]*\\bsrc=["']\\/assets\\/[^"']+\\.js["']/i,'Missing compiled entry script: '+path);
+   }));
+ }
+ console.log('Real Chromium network route matrix: 55/55 hosted compiled HTML entry points reachable on '+url.origin);
  const visit=async(path,selector)=>{const result=await page.goto(new URL(path,url).href,{waitUntil:'domcontentloaded',timeout:30000});assert.ok(result?.ok(),'Navigation failed: '+path);assert.equal(new URL(page.url()).origin,url.origin,'Unexpected external navigation: '+path);await page.locator(selector).waitFor({state:'visible',timeout:30000});assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+2),'Horizontal overflow: '+path);};
  await visit('/','.rb-home h1');
  assert.equal(await page.locator('.rb-home').count(),1,'Duplicate Home mount');
