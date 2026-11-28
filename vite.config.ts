@@ -63,7 +63,7 @@ export default defineConfig(({ mode }) => {
         order: 'pre',
         handler(html) {
           const page = html.match(/data-page="([^"]+)"/)?.[1];
-          if (!page) return html;
+          if (!page || page === 'tap-in') return html; // Access owns its presentation; never inject the global cinematic layer.
           const games = new Set(["rich-chess","crown-connect-four","treehouse-ride","rich-checkers-elite","smoke-room-cards","dj-radio-run","money-road-runner","rich-samurais-son-ninja","aura-shinobi-clash","boss-walk-battle","smoke-burst-arena","hero-villain-showdown","empire-builder","market-flip","vault-unlock","portal-room-rush","avatar-free-roam","smoke-city-hustle","studio-showdown","rich-court-king","diamond-bat-flip","golf-green-gold","gym-grind-reps","cash-rain-catcher","portal-dash","bizness-party-room","rich-color-clash","rich-spades-royale"]);
           const surface = games.has(page) ? 'game' : 'universe';
           return html.replace(/<body\b/, '<body data-rb-visual="' + surface + '"').replace('</head>', '<link rel="stylesheet" href="/src/styles/beyond-cinematic.css">\n</head>');

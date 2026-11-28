@@ -1,6 +1,5 @@
 import '../../styles/tokens.css';
 import '../../styles/base.css';
-import './tap-in.elite.css';
 import { bootstrap } from '../../bootstrap';
 
 // Access is a separate entry point: no XP, portal or feature runtime startup.

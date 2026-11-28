@@ -7,110 +7,544 @@
   "cleanUrls": true,
   "trailingSlash": false,
   "redirects": [
-    { "source": "/auth", "destination": "/tap-in", "permanent": true },
-    { "source": "/auth.html", "destination": "/tap-in", "permanent": true },
-    { "source": "/login", "destination": "/tap-in", "permanent": true },
-    { "source": "/login.html", "destination": "/tap-in", "permanent": true },
-    { "source": "/signin", "destination": "/tap-in", "permanent": true },
-    { "source": "/signin.html", "destination": "/tap-in", "permanent": true },
-    { "source": "/sign-in", "destination": "/tap-in", "permanent": true },
-    { "source": "/sign-in.html", "destination": "/tap-in", "permanent": true },
-    { "source": "/tapin", "destination": "/tap-in", "permanent": true },
-    { "source": "/tapin.html", "destination": "/tap-in", "permanent": true },
-    { "source": "/Tap-In", "destination": "/tap-in", "permanent": true },
-    { "source": "/Tap-In.html", "destination": "/tap-in", "permanent": true },
-
-    { "source": "/games/rich-chess", "destination": "/rich-chess", "permanent": true },
-    { "source": "/games/smoke-room-cards", "destination": "/smoke-room-cards", "permanent": true },
-    { "source": "/games/dj-radio-run", "destination": "/dj-radio-run", "permanent": true },
-    { "source": "/games/money-road-runner", "destination": "/money-road-runner", "permanent": true },
-    { "source": "/games/rich-samurais-son-ninja", "destination": "/rich-samurais-son-ninja", "permanent": true },
-    { "source": "/games/aura-shinobi-clash", "destination": "/aura-shinobi-clash", "permanent": true },
-    { "source": "/games/boss-walk-battle", "destination": "/boss-walk-battle", "permanent": true },
-    { "source": "/games/smoke-burst-arena", "destination": "/smoke-burst-arena", "permanent": true },
-    { "source": "/games/hero-villain-showdown", "destination": "/hero-villain-showdown", "permanent": true },
-    { "source": "/games/empire-builder", "destination": "/empire-builder", "permanent": true },
-    { "source": "/games/market-flip", "destination": "/market-flip", "permanent": true },
-    { "source": "/games/vault-unlock", "destination": "/vault-unlock", "permanent": true },
-    { "source": "/games/portal-room-rush", "destination": "/portal-room-rush", "permanent": true },
-    { "source": "/games/avatar-free-roam", "destination": "/avatar-free-roam", "permanent": true },
-    { "source": "/games/smoke-city-hustle", "destination": "/smoke-city-hustle", "permanent": true },
-    { "source": "/games/treehouse-ride", "destination": "/treehouse-ride", "permanent": true },
-    { "source": "/games/studio-showdown", "destination": "/studio-showdown", "permanent": true },
-    { "source": "/games/rich-court-king", "destination": "/rich-court-king", "permanent": true },
-    { "source": "/games/diamond-bat-flip", "destination": "/diamond-bat-flip", "permanent": true },
-    { "source": "/games/golf-green-gold", "destination": "/golf-green-gold", "permanent": true },
-    { "source": "/games/gym-grind-reps", "destination": "/gym-grind-reps", "permanent": true },
-    { "source": "/games/cash-rain-catcher", "destination": "/cash-rain-catcher", "permanent": true },
-    { "source": "/games/portal-dash", "destination": "/portal-dash", "permanent": true },
-    { "source": "/games/bizness-party-room", "destination": "/bizness-party-room", "permanent": true },
-    { "source": "/games/rich-color-clash", "destination": "/rich-color-clash", "permanent": true },
-    { "source": "/games/rich-spades-royale", "destination": "/rich-spades-royale", "permanent": true },
-    { "source": "/games/rich-checkers-elite", "destination": "/rich-checkers-elite", "permanent": true },
-    { "source": "/games/crown-connect-four", "destination": "/crown-connect-four", "permanent": true }
+    {
+      "source": "/auth",
+      "destination": "/tap-in",
+      "permanent": true
+    },
+    {
+      "source": "/auth.html",
+      "destination": "/tap-in",
+      "permanent": true
+    },
+    {
+      "source": "/login",
+      "destination": "/tap-in",
+      "permanent": true
+    },
+    {
+      "source": "/login.html",
+      "destination": "/tap-in",
+      "permanent": true
+    },
+    {
+      "source": "/signin",
+      "destination": "/tap-in",
+      "permanent": true
+    },
+    {
+      "source": "/signin.html",
+      "destination": "/tap-in",
+      "permanent": true
+    },
+    {
+      "source": "/sign-in",
+      "destination": "/tap-in",
+      "permanent": true
+    },
+    {
+      "source": "/sign-in.html",
+      "destination": "/tap-in",
+      "permanent": true
+    },
+    {
+      "source": "/tapin",
+      "destination": "/tap-in",
+      "permanent": true
+    },
+    {
+      "source": "/tapin.html",
+      "destination": "/tap-in",
+      "permanent": true
+    },
+    {
+      "source": "/Tap-In",
+      "destination": "/tap-in",
+      "permanent": true
+    },
+    {
+      "source": "/Tap-In.html",
+      "destination": "/tap-in",
+      "permanent": true
+    },
+    {
+      "source": "/games/rich-chess",
+      "destination": "/rich-chess",
+      "permanent": true
+    },
+    {
+      "source": "/games/smoke-room-cards",
+      "destination": "/smoke-room-cards",
+      "permanent": true
+    },
+    {
+      "source": "/games/dj-radio-run",
+      "destination": "/dj-radio-run",
+      "permanent": true
+    },
+    {
+      "source": "/games/money-road-runner",
+      "destination": "/money-road-runner",
+      "permanent": true
+    },
+    {
+      "source": "/games/rich-samurais-son-ninja",
+      "destination": "/rich-samurais-son-ninja",
+      "permanent": true
+    },
+    {
+      "source": "/games/aura-shinobi-clash",
+      "destination": "/aura-shinobi-clash",
+      "permanent": true
+    },
+    {
+      "source": "/games/boss-walk-battle",
+      "destination": "/boss-walk-battle",
+      "permanent": true
+    },
+    {
+      "source": "/games/smoke-burst-arena",
+      "destination": "/smoke-burst-arena",
+      "permanent": true
+    },
+    {
+      "source": "/games/hero-villain-showdown",
+      "destination": "/hero-villain-showdown",
+      "permanent": true
+    },
+    {
+      "source": "/games/empire-builder",
+      "destination": "/empire-builder",
+      "permanent": true
+    },
+    {
+      "source": "/games/market-flip",
+      "destination": "/market-flip",
+      "permanent": true
+    },
+    {
+      "source": "/games/vault-unlock",
+      "destination": "/vault-unlock",
+      "permanent": true
+    },
+    {
+      "source": "/games/portal-room-rush",
+      "destination": "/portal-room-rush",
+      "permanent": true
+    },
+    {
+      "source": "/games/avatar-free-roam",
+      "destination": "/avatar-free-roam",
+      "permanent": true
+    },
+    {
+      "source": "/games/smoke-city-hustle",
+      "destination": "/smoke-city-hustle",
+      "permanent": true
+    },
+    {
+      "source": "/games/treehouse-ride",
+      "destination": "/treehouse-ride",
+      "permanent": true
+    },
+    {
+      "source": "/games/studio-showdown",
+      "destination": "/studio-showdown",
+      "permanent": true
+    },
+    {
+      "source": "/games/rich-court-king",
+      "destination": "/rich-court-king",
+      "permanent": true
+    },
+    {
+      "source": "/games/diamond-bat-flip",
+      "destination": "/diamond-bat-flip",
+      "permanent": true
+    },
+    {
+      "source": "/games/golf-green-gold",
+      "destination": "/golf-green-gold",
+      "permanent": true
+    },
+    {
+      "source": "/games/gym-grind-reps",
+      "destination": "/gym-grind-reps",
+      "permanent": true
+    },
+    {
+      "source": "/games/cash-rain-catcher",
+      "destination": "/cash-rain-catcher",
+      "permanent": true
+    },
+    {
+      "source": "/games/portal-dash",
+      "destination": "/portal-dash",
+      "permanent": true
+    },
+    {
+      "source": "/games/bizness-party-room",
+      "destination": "/bizness-party-room",
+      "permanent": true
+    },
+    {
+      "source": "/games/rich-color-clash",
+      "destination": "/rich-color-clash",
+      "permanent": true
+    },
+    {
+      "source": "/games/rich-spades-royale",
+      "destination": "/rich-spades-royale",
+      "permanent": true
+    },
+    {
+      "source": "/games/rich-checkers-elite",
+      "destination": "/rich-checkers-elite",
+      "permanent": true
+    },
+    {
+      "source": "/games/crown-connect-four",
+      "destination": "/crown-connect-four",
+      "permanent": true
+    }
   ],
   "rewrites": [
-    { "source": "/portal", "destination": "/portal.html" },
-    { "source": "/tap-in", "destination": "/tap-in.html" },
-    { "source": "/profile", "destination": "/profile.html" },
-    { "source": "/edit-profile", "destination": "/edit-profile.html" },
-    { "source": "/settings", "destination": "/settings.html" },
-    { "source": "/notifications", "destination": "/notifications.html" },
-    { "source": "/messages", "destination": "/messages.html" },
-    { "source": "/search", "destination": "/search.html" },
-    { "source": "/upload", "destination": "/upload.html" },
-    { "source": "/creator", "destination": "/creator.html" },
-    { "source": "/creator-dimensions", "destination": "/creator-dimensions.html" },
-    { "source": "/admin", "destination": "/admin.html" },
-    { "source": "/feed", "destination": "/feed.html" },
-    { "source": "/gallery", "destination": "/gallery.html" },
-    { "source": "/live", "destination": "/live.html" },
-    { "source": "/watch", "destination": "/watch.html" },
-    { "source": "/music", "destination": "/music.html" },
-    { "source": "/podcast", "destination": "/podcast.html" },
-    { "source": "/radio", "destination": "/radio.html" },
-    { "source": "/sports", "destination": "/sports.html" },
-    { "source": "/store", "destination": "/store.html" },
-    { "source": "/gaming", "destination": "/gaming.html" },
-    { "source": "/meta", "destination": "/meta.html" },
-    { "source": "/avatar", "destination": "/avatar.html" },
-    { "source": "/avatar-characters", "destination": "/avatar-characters.html" },
-
-    { "source": "/rich-chess", "destination": "/rich-chess.html" },
-    { "source": "/smoke-room-cards", "destination": "/smoke-room-cards.html" },
-    { "source": "/dj-radio-run", "destination": "/dj-radio-run.html" },
-    { "source": "/money-road-runner", "destination": "/money-road-runner.html" },
-    { "source": "/rich-samurais-son-ninja", "destination": "/rich-samurais-son-ninja.html" },
-    { "source": "/aura-shinobi-clash", "destination": "/aura-shinobi-clash.html" },
-    { "source": "/boss-walk-battle", "destination": "/boss-walk-battle.html" },
-    { "source": "/smoke-burst-arena", "destination": "/smoke-burst-arena.html" },
-    { "source": "/hero-villain-showdown", "destination": "/hero-villain-showdown.html" },
-    { "source": "/empire-builder", "destination": "/empire-builder.html" },
-    { "source": "/market-flip", "destination": "/market-flip.html" },
-    { "source": "/vault-unlock", "destination": "/vault-unlock.html" },
-    { "source": "/portal-room-rush", "destination": "/portal-room-rush.html" },
-    { "source": "/avatar-free-roam", "destination": "/avatar-free-roam.html" },
-    { "source": "/smoke-city-hustle", "destination": "/smoke-city-hustle.html" },
-    { "source": "/treehouse-ride", "destination": "/treehouse-ride.html" },
-    { "source": "/studio-showdown", "destination": "/studio-showdown.html" },
-    { "source": "/rich-court-king", "destination": "/rich-court-king.html" },
-    { "source": "/diamond-bat-flip", "destination": "/diamond-bat-flip.html" },
-    { "source": "/golf-green-gold", "destination": "/golf-green-gold.html" },
-    { "source": "/gym-grind-reps", "destination": "/gym-grind-reps.html" },
-    { "source": "/cash-rain-catcher", "destination": "/cash-rain-catcher.html" },
-    { "source": "/portal-dash", "destination": "/portal-dash.html" },
-    { "source": "/bizness-party-room", "destination": "/bizness-party-room.html" },
-    { "source": "/rich-color-clash", "destination": "/rich-color-clash.html" },
-    { "source": "/rich-spades-royale", "destination": "/rich-spades-royale.html" },
-    { "source": "/rich-checkers-elite", "destination": "/rich-checkers-elite.html" },
-    { "source": "/crown-connect-four", "destination": "/crown-connect-four.html" }
+    {
+      "source": "/portal",
+      "destination": "/portal.html"
+    },
+    {
+      "source": "/tap-in",
+      "destination": "/tap-in.html"
+    },
+    {
+      "source": "/profile",
+      "destination": "/profile.html"
+    },
+    {
+      "source": "/edit-profile",
+      "destination": "/edit-profile.html"
+    },
+    {
+      "source": "/settings",
+      "destination": "/settings.html"
+    },
+    {
+      "source": "/notifications",
+      "destination": "/notifications.html"
+    },
+    {
+      "source": "/messages",
+      "destination": "/messages.html"
+    },
+    {
+      "source": "/search",
+      "destination": "/search.html"
+    },
+    {
+      "source": "/upload",
+      "destination": "/upload.html"
+    },
+    {
+      "source": "/creator",
+      "destination": "/creator.html"
+    },
+    {
+      "source": "/creator-dimensions",
+      "destination": "/creator-dimensions.html"
+    },
+    {
+      "source": "/admin",
+      "destination": "/admin.html"
+    },
+    {
+      "source": "/feed",
+      "destination": "/feed.html"
+    },
+    {
+      "source": "/gallery",
+      "destination": "/gallery.html"
+    },
+    {
+      "source": "/live",
+      "destination": "/live.html"
+    },
+    {
+      "source": "/watch",
+      "destination": "/watch.html"
+    },
+    {
+      "source": "/music",
+      "destination": "/music.html"
+    },
+    {
+      "source": "/podcast",
+      "destination": "/podcast.html"
+    },
+    {
+      "source": "/radio",
+      "destination": "/radio.html"
+    },
+    {
+      "source": "/sports",
+      "destination": "/sports.html"
+    },
+    {
+      "source": "/store",
+      "destination": "/store.html"
+    },
+    {
+      "source": "/gaming",
+      "destination": "/gaming.html"
+    },
+    {
+      "source": "/meta",
+      "destination": "/meta.html"
+    },
+    {
+      "source": "/avatar",
+      "destination": "/avatar.html"
+    },
+    {
+      "source": "/avatar-characters",
+      "destination": "/avatar-characters.html"
+    },
+    {
+      "source": "/rich-chess",
+      "destination": "/rich-chess.html"
+    },
+    {
+      "source": "/smoke-room-cards",
+      "destination": "/smoke-room-cards.html"
+    },
+    {
+      "source": "/dj-radio-run",
+      "destination": "/dj-radio-run.html"
+    },
+    {
+      "source": "/money-road-runner",
+      "destination": "/money-road-runner.html"
+    },
+    {
+      "source": "/rich-samurais-son-ninja",
+      "destination": "/rich-samurais-son-ninja.html"
+    },
+    {
+      "source": "/aura-shinobi-clash",
+      "destination": "/aura-shinobi-clash.html"
+    },
+    {
+      "source": "/boss-walk-battle",
+      "destination": "/boss-walk-battle.html"
+    },
+    {
+      "source": "/smoke-burst-arena",
+      "destination": "/smoke-burst-arena.html"
+    },
+    {
+      "source": "/hero-villain-showdown",
+      "destination": "/hero-villain-showdown.html"
+    },
+    {
+      "source": "/empire-builder",
+      "destination": "/empire-builder.html"
+    },
+    {
+      "source": "/market-flip",
+      "destination": "/market-flip.html"
+    },
+    {
+      "source": "/vault-unlock",
+      "destination": "/vault-unlock.html"
+    },
+    {
+      "source": "/portal-room-rush",
+      "destination": "/portal-room-rush.html"
+    },
+    {
+      "source": "/avatar-free-roam",
+      "destination": "/avatar-free-roam.html"
+    },
+    {
+      "source": "/smoke-city-hustle",
+      "destination": "/smoke-city-hustle.html"
+    },
+    {
+      "source": "/treehouse-ride",
+      "destination": "/treehouse-ride.html"
+    },
+    {
+      "source": "/studio-showdown",
+      "destination": "/studio-showdown.html"
+    },
+    {
+      "source": "/rich-court-king",
+      "destination": "/rich-court-king.html"
+    },
+    {
+      "source": "/diamond-bat-flip",
+      "destination": "/diamond-bat-flip.html"
+    },
+    {
+      "source": "/golf-green-gold",
+      "destination": "/golf-green-gold.html"
+    },
+    {
+      "source": "/gym-grind-reps",
+      "destination": "/gym-grind-reps.html"
+    },
+    {
+      "source": "/cash-rain-catcher",
+      "destination": "/cash-rain-catcher.html"
+    },
+    {
+      "source": "/portal-dash",
+      "destination": "/portal-dash.html"
+    },
+    {
+      "source": "/bizness-party-room",
+      "destination": "/bizness-party-room.html"
+    },
+    {
+      "source": "/rich-color-clash",
+      "destination": "/rich-color-clash.html"
+    },
+    {
+      "source": "/rich-spades-royale",
+      "destination": "/rich-spades-royale.html"
+    },
+    {
+      "source": "/rich-checkers-elite",
+      "destination": "/rich-checkers-elite.html"
+    },
+    {
+      "source": "/crown-connect-four",
+      "destination": "/crown-connect-four.html"
+    }
   ],
   "headers": [
-    { "source": "/api/(.*)", "headers": [{ "key": "Cache-Control", "value": "no-store, max-age=0" }, { "key": "X-Content-Type-Options", "value": "nosniff" }] },
-    { "source": "/assets/(.*)", "headers": [{ "key": "Cache-Control", "value": "public, max-age=31536000, immutable" }] },
-    { "source": "/images/(.*)", "headers": [{ "key": "Cache-Control", "value": "public, max-age=86400, stale-while-revalidate=604800" }] },
-    { "source": "/brand/(.*)", "headers": [{ "key": "Cache-Control", "value": "public, max-age=86400, stale-while-revalidate=604800" }] },
-    { "source": "/(.*).html", "headers": [{ "key": "Cache-Control", "value": "public, max-age=0, must-revalidate" }] },
-    { "source": "/(.*)", "headers": [{ "key": "X-Content-Type-Options", "value": "nosniff" }, { "key": "Referrer-Policy", "value": "strict-origin-when-cross-origin" }, { "key": "Permissions-Policy", "value": "camera=(self), microphone=(self), geolocation=(self)" }, { "key": "Cross-Origin-Opener-Policy", "value": "same-origin" }, { "key": "X-Frame-Options", "value": "SAMEORIGIN" }, { "key": "Strict-Transport-Security", "value": "max-age=63072000; includeSubDomains; preload" }] }
+    {
+      "source": "/api/(.*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "no-store, max-age=0"
+        },
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        }
+      ]
+    },
+    {
+      "source": "/assets/(.*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=31536000, immutable"
+        }
+      ]
+    },
+    {
+      "source": "/images/(.*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=86400, stale-while-revalidate=604800"
+        }
+      ]
+    },
+    {
+      "source": "/brand/(.*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=86400, stale-while-revalidate=604800"
+        }
+      ]
+    },
+    {
+      "source": "/(.*).html",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=0, must-revalidate"
+        }
+      ]
+    },
+    {
+      "source": "/",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "no-store, max-age=0"
+        }
+      ]
+    },
+    {
+      "source": "/tap-in",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "no-store, max-age=0"
+        }
+      ]
+    },
+    {
+      "source": "/portal",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "no-store, max-age=0"
+        }
+      ]
+    },
+    {
+      "source": "/profile",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "no-store, max-age=0"
+        }
+      ]
+    },
+    {
+      "source": "/rb-section-release.json",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "no-store, max-age=0"
+        }
+      ]
+    },
+    {
+      "source": "/(.*)",
+      "headers": [
+        {
+          "key": "X-Content-Type-Options",
+          "value": "nosniff"
+        },
+        {
+          "key": "Referrer-Policy",
+          "value": "strict-origin-when-cross-origin"
+        },
+        {
+          "key": "Permissions-Policy",
+          "value": "camera=(self), microphone=(self), geolocation=(self)"
+        },
+        {
+          "key": "Cross-Origin-Opener-Policy",
+          "value": "same-origin"
+        },
+        {
+          "key": "X-Frame-Options",
+          "value": "SAMEORIGIN"
+        },
+        {
+          "key": "Strict-Transport-Security",
+          "value": "max-age=63072000; includeSubDomains; preload"
+        }
+      ]
+    }
   ]
 }

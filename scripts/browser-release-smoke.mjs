@@ -33,6 +33,11 @@ try{
  assert.equal(release,expected,'Wrong deployed commit');
  const visit=async(path,selector)=>{const result=await page.goto(new URL(path,url).href,{waitUntil:'domcontentloaded',timeout:30000});assert.ok(result?.ok(),'Navigation failed: '+path);assert.equal(new URL(page.url()).origin,url.origin,'Unexpected external navigation: '+path);await page.locator(selector).waitFor({state:'visible',timeout:30000});assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+2),'Horizontal overflow: '+path);};
  await visit('/','.rb-home h1');
+ assert.equal(await page.locator('.rb-home').count(),1,'Duplicate Home mount');
+ await page.locator('.rb-home__enter').click();
+ await page.locator('#authForm').waitFor({state:'visible'});
+ assert.equal(new URL(page.url()).searchParams.get('next'),'/portal.html','Home lost Portal return route');
+ await visit('/','.rb-home h1');
  const art=await page.evaluate(async()=>{const home=document.querySelector('.rb-home');const css=getComputedStyle(home).getPropertyValue('--rb-universe-art');const source=css.match(/url\(["']?([^"')]+)["']?\)/)?.[1];if(!source)return null;const image=new Image();image.src=source;await image.decode();return {source,width:image.naturalWidth,height:image.naturalHeight};});assert.ok(art&&art.width===1080&&art.height>650&&art.source.includes('rb-universe-mobile.webp'),'Mobile artwork missing or wrong variant');
  await visit('/on-the-go-dash.html','#app');
  assert.equal(await page.locator('#online').isDisabled(),true,'Guest cannot enable provider GPS');
@@ -58,6 +63,13 @@ try{
   assert.equal(redirect.searchParams.get('next'),privateRoute,'Sign-in return path lost: '+privateRoute);
  }
  await visit('/tap-in.html','#authForm');
+ assert.equal(await page.locator('.auth-shell').count(),1,'Duplicate access shell');
+ assert.equal(await page.locator('.auth-card').count(),1,'Duplicate access card');
+ assert.equal(await page.locator('.auth-release-label').textContent(),'Access design · Nexus 2');
+ assert.equal(await page.evaluate(()=>getComputedStyle(document.body).getPropertyValue('--rb-beyond-cinematic').trim()),'','Global cinematic overlay must not style Tap In');
+ await page.locator('.auth-support summary').click();
+ assert.equal(await page.locator('.auth-support').getAttribute('open'),'');
+ await page.locator('.auth-support summary').click();
  await visit('/portal.html','#authForm');assert.match(new URL(page.url()).pathname,/tap-in/,'Private Portal must require a session');
  console.log('Real Chromium '+(local?'local compiled':'hosted')+' public smoke: exact commit, Home artwork decoded, Tap In, private Portal redirect, 390px viewport');
  if(process.env.RB_REQUIRE_AUTH==='1'&&process.env.RB_BROWSER_EMAIL&&process.env.RB_BROWSER_PASSWORD){
