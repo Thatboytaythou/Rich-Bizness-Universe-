@@ -50,6 +50,6 @@ export function streetLampLens(rear:boolean,side:number,mobile:boolean){
  if(i){const a=(i-1)*4,b=i*4;for(let k=0;k<4;k++){const next=(k+1)%4;indices.push(a+k,b+k,b+next,a+k,b+next,a+next);}}
  }
  const end=segments*4;indices.push(0,1,2,0,2,3,end,end+2,end+1,end,end+3,end+2);
- if(side<0)for(let i=0;i<indices.length;i+=3){const t=indices[i+1]!;indices[i+1]=indices[i+2]!;indices[i+2]=t;}
+ if(side>0)for(let i=0;i<indices.length;i+=3){const t=indices[i+1]!;indices[i+1]=indices[i+2]!;indices[i+2]=t;}
  const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.Float32BufferAttribute(vertices,3));g.setIndex(indices);g.computeVertexNormals();g.computeBoundingBox();g.computeBoundingSphere();return g;
 }
