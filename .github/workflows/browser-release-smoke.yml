@@ -1,0 +1,50 @@
+name: Rich Bizness browser release smoke
+on:
+  push:
+    branches: [release/v1-foundation]
+  workflow_dispatch:
+    inputs:
+      candidate:
+        description: Exact Rich Bizness Vercel preview URL
+        required: true
+        type: string
+permissions:
+  contents: read
+  deployments: read
+jobs:
+  browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Install pinned browser test runner
+        run: |
+          npm install --prefix "$RUNNER_TEMP/rb-browser" --ignore-scripts --no-audit --no-fund playwright@1.55.1
+          "$RUNNER_TEMP/rb-browser/node_modules/.bin/playwright" install --with-deps chromium
+      - name: Resolve matching Vercel deployment
+        env:
+          GH_TOKEN: ${{ github.token }}
+          MANUAL_URL: ${{ inputs.candidate }}
+        shell: bash
+        run: |
+          node --input-type=module <<'JS'
+          import {appendFileSync} from 'node:fs';
+          const repo=process.env.GITHUB_REPOSITORY,sha=process.env.GITHUB_SHA;
+          const headers={Authorization:'Bearer '+process.env.GH_TOKEN,Accept:'application/vnd.github+json'};
+          async function read(path){const r=await fetch('https://api.github.com/repos/'+repo+path,{headers});if(!r.ok)throw Error('GitHub deployment API '+r.status);return r.json();}
+          const allowed=value=>{try{const u=new URL(value);return u.protocol==='https:'&&/^rich-bizness-[a-z0-9]+-rich-bizness-llc\.vercel\.app$/.test(u.hostname)?u.origin:null;}catch{return null;}};
+          let url=allowed(process.env.MANUAL_URL);
+          for(let attempt=0;!url&&attempt<35;attempt++){
+            const deployments=await read('/deployments?sha='+sha+'&per_page=20');
+            for(const d of deployments){if(d.sha!==sha)continue;const statuses=await read('/deployments/'+d.id+'/statuses?per_page=10');const success=statuses.find(s=>s.state==='success');url=allowed(success?.environment_url)||allowed(success?.target_url);if(url)break;}
+            if(!url)await new Promise(r=>setTimeout(r,10000));
+          }
+          if(!url)throw Error('Exact Vercel deployment URL unavailable; run with the candidate URL.');
+          appendFileSync(process.env.GITHUB_ENV,'RB_BROWSER_URL='+url+'\nRB_EXPECTED_COMMIT='+sha+'\n');
+          JS
+      - name: Execute actual mobile Chromium smoke
+        env:
+          RB_BROWSER_PREFIX: ${{ runner.temp }}/rb-browser
+        run: node scripts/browser-release-smoke.mjs
