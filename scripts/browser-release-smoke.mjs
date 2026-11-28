@@ -9,7 +9,8 @@ const origin=process.env.RB_BROWSER_URL;
 assert.ok(origin,'Set RB_BROWSER_URL to the exact candidate deployment URL');
 const url=new URL(origin);assert.equal(url.protocol,'https:');assert.ok(url.hostname==='rich-bizness.com'||url.hostname==='rich-bizness-mobile-app.vercel.app'||/^rich-bizness-[a-z0-9]+-rich-bizness-llc\.vercel\.app$/.test(url.hostname),'Unrecognized Rich Bizness deployment');
 const expected=process.env.RB_EXPECTED_COMMIT;assert.match(expected??'',/^[a-f0-9]{40}$/);
-const browser=await chromium.launch({headless:true});
+if(process.env.RB_REQUIRE_AUTH==='1')assert.ok(process.env.RB_BROWSER_EMAIL&&process.env.RB_BROWSER_PASSWORD,'Dedicated browser-test identity secrets are not configured');
+const browser=await chromium.launch({headless:true,args:['--enable-webgl','--use-angle=swiftshader','--enable-unsafe-swiftshader']});
 try{
  const context=await browser.newContext({viewport:{width:390,height:844},deviceScaleFactor:3,isMobile:true,hasTouch:true,reducedMotion:'reduce'});
  const page=await context.newPage(), errors=[];
@@ -28,10 +29,9 @@ try{
   await page.locator('#submitButton').click();
   await page.locator('.portal-command').waitFor({state:'visible',timeout:45000});
   assert.equal(await page.locator('.portal-route-layer a').count(),8);
-  await page.locator('#rbPortalStatus').getByText(/Synced/).count().catch(()=>0);
   await page.waitForFunction(()=>document.querySelector('#rbPortalStatus')?.textContent?.startsWith('Synced'),{},{timeout:30000});
   assert.ok(await page.evaluate(()=>{const c=document.querySelector('#portalMotionCanvas');return c instanceof HTMLCanvasElement&&c.width>0&&c.height>0&&c.width*c.height<=900000;}),'Portal canvas budget or mount failed');
-  await page.locator('.portal-route-layer a[href="/avatar-characters.html"]').count(); // route directory provides Studio link
+  assert.ok(await page.locator('.pc-actions a[href="/avatar-characters.html"]').count(),'Missing Avatar Studio access');
   await visit('/avatar-characters.html','#app[data-page-mounted="true"]');
   await page.waitForFunction(()=>[...document.querySelectorAll('canvas')].some(c=>c.dataset.rbRenderState==='frame-rendered'),{},{timeout:90000});
   console.log('Real Chromium authenticated smoke: Rich ID, Portal snapshot, eight destinations, bounded canvas, character frame');

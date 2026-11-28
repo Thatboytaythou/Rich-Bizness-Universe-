@@ -8,15 +8,20 @@ on:
         description: Exact Rich Bizness Vercel preview URL
         required: true
         type: string
+      authenticated:
+        description: Run read-only authenticated checks with a dedicated test identity
+        required: false
+        default: false
+        type: boolean
 permissions:
   contents: read
   deployments: read
 jobs:
   browser:
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ea73d27597364c9af683
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
         with:
           persist-credentials: false
       - name: Install pinned browser test runner
@@ -47,4 +52,27 @@ jobs:
       - name: Execute actual mobile Chromium smoke
         env:
           RB_BROWSER_PREFIX: ${{ runner.temp }}/rb-browser
+        run: node scripts/browser-release-smoke.mjs
+  authenticated-browser:
+    if: github.event_name == 'workflow_dispatch' && inputs.authenticated
+    needs: browser
+    environment: browser-test
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Install pinned browser test runner
+        run: |
+          npm install --prefix "$RUNNER_TEMP/rb-browser" --ignore-scripts --no-audit --no-fund playwright@1.55.1
+          "$RUNNER_TEMP/rb-browser/node_modules/.bin/playwright" install --with-deps chromium
+      - name: Read-only authenticated browser verification
+        env:
+          RB_BROWSER_PREFIX: ${{ runner.temp }}/rb-browser
+          RB_BROWSER_URL: ${{ inputs.candidate }}
+          RB_EXPECTED_COMMIT: ${{ github.sha }}
+          RB_REQUIRE_AUTH: '1'
+          RB_BROWSER_EMAIL: ${{ secrets.RB_BROWSER_EMAIL }}
+          RB_BROWSER_PASSWORD: ${{ secrets.RB_BROWSER_PASSWORD }}
         run: node scripts/browser-release-smoke.mjs
