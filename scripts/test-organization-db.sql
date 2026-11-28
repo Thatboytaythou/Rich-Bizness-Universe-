@@ -53,3 +53,18 @@ update public.rb_dash_bookings set status='accepted' where id='cccccccc-cccc-4cc
 update public.rb_dash_bookings set status='completed' where id='cccccccc-cccc-4ccc-8ccc-cccccccccccc';
 do $$begin if not exists(select 1 from public.rb_dash_bookings where status='completed') then raise exception 'provider completion failed'; end if; end$$;
 reset role;
+
+\ir ../docs/development/dash-presence-proposal.sql
+set role authenticated;
+select set_config('request.jwt.claim.sub','11111111-1111-4111-8111-111111111111',false);
+insert into public.rb_dash_presence values ('bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',35.05,-78.88,now()+interval '4 minutes');
+select set_config('request.jwt.claim.sub','22222222-2222-4222-8222-222222222222',false);
+do $$begin
+ if exists(select 1 from public.rb_dash_presence) then raise exception 'coordinates leaked'; end if;
+ if not exists(select 1 from public.rb_dash_nearby(35.05,-78.88,'food','Fixture City')) then raise exception 'match missing'; end if;
+end$$;
+reset role;
+update public.rb_dash_presence set expires_at=now()-interval '1 second';
+set role authenticated;
+do $$begin if exists(select 1 from public.rb_dash_nearby(35.05,-78.88,'food','Fixture City')) then raise exception 'expired match'; end if; end$$;
+reset role;
