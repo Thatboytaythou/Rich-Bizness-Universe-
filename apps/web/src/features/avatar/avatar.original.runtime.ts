@@ -21,15 +21,16 @@ export function createOriginalAvatar(gender:AvatarGender,raw:unknown,build='athl
   const tube=(p:THREE.Object3D,m:THREE.Material,x:number,y:number,z:number,rt:number,rb:number,h:number,sz=1)=>{const o=mesh(p,new THREE.CylinderGeometry(rt,rb,h,mobile?10:16),m,x,y,z);o.scale.z=sz;return o;};
   const box=(p:THREE.Object3D,m:THREE.Material,x:number,y:number,z:number,w:number,h:number,d:number)=>mesh(p,new THREE.BoxGeometry(w,h,d),m,x,y,z);
   const ring=(p:THREE.Object3D,m:THREE.Material,x:number,y:number,z:number,r:number,t:number)=>{const o=mesh(p,new THREE.TorusGeometry(r,t,6,mobile?16:32),m,x,y,z);return o;};
-  const buildWidth=build==='lean'?.85:build==='heroic'?1.18:1;
+  const shape=(key:keyof typeof look)=>THREE.MathUtils.clamp(Number(look[key])||0,-100,100)/100;
+  const buildWidth=(build==='lean'?.85:build==='heroic'?1.18:1)*(look.weight==='slim'?.92:look.weight==='heavy'?1.12:1);
   const limb=(p:THREE.Object3D,m:THREE.Material,points:[number,number][],y=0,depth=1)=>{const o=mesh(p,new THREE.LatheGeometry(points.map(([x,h])=>new THREE.Vector2(x,h)),radial),m,0,y,0);o.scale.z=depth;return o;};
   const pelvis=group(root,'rbPelvis',0,.91,0);
-  const hip=(female?.164:.145)*(build==='heroic'?1.08:build==='lean'?.93:1),shoulder=(female?.17:.205)*buildWidth;
+  const hip=(female?.164:.145)*(build==='heroic'?1.08:build==='lean'?.93:1)*(1+.14*shape('hips')),shoulder=(female?.17:.205)*buildWidth*(1+.15*shape('shoulders'));
   ell(pelvis,denim,0,.015,0,hip,.13,.11);
   const belt=limb(pelvis,trim,[[hip*.96,-.015],[hip*1.01,0],[hip*.97,.028]],.09,.74);box(pelvis,gold,0,.101,.113,.055,.033,.018);
   const spine=group(pelvis,'rbSpine',0,.075,0);
-  const torso=mesh(spine,new THREE.LatheGeometry([new THREE.Vector2(0,0),new THREE.Vector2(hip,.005),new THREE.Vector2(.136,.09),new THREE.Vector2(shoulder,.25),new THREE.Vector2(shoulder*.92,.34),new THREE.Vector2(.071,.385),new THREE.Vector2(0,.39)],24),fabric);
-  torso.scale.z=.56;
+  const torso=mesh(spine,new THREE.LatheGeometry([new THREE.Vector2(0,0),new THREE.Vector2(hip,.005),new THREE.Vector2(.136*(1+.18*shape('waist')),.09),new THREE.Vector2(shoulder,.25),new THREE.Vector2(shoulder*.92,.34),new THREE.Vector2(.071,.385),new THREE.Vector2(0,.39)],24),fabric);
+  torso.scale.z=.56*(1+.15*shape('chest'));
   if(look.top==='jacket'||look.top==='hoodie'){box(spine,trim,0,.18,.099,.027,.35,.013);box(spine,gold,0,.22,.11,.009,.24,.009);}
   if(look.top==='hoodie'){ell(spine,fabric,0,.365,-.075,.115,.09,.07);for(const s of[-1,1])box(spine,sole,s*.03,.25,.108,.008,.12,.009);}
   if(look.top==='vest'){for(const s of[-1,1]){box(spine,trim,s*.075,.17,.104,.095,.13,.025);box(spine,gold,s*.075,.23,.123,.035,.008,.008);}}
@@ -66,11 +67,11 @@ export function createOriginalAvatar(gender:AvatarGender,raw:unknown,build='athl
   const eyeWhite=mat(0xe5ddd0,.56);
   const eyeDark=mat(0x463024,.85);
   for(const sign of[-1,1]){
-    const x=sign*.038;
+    const x=sign*.038*(1+.16*shape('eyeSpacing'));
     ell(head,skin,sign*.091,-.006,-.004,.014,.029,.015);
     // Shallow almond eyes sit in the deformed sockets, not on protruding globes.
-    const eye=ell(head,eyeWhite,x,.027,.079,.019,.0075,.008);
-    eye.rotation.z=sign*.075;
+    const eye=ell(head,eyeWhite,x,.027,.079,.019*(1+.12*shape('eyeSize')),.0075*(1+.18*shape('eyeSize')),.008);
+    eye.rotation.z=sign*(.075+.15*shape('eyeTilt'));
     ell(head,iris,x,.027,.086,.0063,.0063,.002);
     ell(head,black,x,.027,.088,.003,.004,.0015);
     const topLid=ell(head,eyeDark,x,.034,.082,.020,.0028,.004);topLid.rotation.z=sign*.075;
@@ -105,7 +106,8 @@ export function createOriginalAvatar(gender:AvatarGender,raw:unknown,build='athl
     if(rolled)limb(fore,fabric,[[.048,-.055],[.050,-.040],[.048,.005]],0,1.05);
     if(look.tattoo!=='none'){const t=ring(fore,ink,0,-.079,0,.041,.006);t.rotation.x=Math.PI/2;if(look.tattoo==='geometric'){const mark=box(fore,ink,0,-.118,.042,.026,.038,.005);mark.rotation.z=.75;}}
     if(look.tattoo==='bands'){const second=ring(fore,ink,0,-.106,0,.037,.004);second.rotation.x=Math.PI/2;}
-    ell(fore,skin,0,-.19,.003,.036,.052,.027);
+    const hand=1+.16*shape('handSize');
+    ell(fore,skin,0,-.19,.003,.036*hand,.052*hand,.027*hand);
     ell(fore,skin,-s*.027,-.177,.015,.013,.027,.014);
     const leg=group(pelvis,'rbLeg'+suffix,s*hip*.53,-.055,0);
     limb(leg,denim,[[.054,-.365],[.059,-.30],[.075,-.18],[.083,-.065],[.074,.025]],0,1.08);
@@ -129,7 +131,7 @@ export function createOriginalAvatar(gender:AvatarGender,raw:unknown,build='athl
   const mixer=new THREE.AnimationMixer(root);
   const track=(name:string,axis:string,t:number[],v:number[])=>new THREE.NumberKeyframeTrack(name+'.rotation['+axis+']',t,v);
   const movement=(name:string,duration:number,amplitude:number,knee:number)=>{
-    const n=24,t=Array.from({length:n+1},(_,i)=>i*duration/n),phase=t.map(v=>v/duration*Math.PI*2);const tracks:THREE.KeyframeTrack[]=[];
+    const n=mobile?16:32,t=Array.from({length:n+1},(_,i)=>i*duration/n),phase=t.map(v=>v/duration*Math.PI*2);const tracks:THREE.KeyframeTrack[]=[];
     for(const s of[-1,1]){
       const suffix=s<0?'L':'R',p=phase.map(x=>x+(s<0?0:Math.PI));
       tracks.push(track('rbLeg'+suffix,'x',t,p.map(x=>Math.sin(x)*amplitude-.04)),track('rbShin'+suffix,'x',t,p.map(x=>.08+Math.pow(Math.max(0,-Math.sin(x-.34)),1.4)*knee)),track('rbFoot'+suffix,'x',t,p.map(x=>-.13*Math.sin(x)-.10*Math.max(0,-Math.sin(x)))),track('rbArm'+suffix,'x',t,p.map(x=>-Math.sin(x)*amplitude*.62-.07)),track('rbFore'+suffix,'x',t,p.map(x=>-.18-(name==='run'?.67:.18)*(1+Math.sin(x-.4))*.5)),track('rbArm'+suffix,'z',t,p.map(x=>s*(.10+.035*Math.cos(x)))));
