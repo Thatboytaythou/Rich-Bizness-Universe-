@@ -1,4 +1,5 @@
 import { getAuthSnapshot } from '../../core/auth/auth-store';
+import {bindSectionIdentity} from '../../core/lifecycle/section-identity';
 import { supabase } from '../../core/supabase/client';
 import '../../styles/broadcast-cinema-podcast.css';
 import './watch.css';
@@ -17,7 +18,8 @@ export async function mount(): Promise<void> {
   if (!root) throw new Error('Missing #app mount');
   const mountEpoch = root.dataset.pageEpoch ?? '';
   let disposed = false;
-  const isCurrent = () => !disposed && root.dataset.pageEpoch === mountEpoch && root.dataset.pageOwner === 'rich-bizness-watch-v4';
+  const identity=bindSectionIdentity(root);
+  const isCurrent = () =>identity.current()&&!disposed && root.dataset.pageEpoch === mountEpoch && root.dataset.pageOwner === 'rich-bizness-watch-v4';
 
   const auth = getAuthSnapshot();
   const user = auth.user;
@@ -292,7 +294,7 @@ export async function mount(): Promise<void> {
   const recover=()=>{if(isCurrent()&&document.visibilityState==='visible')void load(active);};window.addEventListener('online',recover);document.addEventListener('visibilitychange',recover);
   const cleanup = async () => {
     if (disposed) return;
-    disposed = true;window.removeEventListener('online',recover);document.removeEventListener('visibilitychange',recover);
+    disposed = true;identity.dispose();window.removeEventListener('online',recover);document.removeEventListener('visibilitychange',recover);
     requestEpoch++;
     queued = false;
     await teardown(true);

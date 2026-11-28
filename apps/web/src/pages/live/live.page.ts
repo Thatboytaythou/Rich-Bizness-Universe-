@@ -2,6 +2,7 @@ import {recentPaidReceipts} from './live.receipts';
 import './live.gifts.css';
 import type { Room, LocalAudioTrack, LocalVideoTrack } from 'livekit-client';
 import { getAuthSnapshot } from '../../core/auth/auth-store';
+import {bindSectionIdentity} from '../../core/lifecycle/section-identity';
 import { supabase } from '../../core/supabase/client';
 import '../../styles/broadcast-cinema-podcast.css';
 import '../../styles/live-studio.css';
@@ -31,7 +32,8 @@ export async function mount(): Promise<void> {
   const mountEpoch = root.dataset.pageEpoch ?? '';
 
   let disposed = false;
-  const isCurrent = () => !disposed && root.dataset.pageEpoch === mountEpoch && root.dataset.pageOwner === 'rich-bizness-live-v5';
+  const identity=bindSectionIdentity(root);
+  const isCurrent = () =>identity.current()&&!disposed && root.dataset.pageEpoch === mountEpoch && root.dataset.pageOwner === 'rich-bizness-live-v5';
 
   const auth = await getAuthSnapshot();
   if (root.dataset.pageEpoch !== mountEpoch) return;
@@ -85,7 +87,7 @@ export async function mount(): Promise<void> {
   };
 
   const recordViewerLeave = async (streamId: string | null, source: string) => {
-    if (!user || !streamId) return;
+    if (!user || !streamId || getAuthSnapshot().user?.id!==user.id) return;
     const { error } = await supabase.rpc('rb_live_action', { p_action: 'leave', p_stream_id: streamId, p_payload: { source } });
     if (error) console.error('Live leave action failed', error);
   };
@@ -339,7 +341,7 @@ export async function mount(): Promise<void> {
   const recover=()=>{if(isCurrent()&&document.visibilityState==='visible')void refresh();};window.addEventListener('online',recover);document.addEventListener('visibilitychange',recover);
   const cleanup=async()=>{
     if(disposed)return;
-    disposed=true;window.removeEventListener('online',recover);document.removeEventListener('visibilitychange',recover);
+    disposed=true;identity.dispose();window.removeEventListener('online',recover);document.removeEventListener('visibilitychange',recover);
     receiptCheck?.abort();roomEpoch++;
     snapshotEpoch++;
     snapshotQueued=false;

@@ -1,4 +1,5 @@
 import { getAuthSnapshot } from '../../core/auth/auth-store';
+import {bindSectionIdentity} from '../../core/lifecycle/section-identity';
 import { supabase } from '../../core/supabase/client';
 import '../../styles/rich-sound.css';
 
@@ -65,7 +66,8 @@ export async function mount(): Promise<void> {
   let messageTimer: number | undefined;
   let autoplayAfterSelect = false;
 
-  const isCurrent = () => !destroyed && root.dataset.pageEpoch === mountEpoch && root.dataset.pageOwner === 'rich-bizness-radio-v4';
+  const identity=bindSectionIdentity(root);
+  const isCurrent = () =>identity.current()&&!destroyed && root.dataset.pageEpoch === mountEpoch && root.dataset.pageOwner === 'rich-bizness-radio-v4';
   const setMessage = (text: string, error = false) => {
     if (!isCurrent()) return;
     message.textContent = text;
@@ -74,7 +76,7 @@ export async function mount(): Promise<void> {
     messageTimer = window.setTimeout(() => { if (isCurrent() && message.textContent === text) message.textContent = ''; }, 3200);
   };
   const requireUser = () => { if (userId) return true; location.assign(`/tap-in.html?next=${encodeURIComponent(location.pathname + location.search)}`); return false; };
-  const action = async (name: string, payload: Row) => { const { data, error } = await supabase.rpc('rb_radio_action', { p_action: name, p_payload: payload }); if (error) throw error; return (data ?? {}) as Row; };
+  const action = async (name: string, payload: Row) => {if((getAuthSnapshot().user?.id??null)!==userId)throw Error('Identity changed'); const { data, error } = await supabase.rpc('rb_radio_action', { p_action: name, p_payload: payload }); if (error) throw error; return (data ?? {}) as Row; };
   const activeIndex = () => stations.findIndex((station) => String(station.id) === String(active?.id ?? ''));
 
   const renderMetrics = () => {
@@ -218,7 +220,7 @@ export async function mount(): Promise<void> {
   const recover=()=>{if(isCurrent()&&document.visibilityState==='visible')scheduleLoad();};window.addEventListener('online',recover);document.addEventListener('visibilitychange',recover);
   const cleanup = async () => {
     if (destroyed) return;
-    destroyed = true;window.removeEventListener('online',recover);document.removeEventListener('visibilitychange',recover);selectionEpoch++;commentEpoch++;
+    destroyed = true;identity.dispose();window.removeEventListener('online',recover);document.removeEventListener('visibilitychange',recover);selectionEpoch++;commentEpoch++;
     window.clearTimeout(refreshTimer); window.clearTimeout(messageTimer);
     audio.pause(); audio.removeAttribute('src'); audio.load();
     await closeSession();

@@ -1,4 +1,5 @@
 import { getAuthSnapshot } from '../../core/auth/auth-store';
+import {bindSectionIdentity} from '../../core/lifecycle/section-identity';
 import { supabase } from '../../core/supabase/client';
 import '../../styles/broadcast-cinema-podcast.css';
 
@@ -18,7 +19,8 @@ export async function mount(): Promise<void> {
   const host = window as CleanupHost;
   const mountEpoch = root.dataset.pageEpoch ?? '';
   let destroyed = false;
-  const isCurrent = () => !destroyed && root.dataset.pageEpoch === mountEpoch && root.dataset.pageOwner === 'rich-bizness-podcast-v4';
+  const identity=bindSectionIdentity(root);
+  const isCurrent = () =>identity.current()&&!destroyed && root.dataset.pageEpoch === mountEpoch && root.dataset.pageOwner === 'rich-bizness-podcast-v4';
 
   const user = getAuthSnapshot().user;
   const userId = user?.id ?? null;
@@ -62,7 +64,7 @@ export async function mount(): Promise<void> {
   };
 
   const requireUser = () => { if (userId) return true; location.assign(`/tap-in.html?next=${encodeURIComponent(location.pathname + location.search)}`); return false; };
-  const action = async (name: string, payload: Row) => { const { data, error } = await supabase.rpc('rb_podcast_action', { p_action: name, p_payload: payload }); if (error) throw error; return (data ?? {}) as Row; };
+  const action = async (name: string, payload: Row) => {if(!isCurrent())throw Error('Section no longer active'); const { data, error } = await supabase.rpc('rb_podcast_action', { p_action: name, p_payload: payload }); if (error) throw error; return (data ?? {}) as Row; };
   const visible = () => showId === 'all' ? snapshot.episodes ?? [] : (snapshot.episodes ?? []).filter((episode) => String(episode.show_id) === showId);
   const activeIndex = () => visible().findIndex((episode) => String(episode.id) === String(active?.id ?? ''));
 
@@ -183,7 +185,7 @@ export async function mount(): Promise<void> {
   const recover=()=>{if(isCurrent()&&document.visibilityState==='visible')scheduleLoad();};window.addEventListener('online',recover);document.addEventListener('visibilitychange',recover);
   const cleanup = async () => {
     if (destroyed) return;
-    destroyed = true;window.removeEventListener('online',recover);document.removeEventListener('visibilitychange',recover);
+    destroyed = true;identity.dispose();window.removeEventListener('online',recover);document.removeEventListener('visibilitychange',recover);
     requestEpoch++;selectionEpoch++;commentEpoch++;
     window.clearTimeout(refreshTimer);
     window.clearTimeout(statusTimer);

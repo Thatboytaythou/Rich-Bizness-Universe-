@@ -1,4 +1,5 @@
 import { getAuthSnapshot } from '../../core/auth/auth-store';
+import {bindSectionIdentity} from '../../core/lifecycle/section-identity';
 import { supabase } from '../../core/supabase/client';
 import './store.css';
 
@@ -15,7 +16,8 @@ export async function mount():Promise<void>{
  const root=document.querySelector<HTMLElement>('#app');if(!root)throw new Error('Missing #app mount');
  const mountEpoch=root.dataset.pageEpoch??'';
  let disposed=false,requestEpoch=0;
- const isCurrent=()=>!disposed&&root.dataset.pageEpoch===mountEpoch&&root.dataset.pageOwner==='rich-bizness-store-v2';
+ const identity=bindSectionIdentity(root);
+ const isCurrent=()=>identity.current()&&!disposed&&root.dataset.pageEpoch===mountEpoch&&root.dataset.pageOwner==='rich-bizness-store-v2';
  const auth=getAuthSnapshot(),user=auth.user,userId=user?.id??null;
  const anonId=localStorage.getItem('rb_store_anon')||crypto.randomUUID();localStorage.setItem('rb_store_anon',anonId);
  root.innerHTML=`<main class="store-shell"><div class="store-wrap"><header class="store-head"><a href="/portal.html">←</a><div><p>RICH BIZNESS MARKETPLACE</p><h1>Store</h1></div><button id="cartPill" class="store-cart-pill">CART · 0</button></header><section class="store-network"><a href="/creator.html">CREATOR</a><a href="/creator.html#elite-career">ELITE BUSINESS</a><a href="/upload.html?route=store-product">SELL A DROP</a><a href="/feed.html?section=store">STORE FEED</a><a href="/watch.html?lane=feed">WATCH DROPS</a><a href="/gaming.html">GAME STORE</a><a href="/messages.html">RICH-DM</a><a href="/profile.html${userId?`?id=${encodeURIComponent(userId)}`:''}">PROFILE</a></section><section class="store-hero"><div class="store-hero-copy"><span>SELL · SHOP · UNLOCK</span><h2>Rich Drops Only.</h2><p>Physical products, digital unlocks, creator exclusives, tickets, collectibles, game items and Meta inventory in one connected marketplace.</p></div></section><section id="storeMetrics" class="store-metrics"></section><section class="store-toolbar"><input id="searchInput" class="store-search" placeholder="Search products, sellers, categories..."><div id="filters" class="store-filters"></div></section><section id="grid" class="store-grid"></section><p id="status" class="store-status" role="status"></p></div></main><div id="drawer" class="store-drawer"><section class="store-modal"><div id="modalContent"></div></section></div>`;
@@ -42,7 +44,7 @@ export async function mount():Promise<void>{
  const onKey=(e:KeyboardEvent)=>{if(isCurrent()&&e.key==='Escape')void closeDrawer();};window.addEventListener('keydown',onKey);
  catalogChannel=supabase.channel(`store-catalog:${mountEpoch}`).on('postgres_changes',{event:'*',schema:'public',table:'products'},()=>void refresh()).on('postgres_changes',{event:'*',schema:'public',table:'product_likes'},()=>void refresh()).on('postgres_changes',{event:'*',schema:'public',table:'store_cart_items'},()=>void refresh()).on('postgres_changes',{event:'*',schema:'public',table:'store_orders'},()=>void refresh()).on('postgres_changes',{event:'*',schema:'public',table:'creator_available_balances'},()=>void refresh()).subscribe();
  const recover=()=>{if(isCurrent()&&document.visibilityState==='visible')void refresh();};window.addEventListener('online',recover);document.addEventListener('visibilitychange',recover);
- const cleanup=async()=>{if(disposed)return;disposed=true;window.removeEventListener('online',recover);document.removeEventListener('visibilitychange',recover);requestEpoch++;clearTimeout(statusTimer);window.removeEventListener('keydown',onKey);drawer.classList.remove('open');if(commentChannel)await supabase.removeChannel(commentChannel);if(catalogChannel)await supabase.removeChannel(catalogChannel);commentChannel=null;catalogChannel=null;const host=window as CleanupHost;if(host.__rbPageCleanup===cleanup)host.__rbPageCleanup=null;window.removeEventListener('pagehide',onPageExit);window.removeEventListener('beforeunload',onPageExit);};
+ const cleanup=async()=>{if(disposed)return;disposed=true;identity.dispose();window.removeEventListener('online',recover);document.removeEventListener('visibilitychange',recover);requestEpoch++;clearTimeout(statusTimer);window.removeEventListener('keydown',onKey);drawer.classList.remove('open');if(commentChannel)await supabase.removeChannel(commentChannel);if(catalogChannel)await supabase.removeChannel(catalogChannel);commentChannel=null;catalogChannel=null;const host=window as CleanupHost;if(host.__rbPageCleanup===cleanup)host.__rbPageCleanup=null;window.removeEventListener('pagehide',onPageExit);window.removeEventListener('beforeunload',onPageExit);};
  const onPageExit=()=>{void cleanup();};(window as CleanupHost).__rbPageCleanup=cleanup;window.addEventListener('pagehide',onPageExit,{once:true});window.addEventListener('beforeunload',onPageExit,{once:true});
  await refresh();
 }

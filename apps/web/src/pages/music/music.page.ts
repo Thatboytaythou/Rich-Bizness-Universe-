@@ -1,4 +1,5 @@
 import { getAuthSnapshot } from '../../core/auth/auth-store';
+import {bindSectionIdentity} from '../../core/lifecycle/section-identity';
 import { supabase } from '../../core/supabase/client';
 import '../../styles/rich-sound.css';
 
@@ -17,7 +18,8 @@ export async function mount(): Promise<void> {
   const host = window as CleanupHost;
   const mountEpoch = root.dataset.pageEpoch ?? '';
   let destroyed = false;
-  const isCurrent = () => !destroyed && root.dataset.pageEpoch === mountEpoch && root.dataset.pageOwner === 'rich-bizness-music-v4';
+  const identity=bindSectionIdentity(root);
+  const isCurrent = () =>identity.current()&&!destroyed && root.dataset.pageEpoch === mountEpoch && root.dataset.pageOwner === 'rich-bizness-music-v4';
 
   const user = getAuthSnapshot().user;
   const userId = user?.id ?? null;
@@ -58,7 +60,7 @@ export async function mount(): Promise<void> {
 
   const setStatus = (message: string, error = false) => { if (!isCurrent()) return; status.textContent = message; status.dataset.error = String(error); clearTimeout(statusTimer); statusTimer = window.setTimeout(() => { if (isCurrent() && status.textContent === message) status.textContent = ''; }, 2800); };
   const requireUser = () => { if (userId) return true; location.assign(`/tap-in.html?next=${encodeURIComponent(location.pathname + location.search)}`); return false; };
-  const action = async (name: string, payload: Row) => { const { data, error } = await supabase.rpc('rb_music_action', { p_action: name, p_payload: payload }); if (error) throw error; return data as Row; };
+  const action = async (name: string, payload: Row) => {if(!isCurrent())throw Error('Section no longer active'); const { data, error } = await supabase.rpc('rb_music_action', { p_action: name, p_payload: payload }); if (error) throw error; return data as Row; };
   const tracks = () => snapshot.tracks ?? [];
   const activeIndex = () => tracks().findIndex((row) => String(row.id) === String(active?.id ?? ''));
   const syncUrl = (trackId: string | null) => { if (!isCurrent()) return; const url = new URL(location.href); url.searchParams.delete('id'); if (trackId) url.searchParams.set('track', trackId); else url.searchParams.delete('track'); history.replaceState({}, '', `${url.pathname}${url.search}${url.hash}`); };
@@ -131,7 +133,7 @@ export async function mount(): Promise<void> {
   if (userId) listenerChannel = supabase.channel(`music-listener:${mountEpoch}:${userId}`).on('postgres_changes', { event: '*', schema: 'public', table: 'music_playlists', filter: `user_id=eq.${userId}` }, scheduleLoad).subscribe();
 
   const recover=()=>{if(isCurrent()&&document.visibilityState==='visible')scheduleLoad();};window.addEventListener('online',recover);document.addEventListener('visibilitychange',recover);
-  const cleanup = async () => { if (destroyed) return; destroyed = true;selection++;window.removeEventListener('online',recover);document.removeEventListener('visibilitychange',recover); clearTimeout(refreshTimer); clearTimeout(statusTimer); audio.pause(); audio.removeAttribute('src');audio.load(); if (catalogChannel) await supabase.removeChannel(catalogChannel); if (commentChannel) await supabase.removeChannel(commentChannel); if (listenerChannel) await supabase.removeChannel(listenerChannel); if (host.__rbPageCleanup === cleanup) host.__rbPageCleanup = null; };
+  const cleanup = async () => { if (destroyed) return; destroyed = true;identity.dispose();selection++;window.removeEventListener('online',recover);document.removeEventListener('visibilitychange',recover); clearTimeout(refreshTimer); clearTimeout(statusTimer); audio.pause(); audio.removeAttribute('src');audio.load(); if (catalogChannel) await supabase.removeChannel(catalogChannel); if (commentChannel) await supabase.removeChannel(commentChannel); if (listenerChannel) await supabase.removeChannel(listenerChannel); if (host.__rbPageCleanup === cleanup) host.__rbPageCleanup = null; };
   host.__rbPageCleanup = cleanup;window.addEventListener('pagehide',()=>void cleanup(),{once:true});
 
   await load(requestedTrack);
